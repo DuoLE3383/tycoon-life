@@ -170,6 +170,27 @@ html[data-theme="light"] body{background:#e9e6df}
 .tgame .imgs .imcard span{display:block;font-size:.78rem;padding:6px 8px;color:var(--mute)}
 @media (prefers-reduced-motion:reduce){.tgame *{animation:none!important;transition:none!important}}
 
+/* ===== v9 — two-level navigation ===== */
+.tgame .gnav{padding-bottom:6px}
+.tgame .gnav button{font-weight:750;padding:9px 14px}
+.tgame .subnav{padding-top:0;padding-bottom:10px}
+.tgame .subnav button{padding:6px 11px;font-size:.84rem}
+.tgame .subnav button[aria-selected="true"]{background:var(--accent);border-color:var(--accent);color:var(--accentInk)}
+
+/* ===== v9 — systems links map ===== */
+.tgame .lnleg{display:flex;gap:18px;align-items:center;margin:2px 2px 8px}
+.tgame .lnleg .sw{display:inline-block;width:26px;border-top:2.5px solid var(--accent);margin-right:6px;vertical-align:middle}
+.tgame .lnleg .sw.ind{border-top-style:dashed;border-top-color:var(--slate)}
+.tgame .lnmap{width:100%;height:auto;display:block;margin:2px 0 6px}
+.tgame .lnmap .ln-e{fill:none;stroke:var(--accent);stroke-width:1.7;opacity:.6}
+.tgame .lnmap .ln-e.ind{stroke:var(--slate);stroke-dasharray:5 5;opacity:.75}
+.tgame .lnmap .ln-node rect{fill:var(--card);stroke:var(--line2);stroke-width:1}
+.tgame .lnmap .ln-node.big rect{stroke:var(--accent);stroke-width:1.6}
+.tgame .lnmap .ln-name{font-size:12.5px;font-weight:700;fill:var(--ink);text-anchor:middle}
+.tgame .lnmap .ln-val{font-size:11px;fill:var(--mute);text-anchor:middle;font-variant-numeric:tabular-nums}
+.tgame .lnmap .ln-node.big .ln-name{font-size:13.5px}
+.tgame .lnmap .ln-node.big .ln-val{font-size:12.5px;font-weight:750;fill:var(--up)}
+
 /* ===== dark theme — same neutral system, night-shifted ===== */
 html[data-theme="dark"]{color-scheme:dark}
 html[data-theme="dark"] .tgame .modal{background:rgba(6,7,10,.62)}

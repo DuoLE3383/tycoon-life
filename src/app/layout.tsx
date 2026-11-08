@@ -3,10 +3,10 @@ import "./globals.css";
 import { LangProvider } from "@/lib/i18n";
 
 export const metadata: Metadata = {
-  title: "Tycoon Life — live a whole century of business",
+  title: "MOGUL — build an empire before you turn 90",
   description:
-    "A life-simulation game: start at 18 in your own historical era, work, study, build business chains, trade stocks, get famous on social media, take care of your health and spirit, pay taxes, go to space. Dark & light themes, EN/VI/中文 languages, and an LLM story backend.",
-  keywords: ["Tycoon Life", "life simulation", "idle game", "LLM", "Next.js", "dark theme"],
+    "MOGUL is a life-simulation game: start at 18 in your own historical era, work, study, build business chains, trade stocks, get famous on social media, take care of your health and spirit, pay taxes, go to space. Dark & light themes, EN/VI/中文 languages, and an LLM story backend.",
+  keywords: ["MOGUL", "Tycoon Life", "life simulation", "idle game", "LLM", "Next.js", "dark theme"],
   authors: [{ name: "DuoLE3383" }],
 };
 

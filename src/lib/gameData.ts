@@ -303,6 +303,17 @@ export const TABS: [string, string, string][] = [
   ['club', 'Clubs', 't-club'], ['bank', 'Bank', 't-bank'], ['rank', 'Ranking', 't-rank']
 ];
 
+// v9: two-level navigation — 6 groups arranged as a life pipeline:
+// personal foundation → human capital → enterprises → wealth → network → the world.
+export const GROUPS: [string, string, string, [string, string, string][]][] = [
+  ['life', 'Life', 't-life', [['home', 'Home', 't-life'], ['health', 'Health', 'w-heart'], ['spirit', 'Mind & spirit', 'w-lotus']]],
+  ['growth', 'Growth', 't-cap', [['edu', 'Education', 't-cap'], ['career', 'Jobs', 't-work']]],
+  ['empire', 'Empire', 't-biz', [['biz', 'Business', 't-biz'], ['space', 'Space', 't-space']]],
+  ['wealth', 'Wealth', 't-bank', [['stock', 'Stocks', 't-stock'], ['bank', 'Bank', 't-bank'], ['shop', 'Shop', 't-shop']]],
+  ['network', 'Network', 't-social', [['social', 'Social', 't-social'], ['club', 'Clubs', 't-club']]],
+  ['world', 'World', 't-rank', [['rank', 'Ranking', 't-rank'], ['links', 'Links', 'ic-link']]],
+];
+
 // ================= v8: gigs, levels & XP, the cosmic frontier =================
 export const LEVEL_INCOME_BONUS = 0.02;   // +2% income per level above 1
 export const xpNeed = (lvl: number) => Math.round(120 * Math.pow(lvl, 1.55));

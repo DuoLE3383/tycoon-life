@@ -1,6 +1,6 @@
 'use client';
-// Tycoon Life v8 — React edition. Grouped tabs, gigs, levels, social, the
-// cosmic frontier, EN/VI/中文, LLM oracle (backend + local fallback).
+// MOGUL v9 — React edition. Two-level grouped nav, a systems links map,
+// gigs, levels, social, the cosmic frontier, EN/VI/中文, LLM oracle.
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Art, Ic, ART_DEFS } from '@/lib/art';
 import { useGame, getState, persist, bump, resetState } from '@/lib/store';
@@ -8,10 +8,10 @@ import {
   START, END_AGE, RETIRE, RESALE_FEE, FOUND_COST, FOUND_MIN_NW, OWN_CLUB_MULT,
   SAVE_RATE, LOAN_RATE, TAX_FREE, TAX_BRACKETS, ALLNEWS, eraOf, NATIONS, INTERESTS, TALENTS, PATHS,
   analyze, FIELDS, LICENSES, LIC_BY, LIC_FOR, STAGES, BIZ, FARM_LINES, FAC_LINES, ITEM_BY, STOCKS,
-  CLUBS, JOBS, GIGS, SPACE_LINES, TABS, xpNeed, ITEMS, type FieldKey, type Req,
+  CLUBS, JOBS, GIGS, SPACE_LINES, TABS, GROUPS, xpNeed, ITEMS, type FieldKey, type Req,
 } from '@/lib/gameData';
 import {
-  fmt, taxOf, fresh, begin, tick, stageOf, worldYear, branchCount, bizCost, clubMult, branchNet,
+  fmt, taxOf, fresh, begin, tick, stageOf, worldYear, branchCount, bizCost, clubMult, branchNet, fameBonus,
   bizIncome, jobOf, yearIncome, living, lotValue, upkeep, assetVal, bizVal, stockVal, netWorth,
   effYears, tuitionOf, meets, reqText, knowledgeText, snapshot,
   processDay, yearEnd,
@@ -39,6 +39,9 @@ export default function Page() {
   const { s } = useGame();
   const { t } = useT();
   const [tab, setTab] = useState('home');
+  const [lastTab, setLastTab] = useState<Record<string, string>>({});
+  const activeGroup = GROUPS.find(g => g[3].some(([k]) => k === tab))?.[0] || 'life';
+  const curSubs = (GROUPS.find(g => g[0] === activeGroup) || GROUPS[0])[3];
   const [rankBoard, setRankBoard] = useState<'all' | 'young' | 'industry' | 'nation'>('all');
   const [curCat, setCurCat] = useState<string | null>(null);
   const [toast, setToast] = useState<{ id: number; msg: string } | null>(null);
@@ -118,10 +121,20 @@ export default function Page() {
       <div className="wrap">
         <Header s={s} onReset={resetState} eraName={eraName} />
         <AgeBox s={s} t={t} />
-        <nav role="tablist" className="tnav">
-          {TABS.map(([k, n, ic]) => (
+        <nav role="tablist" className="tnav gnav" aria-label="Sections">
+          {GROUPS.map(([gid, gn, gic, subs]) => (
+            <button key={gid} role="tab" aria-selected={activeGroup === gid} data-g={gid}
+              onClick={() => setTab(lastTab[gid] || subs[0][0])}>
+              {Ic({ id: gic, className: 'si navsi' })}{t('grp.' + gid, gn)}
+            </button>
+          ))}
+        </nav>
+        <nav role="tablist" className="tnav subnav" aria-label="Sub-sections">
+          {curSubs.map(([k, n, ic]) => (
             <button key={k} role="tab" aria-selected={tab === k} data-t={k}
-              onClick={() => setTab(k)}>{Ic({ id: ic, className: 'si navsi' })}{t('tab.' + k, n)}</button>
+              onClick={() => { setTab(k); setLastTab(lt => ({ ...lt, [activeGroup]: k })); }}>
+              {Ic({ id: ic, className: 'si navsi' })}{t('tab.' + k, n)}
+            </button>
           ))}
         </nav>
         <main id="tview" key={tab} className="enter">
@@ -138,6 +151,7 @@ export default function Page() {
           {tab === 'club' && <ClubTab s={s} act={act} />}
           {tab === 'bank' && <BankTab s={s} act={act} />}
           {tab === 'rank' && <RankTab s={s} board={rankBoard} setBoard={setRankBoard} />}
+          {tab === 'links' && <LinksTab s={s} />}
         </main>
         <footer className="mini tfoot">{t('footer')}</footer>
       </div>
@@ -189,8 +203,8 @@ function Header({ s, onReset, eraName }: { s: GameState; onReset: () => void; er
     <header className="top">
       <div className="brand">
         <Art id="s-coin" className="logo" />
-        <div><h1>Tycoon Life <span className="mini">v8.1</span></h1>
-          <div className="mini">{s.started ? `${s.nation} · ${eraName(worldYear(s))}` : 'Build an empire before you turn 90'}</div></div>
+        <div><h1>MOGUL <span className="mini">v9</span></h1>
+          <div className="mini">{s.started ? `${s.nation} · ${eraName(worldYear(s))}` : t('tagline')}</div></div>
       </div>
       <div><div className="mini">{t('cash')}</div><div id="tcash" style={{ color: s.money < 0 ? 'var(--brick)' : undefined }}>{fmt(s.money)}</div>
         <div className="mini">{t('netWorth')} {fmt(netWorth(s))} · {yearIncome(s) >= 0 ? '+' : ''}{fmt(yearIncome(s))}{t('perYear')}</div></div>
@@ -227,7 +241,7 @@ function AgeBox({ s, t }: { s: GameState; t: TFn }) {
       <div className="track" style={{ background: `linear-gradient(90deg,#8fae9b 0 ${p(22)},#c9b68e ${p(22)} ${p(26)},#c08a80 ${p(26)} ${p(RETIRE)},#9b93a8 ${p(RETIRE)})` }}>
         <div className="shade" style={{ left: pct + '%' }} /><div className="mark" style={{ left: pct + '%' }} />
       </div>
-      <div className="ms">{marks.map(([m, lb]) => <span key={lb + m} style={{ left: p(m) }}>{m} {lb}</span>)}</div>
+      <div className="ms">{marks.map(([m, lb]) => <span key={lb + m} style={{ left: p(m) }}>{lb}</span>)}</div>
     </section>
   );
 }
@@ -621,7 +635,7 @@ function SocialTab({ s, act }: { s: GameState; act: Act }) {
       <div className="card sprof">
         <Art id={stageOf(s.age).art} className="avatar" />
         <div style={{ flex: 1, minWidth: 0 }}>
-          <b className="big">@{s.name.toLowerCase().replace(/[^a-z0-9_]/g, '') || 'tycoon'}
+          <b className="big">@{s.name.toLowerCase().replace(/[^a-z0-9_]/g, '') || 'mogul'}
             {s.social.verified && <span className="vbadge" title={t('verified')}>✓</span>}</b>
           <div className="mini">{s.nation} · {t('fame')} {s.fame}/100</div>
           <div className="sstat">
@@ -642,7 +656,7 @@ function SocialTab({ s, act }: { s: GameState; act: Act }) {
           <div className="post" key={i}>
             <Art id={stageOf(s.age).art} className="pav" />
             <div style={{ flex: 1, minWidth: 0 }}>
-              <b style={{ fontSize: '.9rem' }}>@{s.name.toLowerCase().replace(/[^a-z0-9_]/g, '') || 'tycoon'}{s.social.verified && <span className="vbadge">✓</span>}</b>
+              <b style={{ fontSize: '.9rem' }}>@{s.name.toLowerCase().replace(/[^a-z0-9_]/g, '') || 'mogul'}{s.social.verified && <span className="vbadge">✓</span>}</b>
               <div style={{ fontSize: '.92rem' }}>{p.t}</div>
               <span className="mini">♥ {p.likes.toLocaleString()} · {t('followers')} +{Math.round(p.likes * 0.3).toLocaleString()}</span>
             </div>
@@ -774,6 +788,115 @@ function RankTab({ s, board, setBoard }: { s: GameState; board: string; setBoard
     {body}
     <p className="sub">{t('rankNote')}</p>
   </>);
+}
+
+// ================= LINKS — how the systems connect (v9) =================
+const LNODES: { id: string; x: number; y: number; w?: number }[] = [
+  { id: 'edu', x: 20, y: 40 }, { id: 'job', x: 240, y: 40 }, { id: 'biz', x: 460, y: 40 }, { id: 'space', x: 680, y: 40 },
+  { id: 'health', x: 20, y: 190 }, { id: 'level', x: 240, y: 190 }, { id: 'club', x: 460, y: 190 }, { id: 'fame', x: 680, y: 190 },
+  { id: 'spirit', x: 20, y: 340 }, { id: 'social', x: 240, y: 340 }, { id: 'bank', x: 460, y: 340 }, { id: 'charity', x: 680, y: 340 },
+  { id: 'income', x: 285, y: 486, w: 260 },
+];
+const NW = 150, NH = 52, IH = 58;
+const LKEY: Record<string, string> = {
+  edu: 'tab.edu', job: 'tab.career', biz: 'tab.biz', space: 'tab.space',
+  health: 'tab.health', level: 'level', club: 'tab.club', fame: 'fame',
+  spirit: 'ln.node.spirit', social: 'tab.social', bank: 'tab.bank', charity: 'ln.node.charity', income: 'ln.income',
+};
+type LEdge = [string, string, boolean, string?];
+const LEDGES: LEdge[] = [
+  ['edu', 'job', true], ['edu', 'biz', true, 'M 170 54 C 300 0 380 0 468 38'],
+  ['job', 'income', true, 'M 340 92 C 420 180 420 300 414 484'],
+  ['biz', 'income', true, 'M 500 92 C 420 220 415 330 414 484'],
+  ['space', 'income', true, 'M 720 92 C 640 240 560 400 470 488'],
+  ['social', 'income', true], ['bank', 'income', false],
+  ['level', 'income', true, 'M 340 242 C 424 300 428 380 410 484'],
+  ['health', 'income', false, 'M 95 242 C 190 320 210 420 302 482'],
+  ['spirit', 'health', false], ['spirit', 'biz', false], ['spirit', 'space', false],
+  ['fame', 'biz', true], ['fame', 'social', false], ['club', 'biz', true], ['charity', 'fame', true],
+];
+const cut = (x: string, n = 21) => (x.length > n ? x.slice(0, n - 1) + '…' : x);
+
+function LinksTab({ s }: { s: GameState }) {
+  const { t } = useT();
+  const box = (id: string) => LNODES.find(n => n.id === id)!;
+  const cx = (n: { id: string; x: number; y: number; w?: number }) => n.x + (n.w || NW) / 2;
+  const path = ([a, b, , d]: LEdge): string => {
+    if (d) return d;
+    const A = box(a), B = box(b);
+    if (A.y === B.y) return `M ${A.x + (A.w || NW)} ${A.y + NH / 2} L ${B.x - 4} ${B.y + NH / 2}`;
+    if (A.y < B.y) return `M ${cx(A)} ${A.y + NH} L ${cx(B)} ${B.y - 4}`;
+    return `M ${cx(A)} ${A.y} L ${cx(B)} ${B.y + NH + 4}`;
+  };
+  const val = (id: string): string => {
+    switch (id) {
+      case 'edu': { const ds = (Object.keys(FIELDS) as FieldKey[]).filter(f => s.deg[f]).map(f => FIELDS[f].names[s.deg[f] - 1]); return cut(ds.length ? ds[ds.length - 1] : t('ln.edu.none')); }
+      case 'job': { const j = jobOf(s); return cut(j ? t('job.' + j.id, j.name) : t('ln.job.none')); }
+      case 'biz': return '+' + fmt(bizIncome(s)) + t('perYear');
+      case 'space': return spaceIncome(s) > 0 ? '+' + fmt(spaceIncome(s)) + t('perYear') : '—';
+      case 'health': return Math.round(s.health) + '/100';
+      case 'level': return `${t('lvl')} ${s.level} · ×${levelMult(s).toFixed(2)}`;
+      case 'club': return '×' + clubMult(s).toFixed(2);
+      case 'fame': return Math.round(s.fame) + '/100';
+      case 'spirit': return Math.round(s.spirit) + '/100';
+      case 'social': return s.social.followers.toLocaleString();
+      case 'bank': return fmt(s.bank.dep) + (s.bank.loan > 0 ? ' · ' + fmt(-s.bank.loan) : '');
+      case 'charity': return fmt(s.donated);
+      case 'income': return '+' + fmt(yearIncome(s)) + t('perYear');
+      default: return '';
+    }
+  };
+  const rows: [string, string][] = [
+    ['ln.f.eduJob', (() => { const k = knowledgeText(s); return k === 'None yet' ? '—' : cut(k, 26); })()],
+    ['ln.f.eduBiz', '×' + (1 + .15 * s.deg.business).toFixed(2)],
+    ['ln.f.jobInc', jobOf(s) ? '+' + fmt(jobOf(s)!.salary) + t('perYear') : '—'],
+    ['ln.f.bizInc', '+' + fmt(bizIncome(s)) + t('perYear')],
+    ['ln.f.spaceInc', '×' + cosmicMult(s).toFixed(2)],
+    ['ln.f.socInc', '+' + fmt(socialIncome(s)) + t('perYear')],
+    ['ln.f.bankInt', '+' + fmt(s.bank.dep * SAVE_RATE) + t('perYear')],
+    ['ln.f.levelInc', '×' + levelMult(s).toFixed(2)],
+    ['ln.f.healthGig', '×' + healthMult(s).toFixed(2)],
+    ['ln.f.spiritHealth', s.spirit >= 70 ? '×0.85' : '—'],
+    ['ln.f.spiritBiz', spiritBizMult(s) > 1 ? '×1.10' : '—'],
+    ['ln.f.spiritSpace', cosmicMult(s) > 1 ? '×1.25' : '—'],
+    ['ln.f.fameBiz', '×' + fameBonus(s).toFixed(3)],
+    ['ln.f.fameSoc', s.fame > 0 ? '✓' : '—'],
+    ['ln.f.clubBiz', '×' + clubMult(s).toFixed(2)],
+    ['ln.f.charity', fmt(s.donated) + ' · karma ' + s.karma],
+    ['ln.f.farm', branchCount(s, 'farm') ? '+30%' : '—'],
+    ['ln.f.tax', fmt(taxOf(s.yIncome))],
+    ['ln.f.era', '×' + s.eraBiz.toFixed(2)],
+    ['ln.f.age', '−' + decayPerYear(s) + t('perYear')],
+  ];
+  return (
+    <>
+      <h3>{t('tab.links')}</h3>
+      <p className="sub">{t('ln.sub')}</p>
+      <div className="lnleg">
+        <span className="mini"><span className="sw" />{t('ln.direct')}</span>
+        <span className="mini"><span className="sw ind" />{t('ln.indirect')}</span>
+      </div>
+      <svg className="lnmap" viewBox="0 0 830 570" role="img" aria-label={t('tab.links')}>
+        <defs>
+          <marker id="lnA" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto"><path d="M0 0L7 3.5L0 7z" fill="#8a7a5f" /></marker>
+          <marker id="lnB" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto"><path d="M0 0L7 3.5L0 7z" fill="#8ba2b8" /></marker>
+        </defs>
+        {LEDGES.map((e, i) => <path key={i} className={'ln-e' + (e[2] ? '' : ' ind')} d={path(e)} markerEnd={`url(#${e[2] ? 'lnA' : 'lnB'})`} />)}
+        {LNODES.map(n => (
+          <g key={n.id} className={'ln-node' + (n.id === 'income' ? ' big' : '')}>
+            <rect x={n.x} y={n.y} width={n.w || NW} height={n.id === 'income' ? IH : NH} rx="13" />
+            <text x={cx(n)} y={n.y + (n.id === 'income' ? 24 : 21)} className="ln-name">{t(LKEY[n.id], LKEY[n.id])}</text>
+            <text x={cx(n)} y={n.y + (n.id === 'income' ? 44 : 40)} className="ln-val">{val(n.id)}</text>
+          </g>
+        ))}
+      </svg>
+      <h3>{t('ln.formulas')}</h3>
+      <div className="card">
+        {rows.map(([k, v]) => <div key={k} className="lb"><span className="sub">{t(k)}</span><b>{v}</b></div>)}
+      </div>
+      <p className="sub">{t('ln.sub')}</p>
+    </>
+  );
 }
 
 // ================= INTRO =================

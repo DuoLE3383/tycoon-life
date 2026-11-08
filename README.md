@@ -1,6 +1,6 @@
-# Tycoon Life
+# MOGUL
 
-A life-simulation game: start at 18 in **your own historical era** (birth year + 18),
+**MOGUL** (trước đây là *Tycoon Life*) — a life-simulation game: start at 18 in **your own historical era** (birth year + 18),
 work gigs, study, build business chains across regions, supply factories from your
 farm, trade stocks, get famous on social media, pay taxes, donate to charity —
 and in the late game, take your empire **into space**.
@@ -15,6 +15,14 @@ Themes: **dark** (default) & **light** — toggle with the ☀/☾ button in the
 
 ## Features
 
+- **Two-level navigation (v9)** — 13 tabs grouped into 6 sections arranged as a
+  life pipeline: **Đời sống/Life** (Home, Health, Mind & spirit) → **Tri thức/Growth**
+  (Education, Jobs) → **Đế chế/Empire** (Business, Space) → **Tài sản/Wealth**
+  (Stocks, Bank, Shop) → **Quan hệ/Network** (Social, Clubs) → **Thế giới/World**
+  (Ranking, Links). Each group remembers your last sub-tab.
+- **Links tab (v9)** — a live systems map (SVG): 13 nodes with real-time values and
+  16 arrows showing **direct** (solid) and **indirect** (dashed) effects between
+  systems, plus a formula table with each link's current numeric effect.
 - **Character creation** — name, birth year (1900 → today−18), country, up to 3
   interests and 2 talents. Your birth year decides the era you play in and your
   start year (`birth year + 18`). Language is chosen in the same popup.
@@ -96,10 +104,10 @@ npm run build:static # → ./out
 ## Project layout
 
 ```
-src/app/page.tsx        all game UI (13 grouped tabs)
+src/app/page.tsx        all game UI (6 grouped sections, 14 sub-tabs, links map)
 src/app/api/story/      LLM story endpoint (self-hosted)
 src/lib/engine.ts       game engine (economy, time, events, gigs, levels, social, space, health & spirit)
-src/lib/gameData.ts     data: businesses, items, stocks, jobs, space lines, history
+src/lib/gameData.ts     data: nav groups, businesses, items, stocks, jobs, space lines, history
 src/lib/story.ts        built-in story generator (static fallback)
 src/lib/i18n.tsx        EN / VI / ZH dictionaries + switcher
 src/lib/art.tsx         SVG symbol art (neutral palette)
@@ -107,6 +115,12 @@ public/img/             AI-generated photography (hero, business categories, spa
 ```
 
 ## Version history
+
+- **v9** — app renamed **MOGUL**, **two-level navigation** (6 groups × 14 sub-tabs,
+  ordered as a life pipeline, each group remembers the last sub-tab), new
+  **Links tab**: live SVG systems map with 13 nodes & 16 direct/indirect arrows
+  plus a formula table showing every link's current numeric effect; fixed the
+  duplicated age-track labels.
 
 - **v8.1** — **dark theme** (default) with header ☀/☾ toggle, **language picker
   in the welcome popup**, **Jobs and Education split into separate tabs**, new

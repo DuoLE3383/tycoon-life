@@ -1,8 +1,8 @@
 {
-  "name": "tycoon-life",
-  "version": "1.0.0",
+  "name": "mogul",
+  "version": "9.0.0",
   "private": true,
-  "description": "Tycoon Life — life-simulation game (Next.js + LLM story backend)",
+  "description": "MOGUL — build an empire before you turn 90 (life-simulation game, Next.js + LLM story backend)",
   "scripts": {
     "dev": "next dev -p 3000",
     "build": "next build",
