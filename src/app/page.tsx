@@ -19,6 +19,9 @@ import {
   openBranch, buyFarmLine, buyFacLine, buyItem, sellLot, trade, joinClub, foundClub,
   hire, enrollDeg, enrollLic, bankOp, donate, applyEventChoice, applyAIChoice, currentEvent,
   gameOverTier, botRows, type AIEvent, type GameState,
+  doWell, toggleDiet, wellReady, wellLeft, healthMult, healthState, spiritState, decayPerYear,
+  spiritBizMult, cosmicMult, GYM_COST, GYM_CD, CHECKUP_COST, CHECKUP_CD, DIET_COST,
+  TEMPLE_COST, TEMPLE_CD, RETREAT_COST, RETREAT_CD,
 } from '@/lib/engine';
 import { localTwist } from '@/lib/story';
 import { useT, LANGS, type Lang } from '@/lib/i18n';
@@ -124,8 +127,11 @@ export default function Page() {
         <main id="tview" key={tab} className="enter">
           {tab === 'home' && <HomeTab s={s} act={act} askAI={askAI} aiBusy={aiBusy} aiNote={aiNote} eraName={eraName} />}
           {tab === 'career' && <CareerTab s={s} act={act} />}
+          {tab === 'edu' && <EduTab s={s} act={act} />}
           {tab === 'biz' && <BizTab s={s} act={act} />}
           {tab === 'space' && <SpaceTab s={s} act={act} />}
+          {tab === 'health' && <HealthTab s={s} act={act} />}
+          {tab === 'spirit' && <SpiritTab s={s} act={act} />}
           {tab === 'shop' && <ShopTab s={s} act={act} curCat={curCat} setCurCat={setCurCat} />}
           {tab === 'stock' && <StockTab s={s} act={act} qtyMap={qtyMap} setQtyMap={setQtyMap} />}
           {tab === 'social' && <SocialTab s={s} act={act} />}
@@ -152,9 +158,9 @@ type TFn = ReturnType<typeof useT>['t'];
 function Row({ art, children, right }: { art: string; children: React.ReactNode; right?: React.ReactNode }) {
   return <div className="row">{art && <Art id={art} />}<div className="info">{children}</div>{right}</div>;
 }
-function Btn({ ic, label, onClick, disabled, kind }: { ic: string; label: string; onClick?: () => void; disabled?: boolean; kind?: string }) {
+function Btn({ ic, label, onClick, disabled, kind, dp }: { ic: string; label: string; onClick?: () => void; disabled?: boolean; kind?: string; dp?: Record<string, string> }) {
   return (
-    <button className={'ibtn ' + (kind || '')} onClick={onClick} disabled={disabled}>
+    <button className={'ibtn ' + (kind || '')} onClick={onClick} disabled={disabled} {...dp}>
       <Ic id={ic} className="bsi" /><span>{label}</span>
     </button>
   );
@@ -168,11 +174,22 @@ function useReqLabel() {
 function Header({ s, onReset, eraName }: { s: GameState; onReset: () => void; eraName: (y: number) => string }) {
   const { t, lang, setLang } = useT();
   const xpPct = Math.min(100, Math.round(s.xp / xpNeed(s.level) * 100));
+  const [theme, setTheme] = useState<'dark' | 'light'>('dark');
+  useEffect(() => {
+    const cur = document.documentElement.getAttribute('data-theme');
+    if (cur === 'light' || cur === 'dark') setTheme(cur);
+  }, []);
+  const flipTheme = () => {
+    const next = theme === 'dark' ? 'light' : 'dark';
+    document.documentElement.setAttribute('data-theme', next);
+    try { localStorage.setItem('tycoon_theme', next); } catch { /* ignore */ }
+    setTheme(next);
+  };
   return (
     <header className="top">
       <div className="brand">
         <Art id="s-coin" className="logo" />
-        <div><h1>Tycoon Life <span className="mini">v8</span></h1>
+        <div><h1>Tycoon Life <span className="mini">v8.1</span></h1>
           <div className="mini">{s.started ? `${s.nation} · ${eraName(worldYear(s))}` : 'Build an empire before you turn 90'}</div></div>
       </div>
       <div><div className="mini">{t('cash')}</div><div id="tcash" style={{ color: s.money < 0 ? 'var(--brick)' : undefined }}>{fmt(s.money)}</div>
@@ -183,6 +200,10 @@ function Header({ s, onReset, eraName }: { s: GameState; onReset: () => void; er
         <span className="lang" role="group" aria-label="Language">
           {LANGS.map(l => <button key={l.id} aria-pressed={lang === l.id} data-lang={l.id} onClick={() => setLang(l.id as Lang)}>{l.label}</button>)}
         </span>
+        <button id="themeBtn" data-theme-btn className="ghost tsmall" style={{ padding: '6px 10px', lineHeight: 0 }}
+          onClick={flipTheme} aria-label={t('theme')} title={t('theme')}>
+          <Ic id={theme === 'dark' ? 'ic-sun' : 'ic-moon'} className="bsi" />
+        </button>
         <button className="ghost tsmall" onClick={onReset}>{t('newLife')}</button>
       </div>
     </header>
@@ -194,12 +215,14 @@ function AgeBox({ s, t }: { s: GameState; t: TFn }) {
   const p = (x: number) => ((x - START) / (END_AGE - START) * 100).toFixed(2) + '%';
   const d = new Date(Date.UTC(s.byear + 18, 8, 1) + Math.floor(s.lastDay) * 864e5);
   const dstr = d.toLocaleDateString('en-US', { timeZone: 'UTC', weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
-  const marks: [number, string][] = [[START, String(START)], [22, t('degrees')], [26, t('jobs')], [RETIRE, t('stage.3')], [END_AGE, '90']];
+  const marks: [number, string][] = [[START, String(START)], [RETIRE, '65'], [END_AGE, '90']];
   return (
     <section className="card age">
       <div className="agehead"><b>{s.name} · {t('age')} {Math.floor(a)}</b>
         <span className="tag dark">{t('stage.' + STAGES.indexOf(st), st.name)}</span>
         <span className="mini">{dstr}</span>
+        <span className="hpill"><Ic id="w-heart" className="bsi" />{Math.round(s.health)}</span>
+        <span className="hpill"><Ic id="w-lotus" className="bsi" />{Math.round(s.spirit)}</span>
         <span className="mini">{t('fame')} {s.fame} · {t('followers')} {s.social.followers.toLocaleString()}</span></div>
       <div className="track" style={{ background: `linear-gradient(90deg,#8fae9b 0 ${p(22)},#c9b68e ${p(22)} ${p(26)},#c08a80 ${p(26)} ${p(RETIRE)},#9b93a8 ${p(RETIRE)})` }}>
         <div className="shade" style={{ left: pct + '%' }} /><div className="mark" style={{ left: pct + '%' }} />
@@ -248,6 +271,10 @@ function HomeTab({ s, act, askAI, aiBusy, aiNote, eraName }: { s: GameState; act
           </div>
           <div className="mini" style={{ marginTop: 10 }}>{t('level')} {s.level} · {s.xp}/{xpNeed(s.level)} XP · +{((s.level - 1) * 2).toFixed(0)}% {t('inc.total').toLowerCase()}</div>
           <div className="xpbar"><i style={{ width: xpPct + '%' }} /></div>
+          <div className="wbars">
+            <div className="wrow"><span className="mini wl">{t('health')}</span><div className="wbar"><i style={{ width: s.health + '%', background: s.health < 40 ? 'var(--brick)' : 'var(--sage)' }} /></div><span className="mini">{Math.round(s.health)}/100</span></div>
+            <div className="wrow"><span className="mini wl">{t('spirit')}</span><div className="wbar"><i style={{ width: s.spirit + '%', background: 'var(--slate)' }} /></div><span className="mini">{Math.round(s.spirit)}/100</span></div>
+          </div>
         </div>
       </div>
 
@@ -312,7 +339,7 @@ function HomeTab({ s, act, askAI, aiBusy, aiNote, eraName }: { s: GameState; act
   );
 }
 
-// ================= CAREER =================
+// ================= JOBS =================
 function CareerTab({ s, act }: { s: GameState; act: Act }) {
   const { t } = useT();
   const reqLabel = useReqLabel();
@@ -328,6 +355,17 @@ function CareerTab({ s, act }: { s: GameState; act: Act }) {
           <span className="sub">{fmt(jb.salary)}{t('perYear')} · {t('requires')} {reqLabel(jb.req)}</span>
         </Row>;
       })}
+      <p className="sub">{t('eduNote')}</p>
+    </>
+  );
+}
+
+// ================= EDUCATION =================
+function EduTab({ s, act }: { s: GameState; act: Act }) {
+  const { t } = useT();
+  const reqLabel = useReqLabel();
+  return (
+    <>
       <h3>{t('degrees')}</h3>
       {(Object.keys(FIELDS) as FieldKey[]).map(f => {
         const F = FIELDS[f], cur = s.deg[f], max = F.names.length;
@@ -348,6 +386,7 @@ function CareerTab({ s, act }: { s: GameState; act: Act }) {
           <b>{t('lic.' + l.id, l.name)}</b><span className="sub">{fmt(l.cost)} {t('fee')} · {t('dayCourse', '', { n: l.days })} · {t('neededFor')} {Object.keys(LIC_FOR).filter(k => LIC_FOR[k] === l.id).join(', ')}</span>
         </Row>;
       })}
+      <p className="sub">{t('eduTip')}</p>
     </>
   );
 }
@@ -356,7 +395,7 @@ function CareerTab({ s, act }: { s: GameState; act: Act }) {
 function BizTab({ s, act }: { s: GameState; act: Act }) {
   const { t } = useT();
   const reqLabel = useReqLabel();
-  const mult = clubMult(s) * (1 + .15 * s.deg.business) * (1 + s.fame * .002) * s.eraBiz * levelMult(s);
+  const mult = clubMult(s) * (1 + .15 * s.deg.business) * (1 + s.fame * .002) * s.eraBiz * levelMult(s) * spiritBizMult(s);
   return (
     <>
       {BIZ.map(b => {
@@ -418,6 +457,80 @@ function SpaceTab({ s, act }: { s: GameState; act: Act }) {
         </Row>;
       })}
       <p className="sub">{t('spaceNote')}</p>
+    </>
+  );
+}
+
+// ================= HEALTH =================
+function HealthTab({ s, act }: { s: GameState; act: Act }) {
+  const { t } = useT();
+  const hp = Math.round(s.health), stIdx = healthState(s.health);
+  const rows: { id: string; art: string; name: string; cost: number; cd: number; gain: number }[] = [
+    { id: 'gym', art: 'w-gym', name: t('workout'), cost: GYM_COST, cd: GYM_CD, gain: 6 },
+    { id: 'checkup', art: 'w-doc', name: t('checkup'), cost: CHECKUP_COST, cd: CHECKUP_CD, gain: 15 },
+  ];
+  return (
+    <>
+      <div className="card" style={{ marginBottom: 10 }}>
+        <b style={{ fontSize: '1.05rem' }}>{t('healthTitle')}</b>
+        <p className="sub" style={{ marginTop: 4 }}>{t('healthSub')}</p>
+        <div className="famewrap"><span className="mini">{t('health')}</span><div className="famebar"><i style={{ width: hp + '%', background: hp < 40 ? 'var(--brick)' : 'var(--sage)' }} /></div><b>{hp}</b></div>
+        <div className="mini">{t('hp.state.' + stIdx)} · {t('hp.decay', '', { n: decayPerYear(s).toLocaleString('en-US') })}</div>
+      </div>
+      {rows.map(r => {
+        const left = wellLeft(s, r.id), ready = wellReady(s, r.id);
+        return <Row key={r.id} art={r.art} right={<Btn ic="ic-plus" dp={{ 'data-well': r.id }}
+          label={!ready && left > 0 ? t('gig.cooldown', '', { n: left }) : `${r.name} · ${fmt(r.cost)}`}
+          disabled={!ready} onClick={() => act(st => doWell(st, r.id, t))} />}>
+          <b>{r.name}</b>
+          <span className="sub">+{r.gain} {t('health').toLowerCase()} · {t('gig.cooldown', '', { n: r.cd })}</span>
+        </Row>;
+      })}
+      <Row art="w-diet" right={<Btn ic={s.diet ? 'ic-check' : 'ic-plus'} label={s.diet ? 'ON' : 'OFF'} kind="ghost" onClick={() => act(st => toggleDiet(st, t))} />}>
+        <b>{t('diet')}: {s.diet ? 'ON' : 'OFF'}</b>
+        <span className="sub">{t('hp.dietInfo', '', { x: DIET_COST })}</span>
+      </Row>
+      <p className="sub">{t('hp.affect', '', { x: healthMult(s).toFixed(2) })}</p>
+    </>
+  );
+}
+
+// ================= MIND & SPIRIT =================
+function SpiritTab({ s, act }: { s: GameState; act: Act }) {
+  const { t } = useT();
+  const sp = Math.round(s.spirit), stIdx = spiritState(s.spirit);
+  const rows: { id: string; art: string; name: string; cost: number; cd: number; gain: number }[] = [
+    { id: 'meditate', art: 'w-lotus', name: t('meditate'), cost: 0, cd: 1, gain: 4 },
+    { id: 'temple', art: 'w-temple', name: t('temple'), cost: TEMPLE_COST, cd: TEMPLE_CD, gain: 6 },
+    { id: 'retreat', art: 'w-retreat', name: t('retreat'), cost: RETREAT_COST, cd: RETREAT_CD, gain: 25 },
+  ];
+  const perks: { on: boolean; label: string; need: number }[] = [
+    { on: s.spirit >= 70, label: t('sp.peace'), need: 70 },
+    { on: s.spirit >= 70, label: t('sp.aging'), need: 70 },
+    { on: s.spirit >= 80, label: t('sp.cosmic'), need: 80 },
+  ];
+  return (
+    <>
+      <div className="card" style={{ marginBottom: 10 }}>
+        <b style={{ fontSize: '1.05rem' }}>{t('spiritTitle')}</b>
+        <p className="sub" style={{ marginTop: 4 }}>{t('spiritSub')}</p>
+        <div className="famewrap"><span className="mini">{t('spirit')}</span><div className="famebar"><i style={{ width: sp + '%', background: 'var(--slate)' }} /></div><b>{sp}</b></div>
+        <div className="mini">{t('sp.state.' + stIdx)} · {t('karma')}: {s.karma}</div>
+      </div>
+      {rows.map(r => {
+        const left = wellLeft(s, r.id), ready = wellReady(s, r.id);
+        return <Row key={r.id} art={r.art} right={<Btn ic="ic-plus" dp={{ 'data-well': r.id }}
+          label={!ready && left > 0 ? t('gig.cooldown', '', { n: left }) : r.cost ? `${r.name} · ${fmt(r.cost)}` : r.name}
+          disabled={!ready} onClick={() => act(st => doWell(st, r.id, t))} />}>
+          <b>{r.name}</b>
+          <span className="sub">+{r.gain} {t('spirit').toLowerCase()} · {t('gig.cooldown', '', { n: r.cd })}{r.cost ? ` · ${fmt(r.cost)}` : ''}</span>
+        </Row>;
+      })}
+      <h3>{t('sp.perks')}</h3>
+      {perks.map((p, i) => <div key={i} className={'perkrow' + (p.on ? ' on' : '')}>
+        <Ic id={p.on ? 'ic-check' : 'ic-lock'} className="bsi" /><span>{p.label}</span>
+        <span className="mini">{p.on ? '✓' : t('sp.locked', '', { n: p.need })}</span>
+      </div>)}
     </>
   );
 }
@@ -665,7 +778,7 @@ function RankTab({ s, board, setBoard }: { s: GameState; board: string; setBoard
 
 // ================= INTRO =================
 function Intro({ onBegin }: { onBegin: (o: { name: string; byear: number; nation: string; ints: string[]; tals: string[] }) => void }) {
-  const { t } = useT();
+  const { t, lang, setLang } = useT();
   const [name, setName] = useState('');
   const [byear, setByear] = useState(1992);
   const [nation, setNation] = useState('Vietnam');
@@ -684,6 +797,11 @@ function Intro({ onBegin }: { onBegin: (o: { name: string; byear: number; nation
     <div className="modal on"><div className="mcard">
       <h2>{t('createLife')}</h2>
       <p className="mini" style={{ marginTop: 0 }}>{t('introSub')}</p>
+      <div className="field"><label>{t('lang')}</label>
+        <div className="lang" style={{ display: 'inline-flex' }} role="group" aria-label="Language">
+          {LANGS.map(l => <button key={l.id} type="button" aria-pressed={lang === l.id} data-lang={l.id} onClick={() => setLang(l.id as Lang)}>{l.label}</button>)}
+        </div>
+      </div>
       <div className="field"><label>{t('name')}</label><input maxLength={24} placeholder="e.g. Minh" value={name} onChange={e => setName(e.target.value)} /></div>
       <div className="field"><label>{t('birthYear')}</label>
         <select value={byear} onChange={e => setByear(+e.target.value)}>{years.map(y => <option key={y} value={y}>{y}</option>)}</select></div>
@@ -746,8 +864,10 @@ function GameOver({ s, onAgain }: { s: GameState; onAgain: () => void }) {
   return (
     <div className="modal on"><div className="mcard" style={{ textAlign: 'center' }}>
       <h2>{t(tierKey, tier)}</h2>
-      <div>{t('livedTo')} <b>{fmt(nw)}</b>.<br />
-        <span className="mini">{t('finalLine', '', { k: knowledgeText(s), f: s.fame, d: fmt(s.donated), l: s.level, fo: s.social.followers.toLocaleString() })}</span></div>
+      <div>{s.cause === 'health'
+        ? <>{t('livedToHealth', '', { a: Math.floor(s.age) })} <b>{fmt(nw)}</b>.</>
+        : <>{t('livedTo')} <b>{fmt(nw)}</b>.</>}<br />
+        <span className="mini">{t('finalLine', '', { k: knowledgeText(s), f: s.fame, d: fmt(s.donated), ka: s.karma, l: s.level, fo: s.social.followers.toLocaleString() })}</span></div>
       <button className="ibtn" style={{ marginTop: 16 }} onClick={onAgain}>
         <Ic id="ic-plus" className="bsi" /><span>{t('liveAgain')}</span>
       </button>

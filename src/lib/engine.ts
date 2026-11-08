@@ -31,7 +31,62 @@ export interface GameState {
   log: string[]; over: boolean; pending: string | null; aiEv: AIEvent | null;
   partner: boolean; married: boolean; kids: number; m1: boolean; story: { used: string[] };
   level: number; xp: number; gigs: Record<string, number>;
+  health: number; spirit: number; karma: number; diet: boolean; well: Record<string, number>;
+  cause: 'age' | 'health' | null;
   social: { followers: number; posts: Post[]; verified?: boolean };
+}
+
+// ---------- wellbeing: body & mind ----------
+export type T = (k: string, f?: string, v?: Record<string, string | number>) => string;
+export const GYM_COST = 80, GYM_CD = 2, GYM_HP = 6;
+export const CHECKUP_COST = 600, CHECKUP_CD = 30, CHECKUP_HP = 15;
+export const DIET_COST = 6;
+export const TEMPLE_COST = 500, TEMPLE_CD = 3;
+export const RETREAT_COST = 8000, RETREAT_CD = 60;
+export interface WellDef { id: string; cost: number; cd: number }
+export const WELL: WellDef[] = [
+  { id: 'gym', cost: GYM_COST, cd: GYM_CD },
+  { id: 'checkup', cost: CHECKUP_COST, cd: CHECKUP_CD },
+  { id: 'meditate', cost: 0, cd: 1 },
+  { id: 'temple', cost: TEMPLE_COST, cd: TEMPLE_CD },
+  { id: 'retreat', cost: RETREAT_COST, cd: RETREAT_CD },
+];
+export const wellDef = (id: string) => WELL.find(w => w.id === id);
+export const wellReady = (s: GameState, id: string) => {
+  const w = wellDef(id); if (!w) return false;
+  const last = s.well[id];
+  return (last == null || s.lastDay - last >= w.cd) && s.money >= w.cost;
+};
+export const wellLeft = (s: GameState, id: string) => {
+  const w = wellDef(id); if (!w) return 0;
+  const last = s.well[id];
+  return last == null ? 0 : Math.max(0, w.cd - (s.lastDay - last));
+};
+export const healthMult = (s: GameState) => 0.7 + 0.3 * (s.health / 100);
+export const ageDecayPerDay = (age: number) => age < 30 ? .015 : age < 45 ? .04 : age < 60 ? .08 : age < 75 ? .13 : .18;
+export const decayPerYear = (s: GameState) => Math.round(ageDecayPerDay(s.age) * 365.25 * (s.diet ? .55 : 1) * (s.spirit >= 70 ? .85 : 1));
+export const spiritBizMult = (s: GameState) => (s.spirit >= 70 ? 1.1 : 1);
+export const cosmicMult = (s: GameState) => (s.spirit >= 80 ? 1.25 : 1);
+export const healthState = (h: number) => h >= 80 ? 0 : h >= 60 ? 1 : h >= 40 ? 2 : h >= 20 ? 3 : 4;
+export const spiritState = (v: number) => v >= 80 ? 3 : v >= 55 ? 2 : v >= 30 ? 1 : 0;
+export function doWell(s: GameState, id: string, t: T): string | null {
+  const w = wellDef(id); if (!w) return null;
+  if (!wellReady(s, id)) {
+    const left = wellLeft(s, id);
+    return left > 0 ? t('gig.cooldown', '', { n: left }) : t('noMoney');
+  }
+  s.well[id] = s.lastDay;
+  if (w.cost) s.money -= w.cost;
+  if (id === 'gym') { s.health = Math.min(100, s.health + GYM_HP); addXp(s, 4); return t('hp.gymDone', '', { n: GYM_HP }); }
+  if (id === 'checkup') { s.health = Math.min(100, s.health + CHECKUP_HP); addXp(s, 6); return t('hp.checkupDone', '', { n: CHECKUP_HP }); }
+  if (id === 'meditate') { s.spirit = Math.min(100, s.spirit + 4); s.karma += 1; addXp(s, 3); return t('sp.medDone', '', { n: 4 }); }
+  if (id === 'temple') { s.spirit = Math.min(100, s.spirit + 6); s.karma += 5; addXp(s, 5); return t('sp.templeDone', '', { n: 6, k: 5 }); }
+  if (id === 'retreat') { s.spirit = Math.min(100, s.spirit + 25); s.karma += 15; s.health = Math.min(100, s.health + 5); addXp(s, 30); pushLog(s, 'Silent retreat — ten days of stillness.'); return t('sp.retreatDone'); }
+  return null;
+}
+export function toggleDiet(s: GameState, t: T): string {
+  s.diet = !s.diet;
+  return t(s.diet ? 'hp.dietOn' : 'hp.dietOff', '', { x: DIET_COST });
 }
 
 // ---------- level, gigs, social & the cosmic frontier ----------
@@ -60,7 +115,7 @@ export function gigLock(s: GameState, g: GigDef): string {
 export function gigPay(s: GameState, g: GigDef): number {
   let pay = g.base + 0.004 * yearIncome(s);
   if (g.id === 'sponsored') pay += s.social.followers * 0.02;
-  pay *= levelMult(s) * (1 + s.fame * 0.004);
+  pay *= levelMult(s) * (1 + s.fame * 0.004) * healthMult(s);
   if (s.ints.includes('sports') || s.tals.includes('hands')) pay *= 1.15;
   return Math.max(5, Math.round(pay));
 }
@@ -78,7 +133,7 @@ export function socialIncome(s: GameState): number { // annual ad revenue
   return s.social.followers >= 500 ? s.social.followers * 0.06 * levelMult(s) : 0;
 }
 export function spaceIncome(s: GameState): number { // annual
-  return SPACE_LINES.reduce((a, l) => a + (s.space[l.id] ? l.inc : 0), 0);
+  return SPACE_LINES.reduce((a, l) => a + (s.space[l.id] ? l.inc : 0), 0) * cosmicMult(s);
 }
 export function addPost(s: GameState, t: string, boost = 1): void {
   const likes = Math.round((s.social.followers * 0.05 + s.fame * 3 + 5) * (0.4 + Math.random() * 1.2) * boost);
@@ -112,7 +167,8 @@ export function fresh(): GameState {
     prices: {}, hist: {}, eraBiz: 1, eraFac: 1,
     log: [], over: false, pending: null, aiEv: null,
     partner: false, married: false, kids: 0, m1: false, story: { used: [] },
-    level: 1, xp: 0, gigs: {}, space: {}, social: { followers: 0, posts: [] }
+    level: 1, xp: 0, gigs: {}, space: {}, social: { followers: 0, posts: [] },
+    health: 92, spirit: 18, karma: 0, diet: false, well: {}, cause: null
   };
   STOCKS.forEach(x => { s.prices[x.id] = x.p; s.hist[x.id] = [x.p]; });
   return s;
@@ -127,6 +183,12 @@ export function migrate(raw: unknown): GameState {
   s.social = s.social && Array.isArray(s.social.posts) ? s.social : { followers: 0, posts: [] };
   if (typeof s.level !== 'number' || s.level < 1) s.level = 1;
   if (typeof s.xp !== 'number' || s.xp < 0) s.xp = 0;
+  if (typeof s.health !== 'number') s.health = 85;
+  if (typeof s.spirit !== 'number') s.spirit = 20;
+  if (typeof s.karma !== 'number') s.karma = 0;
+  s.diet = !!s.diet; s.well = s.well || {}; s.cause = s.cause || null;
+  s.health = Math.min(100, Math.max(0, s.health));
+  s.spirit = Math.min(100, Math.max(0, s.spirit));
   STOCKS.forEach(x => { if (s.prices[x.id] == null) { s.prices[x.id] = x.p; s.hist[x.id] = [x.p]; } });
   return s;
 }
@@ -165,7 +227,7 @@ export const bizIncome = (s: GameState) => { // annual
   let ann = 0;
   BIZ.forEach(b => (s.branches[b.id] || []).forEach(br => { ann += b.inc * REG_MULT[br.r % REG_MULT.length] * br.mood - b.base / 24; }));
   ann += farmIncome(s) + facIncome(s);
-  return Math.max(0, ann) * clubMult(s) * (1 + BIZ_DEGREE_BONUS * s.deg.business) * fameBonus(s) * s.eraBiz * levelMult(s);
+  return Math.max(0, ann) * clubMult(s) * (1 + BIZ_DEGREE_BONUS * s.deg.business) * fameBonus(s) * s.eraBiz * levelMult(s) * spiritBizMult(s);
 };
 export const jobOf = (s: GameState) => JOBS.find(j => j.id === s.job);
 export const yearIncome = (s: GameState) => bizIncome(s) + spaceIncome(s) + socialIncome(s) + (jobOf(s) ? jobOf(s)!.salary : 0) + (s.age >= RETIRE ? PENSION : 0);
@@ -221,6 +283,11 @@ export function reqText(r?: Req): string {
 // ---------- time ----------
 export function processDay(s: GameState, d: number): void {
   const dt = dateOf(s, d);
+  // wellbeing: health declines with age; a healthy diet and a calm mind slow it down
+  const dhp = ageDecayPerDay(s.age) * (s.diet ? .55 : 1) * (s.spirit >= 70 ? .85 : 1);
+  s.health = Math.max(0, s.health - dhp * (0.75 + Math.random() * 0.5));
+  if (s.diet) s.money -= DIET_COST;
+  if (s.health <= 15 && d % 30 === 0) pushLog(s, 'Your health is fragile — eat well, rest, see a doctor.');
   if (d % 14 === 0) {
     const j = jobOf(s), net = (j ? j.salary / 26 : 0) + (s.age >= RETIRE ? PENSION / 26 : 0);
     if (net > 0) { s.money += net; s.yIncome += net; pushLog(s, `Payday: +${fmt(net)}.`); }
@@ -280,18 +347,20 @@ type LifeDef = {
 export const LIFE: LifeDef[] = [
   { id: 'million', title: 'Your first million', text: 'Your net worth just crossed $1,000,000. Time to celebrate.', min: 0, max: 99, p: 1, ok: s => !s.m1 && netWorth(s) >= 1e6, choices: [{ l: 'Celebrate', fx: s => { s.m1 = true; return 'You hit your first million!'; } }] },
   { id: 'love', title: 'Someone special', text: 'You met someone who makes you laugh like no one before.', min: 20, max: 35, p: .3, ok: s => !s.partner && !s.married, choices: [{ l: 'Ask them out', fx: s => { s.partner = true; return 'You started dating.'; } }, { l: 'Stay focused on work', fx: () => 'You let the moment pass.' }] },
-  { id: 'wedding', title: 'Ready to commit?', text: 'Your partner wants to make it official.', min: 24, max: 42, p: .35, ok: s => s.partner && !s.married, choices: [{ l: 'Dream wedding', cost: 40000, fx: s => { s.married = true; addPost(s, 'She said yes. Best day of my life.', 1.6); return 'A beautiful wedding. Friends still talk about it.'; } }, { l: 'Courthouse wedding', cost: 2000, fx: s => { s.married = true; addPost(s, 'Married! We kept it small and perfect.', 1.2); return 'A simple, happy day.'; } }] },
-  { id: 'baby', title: 'A surprise pregnancy', text: 'You are going to be a parent.', min: 25, max: 42, p: .25, ok: s => (s.married || s.partner) && s.kids < 3, choices: [{ l: 'Welcome the baby', fx: s => { s.kids += 1; addPost(s, 'Parenthood unlocked. Everyone is healthy and exhausted.', 1.5); return 'Your child was born. Life is busier and costs more now.'; } }, { l: 'Not yet', fx: () => 'You decided to wait.' }] },
-  { id: 'divorce', title: 'The marriage is ending', text: 'You and your spouse cannot agree on how to split things.', min: 28, max: 65, p: .12, ok: s => s.married, choices: [{ l: 'Settle amicably (give up 40% of cash)', fx: s => { if (s.money > 0) s.money *= .6; s.married = false; s.partner = false; return 'It hurt, but it ended quickly.'; } }, { l: 'Fight in court', cost: 30000, fx: s => { s.married = false; s.partner = false; if (Math.random() < .5) { s.money *= 1.1; return 'The court ruled in your favour.'; } s.money *= .8; return 'The court ruled against you.'; } }] },
+  { id: 'wedding', title: 'Ready to commit?', text: 'Your partner wants to make it official.', min: 24, max: 42, p: .35, ok: s => s.partner && !s.married, choices: [{ l: 'Dream wedding', cost: 40000, fx: s => { s.married = true; s.spirit = Math.min(100, s.spirit + 5); addPost(s, 'She said yes. Best day of my life.', 1.6); return 'A beautiful wedding. Friends still talk about it.'; } }, { l: 'Courthouse wedding', cost: 2000, fx: s => { s.married = true; s.spirit = Math.min(100, s.spirit + 4); addPost(s, 'Married! We kept it small and perfect.', 1.2); return 'A simple, happy day.'; } }] },
+  { id: 'baby', title: 'A surprise pregnancy', text: 'You are going to be a parent.', min: 25, max: 42, p: .25, ok: s => (s.married || s.partner) && s.kids < 3, choices: [{ l: 'Welcome the baby', fx: s => { s.kids += 1; s.spirit = Math.min(100, s.spirit + 3); s.health = Math.max(0, s.health - 2); addPost(s, 'Parenthood unlocked. Everyone is healthy and exhausted.', 1.5); return 'Your child was born. Life is busier and costs more now.'; } }, { l: 'Not yet', fx: () => 'You decided to wait.' }] },
+  { id: 'divorce', title: 'The marriage is ending', text: 'You and your spouse cannot agree on how to split things.', min: 28, max: 65, p: .12, ok: s => s.married, choices: [{ l: 'Settle amicably (give up 40% of cash)', fx: s => { if (s.money > 0) s.money *= .6; s.married = false; s.partner = false; s.spirit = Math.max(0, s.spirit - 8); return 'It hurt, but it ended quickly.'; } }, { l: 'Fight in court', cost: 30000, fx: s => { s.married = false; s.partner = false; s.spirit = Math.max(0, s.spirit - 5); if (Math.random() < .5) { s.money *= 1.1; return 'The court ruled in your favour.'; } s.money *= .8; return 'The court ruled against you.'; } }] },
   { id: 'layoff', title: 'Your company is downsizing', text: 'Your position is being cut.', min: 20, max: 64, p: .15, ok: s => { const j = jobOf(s); return !!j && j.ft; }, choices: [{ l: 'Take the severance (3 months pay)', fx: s => { s.money += jobOf(s)!.salary / 4; s.job = null; return 'You left with a severance check.'; } }, { l: 'Fight to keep your job', fx: s => { if (Math.random() < .5) return 'Management relented. You keep your job.'; s.job = null; return 'The layoff went through anyway.'; } }] },
-  { id: 'illness', title: 'Sudden illness', text: 'The doctor found something serious and says treatment cannot wait.', min: 18, max: 90, p: .1, ok: () => true, choices: [{ l: 'Private surgery', cost: 30000, fx: () => 'The surgery went well. You are back on your feet.' }, { l: 'Public hospital (long wait)', fx: s => { s.money -= 5000; return 'You waited months, but you recovered.'; } }, { l: 'Rest at home', fx: s => { const j = jobOf(s); if (j) s.money -= j.salary / 6; return 'You lost weeks of work but healed.'; } }] },
+  { id: 'illness', title: 'Sudden illness', text: 'The doctor found something serious and says treatment cannot wait.', min: 18, max: 90, p: .1, ok: () => true, choices: [{ l: 'Private surgery', cost: 30000, fx: s => { s.health = Math.min(100, s.health + 20); return 'The surgery went well. You are back on your feet.'; } }, { l: 'Public hospital (long wait)', fx: s => { s.money -= 5000; s.health = Math.min(100, s.health + 5); return 'You waited months, but you recovered.'; } }, { l: 'Rest at home', fx: s => { const j = jobOf(s); if (j) s.money -= j.salary / 6; s.health = Math.max(0, s.health - 10); return 'You lost weeks of work but healed.'; } }] },
   { id: 'startup', title: 'A startup idea', text: 'A friend wants you to co-found a tech startup with $50,000 of your savings.', min: 22, max: 55, p: .2, ok: () => true, choices: [{ l: 'Invest $50k', cost: 50000, fx: s => { if (Math.random() < .4) { s.money += 150000; return 'The startup was acquired. You made $150k!'; } return 'The startup folded. The money is gone.'; } }, { l: 'Pass', fx: () => 'You kept your money. The startup later went viral without you.' }] },
   { id: 'lottery', title: 'You won the lottery!', text: 'A ticket you bought on a whim just hit the jackpot.', min: 18, max: 90, p: .04, ok: () => true, choices: [{ l: 'Claim $1,000,000', fx: s => { s.money += 1000000; addPost(s, 'Still can\u2019t believe it. We won the lottery!!', 2.5); return 'A million dollars. Life will never be the same.'; } }, { l: 'Claim $500k, share the rest', fx: s => { s.money += 500000; return 'Your family cheers. You keep half.'; } }] },
   { id: 'crash', title: 'Market crash', text: 'Stocks plunge 40% overnight and panic spreads.', min: 26, max: 80, p: .1, ok: s => stockVal(s) > 0, pre: s => STOCKS.forEach(x => s.prices[x.id] *= .6), choices: [{ l: 'Sell everything now', fx: s => { STOCKS.forEach(x => { s.money += (s.stk[x.id] || 0) * s.prices[x.id]; s.stk[x.id] = 0; }); return 'You sold at the bottom and locked in the loss.'; } }, { l: 'Hold and buy the dip', fx: s => { STOCKS.forEach(x => s.prices[x.id] *= 1.6); return 'You held on, and the market recovered.'; } }] },
   { id: 'recession', title: 'Recession', text: 'Customers vanish and business profits fall sharply.', min: 25, max: 75, p: .1, ok: s => bizIncome(s) > 0, choices: [{ l: 'Cut costs', cost: 10000, fx: () => 'You trimmed the fat and kept things running.' }, { l: 'Ride it out', fx: s => { s.money -= bizIncome(s) * .25; return 'Profits dropped for a year.'; } }] },
-  { id: 'parent', title: 'A family loss', text: 'Your mother has passed away. The funeral is this week.', min: 40, max: 90, p: .08, ok: () => true, choices: [{ l: 'Take two months off', fx: s => { const j = jobOf(s); if (j) s.money -= j.salary / 6; return 'You grieved with family and returned slowly.'; } }, { l: 'Keep working', fx: () => 'You stayed busy, but the grief stayed with you.' }] },
-  { id: 'midlife', title: 'Midlife restlessness', text: 'You feel the urge for something new.', min: 42, max: 58, p: .12, ok: () => true, choices: [{ l: 'Buy a Porsche 911', cost: 120000, fx: s => { addLot(s, 'c-porsche'); return 'A 911 in your garage. You felt 25 again.'; } }, { l: 'Travel to Japan', cost: 20000, fx: () => 'A month wandering Tokyo and Kyoto.' }] },
-  { id: 'fire', title: 'Fire at your home', text: 'A fire damaged one of your properties.', min: 25, max: 90, p: .1, ok: s => s.lots.some(l => ITEM_BY[l.id].cat === 'Property'), choices: [{ l: 'Claim insurance', fx: s => { s.money -= 12500; return 'Insurance covered most of it.'; } }, { l: 'Pay for repairs', cost: 25000, fx: () => 'You rebuilt the property, better than before.' }] }
+  { id: 'parent', title: 'A family loss', text: 'Your mother has passed away. The funeral is this week.', min: 40, max: 90, p: .08, ok: () => true, choices: [{ l: 'Take two months off', fx: s => { const j = jobOf(s); if (j) s.money -= j.salary / 6; s.spirit = Math.max(0, s.spirit - 10); return 'You grieved with family and returned slowly.'; } }, { l: 'Keep working', fx: s => { s.spirit = Math.max(0, s.spirit - 12); return 'You stayed busy, but the grief stayed with you.'; } }] },
+  { id: 'midlife', title: 'Midlife restlessness', text: 'You feel the urge for something new.', min: 42, max: 58, p: .12, ok: () => true, choices: [{ l: 'Buy a Porsche 911', cost: 120000, fx: s => { addLot(s, 'c-porsche'); s.spirit = Math.min(100, s.spirit + 2); return 'A 911 in your garage. You felt 25 again.'; } }, { l: 'Travel to Japan', cost: 20000, fx: s => { s.spirit = Math.min(100, s.spirit + 8); return 'A month wandering Tokyo and Kyoto.'; } }] },
+  { id: 'fire', title: 'Fire at your home', text: 'A fire damaged one of your properties.', min: 25, max: 90, p: .1, ok: s => s.lots.some(l => ITEM_BY[l.id].cat === 'Property'), choices: [{ l: 'Claim insurance', fx: s => { s.money -= 12500; return 'Insurance covered most of it.'; } }, { l: 'Pay for repairs', cost: 25000, fx: () => 'You rebuilt the property, better than before.' }] },
+  { id: 'burnout', title: 'Burnout', text: 'The grind has been relentless. Body and mind are waving a white flag.', min: 22, max: 70, p: .12, ok: s => s.health < 65, choices: [{ l: 'Take a sabbatical', cost: 15000, fx: s => { s.health = Math.min(100, s.health + 18); s.spirit = Math.min(100, s.spirit + 10); return 'Two months of rest. You feel human again.'; } }, { l: 'Push through', fx: s => { s.health = Math.max(0, s.health - 14); s.spirit = Math.max(0, s.spirit - 6); return 'You pushed on. The tank is running dry.'; } }] },
+  { id: 'calling', title: 'A quiet calling', text: 'Lately you keep wondering what all this is for. A mountain monastery offers week-long stays.', min: 28, max: 82, p: .1, ok: () => true, choices: [{ l: 'Stay a week in silence', cost: 2000, fx: s => { s.spirit = Math.min(100, s.spirit + 15); s.karma += 10; return 'The silence rearranged something inside you.'; } }, { l: 'Light incense and move on', fx: s => { s.spirit = Math.min(100, s.spirit + 3); s.karma += 1; return 'A small moment of peace.'; } }] }
 ];
 const EVENTS: ((s: GameState) => { msg: string; cash: number; fame?: number; dip?: boolean })[] = [
   s => ({ msg: 'A distant aunt left you a small inheritance.', cash: s.age >= 25 ? 40000 : 3000 }),
@@ -433,10 +502,12 @@ export function donate(s: GameState, amt: number): string | null {
   if (s.money < amt) return null;
   s.money -= amt; s.donated += amt;
   const g = amt >= 100000 ? 5 : amt >= 10000 ? 2 : 1;
+  const ka = amt >= 100000 ? 8 : amt >= 10000 ? 3 : 1;
   s.fame = Math.min(100, s.fame + g);
+  s.karma += ka;
   addXp(s, Math.max(2, Math.round(amt / 10000)));
   if (amt >= 10000) addPost(s, `Gave ${fmt(amt)} to charity today. Small acts, big ripples.`, 1.3);
-  pushLog(s, `Donated ${fmt(amt)} to charity. Fame +${g}.`);
+  pushLog(s, `Donated ${fmt(amt)} to charity. Fame +${g}, karma +${ka}.`);
   return `Donated ${fmt(amt)} \u00b7 fame +${g}`;
 }
 export function applyEventChoice(s: GameState, idx: number): string {
@@ -490,7 +561,8 @@ export function tick(s: GameState, dtMs: number): { taxToast?: string; yearToast
     s.study = null;
   }
   while (Math.floor(s.age) > s.lastYr && !s.over) { s.lastYr++; yearEnd(s, s.lastYr); }
-  if (s.age >= END_AGE && !s.over) { s.age = END_AGE; s.over = true; out.gameJustOver = true; }
+  if (s.age >= END_AGE && !s.over) { s.age = END_AGE; s.over = true; s.cause = 'age'; out.gameJustOver = true; }
+  if (!s.over && s.health <= 0) { s.over = true; s.cause = 'health'; out.gameJustOver = true; }
   return out;
 }
 
@@ -524,7 +596,8 @@ export function snapshot(s: GameState) {
     factory: FAC_LINES.filter(l => s.fac[l.id]).map(l => l.name),
     space: SPACE_LINES.filter(l => s.space[l.id]).map(l => l.name),
     family: (s.married ? 'married' : s.partner ? 'dating' : 'single') + (s.kids ? `, ${s.kids} kid${s.kids > 1 ? 's' : ''}` : ''),
-    fame: s.fame, level: s.level, followers: s.social.followers, studying: s.study ? s.study.name : null, recent: s.log.slice(-6)
+    fame: s.fame, level: s.level, followers: s.social.followers, studying: s.study ? s.study.name : null,
+    health: Math.round(s.health), spirit: Math.round(s.spirit), karma: s.karma, recent: s.log.slice(-6)
   };
 }
 

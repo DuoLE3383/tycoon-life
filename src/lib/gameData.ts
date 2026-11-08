@@ -297,7 +297,8 @@ export const BOTS: [string, number, string, string, number][] = [
   ['Ella Brown', 21, 'United Kingdom', 'Media', 2.1e5], ['Charlotte Eve', 19, 'United Kingdom', 'Fashion', 5.2e5]
 ];
 export const TABS: [string, string, string][] = [
-  ['home', 'Home', 't-life'], ['career', 'Career', 't-cap'], ['biz', 'Business', 't-biz'], ['space', 'Space', 't-space'],
+  ['home', 'Home', 't-life'], ['career', 'Jobs', 't-work'], ['edu', 'Education', 't-cap'], ['biz', 'Business', 't-biz'], ['space', 'Space', 't-space'],
+  ['health', 'Health', 'w-heart'], ['spirit', 'Mind', 'w-lotus'],
   ['shop', 'Shop', 't-shop'], ['stock', 'Stocks', 't-stock'], ['social', 'Social', 't-social'],
   ['club', 'Clubs', 't-club'], ['bank', 'Bank', 't-bank'], ['rank', 'Ranking', 't-rank']
 ];

@@ -71,6 +71,15 @@ export const ART_DEFS = `<svg width="0" height="0" style="position:absolute" ari
 <symbol id="t-social" viewBox="0 0 24 24"><path d="M4 5h16v11H9l-5 4z"/><path d="M12 13.2s-3.6-2.4-4.5-4.3a2.1 2.1 0 0 1 4.5-1.4 2.1 2.1 0 0 1 4.5 1.4c-.9 1.9-4.5 4.3-4.5 4.3z"/></symbol>
 <symbol id="t-cap" viewBox="0 0 24 24"><path d="M12 5L2.5 9.5 12 14l9.5-4.5z"/><path d="M6.5 11.8V16c0 1.6 2.5 3 5.5 3s5.5-1.4 5.5-3v-4.2M21.5 9.5V15"/></symbol>
 <symbol id="ic-play" viewBox="0 0 24 24"><path d="M8 5l11 7-11 7z"/></symbol>
+<symbol id="ic-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2.5v2.2M12 19.3v2.2M2.5 12h2.2M19.3 12h2.2M5.3 5.3l1.6 1.6M17.1 17.1l1.6 1.6M18.7 5.3l-1.6 1.6M6.9 17.1l-1.6 1.6"/></symbol>
+<symbol id="ic-moon" viewBox="0 0 24 24"><path d="M20 14.5A8.5 8.5 0 0 1 9.5 4 8.5 8.5 0 1 0 20 14.5z"/></symbol>
+<symbol id="w-heart" viewBox="0 0 24 24"><path d="M2.5 12h4l2-4 3.5 8 2.5-5 1.5 2h5.5"/><path d="M12 20.5s-6.6-4.4-8.5-8.3A4.8 4.8 0 0 1 12 8.6a4.8 4.8 0 0 1 8.5 3.6c-1.9 3.9-8.5 8.3-8.5 8.3z"/></symbol>
+<symbol id="w-gym" viewBox="0 0 24 24"><path d="M7 7v10M17 7v10M4 9.5v5M20 9.5v5M7 12h10"/></symbol>
+<symbol id="w-doc" viewBox="0 0 24 24"><rect x="5" y="4.5" width="14" height="16.5" rx="2"/><path d="M9 4.5V3h6v1.5M12 9.5v6M9 12.5h6"/></symbol>
+<symbol id="w-diet" viewBox="0 0 24 24"><path d="M12 7.5c-3-2-7 .2-7 4 0 3.8 2.9 7.5 5.4 7.5 1 0 1.1-.5 1.6-.5s.6.5 1.6.5c2.5 0 5.4-3.7 5.4-7.5 0-3.8-4-6-7-4z"/><path d="M12 7.5c0-2 1-3.6 2.6-4.3"/></symbol>
+<symbol id="w-lotus" viewBox="0 0 24 24"><path d="M12 19.5c-4.2 0-7.4-2.6-8.4-6.2 2.1.5 3.8.4 5.3-.6-2-2-2.6-5-1.6-8 1.5 1.6 3 3.2 4.7 5.8 1.7-2.6 3.2-4.2 4.7-5.8 1 3 .4 6-1.6 8 1.5 1 3.2 1.1 5.3.6-1 3.6-4.2 6.2-8.4 6.2z"/></symbol>
+<symbol id="w-temple" viewBox="0 0 24 24"><path d="M4 9.5c2.7-.5 5.2-2 8-4.8 2.8 2.8 5.3 4.3 8 4.8M6.5 9.8V19M17.5 9.8V19M4 19.5h16M10 19.5v-4.5h4v4.5"/></symbol>
+<symbol id="w-retreat" viewBox="0 0 24 24"><path d="M3 19l6-10 3.5 5.5L14.5 11l6.5 8z"/><circle cx="17.5" cy="6" r="2.2"/></symbol>
 <symbol id="ic-users" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.5"/><path d="M3.5 20c.5-3.5 2.8-5.5 5.5-5.5s5 2 5.5 5.5M16 5.5a3 3 0 0 1 0 5.7M17.5 14.8c1.8.6 2.9 2.3 3.2 4.7"/></symbol>
 <symbol id="ic-xp" viewBox="0 0 24 24"><path d="M12 3l2.2 5.6L20 9.4l-4.4 3.9 1.3 5.7L12 16l-4.9 3 1.3-5.7L4 9.4l5.8-.8z"/></symbol>
 <symbol id="s-sat" viewBox="0 0 48 48"><rect x="19" y="19" width="10" height="10" rx="1.5" fill="#8d7f9b"/><rect x="4" y="20" width="12" height="8" fill="#6f7d8c"/><rect x="32" y="20" width="12" height="8" fill="#6f7d8c"/><path d="M8 24h4M36 24h4" stroke="#efeae0" stroke-width="1.6"/><path d="M24 19v-6a5 5 0 0 1 10 0" fill="none" stroke="#b3a179" stroke-width="2"/><circle cx="35" cy="11" r="2.5" fill="#b3a179"/><path d="M24 29v5" stroke="#8a6a4a" stroke-width="2" stroke-dasharray="2 2"/></symbol>
@@ -82,8 +91,10 @@ export const ART_DEFS = `<svg width="0" height="0" style="position:absolute" ari
 </defs></svg>`;
 
 export function Art({ id, className = 'art' }: { id: string; className?: string }) {
+  // 24×24 stroke symbols (ic-*, w-*) need stroke styling; 48×48 art is fill-based.
+  const stroke = id.startsWith('ic-') || id.startsWith('w-');
   return (
-    <svg className={className} viewBox="0 0 48 48" aria-hidden="true">
+    <svg className={stroke ? className + ' sart' : className} viewBox="0 0 48 48" aria-hidden="true">
       <use href={`#${id}`} />
     </svg>
   );
