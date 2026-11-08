@@ -1,67 +1,106 @@
 # Tycoon Life
 
-A text life-simulation game: you start at 18 (your birth year + 18), build jobs, degrees,
-business empires, trade stocks, join clubs, pay taxes, donate to charity and chase fame —
-while real historical events reshape the economy around you.
+A life-simulation game: start at 18 in **your own historical era** (birth year + 18),
+work gigs, study, build business chains across regions, supply factories from your
+farm, trade stocks, get famous on social media, pay taxes, donate to charity —
+and in the late game, take your empire **into space**.
 
-**Two editions live in this repo:**
+▶ **Play:** <https://duole3383.github.io/tycoon-life/>
 
-| Edition | Path | Tech | Where it runs |
-| --- | --- | --- | --- |
-| Classic single-file | `index.html` | Vanilla JS, zero build | GitHub Pages — <https://duole3383.github.io/tycoon-life/> |
-| React + LLM | `webapp/` | Next.js 16, TypeScript, Tailwind 4, z-ai-web-dev-sdk | Run locally / deploy to Vercel |
+Languages: **English · Tiếng Việt · 中文** (switch in the header).
 
 ---
 
-## What's inside the game
+## Features
 
-- **Character creation** — name, birth year (1900 → today−18), country, up to 3 interests and
-  2 talents. Your birth year decides the era you play in and your start year (`birth year + 18`).
-- **Era-driven world** — historical headlines from 1920 to 2026 plus era names (Roaring Twenties,
-  Great Depression, WWII, Dot-com boom, GFC, AI revolution…). Era events hit the economy
-  directly: the 1929 crash halves stocks, 1973/1979 oil shocks spike OIL, 1987 Black Monday,
-  2008 GFC, 2020 pandemic, 2022 AI boom, and more.
-- **Business chains** — every purchase opens a *branch in a named region* (Old Town walking
-  street, University quarter, Harbor promenade…). Each branch has a local mood that drifts
-  monthly: branches can boom… or run at a loss.
-- **Farm & factory supply chain** — farm expansion lines (dairy, orchard, aquaculture,
-  hydroponics, agrivoltaics) unlock by era year; factory production lines (cannery, textile,
-  appliances, solar, EV, semiconductor) require a factory branch, and food lines pay +30% when
-  your farm supplies them. EV line needs the Assembly line upstream.
-- **Stocks** — quantity input + **green Buy / red Sell** buttons, sparkline charts, prices move
-  every 3 seconds.
+- **Character creation** — name, birth year (1900 → today−18), country, up to 3
+  interests and 2 talents. Your birth year decides the era you play in and your
+  start year (`birth year + 18`).
+- **Era-driven world** — real historical headlines (1920–2026) plus era events that
+  hit the economy directly: the 1929 crash halves stocks, 1973/1979 oil shocks,
+  1987 Black Monday, 2008 GFC, 2020 pandemic, 2022 AI boom…
+- **Quick gigs** — watch an ad (yes, really), deliver food, freelance, tutor,
+  post sponsored content (needs followers) or take consulting calls. Each has a
+  cooldown in game days.
+- **Levels & XP** — earn XP from everything you do; each level adds **+2% income**.
+- **Business chains** — every purchase opens a *branch in a named region*
+  (Old Town walking street, University quarter…). Each branch has a local mood:
+  branches can boom… or run at a loss. The next branch always costs 35% more.
+- **Farm ⇄ factory supply chain** — farm lines (crops, dairy, orchards,
+  aquaculture, hydroponics, agrivoltaics) unlock by era year; food factory lines
+  pay **+30%** when your farm supplies them; EV plant needs the Assembly line.
+- **Stocks** — quantity input, **green Buy / red Sell**, sparkline charts, prices
+  move every 3 seconds.
 - **Shop** — grouped category tiles with a popup catalogue per category.
-- **Clubs** — join 6 elite clubs or **found your own** ($250k, needs $1M net worth, ×1.2 income).
-- **Bank, taxes, charity & fame** — savings with 2%/yr interest, loans up to 50% of net worth at
-  6%/yr, progressive income tax (0/15/25/35%, first $20k free) billed every 1 January, charity
-  donations that raise **fame** (fame boosts business income up to +20% and fades each birthday).
-- **Ranking boards** — richest overall, **young & rich** (under 35), **industry leaders**, and
-  **richest by nation** — 26 simulated rivals with ages, countries and industries.
-- **AI life twists** — an oracle button that asks the LLM backend to write a brand-new chapter
-  of your life, tailored to your exact era/wealth/family, never repeating previous twists.
+- **Social media** — posts, likes, followers, a blue check at 100k followers,
+  monthly **ad revenue**, and a follower-driven sponsored-post gig.
+- **Clubs** — 6 elite clubs or found your own ($250k, needs $1M net worth).
+- **Bank, taxes & charity** — savings 2%/yr, loans up to 50% of net worth at 6%/yr,
+  progressive income tax (0/15/25/35%, first $20k free) billed every 1 January,
+  donations that raise **fame** (fame boosts business income and attracts followers).
+- **Ranking boards** — richest overall, **young & rich** (under 35), **industry
+  leaders**, **richest by nation** — 26 simulated rivals.
+- **The cosmic frontier** 🚀 — from **level 6** and the right era onward, found
+  space ventures: satellite leasing (2000s), orbital tourism (2025+), asteroid
+  mining (2040+), lunar helium-3 (2055+), Mars colony supply (2070+). A serious
+  income stream that supplements jobs and businesses.
+- **AI life twists** — the oracle writes a brand-new chapter of your life tailored
+  to your era/wealth/family, remembering past twists so it never repeats.
+  * On GitHub Pages it runs on the built-in story engine (offline, no key needed).
+  * Self-hosted (`npm run dev` / `npm start`) it calls the real LLM backend at
+    `POST /api/story` (z-ai-web-dev-sdk) with a local fallback.
 
-## Run the React + LLM edition
+## Tech
+
+Next.js 16 (App Router, TypeScript) · React 19 · Tailwind 4 · static export for
+GitHub Pages · npm only (no Bun).
+
+## Run locally with npm
 
 ```bash
-cd webapp
-bun install        # or npm install
-bun run dev        # http://localhost:3000
+npm install
+npm run dev          # http://localhost:3000 — full LLM story backend
 ```
 
-The story endpoint is `POST /api/story`. It uses `z-ai-web-dev-sdk` server-side and always
-returns a valid event JSON — if the LLM is unreachable it falls back to a local generator, so
-the game never breaks.
+Production self-host:
 
-## Classic edition
+```bash
+npm run build        # server build (keeps /api/story)
+npm start
+```
 
-Open `index.html` — no build, saves to `localStorage`. The AI oracle button calls `/api/story`
-when the React app (or any backend) serves it, and silently falls back to a local tale
-otherwise, so the game stays fully playable on GitHub Pages.
+Static build (what GitHub Pages deploys — no server, oracle uses the local engine):
 
-## Bug-fix history (v5 → v7)
+```bash
+npm run build:static # → ./out
+```
 
-1. **Frozen-game bug**: mid-game life events were rolled but their modal never opened, halting
-   the game forever around age 19–20. Now the modal opens as soon as an event rolls.
-2. **Unaffordable-event deadlock**: events whose every choice cost money could lock the modal
-   with no clickable option. When nothing is affordable, all choices unlock.
-3. **Input-loss fix**: stock quantity keeps its value across re-renders.
+## Deployment
+
+`.github/workflows/deploy.yml` builds the static export with npm and deploys the
+`out/` folder to GitHub Pages on every push to `main`.
+
+## Project layout
+
+```
+src/app/page.tsx        all game UI (10 grouped tabs)
+src/app/api/story/      LLM story endpoint (self-hosted)
+src/lib/engine.ts       game engine (economy, time, events, gigs, levels, social, space)
+src/lib/gameData.ts     data: businesses, items, stocks, jobs, space lines, history
+src/lib/story.ts        built-in story generator (static fallback)
+src/lib/i18n.tsx        EN / VI / ZH dictionaries + switcher
+src/lib/art.tsx         SVG symbol art (neutral palette)
+public/img/             AI-generated photography (hero, business categories, space)
+```
+
+## Version history
+
+- **v8** — webapp moved to repo root (classic `index.html` retired), npm replaces
+  bun, EN/VI/中文, gigs replace the single side hustle, level/XP system, social
+  media with followers & ad revenue, cosmic frontier ventures, detailed but
+  grouped Home tab, neutral visual redesign with generated photography.
+- **v7** — business chains by region, farm/factory supply chain, bank/taxes/
+  charity/fame, 4 ranking boards, character creation, stock quantity + colors,
+  React webapp with LLM story backend.
+- **v5–v6** — bug fixes: life-event modal never opening mid-game (frozen game),
+  unaffordable-event deadlock, stock quantity input losing focus.

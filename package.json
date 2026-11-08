@@ -1,0 +1,32 @@
+{
+  "name": "tycoon-life",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Tycoon Life — life-simulation game (Next.js + LLM story backend)",
+  "scripts": {
+    "dev": "next dev -p 3000",
+    "build": "next build",
+    "build:static": "node scripts/static-build.mjs",
+    "start": "next start -p 3000",
+    "lint": "eslint ."
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "next": "^16.1.1",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "z-ai-web-dev-sdk": "^0.0.18"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4",
+    "@types/node": "^22",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "eslint": "^9",
+    "eslint-config-next": "^16.1.1",
+    "tailwindcss": "^4",
+    "typescript": "^5"
+  }
+}
