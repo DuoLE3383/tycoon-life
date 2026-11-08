@@ -1,26 +1,67 @@
-# 🏙️ Tycoon Life
+# Tycoon Life
 
-Xây dựng đế chế riêng của bạn trước khi tròn 90 tuổi — game mô phỏng đời người chạy hoàn toàn trong trình duyệt, gói gọn trong một file `index.html`, không cần cài đặt gì cả.
+A text life-simulation game: you start at 18 (your birth year + 18), build jobs, degrees,
+business empires, trade stocks, join clubs, pay taxes, donate to charity and chase fame —
+while real historical events reshape the economy around you.
 
-🎮 **Chơi ngay:** https://duole3383.github.io/tycoon-life/
+**Two editions live in this repo:**
 
-## Cách chơi
+| Edition | Path | Tech | Where it runs |
+| --- | --- | --- | --- |
+| Classic single-file | `index.html` | Vanilla JS, zero build | GitHub Pages — <https://duole3383.github.io/tycoon-life/> |
+| React + LLM | `webapp/` | Next.js 16, TypeScript, Tailwind 4, z-ai-web-dev-sdk | Run locally / deploy to Vercel |
 
-- Thời gian chạy thực: **10 giây thật = 1 ngày trong game** (mở tab khác thì thời gian tạm dừng).
-- Bấm **Side hustle** để có thu nhập sớm, học bằng đại học hoặc lấy bằng lái để mở khóa công việc lương cao.
-- Mở rộng kinh doanh từ quán cà phê tới tập đoàn đa ngành; đầu tư cổ phiếu (giá nhảy mỗi 3 giây); sưu tầm siêu xe, du thuyền, bất động sản.
-- Vào các **câu lạc bộ triệu phú** để nhận hệ số thu nhập; đối trọng là thuế 18%, tiền thuê & hóa đơn mỗi tháng.
-- Sống qua các sự kiện đời thực: tình yêu, đám cưới, con cái, trúng số, khủng hoảng thị trường… đến 90 tuổi sẽ có kết thúc với mức đánh giá tài sản.
+---
 
-## Bản vá trong phiên bản này
+## What's inside the game
 
-1. **Sửa lỗi treo game:** trước đây khi một sự kiện đời sống nổ ra giữa game, hộp thoại sự kiện không bao giờ được mở khiến thời gian đứng im vĩnh viễn. Giờ hộp thoại tự mở ngay khi sự kiện xảy ra.
-2. **Chống kẹt hộp thoại sự kiện:** với các sự kiện mà mọi lựa chọn đều tính phí (đám cưới, khủng hoảng tuổi trung niên…), nếu không đủ tiền, tất cả lựa chọn sẽ được mở khóa để câu chuyện luôn tiếp tục diễn ra.
+- **Character creation** — name, birth year (1900 → today−18), country, up to 3 interests and
+  2 talents. Your birth year decides the era you play in and your start year (`birth year + 18`).
+- **Era-driven world** — historical headlines from 1920 to 2026 plus era names (Roaring Twenties,
+  Great Depression, WWII, Dot-com boom, GFC, AI revolution…). Era events hit the economy
+  directly: the 1929 crash halves stocks, 1973/1979 oil shocks spike OIL, 1987 Black Monday,
+  2008 GFC, 2020 pandemic, 2022 AI boom, and more.
+- **Business chains** — every purchase opens a *branch in a named region* (Old Town walking
+  street, University quarter, Harbor promenade…). Each branch has a local mood that drifts
+  monthly: branches can boom… or run at a loss.
+- **Farm & factory supply chain** — farm expansion lines (dairy, orchard, aquaculture,
+  hydroponics, agrivoltaics) unlock by era year; factory production lines (cannery, textile,
+  appliances, solar, EV, semiconductor) require a factory branch, and food lines pay +30% when
+  your farm supplies them. EV line needs the Assembly line upstream.
+- **Stocks** — quantity input + **green Buy / red Sell** buttons, sparkline charts, prices move
+  every 3 seconds.
+- **Shop** — grouped category tiles with a popup catalogue per category.
+- **Clubs** — join 6 elite clubs or **found your own** ($250k, needs $1M net worth, ×1.2 income).
+- **Bank, taxes, charity & fame** — savings with 2%/yr interest, loans up to 50% of net worth at
+  6%/yr, progressive income tax (0/15/25/35%, first $20k free) billed every 1 January, charity
+  donations that raise **fame** (fame boosts business income up to +20% and fades each birthday).
+- **Ranking boards** — richest overall, **young & rich** (under 35), **industry leaders**, and
+  **richest by nation** — 26 simulated rivals with ages, countries and industries.
+- **AI life twists** — an oracle button that asks the LLM backend to write a brand-new chapter
+  of your life, tailored to your exact era/wealth/family, never repeating previous twists.
 
-## Chạy cục bộ
+## Run the React + LLM edition
 
-Chỉ cần tải `index.html` về và mở bằng trình duyệt — tiến trình chơi được lưu tự động trong `localStorage` của máy bạn.
+```bash
+cd webapp
+bun install        # or npm install
+bun run dev        # http://localhost:3000
+```
 
-## Kiểm thử
+The story endpoint is `POST /api/story`. It uses `z-ai-web-dev-sdk` server-side and always
+returns a valid event JSON — if the LLM is unreachable it falls back to a local generator, so
+the game never breaks.
 
-Game đã được chạy thử tự động (Playwright/Chromium) qua trọn vòng đời 18 → 90 tuổi: chuyển đủ 6 tab, làm thêm, mua/bán đồ, mua/bán cổ phiếu, mở kinh doanh, vào club, học & tốt nghiệp, trả lời sự kiện, nghỉ hưu và kết thúc — không có bất kỳ lỗi console nào.
+## Classic edition
+
+Open `index.html` — no build, saves to `localStorage`. The AI oracle button calls `/api/story`
+when the React app (or any backend) serves it, and silently falls back to a local tale
+otherwise, so the game stays fully playable on GitHub Pages.
+
+## Bug-fix history (v5 → v7)
+
+1. **Frozen-game bug**: mid-game life events were rolled but their modal never opened, halting
+   the game forever around age 19–20. Now the modal opens as soon as an event rolls.
+2. **Unaffordable-event deadlock**: events whose every choice cost money could lock the modal
+   with no clickable option. When nothing is affordable, all choices unlock.
+3. **Input-loss fix**: stock quantity keeps its value across re-renders.
