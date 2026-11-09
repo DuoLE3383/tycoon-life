@@ -10,7 +10,7 @@ import {
   START, END_AGE, RETIRE, RESALE_FEE, FOUND_COST, FOUND_MIN_NW, OWN_CLUB_MULT,
   SAVE_RATE, LOAN_RATE, TAX_FREE, TAX_BRACKETS, ALLNEWS, eraOf, NATIONS, NAME_POOLS, INTERESTS, TALENTS, PATHS,
   analyze, FIELDS, LICENSES, LIC_BY, LIC_FOR, STAGES, BIZ, FARM_LINES, FAC_LINES, ITEM_BY, ITEM_IMAGES, USED_IMAGES, STOCKS, ASSET_DEPRECIATION_RATE,
-  CLUBS, JOBS, GIGS, SPACE_LINES, TABS, GROUPS, xpNeed, ITEMS, USED_MARKET, HALL_OF_FAME, itemRarity, RARITY_COLOR, NPCS, NPC_BY, PETS, PET_BY, MAX_PETS, CREW_COST, SHORT_COURSES, SHORT_BY, type Rarity, type FieldKey, type Req,
+  CLUBS, JOBS, GIGS, SPACE_LINES, TABS, GROUPS, xpNeed, ITEMS, USED_MARKET, HALL_OF_FAME, itemRarity, RARITY_COLOR, NPCS, NPC_BY, PETS, PET_BY, MAX_PETS, CREW_COST, SHORT_COURSES, SHORT_BY, BOTS, type Rarity, type FieldKey, type Req,
 } from '@/lib/gameData';
 import {
   fmt, taxOf, fresh, begin, tick, stageOf, worldYear, branchCount, bizCost, clubMult, branchNet, fameBonus, bizMultiplier,
@@ -39,6 +39,9 @@ import {
   // v11.3 — power & influence
   powerTierOf, powerTierIdx, nextTierOf, POWER_TIERS, ADVOCACY_ACTIONS,
   doAdvocacy, INFLUENCE_SOURCE_LABELS, type PowerTier, type InfluenceSource, type AdvocacyAction,
+  // v11.4 — elections + scrutiny + alliances/rivals + endings
+  ELECTION_PARAMS, electionParamsFor, runElection, TRANSPARENCY_ACTIONS, doTransparency,
+  offerAlliance, breakWith, computeEnding, tickPowerV11_4,
 } from '@/lib/engine';
 import { localTwist, pickKind } from '@/lib/story';
 import { useT, LANGS, type Lang } from '@/lib/i18n';
@@ -52,10 +55,10 @@ if (typeof window !== 'undefined') {
   };
 }
 
-// v11.3 — the bundled version. The /version.json file in /public is polled
+// v11.4 — the bundled version. The /version.json file in /public is polled
 // every 5 minutes; if its version is newer than this, a "reload to update"
 // banner appears even in a running session (no F5 needed).
-const BUNDLED_VERSION = 'v11.3';
+const BUNDLED_VERSION = 'v11.4';
 const VERSION_POLL_MS = 5 * 60 * 1000;
 const SEEN_KEY = 'tycoon_seen_' + BUNDLED_VERSION;
 
@@ -369,7 +372,7 @@ function Header({ s, eraName }: { s: GameState; eraName: (y: number) => string }
     <header className="top">
       <div className="brand">
         <Art id="s-coin" className="logo" />
-        <div><h1>MOGUL <span className="mini">v11.3</span></h1>
+        <div><h1>MOGUL <span className="mini">v11.4</span></h1>
           <div className="mini">{s.started ? `${s.nation} · ${eraName(worldYear(s))}` : t('tagline')}</div></div>
       </div>
       <div><div className="mini">{t('cash')}</div><div id="tcash" style={{ color: s.money < 0 ? 'var(--brick)' : undefined }}>{fmt(s.money)}</div>
@@ -1459,6 +1462,14 @@ function PowerTab({ s, act }: { s: GameState; act: Act }) {
   const nw = netWorth(s);
   const tierLabel = (POWER_TIERS[tierIdx] || POWER_TIERS[0]);
   const showTier = (l: Lang) => l === 'vi' ? tierLabel.vi : l === 'zh' ? tierLabel.zh : tierLabel.en;
+  const params = electionParamsFor(s.nation);
+  const electionResult = s.power?.elections?.[s.nation];
+  const canRunElection = tierIdx >= POWER_TIERS.findIndex(r => r.tier === 'national_power')
+    && (s.power?.influence || 0) >= 80
+    && (s.power?.scrutiny || 0) < 95
+    && (!electionResult || electionResult.status !== 'won' || electionResult.termEnds <= s.lastDay);
+  // Bot rows for alliances/rivals UI (runElection expects {name, nation, nw}[]).
+  const botRows = BOTS.map(([n, a, nat, ind, v]) => ({ name: n, nation: nat, ind, nw: v * Math.pow(1.12, Math.max(0, s.age - 18)) }));
   return (<>
     {/* Current tier + next-threshold hint */}
     <Row art="t-power">
@@ -1495,6 +1506,31 @@ function PowerTab({ s, act }: { s: GameState; act: Act }) {
       )}
     </Row>
 
+    {/* v11.4 — Scrutiny meter */}
+    <Row art="s-tech">
+      <b>{t('v11.scrutinyLabel')} <span className={((s.power?.scrutiny || 0) >= 80) ? 'down' : 'up'}>{s.power?.scrutiny || 0}/100</span></b>
+      <span className="sub">{t('v11.scrutinyBlurb')}</span>
+      <span className="mini" style={{ display: 'block', marginTop: 2 }}>
+        {t('v11.transparencyLabel')}: {s.power?.transparency || 0}/100
+        {((s.power?.scrutiny || 0) >= 80) && <span className="down"> · {t('v11.scrutinyHigh')}</span>}
+      </span>
+    </Row>
+    {/* v11.4 — Transparency actions */}
+    {TRANSPARENCY_ACTIONS.map(a => {
+      const labelLang = (l: Lang): string => l === 'vi' ? a.label.vi : l === 'zh' ? a.label.zh : a.label.en;
+      const descLang = (l: Lang): string => l === 'vi' ? a.desc.vi : l === 'zh' ? a.desc.zh : a.desc.en;
+      return <Row key={a.id} art="s-tech"
+        right={<button className="tbuy" disabled={a.cost > 0 && (s.power?.influence || 0) < a.cost}
+          onClick={() => act(g => {
+            const r = doTransparency(g, a.id);
+            if (!r.ok) return r.reason === 'noInfluence' ? t('v11.advocacyNeedInfluence') : r.reason || 'failed';
+            return t('v11.transparencyDone', '', { action: labelLang(lang) });
+          })}>{a.cost > 0 ? t('v11.advocacyBtn', '', { x: a.cost }) : t('v11.transparencyAcceptRiskBtn')}</button>}>
+        <b>{labelLang(lang)}</b>
+        <span className="sub">{descLang(lang)}</span>
+      </Row>;
+    })}
+
     {/* Advocacy actions — spend influence here */}
     <h3 style={{ margin: '12px 0 4px' }}>{t('v11.advocacyTitle')}</h3>
     {ADVOCACY_ACTIONS.map(a => {
@@ -1514,6 +1550,69 @@ function PowerTab({ s, act }: { s: GameState; act: Act }) {
           })}>{t('v11.advocacyBtn', '', { x: a.cost })}</button>}>
         <b>{labelLang(lang)} <span className="mini">{locked ? `(${t('v11.tier')} ${POWER_TIERS[reqIdx].label})` : ''}</span></b>
         <span className="sub">{descLang(lang)}</span>
+      </Row>;
+    })}
+
+    {/* v11.4 — Election panel */}
+    <h3 style={{ margin: '12px 0 4px' }}>{t('v11.electionTitle')}</h3>
+    <Row art="t-rank">
+      <b>{t('v11.electionInNation', '', { nation: s.nation })}</b>
+      <span className="sub">
+        {params ? `opponent strength ${params.opponentStrength} · randomness ±${params.randomness}% · term ${params.termLength}yr` : ''}
+      </span>
+      {electionResult && (
+        <span className="mini" style={{ display: 'block', marginTop: 2 }}>
+          {t('v11.electionLastResult', '', {
+            status: electionResult.status,
+            year: electionResult.year,
+            opp: electionResult.opponent,
+            margin: electionResult.margin.toFixed(1),
+          })}
+        </span>
+      )}
+      <div className="trade" style={{ marginTop: 4 }}>
+        <button className="tbuy" disabled={!canRunElection}
+          onClick={() => act(g => {
+            const r = runElection(g, undefined, botRows, worldYear(g));
+            if (!r.ok) {
+              return r.reason === 'wrongTier' ? t('v11.electionNeedTier')
+                : r.reason === 'termActive' ? t('v11.electionTermActive')
+                : r.reason === 'scrutinyTooHigh' ? t('v11.electionScrutinyHigh')
+                : r.reason === 'noInfluence' ? t('v11.advocacyNeedInfluence')
+                : r.reason || 'failed';
+            }
+            return r.result === 'won'
+              ? t('v11.electionWon', '', { opp: r.opponent || '?', margin: (r.margin || 0).toFixed(1) })
+              : t('v11.electionLost', '', { opp: r.opponent || '?', margin: Math.abs(r.margin || 0).toFixed(1) });
+          })}>{t('v11.electionRun', '', { x: 80 })}</button>
+      </div>
+    </Row>
+
+    {/* v11.4 — Alliances & Rivals */}
+    <h3 style={{ margin: '12px 0 4px' }}>{t('v11.alliancesRivalsTitle')}</h3>
+    {botRows.slice(0, 6).map(b => {
+      const ally = s.power?.alliances?.find(a => a.bot === b.name);
+      const rival = s.power?.rivals?.find(r => r.bot === b.name);
+      return <Row key={b.name} art="j-mgr"
+        right={<div className="trade">
+          <button className="tbuy" disabled={(s.power?.influence || 0) < 20}
+            onClick={() => act(g => {
+              const r = offerAlliance(g, b.name);
+              if (!r.ok) return r.reason === 'noInfluence' ? t('v11.advocacyNeedInfluence') : 'failed';
+              return t('v11.allianceDone', '', { bot: b.name });
+            })}>{ally ? `+${t('v11.refresh')}` : t('v11.ally')}</button>
+          <button className="tsell" onClick={() => act(g => {
+            const r = breakWith(g, b.name);
+            if (!r.ok) return r.reason === 'noInfluence' ? t('v11.advocacyNeedInfluence') : 'failed';
+            return t('v11.rivalDone', '', { bot: b.name });
+          })}>{t('v11.break')}</button>
+        </div>}>
+        <b>{b.name} <span className="mini">{b.nation} · {b.ind}</span></b>
+        <span className="sub">
+          {ally && <span className="up">alliance {ally.strength}</span>}
+          {rival && <span className="down"> · rival {rival.hostility}</span>}
+          {!ally && !rival && <span>{t('v11.neutral')}</span>}
+        </span>
       </Row>;
     })}
   </>);

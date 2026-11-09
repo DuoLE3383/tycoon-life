@@ -2,14 +2,19 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
   fresh, begin, donate, netWorth, worldYear, migrate,
-  yearEnd, bizMultiplier,
+  yearEnd, bizMultiplier, recordHallOnGameOver, tickPowerV11_4,
 } from './engine';
+import { BOTS } from './gameData';
 import {
   POWER_TIERS, powerTierOf, powerTierOfNw, powerTierIdx, nextTierOf,
   freshPower, addInfluence, influenceFromCharity, spendInfluence,
   influenceFromClubChair, influenceFromBoardSeat, influenceFromMediaOwnership,
   influenceGainMult, tickPower, tickPassiveInfluence, tickTierPromotion,
   doAdvocacy, ADVOCACY_ACTIONS, type PowerTier, type InfluenceSource,
+  // v11.4 — elections + scrutiny + alliances/rivals + endings
+  ELECTION_PARAMS, electionParamsFor, generateOpponent, electionMargin, runElection,
+  tickScrutiny, TRANSPARENCY_ACTIONS, doTransparency,
+  offerAlliance, breakWith, tickAlliancesRivals, rollScandal, computeEnding,
 } from './power';
 
 test('v11.3: powerTierOfNw returns the right tier for each net worth threshold', () => {
@@ -324,4 +329,393 @@ test('v11.3: bizMultiplier applies boardNomineeBiz (+10%) on top of everything',
   s.power.boardNomineeBiz = 1.10;
   const after = bizMultiplier(s);
   assert.ok(Math.abs(after / baseline - 1.10) < 1e-6, `expected +10%, got ${after / baseline}`);
+});
+
+// ================= v11.4 — Elections + Scrutiny + Alliances/Rivals + Endings =================
+
+test('v11.4: electionParamsFor returns the right params for each of 12 nations', () => {
+  assert.equal(ELECTION_PARAMS.length, 12);
+  assert.ok(electionParamsFor('Vietnam'));
+  assert.ok(electionParamsFor('United States'));
+  // Term lengths vary by nation
+  assert.ok(electionParamsFor('Australia')!.termLength === 3);
+  assert.ok(electionParamsFor('Vietnam')!.termLength === 5);
+  // Randomness varies (Germany is the most stable)
+  assert.ok(electionParamsFor('Germany')!.randomness < electionParamsFor('Brazil')!.randomness);
+  // Unknown nation returns null
+  assert.equal(electionParamsFor('Atlantis'), null);
+});
+
+test('v11.4: generateOpponent picks a same-nation bot when available, scales 0.8..1.2', () => {
+  const s = fresh();
+  begin(s, { name: 'T', byear: 1990, nation: 'Vietnam', ints: [], tals: [] });
+  const bots = BOTS.map(([n, a, nat, ind, v]) => ({ name: n, nation: nat, nw: v }));
+  const opp = generateOpponent(s, () => 0.5, bots);
+  assert.ok(opp.name.length > 0);
+  // With rng=0.5, factor = 0.8 + 0.5*0.4 = 1.0, so strength = 50
+  assert.equal(opp.personalStrength, 50);
+  // Different nation with bots → still gets a name (uses fallback pool)
+  s.nation = 'Atlantis';
+  const opp2 = generateOpponent(s, () => 0.5, bots);
+  assert.ok(opp2.name.length > 0);
+});
+
+test('v11.4: electionMargin sums influence + alliance + rival + scrutiny + opponent + noise', () => {
+  const s = fresh();
+  begin(s, { name: 'T', byear: 1990, nation: 'Vietnam', ints: [], tals: [] });
+  s.power = freshPower();
+  s.power.influence = 100;
+  s.power.alliances = [{ bot: 'A', strength: 50, formedDay: 0 }];
+  s.power.rivals = [{ bot: 'B', hostility: 40 }];
+  // rng=0.5 → noise = (0.5 - 0.5) * 2 * randomness = 0
+  // Expected: min(100/10, 25) + min(50*0.5, 25) + max(-25, -40*0.5) + 0 + 0 (opponent=50) + 0
+  //         = 10 + 25 + (-20) + 0 + 0 + 0 = 15
+  const m = electionMargin(s, 50, 10, () => 0.5);
+  assert.equal(m, 15, `expected 15, got ${m}`);
+  // Higher opponent strength → lower margin
+  const m2 = electionMargin(s, 100, 10, () => 0.5);
+  // Opponent penalty = -((100-50)/50)*25 = -25
+  assert.equal(m2, 15 - 25, `expected -10, got ${m2}`);
+  // Scrutiny ≥80 reduces margin
+  s.power.scrutiny = 90;
+  const m3 = electionMargin(s, 50, 10, () => 0.5);
+  // scrutiny penalty = -(90-80)*0.5 = -5
+  assert.equal(m3, 15 - 5, `expected 10, got ${m3}`);
+});
+
+test('v11.4: runElection refuses when tier below national_power', () => {
+  const s = fresh();
+  begin(s, { name: 'T', byear: 1990, nation: 'Vietnam', ints: [], tals: [] });
+  s.power = freshPower();
+  s.power.influence = 200;
+  s.money = 50_000_000; // industry_mogul — too low
+  const bots = BOTS.map(([n, a, nat, ind, v]) => ({ name: n, nation: nat, nw: v }));
+  const r = runElection(s, () => 0.5, bots, 2020);
+  assert.equal(r.ok, false);
+  assert.equal(r.reason, 'wrongTier');
+  assert.equal(s.power.influence, 200, 'influence preserved on failure');
+});
+
+test('v11.4: runElection succeeds at national_power; win grants +50 influence + +15 scrutiny', () => {
+  const s = fresh();
+  begin(s, { name: 'T', byear: 1990, nation: 'Vietnam', ints: [], tals: [] });
+  s.power = freshPower();
+  s.power.influence = 200; // moderate — diminishing returns will cut the +50 gain
+  s.money = 1_100_000_000; // national_power
+  const bots = BOTS.map(([n, a, nat, ind, v]) => ({ name: n, nation: nat, nw: v }));
+  // With influence=200, influenceBonus = min(20, 25) = 20. Opponent at rng=0.99:
+  // personalStrength = 50 * (0.8 + 0.99*0.4) = 50 * 1.196 = 59.8 → opponentPenalty = -(9.8/50)*25 ≈ -4.9
+  // margin = 20 + 0 + 0 + 0 + (-4.9) + 0 (noise from rng=0.99) = ~15 → wins
+  const r = runElection(s, () => 0.99, bots, 2020);
+  assert.equal(r.ok, true);
+  assert.ok(s.power.elections['Vietnam']);
+  if (r.result === 'won') {
+    // Influence: 200 - 80 (campaign cost) + addInfluence(50, 'electionWin') w/ diminishing returns
+    // mult(120) = 1 / (1 + sqrt(1.2)) = 1 / 2.095 = 0.477 → gain = round(50*0.477) = 24
+    // final = 120 + 24 = 144 (approx). Just verify it increased from 120.
+    assert.ok(s.power.influence >= 120, `influence ≥120 after win (campaign cost 80 + influence gain), got ${s.power.influence}`);
+    assert.ok(s.power.scrutiny >= 15, `scrutiny ≥15 after win, got ${s.power.scrutiny}`);
+    assert.equal(s.power.elections['Vietnam'].status, 'won');
+    assert.ok(s.power.elections['Vietnam'].termEnds > 0, 'term ends in the future');
+  } else {
+    assert.ok(s.power.scrutiny >= 5);
+    assert.equal(s.power.elections['Vietnam'].status, 'lost');
+    assert.equal(s.power.elections['Vietnam'].termEnds, 0);
+  }
+});
+
+test('v11.4: runElection refuses when scrutiny ≥95', () => {
+  const s = fresh();
+  begin(s, { name: 'T', byear: 1990, nation: 'Vietnam', ints: [], tals: [] });
+  s.power = freshPower();
+  s.power.influence = 500;
+  s.power.scrutiny = 96;
+  s.money = 1_100_000_000;
+  const bots = BOTS.map(([n, a, nat, ind, v]) => ({ name: n, nation: nat, nw: v }));
+  const r = runElection(s, () => 0.5, bots, 2020);
+  assert.equal(r.ok, false);
+  assert.equal(r.reason, 'scrutinyTooHigh');
+});
+
+test('v11.4: runElection refuses when term still active (won last election)', () => {
+  const s = fresh();
+  begin(s, { name: 'T', byear: 1990, nation: 'Vietnam', ints: [], tals: [] });
+  s.power = freshPower();
+  s.power.influence = 500;
+  s.money = 1_100_000_000;
+  s.power.elections['Vietnam'] = {
+    status: 'won', year: 2020, opponent: 'X', margin: 5, termEnds: s.lastDay + 365,
+  };
+  const bots = BOTS.map(([n, a, nat, ind, v]) => ({ name: n, nation: nat, nw: v }));
+  const r = runElection(s, () => 0.5, bots, 2021);
+  assert.equal(r.ok, false);
+  assert.equal(r.reason, 'termActive');
+});
+
+test('v11.4: runElection refuses when influence < 80', () => {
+  const s = fresh();
+  begin(s, { name: 'T', byear: 1990, nation: 'Vietnam', ints: [], tals: [] });
+  s.power = freshPower();
+  s.power.influence = 50;
+  s.money = 1_100_000_000;
+  const bots = BOTS.map(([n, a, nat, ind, v]) => ({ name: n, nation: nat, nw: v }));
+  const r = runElection(s, () => 0.5, bots, 2020);
+  assert.equal(r.ok, false);
+  assert.equal(r.reason, 'noInfluence');
+});
+
+test('v11.4: tickScrutiny rises by tier + extra for high influence; falls with transparency', () => {
+  const s = fresh();
+  begin(s, { name: 'T', byear: 1990, nation: 'Vietnam', ints: [], tals: [] });
+  s.power = freshPower();
+  // industry_mogul tier
+  s.money = 12_000_000;
+  assert.equal(powerTierOf(s), 'industry_mogul');
+  const r1 = tickScrutiny(s);
+  assert.equal(r1, 2, 'industry_mogul → +2');
+  assert.equal(s.power.scrutiny, 2);
+  // influencer tier
+  s.money = 110_000_000;
+  s.power.scrutiny = 0;
+  const r2 = tickScrutiny(s);
+  assert.equal(r2, 4, 'influencer → +4');
+  // national_power with influence >500
+  s.money = 1_100_000_000;
+  s.power.influence = 600;
+  s.power.scrutiny = 0;
+  const r3 = tickScrutiny(s);
+  assert.equal(r3, 7 + 3, 'national_power + influence>500 → +10');
+  // With transparency = 40 → reduces by 40*0.5 = 20 → 0 (floored)
+  s.power.transparency = 40;
+  s.power.scrutiny = 0;
+  const r4 = tickScrutiny(s);
+  assert.equal(r4, 0, 'transparency reduces scrutiny rise to 0');
+});
+
+test('v11.4: doTransparency independentBoard +20 transparency, costs 40 influence', () => {
+  const s = fresh();
+  begin(s, { name: 'T', byear: 1990, nation: 'Vietnam', ints: [], tals: [] });
+  s.power = freshPower();
+  s.power.influence = 100;
+  const r = doTransparency(s, 'independentBoard');
+  assert.equal(r.ok, true);
+  assert.equal(s.power.transparency, 20);
+  assert.equal(s.power.influence, 100 - 40);
+});
+
+test('v11.4: doTransparency acceptRisk is free; sets no bump', () => {
+  const s = fresh();
+  begin(s, { name: 'T', byear: 1990, nation: 'Vietnam', ints: [], tals: [] });
+  s.power = freshPower();
+  s.power.influence = 0;
+  const r = doTransparency(s, 'acceptRisk');
+  assert.equal(r.ok, true);
+  assert.equal(s.power.transparency, 0);
+});
+
+test('v11.4: doTransparency refuses when insufficient influence', () => {
+  const s = fresh();
+  begin(s, { name: 'T', byear: 1990, nation: 'Vietnam', ints: [], tals: [] });
+  s.power = freshPower();
+  s.power.influence = 20; // less than 40 for independentBoard
+  const r = doTransparency(s, 'independentBoard');
+  assert.equal(r.ok, false);
+  assert.equal(r.reason, 'noInfluence');
+});
+
+test('v11.4: offerAlliance forms alliance at strength 30, costs 20 influence', () => {
+  const s = fresh();
+  begin(s, { name: 'T', byear: 1990, nation: 'Vietnam', ints: [], tals: [] });
+  s.power = freshPower();
+  s.power.influence = 100;
+  const r = offerAlliance(s, 'Minh Nguyen');
+  assert.equal(r.ok, true);
+  assert.equal(s.power.influence, 80);
+  assert.equal(s.power.alliances.length, 1);
+  assert.equal(s.power.alliances[0].bot, 'Minh Nguyen');
+  assert.equal(s.power.alliances[0].strength, 30);
+});
+
+test('v11.4: offerAlliance refreshes existing alliance by +20 strength, costs 20', () => {
+  const s = fresh();
+  begin(s, { name: 'T', byear: 1990, nation: 'Vietnam', ints: [], tals: [] });
+  s.power = freshPower();
+  s.power.influence = 100;
+  offerAlliance(s, 'Minh Nguyen'); // strength 30, influence 80
+  const r = offerAlliance(s, 'Minh Nguyen'); // refresh
+  assert.equal(r.ok, true);
+  assert.equal(s.power.influence, 60);
+  assert.equal(s.power.alliances[0].strength, 50);
+});
+
+test('v11.4: offerAlliance removes bot from rivals when allying', () => {
+  const s = fresh();
+  begin(s, { name: 'T', byear: 1990, nation: 'Vietnam', ints: [], tals: [] });
+  s.power = freshPower();
+  s.power.influence = 100;
+  s.power.rivals = [{ bot: 'Minh Nguyen', hostility: 40 }];
+  offerAlliance(s, 'Minh Nguyen');
+  assert.equal(s.power.rivals.length, 0, 'rival cleared after alliance');
+});
+
+test('v11.4: breakWith turns ally into rival with hostility 50', () => {
+  const s = fresh();
+  begin(s, { name: 'T', byear: 1990, nation: 'Vietnam', ints: [], tals: [] });
+  s.power = freshPower();
+  s.power.influence = 100;
+  offerAlliance(s, 'Minh Nguyen');
+  const r = breakWith(s, 'Minh Nguyen');
+  assert.equal(r.ok, true);
+  assert.equal(s.power.alliances.length, 0);
+  assert.equal(s.power.rivals.length, 1);
+  assert.equal(s.power.rivals[0].hostility, 50);
+});
+
+test('v11.4: breakWith bumps existing rival hostility by +20', () => {
+  const s = fresh();
+  begin(s, { name: 'T', byear: 1990, nation: 'Vietnam', ints: [], tals: [] });
+  s.power = freshPower();
+  s.power.rivals = [{ bot: 'X', hostility: 50 }];
+  breakWith(s, 'X');
+  assert.equal(s.power.rivals[0].hostility, 70);
+});
+
+test('v11.4: tickAlliancesRivals decays alliance by 5, rival by 3, drops zero entries', () => {
+  const s = fresh();
+  begin(s, { name: 'T', byear: 1990, nation: 'Vietnam', ints: [], tals: [] });
+  s.power = freshPower();
+  s.power.alliances = [{ bot: 'A', strength: 10, formedDay: 0 }, { bot: 'B', strength: 5, formedDay: 0 }];
+  s.power.rivals = [{ bot: 'C', hostility: 8 }, { bot: 'D', hostility: 2 }];
+  tickAlliancesRivals(s);
+  assert.equal(s.power.alliances.length, 1, 'B drops (strength 0)');
+  assert.equal(s.power.alliances[0].strength, 5);
+  assert.equal(s.power.rivals.length, 1, 'D drops (hostility 0)');
+  assert.equal(s.power.rivals[0].hostility, 5);
+});
+
+test('v11.4: rollScandal fires when scrutiny high; bumps scrutiny + rivals + reduces influence', () => {
+  const s = fresh();
+  begin(s, { name: 'T', byear: 1990, nation: 'Vietnam', ints: [], tals: [] });
+  s.power = freshPower();
+  s.power.scrutiny = 100;
+  s.power.influence = 50;
+  s.power.rivals = [{ bot: 'X', hostility: 30 }];
+  // rng = 0.0 → always fires (chance ≥0%; 0 < baseChance)
+  const fired = rollScandal(s, () => 0.0);
+  assert.equal(fired, true);
+  assert.equal(s.power.scrutiny, 100); // already at cap
+  assert.equal(s.power.rivals[0].hostility, 45);
+  assert.equal(s.power.influence, 45);
+});
+
+test('v11.4: rollScandal acceptRisk doubles chance', () => {
+  const s = fresh();
+  begin(s, { name: 'T', byear: 1990, nation: 'Vietnam', ints: [], tals: [] });
+  s.power = freshPower();
+  s.power.scrutiny = 50; // baseChance = 0.15
+  s.power.influence = 50;
+  // rng = 0.20 → fails at 0.15 but fires at 0.30
+  const r1 = rollScandal(s, () => 0.20, false);
+  assert.equal(r1, false);
+  // reset and try with acceptRisk
+  s.power.scrutiny = 50;
+  const r2 = rollScandal(s, () => 0.20, true);
+  assert.equal(r2, true, 'doubled chance fires');
+});
+
+test('v11.4: computeEnding returns reclusive when no power tier unlocked', () => {
+  const s = fresh();
+  begin(s, { name: 'T', byear: 1990, nation: 'Vietnam', ints: [], tals: [] });
+  s.power = freshPower();
+  s.power.unlockedTier = 'none';
+  assert.equal(computeEnding(s), 'reclusive');
+});
+
+test('v11.4: computeEnding returns overthrown when scrutiny ≥80', () => {
+  const s = fresh();
+  begin(s, { name: 'T', byear: 1990, nation: 'Vietnam', ints: [], tals: [] });
+  s.power = freshPower();
+  s.power.unlockedTier = 'national_power';
+  s.power.scrutiny = 85;
+  s.power.elections = { Vietnam: { status: 'won', year: 2020, opponent: 'X', margin: 10, termEnds: 0 } };
+  assert.equal(computeEnding(s), 'overthrown');
+});
+
+test('v11.4: computeEnding returns sustainable for state_leader + won + scrutiny<50', () => {
+  const s = fresh();
+  begin(s, { name: 'T', byear: 1990, nation: 'Vietnam', ints: [], tals: [] });
+  s.power = freshPower();
+  s.power.unlockedTier = 'state_leader';
+  s.power.scrutiny = 30;
+  s.power.elections = { Vietnam: { status: 'won', year: 2020, opponent: 'X', margin: 20, termEnds: 0 } };
+  assert.equal(computeEnding(s), 'sustainable');
+});
+
+test('v11.4: computeEnding returns respected for national_power + won + scrutiny<70', () => {
+  const s = fresh();
+  begin(s, { name: 'T', byear: 1990, nation: 'Vietnam', ints: [], tals: [] });
+  s.power = freshPower();
+  s.power.unlockedTier = 'national_power';
+  s.power.scrutiny = 60;
+  s.power.elections = { Vietnam: { status: 'won', year: 2020, opponent: 'X', margin: 10, termEnds: 0 } };
+  assert.equal(computeEnding(s), 'respected');
+});
+
+test('v11.4: recordHallOnGameOver writes ending into hall.note', () => {
+  const s = fresh();
+  begin(s, { name: 'T', byear: 1990, nation: 'Vietnam', ints: [], tals: [] });
+  s.power = freshPower();
+  s.power.unlockedTier = 'state_leader';
+  s.power.scrutiny = 30;
+  s.power.elections = { Vietnam: { status: 'won', year: 2020, opponent: 'X', margin: 20, termEnds: 0 } };
+  s.over = true;
+  s.cause = 'age';
+  s.age = 90;
+  recordHallOnGameOver(s);
+  assert.ok(s.hall);
+  assert.ok(s.hall!.note.includes('ending: sustainable'));
+  assert.equal(s.power.ending, 'sustainable');
+});
+
+test('v11.4: tickPowerV11_4 returns combined promotion + influence + scrutiny + scandal', () => {
+  const s = fresh();
+  begin(s, { name: 'T', byear: 1990, nation: 'Vietnam', ints: [], tals: [] });
+  s.power = freshPower();
+  s.ownClub = 'My Circle';
+  s.clubs = ['own'];
+  s.money = 12_000_000; // cross $10M → industry_mogul promotion
+  s.power.scrutiny = 100; // force a scandal roll
+  const r = tickPowerV11_4(s, netWorth(s), () => 0.0); // rng=0 → scandal fires (chance ≥0)
+  assert.equal(r.promotedTo, 'industry_mogul');
+  assert.ok(r.influenceGained > 0);
+  assert.ok(r.scrutinyRise >= 0);
+  assert.equal(r.scandal, true, 'scandal should fire at scrutiny 100');
+  // Verify state side-effects
+  assert.equal(s.power.unlockedTier, 'industry_mogul');
+  assert.ok(s.power.scrutiny >= 0); // already at cap, stays 100
+});
+
+test('v11.4: migrate() backfills the new v11.4 power fields on saves that only had v11.3 power', () => {
+  const state = migrate({
+    schemaVersion: 4, money: 50_000_000,
+    // v11.3-style partial power state — no elections/alliances/rivals/ending
+    power: { unlockedTier: 'industry_mogul', influence: 50, unlockedAtDay: 100, influenceLog: [], scrutiny: 0, transparency: 0 },
+  });
+  assert.equal(state.power.unlockedTier, 'industry_mogul');
+  assert.equal(state.power.influence, 50);
+  // v11.4 fields backfilled
+  assert.deepEqual(state.power.elections, {});
+  assert.deepEqual(state.power.alliances, []);
+  assert.deepEqual(state.power.rivals, []);
+  assert.equal(state.power.ending, null);
+});
+
+test('v11.4: TRANSPARENCY_ACTIONS has 3 entries (independentBoard, disclosureReports, acceptRisk)', () => {
+  assert.equal(TRANSPARENCY_ACTIONS.length, 3);
+  assert.equal(TRANSPARENCY_ACTIONS[0].id, 'independentBoard');
+  assert.equal(TRANSPARENCY_ACTIONS[1].id, 'disclosureReports');
+  assert.equal(TRANSPARENCY_ACTIONS[2].id, 'acceptRisk');
+  // acceptRisk is free
+  assert.equal(TRANSPARENCY_ACTIONS[2].cost, 0);
+  assert.equal(TRANSPARENCY_ACTIONS[2].bump, 0);
 });

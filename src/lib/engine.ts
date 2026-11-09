@@ -12,24 +12,31 @@ import {
 } from './gameData';
 // v11.3 — Power & influence system. Engine imports PowerState type + the
 // passive tick + advocacy helpers; PowerState lives on GameState below.
+// v11.4 — elections, scrutiny, alliances/rivals, endings.
 import {
-  type PowerState, freshPower, tickPower, addInfluence, influenceFromCharity,
+  type PowerState, freshPower, tickPower, tickPowerV11_4, addInfluence, influenceFromCharity,
   doAdvocacy, powerTierOf, powerTierIdx, nextTierOf,
-  type PowerTier, type InfluenceSource, type AdvocacyAction,
+  type PowerTier, type InfluenceSource, type AdvocacyAction, type ElectionParams,
   influenceGainMult, spendInfluence,
   influenceFromClubChair, influenceFromBoardSeat, influenceFromMediaOwnership,
   POWER_TIERS, ADVOCACY_ACTIONS, INFLUENCE_SOURCE_LABELS,
+  ELECTION_PARAMS, electionParamsFor, generateOpponent, electionMargin, runElection,
+  tickScrutiny, TRANSPARENCY_ACTIONS, doTransparency,
+  offerAlliance, breakWith, tickAlliancesRivals, rollScandal, computeEnding,
 } from './power';
 // Re-export the public surface of the power module so the React layer
 // can import everything from one place (engine.ts).
 export {
-  freshPower, tickPower, addInfluence, influenceFromCharity,
+  freshPower, tickPower, tickPowerV11_4, addInfluence, influenceFromCharity,
   doAdvocacy, powerTierOf, powerTierIdx, nextTierOf,
   influenceGainMult, spendInfluence,
   influenceFromClubChair, influenceFromBoardSeat, influenceFromMediaOwnership,
   POWER_TIERS, ADVOCACY_ACTIONS, INFLUENCE_SOURCE_LABELS,
+  ELECTION_PARAMS, electionParamsFor, generateOpponent, electionMargin, runElection,
+  tickScrutiny, TRANSPARENCY_ACTIONS, doTransparency,
+  offerAlliance, breakWith, tickAlliancesRivals, rollScandal, computeEnding,
 };
-export type { PowerState, PowerTier, InfluenceSource, AdvocacyAction } from './power';
+export type { PowerState, PowerTier, InfluenceSource, AdvocacyAction, ElectionParams } from './power';
 
 export const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
@@ -807,14 +814,19 @@ export function yearEnd(s: GameState, age: number, rng: () => number = Math.rand
   // worth cross a new threshold?) with the passive influence sources
   // (club chair / board seat / media ownership). Net worth is computed
   // here and passed in so power.ts doesn't need to import netWorth().
+  // v11.4 — now uses tickPowerV11_4 which also ticks scrutiny, decays
+  // alliances/rivals, and rolls for scandal events.
   const nw = netWorth(s);
-  const powerTick = tickPower(s, nw);
+  const powerTick = tickPowerV11_4(s, nw, rng);
   if (powerTick.promotedTo) {
     const label = POWER_TIERS.find(r => r.tier === powerTick.promotedTo)?.label || powerTick.promotedTo;
     pushLog(s, `Power tier unlocked: ${label}. New political avenues open.`);
   }
   if (powerTick.influenceGained > 0) {
     pushLog(s, `Passive influence +${powerTick.influenceGained} this year (club / board / media).`);
+  }
+  if (powerTick.scandal) {
+    pushLog(s, `Scandal! Press leaks dog you. Scrutiny +10, rivals emboldened, influence −5.`);
   }
   rollLife(s, age, rng);
 }
@@ -1517,19 +1529,25 @@ export function repairUsed(s: GameState, idx: number): string | null {
 export function playerHallEntry(s: GameState) {
   const { tier, nw } = gameOverTier(s);
   const y = worldYear(s);
+  // v11.4 — append the power ending to the hall note so the Hall of
+  // Fame records how the player's political arc ended.
+  const ending = s.power ? computeEnding(s) : null;
+  const endingNote = ending ? ` · ending: ${ending}` : '';
   return {
     name: s.name,
     nation: s.nation,
     era: eraOf(y).name,
     industry: playerIndustry(s),
     peakNetWorth: fmt(nw),
-    note: `${s.cause === 'health' ? 'Burned out at ' + Math.floor(s.age) : 'Lived to ' + Math.floor(s.age)} · ${tier} · ${s.ach.length}/${ACHIEVEMENTS.length} milestones · level ${s.level}`,
+    note: `${s.cause === 'health' ? 'Burned out at ' + Math.floor(s.age) : 'Lived to ' + Math.floor(s.age)} · ${tier} · ${s.ach.length}/${ACHIEVEMENTS.length} milestones · level ${s.level}${endingNote}`,
     livedTo: Math.floor(s.age),
     tier
   };
 }
 export function recordHallOnGameOver(s: GameState): void {
   if (!s.over) return;
+  // v11.4 — compute + record the power ending before freezing the hall entry.
+  if (s.power) s.power.ending = computeEnding(s);
   s.hall = playerHallEntry(s);
 }
 

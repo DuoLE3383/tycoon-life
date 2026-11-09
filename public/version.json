@@ -1,18 +1,20 @@
 {
-  "version": "v11.3",
+  "version": "v11.4",
   "releasedAt": "2026-11-09",
-  "headline": "MOGUL v11.3 — power & influence",
-  "summary": "A new tier system on top of net worth. Beyond money, players accrue political and social capital — influence — that unlocks a power ladder from industry mogul ($10M) to influencer ($100M) to national power ($1B) to state leader ($10B). Influence comes from charity (1 per $10K), founding a club (5/year passive), board seats (3 per founded club + 1.5 per member club), and media ownership (10 per source: film studio + verified 1M+ followers). Diminishing returns: 1 / (1 + sqrt(I/100)). Three advocacy actions: lobby industry policy (+5% biz for 1 year, 25 influence, requires industry mogul), place a board nominee (permanent +10% biz, 60 influence, requires influencer), endow a foundation (permanent +20% influence gain, 120 influence, requires national power). Tier is sticky — once unlocked, it stays even if net worth drops.",
+  "headline": "MOGUL v11.4 — elections + scrutiny + alliances/rivals",
+  "summary": "V11-9 steps 4+5+6 complete the power system. Player can now run for national office in any of 12 nations, with NPC opponents drawn from the leaderboard bot pool and ±10-15% randomness. Winning grants +50 influence but raises scrutiny by 15. Scrutiny rises yearly with power (industry mogul +2, influencer +4, national power +7, state leader +10), extra +3 if influence>500, falls by 0.5 per transparency point. At scrutiny≥80, election margin takes a hit; at ≥95 you cannot run. Scandals fire at 0-30%/year scaled by scrutiny (doubled if 'accept risk'). Player can form alliances with leaderboard bots (20 influence, +30 strength, decays -5/year) or break with them (turns hostile, +50 hostility). Alliances give +5% election margin per strength point (cap +25%); rivals apply -5% margin per hostility (cap -25%). Four endings at game over: sustainable (state_leader + won + scrutiny<50), respected (national_power+ + won + scrutiny<70), overthrown (scrutiny≥80 OR recalled), reclusive (never unlocked a power tier).",
   "features": [
-    "PowerTier system: industry_mogul / influencer / national_power / state_leader, unlocked by net worth",
-    "Influence resource with diminishing returns (1 / (1 + sqrt(I/100)))",
-    "Influence sources: charity (donate), club chair (passive 5/year), board seats (passive), media ownership (passive)",
-    "Three advocacy actions: lobby, board nominee, endow foundation — each consumes influence",
-    "Tier is sticky — promotion persists even if net worth later drops below the threshold",
-    "yearEnd now ticks passive influence + checks tier promotion; logs both events",
-    "bizMultiplier now stacks the boardNomineeBiz bonus from the advocacy action",
-    "New 'Power' tab in the World group showing tier, influence, sources, advocacy actions",
-    "Donation now grants influence (with diminishing returns) on top of fame + karma",
-    "Version bumped to v11.3 on homepage + version.json + 22 new power tests"
+    "Elections: 12 nations with common framework (opponent strength + randomness + term length)",
+    "Election margin = base + influence bonus + alliance bonus − rival penalty − scrutiny penalty − opponent strength ± noise",
+    "Election cost: 80 influence per run; win grants +50 influence + +15 scrutiny, loss grants +5 scrutiny",
+    "Scrutiny meter (0-100): rises with power tier + high influence, falls with transparency",
+    "3 transparency actions: independent board (+20 transparency, 40 influence), disclosure reports (+15, 30 influence), accept risk (free, doubles scandal chance)",
+    "Alliances: form/refresh with leaderboard bots (20 influence, +30 strength, decays −5/year)",
+    "Rivals: break with a bot (hostility +50), bump hostility by +20 if already a rival",
+    "Alliance bonus = +0.5% margin per strength point (cap +25%); rival penalty = −0.5% per hostility (cap −25%)",
+    "Scandal events: 0-30%/year scaled by scrutiny (doubled if accept-risk); scandal → scrutiny +10, rivals +15, influence −5",
+    "Four game-over endings: sustainable, respected, overthrown, reclusive — written to Hall of Fame note",
+    "PowerTab expanded with scrutiny meter, transparency actions, election panel, alliance/rival list",
+    "Version bumped to v11.4 on homepage + version.json"
   ]
 }

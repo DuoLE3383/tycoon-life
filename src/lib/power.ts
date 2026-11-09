@@ -84,6 +84,31 @@ export interface PowerState {
   // `foundationMult` lifts all influence gains by +20%.
   boardNomineeBiz?: number;
   foundationMult?: number;
+  // v11.4 — election results. Each nation tracks the player's last result.
+  //   status: 'never' | 'running' | 'won' | 'lost' | 'recalled'
+  //   year: when the most recent election was held
+  //   opponent: NPC name
+  //   margin: percentage margin (negative = lost)
+  //   termEnds: game-day the term expires (next election allowed)
+  elections: Record<string, {
+    status: 'never' | 'running' | 'won' | 'lost' | 'recalled';
+    year: number;
+    opponent: string;
+    margin: number;
+    termEnds: number;
+  }>;
+  // v11.4 — alliances with leaderboard bots. Each entry: bot name +
+  // strength 0..100 (decays by ~5/year unless refreshed). Alliances
+  // give +5% election margin per point of strength (capped at +25%).
+  alliances: { bot: string; strength: number; formedDay: number }[];
+  // v11.4 — rivals the player has made (lowered by transparency).
+  // Each entry: bot name + hostility 0..100. Rivals apply −5% election
+  // margin per point of hostility (capped at −25%) and can launch
+  // smear campaigns that bump scrutiny.
+  rivals: { bot: string; hostility: number; }[];
+  // v11.4 — ending flag, set at game over based on power + scrutiny.
+  // null until game over.
+  ending: 'sustainable' | 'respected' | 'overthrown' | 'reclusive' | null;
 }
 
 export function freshPower(): PowerState {
@@ -91,6 +116,10 @@ export function freshPower(): PowerState {
     unlockedTier: 'none', unlockedAtDay: 0,
     influence: 0, influenceLog: [],
     scrutiny: 0, transparency: 0,
+    elections: {},
+    alliances: [],
+    rivals: [],
+    ending: null,
   };
 }
 
@@ -308,3 +337,341 @@ export function doAdvocacy(s: GameState, id: string, year: number): { ok: boolea
   }
   return { ok: false, reason: 'unknown' };
 }
+
+// ================= v11.4 — Elections + Scrutiny =================
+// Elections: a nation-level contest against an NPC opponent. Common
+// parameters across the 12 nations; opponent is a generated NPC; result
+// is influenced by player's power tier, influence, alliances, rivals,
+// and a randomness factor (±10%). Required tier: national_power ($1B).
+//
+// Scrutiny: rises with power (industry_mogul → +2/yr, influencer → +4,
+// national_power → +7, state_leader → +10) and adds extra for high
+// influence (>500 → +3/yr) or scandal events. Reduced by transparency
+// measures: independent board (+5/yr), disclosure reports (+8/yr),
+// accepting risk caps scrutiny at 100 but doubles the chance of a
+// scandal event. At scrutiny ≥80, election margin takes a −10% hit;
+// at ≥95 the player cannot run again until scrutiny drops.
+//
+// 4 endings at game over (computed from power + scrutiny + elections):
+//   sustainable — state_leader, scrutiny <50, won election
+//   respected  — national_power+ AND scrutiny <70 AND won election
+//   overthrown — scrutiny ≥80 OR recalled by election
+//   reclusive  — never unlocked a power tier (stayed 'none')
+
+// v11.4 — election parameters per nation. 12 nations use a common
+// framework; each has a baseline difficulty (opponent strength),
+// turnout (randomness amplitude), and term length (years). All values
+// are tunable; the formula is uniform so the player can map strategies
+// across nations.
+export interface ElectionParams {
+  nation: string;
+  opponentStrength: number;  // base opponent score 0..100 (higher = harder)
+  randomness: number;         // ±% margin swing (10 = ±10%)
+  termLength: number;         // years per term before re-election needed
+  minTier: PowerTier;        // tier required to run (default national_power)
+}
+export const ELECTION_PARAMS: ElectionParams[] = [
+  { nation: 'Vietnam', opponentStrength: 60, randomness: 10, termLength: 5, minTier: 'national_power' },
+  { nation: 'United States', opponentStrength: 70, randomness: 15, termLength: 4, minTier: 'national_power' },
+  { nation: 'United Kingdom', opponentStrength: 65, randomness: 12, termLength: 5, minTier: 'national_power' },
+  { nation: 'Japan', opponentStrength: 60, randomness: 10, termLength: 4, minTier: 'national_power' },
+  { nation: 'South Korea', opponentStrength: 62, randomness: 12, termLength: 5, minTier: 'national_power' },
+  { nation: 'France', opponentStrength: 64, randomness: 13, termLength: 5, minTier: 'national_power' },
+  { nation: 'Germany', opponentStrength: 58, randomness: 8, termLength: 4, minTier: 'national_power' },
+  { nation: 'Brazil', opponentStrength: 66, randomness: 15, termLength: 4, minTier: 'national_power' },
+  { nation: 'Nigeria', opponentStrength: 68, randomness: 14, termLength: 4, minTier: 'national_power' },
+  { nation: 'India', opponentStrength: 67, randomness: 13, termLength: 5, minTier: 'national_power' },
+  { nation: 'Australia', opponentStrength: 60, randomness: 10, termLength: 3, minTier: 'national_power' },
+  { nation: 'Canada', opponentStrength: 60, randomness: 10, termLength: 4, minTier: 'national_power' },
+];
+export const electionParamsFor = (nation: string): ElectionParams | null =>
+  ELECTION_PARAMS.find(p => p.nation === nation) || null;
+
+// v11.4 — generate an NPC opponent for the player's nation. Uses the
+// BOTS roster (top-by-net-worth of same nation, falling back to a
+// generated name). The opponent's `personalStrength` is the bot's
+// baseline strength × a random factor 0.8..1.2.
+export function generateOpponent(s: GameState, rng: () => number = Math.random, bots: { name: string; nation: string; nw: number }[]): { name: string; personalStrength: number } {
+  const same = bots.filter(b => b.nation === s.nation);
+  if (same.length > 0) {
+    const top = [...same].sort((a, b) => b.nw - a.nw)[0];
+    return { name: top.name, personalStrength: 50 * (0.8 + rng() * 0.4) };
+  }
+  // Fallback: a generated name (no bot pool for this nation)
+  const pool = ['Minh Tran', 'Sofia Rossi', 'Alex Chen', 'Yuki Tanaka', 'Grace Taylor'];
+  const name = pool[Math.floor(rng() * pool.length)];
+  return { name, personalStrength: 50 * (0.8 + rng() * 0.4) };
+}
+
+// v11.4 — compute the player's effective election margin. Combines:
+//   + influence bonus: min(influence / 10, 25) — capped at +25
+//   + alliance bonus: sum of alliance strengths × 0.5, capped at +25
+//   − rival penalty: sum of rival hostilities × 0.5, capped at −25
+//   − scrutiny penalty: 0 if scrutiny<80, else (scrutiny-80) * 0.5 (so 90 → −5)
+//   − opponent strength: scaled (50 → 0; 100 → −25)
+//   ± randomness: ±ElectionParams.randomness
+// Margin > 0 wins; < 0 loses. (No base 50; the bonuses swing around zero.)
+export function electionMargin(s: GameState, opponentStrength: number, randomness: number, rng: () => number = Math.random): number {
+  const influence = s.power?.influence || 0;
+  const influenceBonus = Math.min(influence / 10, 25);
+  const allianceBonus = Math.min(
+    (s.power?.alliances || []).reduce((a, b) => a + b.strength * 0.5, 0),
+    25
+  );
+  const rivalPenalty = Math.max(
+    -25,
+    -(s.power?.rivals || []).reduce((a, b) => a + b.hostility * 0.5, 0)
+  );
+  const scrutiny = s.power?.scrutiny || 0;
+  const scrutinyPenalty = scrutiny < 80 ? 0 : -(scrutiny - 80) * 0.5;
+  // Opponent strength: 50 → 0 penalty; 100 → -25 penalty; linear between
+  const opponentPenalty = -((opponentStrength - 50) / 50) * 25;
+  const noise = (rng() - 0.5) * 2 * randomness;
+  return influenceBonus + allianceBonus + rivalPenalty + scrutinyPenalty + opponentPenalty + noise;
+}
+
+// v11.4 — run an election. Player must be at national_power (or higher),
+// must not be currently serving a term (termEnds > lastDay), and must
+// have ≥80 influence to spend on the campaign (the campaign cost).
+// Returns the result; mutates s.power.elections[nation] + s.power.influence.
+export function runElection(
+  s: GameState,
+  rng: () => number = Math.random,
+  bots: { name: string; nation: string; nw: number }[] = [],
+  year: number
+): { ok: boolean; reason?: string; result?: 'won' | 'lost'; margin?: number; opponent?: string } {
+  if (!s.power) return { ok: false, reason: 'noPower' };
+  const tier = powerTierOf(s);
+  const tierIdx = POWER_TIERS.findIndex(r => r.tier === tier);
+  const reqIdx = POWER_TIERS.findIndex(r => r.tier === 'national_power');
+  if (tierIdx < reqIdx) return { ok: false, reason: 'wrongTier' };
+  const params = electionParamsFor(s.nation);
+  if (!params) return { ok: false, reason: 'noNation' };
+  // Check term
+  const prev = s.power.elections[s.nation];
+  if (prev && prev.termEnds > s.lastDay && (prev.status === 'won')) {
+    return { ok: false, reason: 'termActive' };
+  }
+  // Check scrutiny cap
+  if ((s.power.scrutiny || 0) >= 95) return { ok: false, reason: 'scrutinyTooHigh' };
+  // Influence campaign cost
+  if (s.power.influence < 80) return { ok: false, reason: 'noInfluence' };
+  s.power.influence -= 80;
+  const opponent = generateOpponent(s, rng, bots);
+  const margin = electionMargin(s, opponent.personalStrength, params.randomness, rng);
+  const won = margin > 0;
+  const termLengthDays = params.termLength * 365;
+  s.power.elections[s.nation] = {
+    status: won ? 'won' : 'lost',
+    year,
+    opponent: opponent.name,
+    margin: Math.round(margin * 10) / 10,
+    termEnds: won ? s.lastDay + termLengthDays : 0,
+  };
+  if (won) {
+    addInfluence(s, 50, 'electionWin');
+    // Winning raises scrutiny by +15
+    s.power.scrutiny = Math.min(100, s.power.scrutiny + 15);
+  } else {
+    // Losing raises scrutiny by +5 (the press digs in)
+    s.power.scrutiny = Math.min(100, s.power.scrutiny + 5);
+  }
+  return { ok: true, result: won ? 'won' : 'lost', margin: Math.round(margin * 10) / 10, opponent: opponent.name };
+}
+
+// v11.4 — yearly scrutiny tick. Called from yearEnd(). Power-level-driven
+// base rise, plus high-influence scrutiny, minus transparency measures.
+// Caps at 100.
+export function tickScrutiny(s: GameState): number {
+  if (!s.power) return 0;
+  const tier = powerTierOf(s);
+  let rise = 0;
+  if (tier === 'industry_mogul') rise = 2;
+  else if (tier === 'influencer') rise = 4;
+  else if (tier === 'national_power') rise = 7;
+  else if (tier === 'state_leader') rise = 10;
+  // Extra: influence >500 → +3/yr (you attract more attention)
+  if ((s.power.influence || 0) > 500) rise += 3;
+  // Counter: transparency measures (independent board, disclosure)
+  // Each point of transparency reduces scrutiny rise by 0.5 (max 100*0.5=50)
+  const trans = s.power.transparency || 0;
+  rise -= trans * 0.5;
+  // Floor at 0 (transparency cannot make scrutiny negative)
+  rise = Math.max(0, rise);
+  s.power.scrutiny = Math.max(0, Math.min(100, s.power.scrutiny + rise));
+  return rise;
+}
+
+// v11.4 — transparency measures the player can buy with influence.
+// Each bumps s.power.transparency by N points (cap 100).
+export const TRANSPARENCY_ACTIONS: { id: string; label: { en: string; vi: string; zh: string }; cost: number; bump: number; desc: { en: string; vi: string; zh: string } }[] = [
+  {
+    id: 'independentBoard',
+    label: { en: 'Independent board', vi: 'Hội đồng độc lập', zh: '独立董事会' },
+    cost: 40,
+    bump: 20,
+    desc: {
+      en: 'Bring in outside directors who watch the books. +20 transparency.',
+      vi: 'Đưa giám đốc ngoài vào theo dõi sổ sách. +20 minh bạch.',
+      zh: '引入外部董事监督账目。+20透明度。',
+    },
+  },
+  {
+    id: 'disclosureReports',
+    label: { en: 'Disclosure reports', vi: 'Báo cáo công khai', zh: '公开披露报告' },
+    cost: 30,
+    bump: 15,
+    desc: {
+      en: 'Publish quarterly financial + lobbying reports. +15 transparency.',
+      vi: 'Công bố báo cáo tài chính + vận động hàng quý. +15 minh bạch.',
+      zh: '发布季度财务+游说报告。+15透明度。',
+    },
+  },
+  {
+    id: 'acceptRisk',
+    label: { en: 'Accept the risk', vi: 'Chấp nhận rủi ro', zh: '接受风险' },
+    cost: 0,
+    bump: 0,
+    desc: {
+      en: 'No counter-measures — scrutiny caps at 100 but scandal chance doubles.',
+      vi: 'Không phòng vệ — scrutiny giữ 100, rủi ro scandal ×2.',
+      zh: '不设防 — 审查度上限100但丑闻几率翻倍。',
+    },
+  },
+];
+
+export function doTransparency(s: GameState, id: string): { ok: boolean; reason?: string; effect?: string } {
+  if (!s.power) return { ok: false, reason: 'noPower' };
+  const a = TRANSPARENCY_ACTIONS.find(x => x.id === id);
+  if (!a) return { ok: false, reason: 'unknown' };
+  if (id === 'acceptRisk') {
+    // Free action: marks player as risk-acceptor (no bump). Engine/UI
+    // can read s.power.transparency (low) and apply doubled scandal rate.
+    return { ok: true, effect: 'acceptRisk' };
+  }
+  if (!spendInfluence(s, a.cost)) return { ok: false, reason: 'noInfluence' };
+  s.power.transparency = Math.min(100, s.power.transparency + a.bump);
+  return { ok: true, effect: id };
+}
+
+// v11.4 — alliance/rival management. Player can offer an alliance to a
+// leaderboard bot (forms or strengthens an alliance; strength starts at
+// 30, decays −5/year) OR break with a bot (turns a former ally into a
+// rival, hostility starts at 50). Returns success/failure.
+export function offerAlliance(s: GameState, bot: string): { ok: boolean; reason?: string } {
+  if (!s.power) return { ok: false, reason: 'noPower' };
+  if (s.power.influence < 20) return { ok: false, reason: 'noInfluence' };
+  const existing = s.power.alliances.find(a => a.bot === bot);
+  if (existing) {
+    // Refresh: +20 strength (cap 100), costs 20 influence
+    if (s.power.influence < 20) return { ok: false, reason: 'noInfluence' };
+    s.power.influence -= 20;
+    existing.strength = Math.min(100, existing.strength + 20);
+    return { ok: true };
+  }
+  s.power.influence -= 20;
+  s.power.alliances.push({ bot, strength: 30, formedDay: s.lastDay });
+  // Remove from rivals if present (you wouldn't ally a hostile)
+  s.power.rivals = s.power.rivals.filter(r => r.bot !== bot);
+  return { ok: true };
+}
+
+export function breakWith(s: GameState, bot: string): { ok: boolean; reason?: string } {
+  if (!s.power) return { ok: false, reason: 'noPower' };
+  const ally = s.power.alliances.find(a => a.bot === bot);
+  if (ally) {
+    s.power.alliances = s.power.alliances.filter(a => a.bot !== bot);
+    s.power.rivals.push({ bot, hostility: 50 });
+    return { ok: true };
+  }
+  // If already a rival, just bump hostility by +20
+  const rival = s.power.rivals.find(r => r.bot === bot);
+  if (rival) {
+    rival.hostility = Math.min(100, rival.hostility + 20);
+    return { ok: true };
+  }
+  // Else: cost 10 influence to declare a new rival
+  if (s.power.influence < 10) return { ok: false, reason: 'noInfluence' };
+  s.power.influence -= 10;
+  s.power.rivals.push({ bot, hostility: 30 });
+  return { ok: true };
+}
+
+// v11.4 — yearly alliance/rival decay tick. Alliances lose 5 strength
+// per year unless refreshed; rivals lose 3 hostility per year (grudges
+// fade). Returns nothing — purely a state update.
+export function tickAlliancesRivals(s: GameState): void {
+  if (!s.power) return;
+  for (const a of s.power.alliances) {
+    a.strength = Math.max(0, a.strength - 5);
+  }
+  for (const r of s.power.rivals) {
+    r.hostility = Math.max(0, r.hostility - 3);
+  }
+  // Drop empty alliances / rivals
+  s.power.alliances = s.power.alliances.filter(a => a.strength > 0);
+  s.power.rivals = s.power.rivals.filter(r => r.hostility > 0);
+}
+
+// v11.4 — scandal event. Random chance per year (scaled by scrutiny:
+// 5% at scrutiny 0, ~30% at scrutiny 100). If hit, costs cash + raises
+// rivals' hostility + bumps scrutiny by +10. Returns true if a scandal
+// fired this year.
+export function rollScandal(s: GameState, rng: () => number = Math.random, acceptRisk: boolean = false): boolean {
+  if (!s.power) return false;
+  const scrutiny = s.power.scrutiny || 0;
+  const baseChance = (scrutiny / 100) * 0.30; // 0..30%
+  const chance = acceptRisk ? baseChance * 2 : baseChance;
+  if (rng() >= chance) return false;
+  // Scandal fires: scrutiny +10, all rivals +15 hostility, lose 5 influence
+  s.power.scrutiny = Math.min(100, s.power.scrutiny + 10);
+  for (const r of s.power.rivals) r.hostility = Math.min(100, r.hostility + 15);
+  s.power.influence = Math.max(0, s.power.influence - 5);
+  return true;
+}
+
+// v11.4 — compute the player's ending at game over. Based on:
+//   - power tier reached (unlockedTier)
+//   - scrutiny at game over
+//   - election history (won any? recalled?)
+// Returns one of 'sustainable' | 'respected' | 'overthrown' | 'reclusive'.
+export function computeEnding(s: GameState): 'sustainable' | 'respected' | 'overthrown' | 'reclusive' {
+  if (!s.power) return 'reclusive';
+  const tier = s.power.unlockedTier;
+  if (tier === 'none') return 'reclusive';
+  const scrutiny = s.power.scrutiny || 0;
+  // Overthrown if scrutiny≥80 OR recalled (any election with status 'recalled')
+  const recalled = Object.values(s.power.elections).some(e => e.status === 'recalled');
+  if (scrutiny >= 80 || recalled) return 'overthrown';
+  // Sustainable: state_leader + won election + scrutiny <50
+  const wonAny = Object.values(s.power.elections).some(e => e.status === 'won');
+  if (tier === 'state_leader' && wonAny && scrutiny < 50) return 'sustainable';
+  // Respected: national_power+ AND wonAny AND scrutiny <70
+  const tierIdx = POWER_TIERS.findIndex(r => r.tier === tier);
+  const natIdx = POWER_TIERS.findIndex(r => r.tier === 'national_power');
+  if (tierIdx >= natIdx && wonAny && scrutiny < 70) return 'respected';
+  // Default for a player who reached a tier but didn't win an election:
+  // they stayed reclusive (private citizen-equivalent in retirement).
+  return 'reclusive';
+}
+
+// v11.4 — yearly power tick (v11.3 was just promotion + passive
+// influence; v11.4 adds scrutiny + alliance/rival decay + scandal).
+// Engine.ts calls this from yearEnd() with the precomputed net worth.
+export function tickPowerV11_4(s: GameState, nw: number, rng: () => number = Math.random): {
+  promotedTo: PowerTier | null;
+  influenceGained: number;
+  scrutinyRise: number;
+  scandal: boolean;
+} {
+  // Reuse the v11.3 promotion + passive influence
+  const promotedTo = tickTierPromotion(s, nw);
+  const influenceGained = tickPassiveInfluence(s);
+  // v11.4 additions
+  const scrutinyRise = tickScrutiny(s);
+  tickAlliancesRivals(s);
+  const acceptRisk = (s.power.transparency || 0) === 0 && (s.power.scrutiny || 0) >= 80;
+  const scandal = rollScandal(s, rng, acceptRisk);
+  return { promotedTo, influenceGained, scrutinyRise, scandal };
+}
+
