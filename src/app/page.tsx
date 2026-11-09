@@ -1,5 +1,5 @@
 'use client';
-// HuyenBao v11.10 — React edition. Two-level grouped nav, a systems links map,
+// HuyenBao v11.11 — React edition. Two-level grouped nav, a systems links map,
 // gigs, levels, social, the cosmic frontier, EN/VI/中文, LLM oracle with
 // random kind dispatch (luck / setback / life-stage / story), pre-owned
 // market + social listings, and a Hall of Fame tab.
@@ -53,6 +53,7 @@ import {
   MONTHS as MONTHS_NAMES,
 } from '@/lib/engine';
 import { localTwist, pickKind } from '@/lib/story';
+import { castHexagram, validateQuestion, type CastResult } from '@/lib/iching';
 import { useT, LANGS, type Lang } from '@/lib/i18n';
 
 const asset = (p: string) => (process.env.NEXT_PUBLIC_BASE_PATH || '') + p;
@@ -67,7 +68,7 @@ if (typeof window !== 'undefined') {
 // v11.8 — the bundled version. The /version.json file in /public is polled
 // every 5 minutes; if its version is newer than this, a "reload to update"
 // banner appears even in a running session (no F5 needed).
-const BUNDLED_VERSION = 'v11.10';
+const BUNDLED_VERSION = 'v11.11';
 const VERSION_POLL_MS = 5 * 60 * 1000;
 const SEEN_KEY = 'tycoon_seen_' + BUNDLED_VERSION;
 
@@ -384,7 +385,7 @@ function Header({ s, eraName }: { s: GameState; eraName: (y: number) => string }
     <header className="top">
       <div className="brand">
         <Art id="s-coin" className="logo" />
-        <div><h1>HuyenBao <span className="mini">v11.10</span></h1>
+        <div><h1>HuyenBao <span className="mini">v11.11</span></h1>
           <div className="mini">{s.started ? `${s.nation} · ${eraName(worldYear(s))}` : t('tagline')}</div></div>
       </div>
       <div><div className="mini">{t('cash')}</div><div id="tcash" style={{ color: s.money < 0 ? 'var(--brick)' : undefined }}>{fmt(s.money)}</div>
@@ -952,6 +953,131 @@ function SpiritTab({ s, act }: { s: GameState; act: Act }) {
             {s.psychic.draws.slice(-5).reverse().map(d => `${d.card}`).join(' · ')}
           </span>
         </Row>
+      )}
+      {/* v11.11 — Kinh Dịch (I Ching), first Huyen-Hoc-AI feature integrated into the main app */}
+      <KinhDichPanel />
+    </>
+  );
+}
+
+// v11.11 — Kinh Dịch (I Ching) panel. Casts 6 lines client-side via the
+// deterministic engine (src/lib/iching.ts), then asks /api/divine for an LLM
+// interpretation in the player's language. No save-state change: each cast is
+// stateless (client-side throttle prevents spam). Mirrors the Huyen-Hoc-AI
+// FastAPI coin-cast + King Wen lookup, but runs on the main app's own LLM.
+function HexLines({ hex }: { hex: CastResult['primary'] }) {
+  // Render the 6 hào top → bottom (reverse of the stored bottom → top order).
+  // Yang = solid bar, yin = two segments; moving lines use the accent colour + a dot.
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 4, alignItems: 'center' }}>
+      <div style={{ fontSize: '1.15rem', lineHeight: 1 }}>{hex.upper.symbol}{hex.lower.symbol}</div>
+      {hex.lines.slice().reverse().map((l, i) => (
+        <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+          <div style={{ display: 'flex', gap: l.yang ? 0 : 6, width: 60, height: 7 }}>
+            {l.yang
+              ? <div style={{ flex: 1, background: l.moving ? 'var(--accent)' : 'var(--faint)', borderRadius: 1 }} />
+              : <><div style={{ flex: 1, background: l.moving ? 'var(--accent)' : 'var(--faint)', borderRadius: 1 }} /><div style={{ flex: 1, background: l.moving ? 'var(--accent)' : 'var(--faint)', borderRadius: 1 }} /></>}
+          </div>
+          {l.moving && <span style={{ fontSize: '.6rem', color: 'var(--accent)' }}>●</span>}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function KinhDichPanel() {
+  const { t, lang } = useT();
+  const [question, setQuestion] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const [result, setResult] = useState<{ cast: CastResult; reading: { interpretation: string; advice: string; verdict: 'CAT' | 'HUNG' | 'TINH'; verdictLabel: string; source: string } } | null>(null);
+  const lastCastRef = useRef(0);
+  const THROTTLE_MS = 8000; // client-side throttle — one cast per 8s
+  const L = (o: { vi: string; en: string; zh: string }) => lang === 'vi' ? o.vi : lang === 'zh' ? o.zh : o.en;
+  const qLen = question.trim().length;
+  const canCast = !busy && qLen >= 5 && qLen <= 500;
+
+  const doCast = async () => {
+    setErr(null);
+    try { validateQuestion(question, lang); }
+    catch (e) { setErr((e as Error).message || t('kd.errQuestion')); return; }
+    if (Date.now() - lastCastRef.current < THROTTLE_MS) { setErr(t('kd.throttle')); return; }
+    lastCastRef.current = Date.now();
+    setBusy(true);
+    // Deterministic cast runs client-side; the LLM only interprets it.
+    const cast = castHexagram();
+    try {
+      const res = await fetch('/api/divine', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ cast, question: question.trim(), lang })
+      });
+      if (!res.ok) throw new Error('fetch');
+      const reading = await res.json();
+      setResult({ cast, reading });
+    } catch {
+      setErr(t('kd.errFetch'));
+    } finally { setBusy(false); }
+  };
+
+  const verdictColor = result?.reading.verdict === 'CAT' ? 'var(--sage)'
+    : result?.reading.verdict === 'HUNG' ? 'var(--brick)' : 'var(--slate)';
+
+  return (
+    <>
+      <h3 style={{ marginTop: 14 }}>{t('kd.title')}</h3>
+      <Row art="ic-star"
+        right={<button className="ibtn" disabled={!canCast} onClick={doCast}>
+          <span>{busy ? t('kd.thinking') : t('kd.cast')}</span>
+        </button>}>
+        <b>{t('kd.title')}</b>
+        <span className="sub">{t('kd.blurb')}</span>
+        <textarea placeholder={t('kd.questionPh')} value={question}
+          onChange={e => setQuestion(e.target.value)} maxLength={500} rows={2}
+          style={{ width: '100%', marginTop: 6, padding: '6px 8px', border: '1px solid var(--line2)', borderRadius: 4, fontSize: '.9rem', background: 'transparent', color: 'inherit', resize: 'vertical', fontFamily: 'inherit' }}
+          aria-label={t('kd.question')} />
+        {err && <span className="sub" style={{ color: 'var(--brick)', display: 'block', marginTop: 4 }}>{err}</span>}
+      </Row>
+
+      {result && (
+        <div className="card" style={{ marginBottom: 10 }}>
+          {/* primary + changed hexagram side by side with hào lines */}
+          <div className="lb"><span>{t('kd.primary')}</span>
+            <b>#{result.cast.primary.num} · {L(result.cast.primary.name)}</b></div>
+          <div className="mini" style={{ marginTop: 2 }}>{L(result.cast.primary.theme)}</div>
+          <div style={{ display: 'flex', gap: 18, alignItems: 'center', margin: '8px 0' }}>
+            <HexLines hex={result.cast.primary} />
+            {result.cast.changed && (
+              <>
+                <span className="mini" style={{ fontSize: '1rem' }}>→</span>
+                <div>
+                  <div className="mini">{t('kd.changed')}</div>
+                  <div style={{ marginTop: 2 }}><HexLines hex={result.cast.changed} /></div>
+                  <div className="mini" style={{ marginTop: 2 }}>
+                    <b>#{result.cast.changed.num} · {L(result.cast.changed.name)}</b>
+                  </div>
+                  <div className="mini">{L(result.cast.changed.theme)}</div>
+                </div>
+              </>
+            )}
+          </div>
+          <div className="mini">
+            {result.cast.movingLines.length
+              ? `${t('kd.moving')}: ${result.cast.movingLines.join(', ')}`
+              : t('kd.staticCast')}
+          </div>
+
+          {/* verdict badge */}
+          <div className="lb" style={{ marginTop: 8 }}><span>{t('kd.verdict')}</span>
+            <b style={{ color: verdictColor }}>{result.reading.verdictLabel}</b></div>
+
+          {/* LLM interpretation */}
+          <div className="mini" style={{ textTransform: 'uppercase', letterSpacing: '.4px', marginTop: 8 }}>{t('kd.interpretation')}</div>
+          <p style={{ margin: '4px 0 0', fontSize: '.92rem' }}>{result.reading.interpretation}</p>
+          <div className="mini" style={{ textTransform: 'uppercase', letterSpacing: '.4px', marginTop: 8 }}>{t('kd.advice')}</div>
+          <p className="mini" style={{ margin: '4px 0 0' }}>{result.reading.advice}</p>
+          <p className="mini" style={{ marginTop: 6, opacity: .6 }}>{t('disc.aiNote')}</p>
+        </div>
       )}
     </>
   );

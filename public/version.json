@@ -1,13 +1,14 @@
 {
-  "version": "v11.10",
+  "version": "v11.11",
   "releasedAt": "2026-11-10",
-  "headline": "HuyenBao v11.10 — legal disclaimer (EN/VI/ZH)",
-  "summary": "A clear legal warning is now built into the game at every important surface: (1) the character-creation intro shows the disclaimer from the first screen and requires an explicit checkbox acknowledgment — 'Begin my life' stays disabled until the player confirms they understand this is a simulation game, not real life; (2) a persistent one-line disclaimer is shown in the footer on every tab during play and on the game-over screen; (3) every event modal (including AI prophecies) carries a note that AI-written content is fictional and never real-life advice. All text is localised in English, Vietnamese and 中文.",
+  "headline": "HuyenBao v11.11 — Kinh Dịch (I Ching) integrated from Huyen-Hoc-AI",
+  "summary": "First Huyen-Hoc-AI feature brought into the main app: a full Kinh Dịch (I Ching) oracle in the Spirit tab. The deterministic coin-cast (3 coins × 6 lines → King Wen hexagram → moving lines → transformed hexagram) is ported from the Huyen-Hoc-AI FastAPI backend to TypeScript and runs client-side. A new /api/divine endpoint interprets the cast through the app's existing local LLM (Ollama, same client as /api/story) with a Kinh Dịch-specific prompt, falling back to ZAI cloud then to a deterministic local reading — so the oracle always returns a result. The interpretation is written in the player's UI language (EN/VI/中文). All 64 hexagram names use the canonical Sino-Vietnamese / Wilhelm-English / original-Chinese set. The feature needs no save-state change and has no runtime dependency on the FastAPI service, so it works the moment the app is deployed.",
   "features": [
-    "Intro disclaimer: warning box on the first screen of character creation + mandatory acknowledgment checkbox in the review step — 'Begin my life' is disabled until acknowledged",
-    "Persistent disclaimer line in the app footer (all tabs) and on the game-over screen: simulation game for entertainment only, do not apply to real life, player bears full legal responsibility for real-world actions",
-    "Event modal note: AI prophecies & life events are fictional — entertainment only, never real-life advice",
-    "Disclaimer text localised in EN / VI / 中文 (disc.title, disc.ack, disc.short, disc.aiNote)",
-    "Version bumped to v11.10 on homepage header + version.json"
+    "New Kinh Dịch panel in the Spirit tab: question input + cast button → primary hexagram, hào lines (yang/yin, moving highlighted), moving-lines list, changed hexagram (quẻ biến) when there are moving lines, verdict badge (Cát/Hung/Tĩnh), LLM interpretation + reflection",
+    "src/lib/iching.ts: full deterministic engine — 8 trigrams, King Wen 8×8 table, 64 hexagrams (VI/EN/ZH names + themes), crypto-fair 3-coin cast, hào động detection, quẻ biến computation",
+    "POST /api/divine: LLM interpretation via the existing Ollama connection (LLM_BASE_URL), ZAI cloud fallback, deterministic local-reading fallback — always returns a valid reading in the player's language",
+    "Client-side 8s throttle prevents spam-casting (no save-state change, no engine change)",
+    "Disclaimer note (disc.aiNote) shown under every reading: AI prophecies & events are fictional — entertainment only",
+    "Version bumped to v11.11 on homepage header + version.json"
   ]
 }
