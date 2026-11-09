@@ -10,7 +10,7 @@ import {
   START, END_AGE, RETIRE, RESALE_FEE, FOUND_COST, FOUND_MIN_NW, OWN_CLUB_MULT,
   SAVE_RATE, LOAN_RATE, TAX_FREE, TAX_BRACKETS, ALLNEWS, eraOf, NATIONS, INTERESTS, TALENTS, PATHS,
   analyze, FIELDS, LICENSES, LIC_BY, LIC_FOR, STAGES, BIZ, FARM_LINES, FAC_LINES, ITEM_BY, ITEM_IMAGES, USED_IMAGES, STOCKS, ASSET_DEPRECIATION_RATE,
-  CLUBS, JOBS, GIGS, SPACE_LINES, TABS, GROUPS, xpNeed, ITEMS, USED_MARKET, HALL_OF_FAME, itemRarity, RARITY_COLOR, NPCS, NPC_BY, PETS, PET_BY, MAX_PETS, type Rarity, type FieldKey, type Req,
+  CLUBS, JOBS, GIGS, SPACE_LINES, TABS, GROUPS, xpNeed, ITEMS, USED_MARKET, HALL_OF_FAME, itemRarity, RARITY_COLOR, NPCS, NPC_BY, PETS, PET_BY, MAX_PETS, CREW_COST, type Rarity, type FieldKey, type Req,
 } from '@/lib/gameData';
 import {
   fmt, taxOf, fresh, begin, tick, stageOf, worldYear, branchCount, bizCost, clubMult, branchNet, fameBonus, bizMultiplier,
@@ -933,9 +933,10 @@ function AssetsTab({ s, act, curCat, setCurCat }: { s: GameState; act: Act; curC
           const list = ITEMS.filter(i => i.cat === c);
           const lo = Math.min(...list.map(i => i.price)), hi = Math.max(...list.map(i => i.price));
           const need = LIC_FOR[c], have = !need || s.lic[need];
+          const crewCat = CREW_COST[c] || 0;
           return <button key={c} className="tile" onClick={() => setCurCat(c)}>
             <Art id={CATART[c] || 'ic-bag'} />
-            <span><b>{t('cat.' + c, c)}</b><span className="sub" style={{ display: 'block' }}>{list.length} {t('items')} · {fmt(lo)} – {fmt(hi)}{need && !have ? ' · ' + t('licenceNeeded') : ''}</span></span>
+            <span><b>{t('cat.' + c, c)}</b><span className="sub" style={{ display: 'block' }}>{list.length} {t('items')} · {fmt(lo)} – {fmt(hi)}{need && !have ? ' · ' + t('licenceNeeded') : crewCat ? ' · ' + t('v11.crewOptional') : ''}</span></span>
           </button>;
         })}
       </div>
@@ -944,13 +945,16 @@ function AssetsTab({ s, act, curCat, setCurCat }: { s: GameState; act: Act; curC
         <div className="modal on" onClick={e => { if (e.target === e.currentTarget) setCurCat(null); }}>
           <div className="mcard">
             <div className="mhead"><h2>{t('cat.' + curCat, curCat)}</h2><button className="ibtn ghost" onClick={() => setCurCat(null)}><Ic id="ic-x" className="bsi" /><span>✕</span></button></div>
-            <div className="sub" style={{ marginBottom: 8 }}>{ITEMS.filter(i => i.cat === curCat).length} {t('items')}{LIC_FOR[curCat] ? ` · ${t('lic.' + LIC_FOR[curCat], LIC_BY[LIC_FOR[curCat]].name)}${s.lic[LIC_FOR[curCat]] ? ' ✓' : ''}` : ''}</div>
+            <div className="sub" style={{ marginBottom: 8 }}>{ITEMS.filter(i => i.cat === curCat).length} {t('items')}{LIC_FOR[curCat] ? ` · ${t('lic.' + LIC_FOR[curCat], LIC_BY[LIC_FOR[curCat]].name)}${s.lic[LIC_FOR[curCat]] ? ' ✓' : ''}` : (CREW_COST[curCat] ? ` · ${t('v11.crewOptional')}` : '')}</div>
             {ITEMS.filter(i => i.cat === curCat).map(i => {
               const need = LIC_FOR[curCat], locked = need && !s.lic[need];
               const irar = itemRarity(i);
+              const crew = CREW_COST[curCat] || 0;
+              const crewNow = crew > 0 ? ((curCat === 'Yacht' && s.lic['boat']) || (curCat === 'Private jet' && s.lic['pilot']) ? Math.round(crew / 2) : crew) : 0;
               return <Row key={i.id} art={i.art} image={ITEM_IMAGES[i.id]} right={<Btn ic={locked ? 'ic-lock' : 'ic-bag'} label={locked ? t('needLicence') : fmt(i.price)} disabled={!!locked || s.money < i.price} onClick={() => act(st => buyItem(st, i.id))} />}>
                 <b>{i.brand ? <span className="bchip" style={{ background: i.c }}>{i.brand}</span> : null}{i.name} <span className="rarity-chip" data-rarity={irar} style={{ '--rc': RARITY_COLOR[irar] } as React.CSSProperties}>{t('rarity.' + irar)}</span></b>
                 <span className="sub">+{i.lux} {t('status')} · {t('loses', '', { n: (Math.abs(Math.min(i.rate, ASSET_DEPRECIATION_RATE)) * 100).toFixed(0) })} · {t('upkeep')} {fmt(i.price * 0.02)}{t('perYear')}</span>
+                {crew > 0 && <span className="mini" style={{ display: 'block', marginTop: 2 }}>{t('v11.crewCost', '', { x: fmt(crewNow) })}{crewNow < crew ? ` (${t('v11.crewHalved')})` : ''}</span>}
               </Row>;
             })}
           </div>

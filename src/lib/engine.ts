@@ -7,7 +7,7 @@ import {
   LEVEL_INCOME_BONUS, xpNeed, GIGS, SPACE_LINES,
   ALLNEWS, YEAR_EVENTS, eraOf, FIELDS, LICENSES, LIC_BY, LIC_FOR, STAGES,
   BIZ, FARM_LINES, FAC_LINES, ITEM_BY, STOCKS, CLUBS, JOBS, BOTS,
-  NPC_BY, PET_BY, MAX_PETS,
+  NPC_BY, PET_BY, MAX_PETS, CREW_COST,
   analyze, type FieldKey, type LineDef, type Req, type GigDef, type SpaceDef, type Rarity, RARITY_MULT, itemRarity, POST_TEMPLATES
 } from './gameData';
 
@@ -404,7 +404,18 @@ export const lotValue = (s: GameState, l: { id: string; paid: number; day: numbe
   // Rare/legendary get a rarity premium on top.
   return base * condFactor * (rarity === 'legendary' ? 1.6 : rarity === 'rare' ? 1.2 : rarity === 'uncommon' ? 1.05 : 1);
 };
-export const upkeep = (s: GameState) => s.lots.reduce((a, l) => a + lotValue(s, l) * 0.02, 0);
+// v11 — upkeep now includes optional crew cost for Yacht / Private jet.
+// The player no longer needs a licence to own these — they hire a crew
+// instead. If they DO have the relevant licence (boat / pilot), the crew
+// cost is halved because they can self-drive part of the time.
+export const crewCostFor = (s: GameState, l: { id: string }): number => {
+  const it = ITEM_BY[l.id]; if (!it) return 0;
+  const base = CREW_COST[it.cat] || 0;
+  if (!base) return 0;
+  const hasLic = (it.cat === 'Yacht' && s.lic['boat']) || (it.cat === 'Private jet' && s.lic['pilot']);
+  return hasLic ? Math.round(base / 2) : base;
+};
+export const upkeep = (s: GameState) => s.lots.reduce((a, l) => a + lotValue(s, l) * 0.02 + crewCostFor(s, l), 0);
 export const assetVal = (s: GameState) => s.lots.reduce((a, l) => a + lotValue(s, l), 0);
 export const bizVal = (s: GameState) => {
   const valueAt = (paid: number, boughtDay: number) =>

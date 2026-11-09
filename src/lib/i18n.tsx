@@ -29,6 +29,9 @@ const D: Record<string, [string, string, string]> = {
   'v11.reloadPrompt': ['A new version ({v}) is live. Reload to get it.', 'Phiên bản mới ({v}) đã lên. Tải lại để nhận.', '新版本 ({v}) 已上线。刷新以获取。'],
   'v11.reload': ['Reload', 'Tải lại', '刷新'],
   'v11.later': ['Later', 'Để sau', '稍后'],
+  'v11.crewOptional': ['No licence needed — crew optional', 'Không cần bằng — thuê nhân sự tuỳ chọn', '无需执照 — 可雇船员'],
+  'v11.crewCost': ['Crew: {x}/mo', 'Thuyền viên: {x}/tháng', '船员：{x}/月'],
+  'v11.crewHalved': ['−50% with licence', '−50% nếu có bằng', '有执照 −50%'],
   // ---- age box
   'age': ['Age', 'Tuổi', '年龄'],
   'birthdayIn': ['Birthday in {n} days', 'Sinh nhật sau {n} ngày', '{n} 天后生日'],

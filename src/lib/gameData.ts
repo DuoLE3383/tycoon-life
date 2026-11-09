@@ -264,7 +264,15 @@ export const LICENSES = [
   { id: 'mechanic', name: 'Mechanic certification', cost: 2500, days: 120, art: 'i-bag' }
 ];
 export const LIC_BY = Object.fromEntries(LICENSES.map(l => [l.id, l]));
-export const LIC_FOR: Record<string, string> = { 'Sport bike': 'moto', 'Car': 'car', 'Yacht': 'boat', 'Private jet': 'pilot' };
+export const LIC_FOR: Record<string, string> = { 'Sport bike': 'moto', 'Car': 'car' };
+// v11 — Yacht and Private jet no longer require a licence. The player can
+// hire a crew instead (monthly cost). If the player DOES have the relevant
+// licence (boat / pilot), the crew cost is halved (they can self-drive part
+// of the time). Items without crewCost stay at 0.
+export const CREW_COST: Record<string, number> = {
+  'Yacht': 50000,        // $50K/month for a small yacht crew
+  'Private jet': 200000, // $200K/month for pilots + cabin crew
+};
 
 export const STAGES = [
   { to: 22, name: 'Student', art: 'u-univ', color: '#2ec4b6' },
