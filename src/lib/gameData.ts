@@ -249,12 +249,12 @@ export function analyze(ints: string[], tals: string[]) {
   return { sc, top, second, perks };
 }
 
-export const FIELDS: Record<FieldKey, { name: string; names: string[]; years: number[]; tuition: number[]; maxAge: number[]; art: string }> = {
-  business: { name: 'Business', names: ['BBA', 'MBA'], years: [4, 2], tuition: [5000, 10000], maxAge: [30, 36], art: 'b-corp' },
-  engineering: { name: 'Engineering', names: ['B.Eng', 'M.Eng'], years: [4, 2], tuition: [6000, 12000], maxAge: [30, 36], art: 'j-eng' },
-  medicine: { name: 'Medicine', names: ['Pre-med B.Sc.', 'MD'], years: [4, 4], tuition: [5000, 30000], maxAge: [30, 36], art: 'j-surg' },
-  science: { name: 'Science', names: ['B.Sc.', 'M.Sc.', 'PhD'], years: [4, 2, 4], tuition: [5000, 10000, 0], maxAge: [30, 36, 40], art: 'u-book' },
-  arts: { name: 'Arts', names: ['B.A.', 'M.A.'], years: [4, 2], tuition: [4000, 8000], maxAge: [30, 36], art: 'u-univ' }
+export const FIELDS: Record<FieldKey, { name: string; names: string[]; years: number[]; tuition: number[]; maxAge: number[]; art: string; schools: string[] }> = {
+  business: { name: 'Business', names: ['BBA', 'MBA'], years: [4, 2], tuition: [5000, 10000], maxAge: [30, 36], art: 'b-corp', schools: ['Wharton (Penn)', 'Harvard Business School', 'Stanford GSB', 'INSEAD', 'London Business School', 'CEIBS Shanghai'] },
+  engineering: { name: 'Engineering', names: ['B.Eng', 'M.Eng'], years: [4, 2], tuition: [6000, 12000], maxAge: [30, 36], art: 'j-eng', schools: ['MIT', 'Stanford', 'ETH Zürich', 'IIT Bombay', 'Tsinghua', 'Tokyo Tech'] },
+  medicine: { name: 'Medicine', names: ['Pre-med B.Sc.', 'MD'], years: [4, 4], tuition: [5000, 30000], maxAge: [30, 36], art: 'j-surg', schools: ['Johns Hopkins', 'Harvard Medical', 'Oxford Medical', 'Karolinska', 'AIIMS Delhi', 'University of Tokyo Medical'] },
+  science: { name: 'Science', names: ['B.Sc.', 'M.Sc.', 'PhD'], years: [4, 2, 4], tuition: [5000, 10000, 0], maxAge: [30, 36, 40], art: 'u-book', schools: ['Caltech', 'Cambridge', 'Max Planck', 'ENS Paris', 'Peking University', 'Seoul National University'] },
+  arts: { name: 'Arts', names: ['B.A.', 'M.A.'], years: [4, 2], tuition: [4000, 8000], maxAge: [30, 36], art: 'u-univ', schools: ['RISD', 'Central Saint Martins', 'École des Beaux-Arts', 'Pratt', 'Tokyo Geidai', 'Yale School of Art'] }
 };
 export const LICENSES = [
   { id: 'moto', name: 'Motorcycle licence', cost: 350, days: 30, art: 'i-bike' },
@@ -275,16 +275,16 @@ export const STAGES = [
 export interface BizDef { id: string; name: string; base: number; inc: number; art: string; req: Req; ind: string; reg: string[] }
 export interface Req { any?: number; deg?: Partial<Record<FieldKey, number>>; lic?: string[]; age?: number }
 export const BIZ: BizDef[] = [
-  { id: 'cafe', name: 'Coffee shop', base: 800, inc: 1500, art: 'b-cafe', req: {}, ind: 'Food', reg: ['Old Town walking street', 'University quarter', 'Business district', 'Harbor promenade', 'Suburb mall', 'Riverside market'] },
-  { id: 'shop', name: 'Convenience store', base: 8000, inc: 12000, art: 'b-shop', req: { deg: { business: 1 } }, ind: 'Retail', reg: ['Downtown core', 'Night market alley', 'Highway rest stop', 'Residential ward', 'Tourist old quarter', 'Metro interchange'] },
-  { id: 'farm', name: 'Organic farm', base: 60000, inc: 90000, art: 'b-farm', req: { deg: { business: 1 } }, ind: 'Agriculture', reg: ['River delta plains', 'Highland terraces', 'Coastal wetlands', 'Volcanic foothills', 'Northern valleys', 'Red soil plateau'] },
-  { id: 'fac', name: 'Factory', base: 90000, inc: 160000, art: 'b-fac', req: { deg: { engineering: 1 } }, ind: 'Industry', reg: ['Canal industrial park', 'Free-trade zone', 'Old steel district', 'Port logistics hub', 'Inland export zone', 'Tech-valley estate'] },
-  { id: 'hotel', name: 'Boutique hotel', base: 2500000, inc: 3500000, art: 'b-hotel', req: { deg: { business: 2 } }, ind: 'Tourism', reg: ['Beachfront strip', 'Old town square', 'Mountain resort', 'Lake district', 'Safari gateway', 'Island marina'] },
-  { id: 'ret', name: 'Retail chain', base: 900000, inc: 1500000, art: 'b-ret', req: { deg: { business: 1 } }, ind: 'Retail', reg: ['Capital megastore', 'Regional mall', 'Airport terminal', 'Border trade town', 'Seaside boulevard', 'Northern highlands'] },
-  { id: 'tech', name: 'Software studio', base: 6000000, inc: 9000000, art: 'b-tech', req: { deg: { engineering: 1 } }, ind: 'Tech', reg: ['Silicon roundabout', 'University science park', 'Fintech district', 'Media city tower', 'Game-dev loft', 'Deep-tech campus'] },
-  { id: 'bank', name: 'Private bank', base: 12000000, inc: 22000000, art: 'b-bank', req: { deg: { business: 2 } }, ind: 'Finance', reg: ['Financial mile', 'Offshore center', 'Old-money quarter', 'Emerging-market hub', 'Diamond district', 'Crypto valley'] },
-  { id: 'studio', name: 'Film studio', base: 40000000, inc: 60000000, art: 'b-studio', req: { deg: { arts: 1, business: 1 } }, ind: 'Media', reg: ['Sunset backlot', 'Heritage studios', 'Desert ranch sets', 'Harbor soundstages', 'Animation wing', 'Streaming city lot'] },
-  { id: 'corp', name: 'Conglomerate', base: 150000000, inc: 280000000, art: 'b-corp', req: { deg: { business: 2 } }, ind: 'Diversified', reg: ['HQ tower, capital', 'Global trading arm', 'Energy division', 'Infra division', 'Biotech division', 'Space division'] }
+  { id: 'cafe', name: 'Coffee shop', base: 800, inc: 1500, art: 'b-cafe', req: {}, ind: 'Food', reg: ['Hanoi Old Quarter', 'Ho Chi Minh City District 1', 'Brooklyn Williamsburg', 'Tokyo Ginza', 'Paris Le Marais', 'London Shoreditch'] },
+  { id: 'shop', name: 'Convenience store', base: 8000, inc: 12000, art: 'b-shop', req: { deg: { business: 1 } }, ind: 'Retail', reg: ['Singapore Orchard Road', 'Bangkok Sukhumvit', 'Seoul Myeongdong', 'New York Times Square', 'Berlin Mitte', 'São Paulo Paulista'] },
+  { id: 'farm', name: 'Organic farm', base: 60000, inc: 90000, art: 'b-farm', req: { deg: { business: 1 } }, ind: 'Agriculture', reg: ['Mekong Delta, Vietnam', 'Napa Valley, California', 'Hokkaido, Japan', 'Tuscany, Italy', 'Punjab, India', 'Normandy, France'] },
+  { id: 'fac', name: 'Factory', base: 90000, inc: 160000, art: 'b-fac', req: { deg: { engineering: 1 } }, ind: 'Industry', reg: ['Shenzhen, China', 'Detroit, Michigan', 'Busan, South Korea', 'Ruhr, Germany', 'Pune, India', 'Monterrey, Mexico'] },
+  { id: 'hotel', name: 'Boutique hotel', base: 2500000, inc: 3500000, art: 'b-hotel', req: { deg: { business: 2 } }, ind: 'Tourism', reg: ['Bali Seminyak', 'Santorini Oia', 'Aspen, Colorado', 'Lake Como, Italy', 'Marrakech Medina', 'Maldives Atoll'] },
+  { id: 'ret', name: 'Retail chain', base: 900000, inc: 1500000, art: 'b-ret', req: { deg: { business: 1 } }, ind: 'Retail', reg: ['Dubai Mall', 'Tokyo Ginza Six', 'New York Fifth Ave', 'Paris Champs-Élysées', 'London Oxford Street', 'Shanghai Nanjing Road'] },
+  { id: 'tech', name: 'Software studio', base: 6000000, inc: 9000000, art: 'b-tech', req: { deg: { engineering: 1 } }, ind: 'Tech', reg: ['Silicon Valley, Palo Alto', 'Tel Aviv Startup Strip', 'Bangalore Electronic City', 'Berlin Silicon Allee', 'Singapore One-North', 'Stockholm Kista'] },
+  { id: 'bank', name: 'Private bank', base: 12000000, inc: 22000000, art: 'b-bank', req: { deg: { business: 2 } }, ind: 'Finance', reg: ['Wall Street, NYC', 'London City', 'Zurich Bahnhofstrasse', 'Hong Kong Central', 'Singapore Marina Bay', 'Frankfurt Bankenviertel'] },
+  { id: 'studio', name: 'Film studio', base: 40000000, inc: 60000000, art: 'b-studio', req: { deg: { arts: 1, business: 1 } }, ind: 'Media', reg: ['Hollywood, Los Angeles', 'Bollywood, Mumbai', 'Pinewood, London', 'Nollywood, Lagos', 'Hallyuwood, Seoul', 'Cinecittà, Rome'] },
+  { id: 'corp', name: 'Conglomerate', base: 150000000, inc: 280000000, art: 'b-corp', req: { deg: { business: 2 } }, ind: 'Diversified', reg: ['Tokyo Marunouchi HQ', 'Seoul Gangnam HQ', 'Manila BGC HQ', 'Mumbai BKC HQ', 'Istanbul Levent HQ', 'São Paulo Faria Lima HQ'] }
 ];
 export interface LineDef { id: string; name: string; since: number; cost: number; inc: number; food?: boolean; needs?: string; farm?: boolean; fac?: boolean }
 export const FARM_LINES: LineDef[] = [
@@ -461,15 +461,15 @@ export const HALL_OF_FAME: HallEntry[] = [
 ];
 
 export const STOCKS = [
-  { id: 'TECH', name: 'Alpha Tech', p: 100, vol: .035, art: 's-tech' },
-  { id: 'BANK', name: 'Beta Bank', p: 60, vol: .02, art: 'b-bank' },
-  { id: 'OIL', name: 'Gamma Oil', p: 40, vol: .05, art: 's-oil' },
-  { id: 'COIN', name: 'Delta Crypto', p: 20, vol: .09, art: 's-coin' },
-  { id: 'PHARMA', name: 'Helix Pharma', p: 85, vol: .03, art: 's-pharma' },
-  { id: 'RETAIL', name: 'Mega Retail', p: 55, vol: .025, art: 'b-ret' },
-  { id: 'SOLAR', name: 'Solar Dynamics', p: 35, vol: .04, art: 's-solar' },
-  { id: 'AI', name: 'NeuroAI', p: 150, vol: .06, art: 's-ai' },
-  { id: 'SKY', name: 'Sky Airlines', p: 30, vol: .05, art: 'i-jet' }
+  { id: 'TECH', name: 'Nova Technologies (large-cap tech)', p: 100, vol: .035, art: 's-tech' },
+  { id: 'BANK', name: 'Continental Banking Group', p: 60, vol: .02, art: 'b-bank' },
+  { id: 'OIL', name: 'Petrorig Global Energy', p: 40, vol: .05, art: 's-oil' },
+  { id: 'COIN', name: 'Ledger crypto fund', p: 20, vol: .09, art: 's-coin' },
+  { id: 'PHARMA', name: 'Helix BioPharma', p: 85, vol: .03, art: 's-pharma' },
+  { id: 'RETAIL', name: 'Metro Retail Holdings', p: 55, vol: .025, art: 'b-ret' },
+  { id: 'SOLAR', name: 'Solaris Dynamics', p: 35, vol: .04, art: 's-solar' },
+  { id: 'AI', name: 'NeuroAI Labs (frontier AI)', p: 150, vol: .06, art: 's-ai' },
+  { id: 'SKY', name: 'SkyAtlantic Airlines', p: 30, vol: .05, art: 'i-jet' }
 ];
 export const CLUBS = [
   { id: 'wine', name: 'Wine Connoisseurs', min: 2000000, fee: 150000, mult: 1.15, art: 'c-wine' },

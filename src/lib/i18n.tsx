@@ -390,6 +390,7 @@ const D: Record<string, [string, string, string]> = {
   'neededFor': ['needed for', 'cần cho', '用于'],
   'eduNote': ['Want better pay? Open the Education tab — degrees and licences unlock the best careers.', 'Muốn lương cao hơn? Mở tab Học vấn — bằng cấp và khoá học mở ra sự nghiệp tốt nhất.', '想要更高收入？打开「学业」页 — 学位与证书解锁最好的职业。'],
   'eduTip': ['You can work while studying; full-time pay is reduced to 60%. Unrelated degrees take 25% longer. Cross-disciplinary degrees can unlock specialist careers.', 'Có thể vừa học vừa làm; lương toàn thời gian còn 60%. Bằng trái ngành mất thêm 25% thời gian. Các bằng liên ngành có thể mở nghề chuyên môn mới.', '可边工作边学习；全职薪资降至60%。跨专业学位耗时增加25%，跨学科组合还可解锁专业职业。'],
+  'schools': ['Schools', 'Trường', '院校'],
   'multiStudyNote': ['Run two study tracks at once in different fields. A degree or licence uses one slot; tuition and progress are tracked separately.', 'Có thể học đồng thời hai chương trình ở hai ngành khác nhau. Mỗi bằng hoặc chứng chỉ dùng một chỗ; học phí và tiến độ được tính riêng.', '可同时修读两个不同领域的项目。学位或执照各占一个名额；学费与进度分别计算。'],
   'multiJobNote': ['You can hold one full-time role and one part-time role at once. Studying reduces full-time pay to 60%; part-time pay is unaffected.', 'Có thể làm đồng thời một việc toàn thời gian và một việc bán thời gian. Đang học thì lương toàn thời gian còn 60%; lương bán thời gian không đổi.', '可同时从事一份全职与一份兼职。学习期间全职薪资降至60%，兼职薪资不变。'],
   'jobSlotOccupied': ['Quit {j} first to free this work slot', 'Hãy nghỉ {j} trước để trống vị trí công việc này', '请先辞去 {j} 以腾出此工作名额'],

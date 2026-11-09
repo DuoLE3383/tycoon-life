@@ -546,6 +546,7 @@ function EduTab({ s, act }: { s: GameState; act: Act }) {
         return <Row key={f} art={F.art} right={<Btn ic="ic-cap" label={reason || t('enroll')} disabled={!!reason} onClick={() => act(st => enrollDeg(st, f))} />}>
           <b>{t('field.' + f, F.name)}: {F.names[L - 1]}</b>
           <span className="sub">{years.toFixed(1)} {t('years')}{s.topField && s.topField !== f ? ` · ${t('studyExtraTime')}` : ''} · {F.tuition[L - 1] ? fmt(tuitionOf(s, f, L)) + t('perYear') + ' ' + t('tuition') + (s.topField === f ? ' (−20%)' : '') : t('funded')}{cur ? ' · ' + t('buildsOn') + ' ' + F.names[cur - 1] : ''}</span>
+          <span className="mini" style={{ display: 'block', marginTop: 2 }}>{t('schools')}: {F.schools.join(' · ')}</span>
         </Row>;
       })}
       <h3>{t('licences')}</h3>
