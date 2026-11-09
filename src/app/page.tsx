@@ -1,5 +1,5 @@
 'use client';
-// HuyenBao v11.15 — React edition. Two-level grouped nav, a systems links map,
+// HuyenBao v11.16 — React edition. Two-level grouped nav, a systems links map,
 // gigs, levels, social, the cosmic frontier, EN/VI/中文, LLM oracle with
 // random kind dispatch (luck / setback / life-stage / story), pre-owned
 // market + social listings, and a Hall of Fame tab.
@@ -56,6 +56,7 @@ import { localTwist, pickKind } from '@/lib/story';
 import { castHexagram, validateQuestion, type CastResult } from '@/lib/iching';
 import { lapLaSo, type LaSo } from '@/lib/tuvi';
 import { phanTichToanDien, HUONG, type PhongThuyReading, type Huong } from '@/lib/phongthuy';
+import { drawCards, spreadLabels, TAROT_GHI_CHU, type TarotCard } from '@/lib/tarot';
 import { useT, LANGS, type Lang } from '@/lib/i18n';
 
 const asset = (p: string) => (process.env.NEXT_PUBLIC_BASE_PATH || '') + p;
@@ -70,7 +71,7 @@ if (typeof window !== 'undefined') {
 // v11.8 — the bundled version. The /version.json file in /public is polled
 // every 5 minutes; if its version is newer than this, a "reload to update"
 // banner appears even in a running session (no F5 needed).
-const BUNDLED_VERSION = 'v11.15';
+const BUNDLED_VERSION = 'v11.16';
 const VERSION_POLL_MS = 5 * 60 * 1000;
 const SEEN_KEY = 'tycoon_seen_' + BUNDLED_VERSION;
 
@@ -435,7 +436,7 @@ function Header({ s, eraName }: { s: GameState; eraName: (y: number) => string }
     <header className="top">
       <div className="brand">
         <Art id="s-coin" className="logo" />
-        <div><h1><span className="mini">v11.15</span> HuyenBao</h1>
+        <div><h1><span className="mini">v11.16</span> HuyenBao</h1>
           <div className="mini">{s.started ? `${s.nation} · ${eraName(worldYear(s))}` : t('tagline')}</div></div>
       </div>
       <div><div className="mini">{t('cash')}</div><div id="tcash" style={{ color: s.money < 0 ? 'var(--brick)' : undefined }}>{fmt(s.money)}</div>
@@ -1031,6 +1032,8 @@ function SpiritTab({ s, act }: { s: GameState; act: Act }) {
       <TuViPanel s={s} />
       {/* v11.15 — Phong Thuỷ Bát Trạch (八宅), third Huyen-Hoc-AI feature integrated */}
       <PhongThuyPanel s={s} />
+      {/* v11.16 — Tarot nâng cao (full 78-card deck + multi-card spreads), fourth Huyen-Hoc-AI feature integrated */}
+      <TarotSpreadPanel />
     </>
   );
 }
@@ -1458,6 +1461,175 @@ function PhongThuyPanel({ s }: { s: GameState }) {
           <div className="mini" style={{ textTransform: 'uppercase', letterSpacing: '.4px', marginTop: 8 }}>{t('pt.advice')}</div>
           <p className="mini" style={{ margin: '4px 0 0' }}>{result.interp.advice}</p>
           <p className="mini" style={{ marginTop: 6, opacity: .6 }}>{result.reading.ghiChu}</p>
+          <p className="mini" style={{ opacity: .6 }}>{t('disc.aiNote')}</p>
+        </div>
+      )}
+    </>
+  );
+}
+
+// v11.16 — Tarot nâng cao panel. Draws a 1/3/5-card spread client-side
+// from the full 78-card deck (src/lib/tarot.ts), then asks /api/tarot for a
+// multi-card LLM interpretation in the player's language. Stateles — no save
+// change. Mirrors the Huyen-Hoc-AI FastAPI tarot.draw_cards + interpret_tarot,
+// but runs on the main app's own LLM (same client as /api/divine + tuvi +
+// phongthuy). The earlier v11.6 simple Tarot (1 card, 30-day cooldown) stays
+// above; this panel is the full-spread upgrade.
+function TarotSpreadPanel() {
+  const { t, lang } = useT();
+  const [spread, setSpread] = useState<1 | 3 | 5>(3);
+  const [question, setQuestion] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const [result, setResult] = useState<{
+    cards: TarotCard[];
+    interp: {
+      thongDiepChinh: string;
+      luanGiaiTungLa: { viTri: string; la: string; yNghia: string; lienQuanCauHoi: string }[];
+      tongHop: string;
+      loiKhuyenCuThe: { hanhDong: string; thoiDiem: string; lyDo: string }[];
+      canhBao: string[];
+      cauChuc: string;
+      source: string;
+    };
+  } | null>(null);
+
+  const doDraw = async () => {
+    setErr(null);
+    setBusy(true);
+    let cards: TarotCard[];
+    try {
+      cards = drawCards(spread);
+    } catch (e) {
+      setErr((e as Error).message || t('tt.errDraw'));
+      setBusy(false);
+      return;
+    }
+    try {
+      const res = await fetch('/api/tarot', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ cards, question: question.trim(), lang })
+      });
+      if (!res.ok) throw new Error('fetch');
+      const interp = await res.json();
+      setResult({ cards, interp });
+    } catch {
+      setErr(t('tt.errFetch'));
+    } finally { setBusy(false); }
+  };
+
+  const labels = result ? spreadLabels(result.cards.length as 1 | 3 | 5, lang) : [];
+
+  const selectStyle: React.CSSProperties = {
+    padding: '4px 6px', border: '1px solid var(--line2)', borderRadius: 4,
+    background: 'transparent', color: 'inherit', fontFamily: 'inherit', fontSize: '.9rem',
+  };
+
+  return (
+    <>
+      <h3 style={{ marginTop: 14 }}>{t('tt.title')}</h3>
+      <Row art="w-lotus"
+        right={<button className="ibtn" disabled={busy} onClick={doDraw}>
+          <span>{busy ? t('tt.thinking') : t('tt.draw')}</span>
+        </button>}>
+        <b>{t('tt.title')}</b>
+        <span className="sub">{t('tt.blurb')}</span>
+        <div className="trade" style={{ marginTop: 6, gap: 10, flexWrap: 'wrap', alignItems: 'flex-end' }}>
+          <label className="mini" style={{ display: 'flex', flexDirection: 'column', gap: 2, flex: '0 0 auto' }}>
+            <span>Spread</span>
+            <select value={spread} onChange={e => setSpread(+e.target.value as 1 | 3 | 5)} style={selectStyle}>
+              <option value={1}>{t('tt.spread1')}</option>
+              <option value={3}>{t('tt.spread3')}</option>
+              <option value={5}>{t('tt.spread5')}</option>
+            </select>
+          </label>
+          <label className="mini" style={{ display: 'flex', flexDirection: 'column', gap: 2, flex: 1, minWidth: 200 }}>
+            <span>{t('tt.question')}</span>
+            <input type="text" value={question} placeholder={t('tt.questionPh')}
+              onChange={e => setQuestion(e.target.value)}
+              style={{ padding: '4px 6px', border: '1px solid var(--line2)', borderRadius: 4, background: 'transparent', color: 'inherit', fontFamily: 'inherit' }} />
+          </label>
+        </div>
+        {err && <span className="sub" style={{ color: 'var(--brick)', display: 'block', marginTop: 4 }}>{err}</span>}
+      </Row>
+
+      {result && (
+        <div className="card" style={{ marginBottom: 10 }}>
+          {/* card grid: each card in its spread position */}
+          <div style={{ display: 'grid', gridTemplateColumns: `repeat(${Math.min(result.cards.length, 5)}, 1fr)`, gap: 6, margin: '6px 0 10px' }}>
+            {result.cards.map((c, i) => (
+              <div key={i} style={{
+                padding: '6px 7px', borderRadius: 8, border: '1px solid var(--line)',
+                background: 'var(--card)', minHeight: 80,
+                transform: c.reversed ? 'rotate(180deg)' : undefined,
+              }}>
+                <div className="mini" style={{ opacity: .75, marginBottom: 2 }}>{labels[i]}</div>
+                <b style={{ fontSize: '.86rem' }}>{c.vn}</b>
+                {c.loai === 'minor' && (
+                  <div className="mini" style={{ opacity: .65 }}>{c.suitVn} · {c.element}</div>
+                )}
+                <div className="mini" style={{ marginTop: 4, color: c.reversed ? 'var(--brick)' : 'var(--sage)', fontWeight: 600 }}>
+                  {c.reversed ? t('tt.reversed') : t('tt.upright')}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* main message */}
+          <div className="mini" style={{ textTransform: 'uppercase', letterSpacing: '.4px' }}>{t('tt.mainMsg')}</div>
+          <p style={{ margin: '4px 0 0', fontSize: '.92rem' }}>{result.interp.thongDiepChinh}</p>
+
+          {/* per-card interpretation */}
+          <div className="mini" style={{ textTransform: 'uppercase', letterSpacing: '.4px', marginTop: 10 }}>{t('tt.perCard')}</div>
+          <div style={{ marginTop: 4, display: 'flex', flexDirection: 'column', gap: 6 }}>
+            {result.interp.luanGiaiTungLa.map((c, i) => (
+              <div key={i} className="mini" style={{ padding: '5px 7px', border: '1px solid var(--line)', borderRadius: 4, background: 'rgba(0,0,0,0.02)' }}>
+                <b style={{ color: 'var(--accent)' }}>{c.viTri}</b>: <b>{c.la}</b>
+                <div style={{ marginTop: 2 }}>{c.yNghia}</div>
+                {c.lienQuanCauHoi && c.lienQuanCauHoi !== '—' && (
+                  <div style={{ marginTop: 2, opacity: .7, fontStyle: 'italic' }}>{c.lienQuanCauHoi}</div>
+                )}
+              </div>
+            ))}
+          </div>
+
+          {/* synthesis */}
+          <div className="mini" style={{ textTransform: 'uppercase', letterSpacing: '.4px', marginTop: 10 }}>{t('tt.synthesis')}</div>
+          <p style={{ margin: '4px 0 0', fontSize: '.92rem' }}>{result.interp.tongHop}</p>
+
+          {/* advice */}
+          {result.interp.loiKhuyenCuThe.length > 0 && (
+            <>
+              <div className="mini" style={{ textTransform: 'uppercase', letterSpacing: '.4px', marginTop: 10 }}>{t('tt.advice')}</div>
+              <div style={{ marginTop: 4, display: 'flex', flexDirection: 'column', gap: 4 }}>
+                {result.interp.loiKhuyenCuThe.map((a, i) => (
+                  <div key={i} className="mini" style={{ padding: '4px 7px', border: '1px solid var(--line)', borderRadius: 4 }}>
+                    <b>{a.hanhDong}</b>
+                    <div style={{ opacity: .7, marginTop: 2 }}>
+                      <span>{t('tt.timing')}: {a.thoiDiem}</span> · <span>{t('tt.reason')}: {a.lyDo}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+
+          {/* cautions */}
+          {result.interp.canhBao.length > 0 && (
+            <>
+              <div className="mini" style={{ textTransform: 'uppercase', letterSpacing: '.4px', marginTop: 10, color: 'var(--brick)' }}>{t('tt.warnings')}</div>
+              <ul style={{ margin: '4px 0 0', paddingLeft: 20 }} className="mini">
+                {result.interp.canhBao.map((w, i) => <li key={i} style={{ color: 'var(--brick)' }}>{w}</li>)}
+              </ul>
+            </>
+          )}
+
+          {/* blessing */}
+          <div className="mini" style={{ textTransform: 'uppercase', letterSpacing: '.4px', marginTop: 10 }}>{t('tt.blessing')}</div>
+          <p className="mini" style={{ margin: '4px 0 0', fontStyle: 'italic' }}>{result.interp.cauChuc}</p>
+
+          <p className="mini" style={{ marginTop: 8, opacity: .6 }}>{TAROT_GHI_CHU}</p>
           <p className="mini" style={{ opacity: .6 }}>{t('disc.aiNote')}</p>
         </div>
       )}
