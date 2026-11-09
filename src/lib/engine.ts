@@ -141,6 +141,13 @@ export interface GameState {
   // v11 — flag set by processDay when a random AI oracle popup should fire.
   // The React layer watches this and calls askAI() (async) when it flips true.
   aiEvPending: boolean;
+  // v11.17 — toast queue. Engine functions (finishStudy, yearEnd, processDay)
+  // push short user-facing notification strings here; tick() drains the queue
+  // into its return value so the React layer can surface them as toasts. This
+  // lets us notify the player of milestones (graduation, branch closure,
+  // scandal, power promotion, ambient mini-events) without refactoring every
+  // engine function's signature. Capped at 20 entries to avoid runaway growth.
+  pendingToasts: string[];
   // v11 — short courses the player has completed (ids from SHORT_COURSES).
   // Each completion grants a 10% tuition reduction on the matching full
   // degree field, read by tuitionOf.
@@ -402,6 +409,7 @@ export function fresh(): GameState {
     health: 92, spirit: 18, karma: 0, diet: false, well: {}, cause: null,
     sleepHours: 8, timeline: [], ach: [],
     used: [], hall: null, pastLives: [], relations: {}, pets: [], clubs: [], aiEvPending: false, shortCompleted: [],
+    pendingToasts: [],
     crisis: null, shocks: [], lastResearchDay: 0, researchBrief: null,
     power: freshPower(),
     entity: freshEntity(),
@@ -446,6 +454,8 @@ export function migrate(raw: unknown): GameState {
   s.clubs = Array.isArray(s.clubs) ? s.clubs : (s.club ? [s.club] : []);
   s.aiEvPending = !!s.aiEvPending;
   s.shortCompleted = Array.isArray(s.shortCompleted) ? s.shortCompleted : [];
+  // v11.17 — toast queue (backfill for old saves).
+  s.pendingToasts = Array.isArray(s.pendingToasts) ? s.pendingToasts : [];
   // v11.2 — crisis/shocks/research fields. Old saves have no crisis; default
   // to null. Shocks array defaults to []. lastResearchDay defaults to 0.
   s.crisis = s.crisis && typeof s.crisis === 'object' ? s.crisis : null;
@@ -665,6 +675,16 @@ export const lineReady = (s: GameState, l: LineDef) =>
   lineUnlocked(s, l) && (l.farm ? branchCount(s, 'farm') > 0 : true) && (l.fac ? branchCount(s, 'fac') > 0 : true) &&
   (!l.food || branchCount(s, 'farm') > 0) && (!l.needs || (s.fac[l.needs] || 0) > 0);
 export function pushLog(s: GameState, t: string) { s.log.push(t); if (s.log.length > 80) s.log.shift(); }
+// v11.17 — queue a user-facing toast. Engine functions call this when a
+// milestone, incident, or piece of good/bad news happens that the player
+// should see immediately (graduation, branch closure, scandal, ambient mini-
+// events). tick() drains s.pendingToasts into its return value; the React
+// layer surfaces each entry via showToast(). Capped at 20 to avoid runaway.
+export function queueToast(s: GameState, msg: string): void {
+  if (!msg) return;
+  s.pendingToasts.push(msg);
+  if (s.pendingToasts.length > 20) s.pendingToasts.shift();
+}
 export function recordActivity(s: GameState, entry: string, day = s.lastDay): void {
   let date = s.timeline.find(x => x.day === day);
   if (!date) {
@@ -713,8 +733,25 @@ export function processDay(s: GameState, d: number, rng: () => number = Math.ran
   // numbers made popups too rare to ever see in a typical session.
   // v11.12: bumped to ~4%/day so career/business situations (good and bad)
   // fire more often, per the player's request for more in-work events.
-  if (!s.aiEvPending && !s.pending && !s.aiEv && s.started && s.day > 30 && rng() < 0.04) {
+  // v11.17: bumped to ~6%/day (more online AI popups) + added a separate
+  // ambient mini-event pool below that fires lightweight "tin vui / sự cố"
+  // flavor toasts without spinning up a full LLM call.
+  if (!s.aiEvPending && !s.pending && !s.aiEv && s.started && s.day > 30 && rng() < 0.06) {
     s.aiEvPending = true;
+  }
+  // v11.17 — ambient mini-events. These are NOT full AI oracle popups —
+  // they're short toast-only flavor lines ("found $20 on the sidewalk",
+  // "a colleague brought coffee", "minor cold — feeling under the weather")
+  // that surface during online play to make the world feel alive. ~3% per
+  // game-day, only when nothing else is pending. Cash swings are small
+  // (±$50 to ±$500) so they don't unbalance the economy.
+  if (!s.pending && !s.aiEv && s.started && s.day > 60 && rng() < 0.03) {
+    const ambient = AMBIENT_EVENTS[Math.floor(rng() * AMBIENT_EVENTS.length)];
+    if (ambient.cash) s.money += ambient.cash;
+    if (ambient.health) s.health = Math.max(0, Math.min(100, s.health + ambient.health));
+    if (ambient.spirit) s.spirit = Math.max(0, Math.min(100, s.spirit + ambient.spirit));
+    pushLog(s, ambient.msg + (ambient.cash ? ` ${ambient.cash >= 0 ? '+' : '−'}${fmt(Math.abs(ambient.cash))}` : ''));
+    queueToast(s, ambient.toast);
   }
   // Sleep trades study time for health recovery; other wellbeing modifiers still apply.
   const dhp = ageDecayPerDay(s.age) * sleepHealthMult(s.sleepHours) * (s.diet ? .55 : 1) * (s.spirit >= 70 ? .85 : 1);
@@ -895,6 +932,37 @@ const EVENTS: ((s: GameState, rng: () => number) => { msg: string; cash: number;
   s => ({ msg: 'Market dip. Your stocks lost 10%.', cash: 0, dip: true }),
   s => ({ msg: 'Friends dragged you on a lavish trip.', cash: -8000 })
 ];
+// v11.17 — ambient mini-events. These fire ~3% per game-day during online play
+// and surface as short toast-only flavor lines (no LLM call). Small cash /
+// health / spirit swings so they don't unbalance the economy. Each entry has:
+//   msg    — log line (terse, internal)
+//   toast  — user-facing toast line (with emoji prefix + tag)
+//   cash   — optional small ± swing (kept under ±$500)
+//   health — optional ± swing (kept within ±5)
+//   spirit — optional ± swing (kept within ±5)
+// Tag conventions: 🎉 tin vui (good), 💢 sự cố (bad), 🍵 misc (neutral flavor).
+const AMBIENT_EVENTS: { msg: string; toast: string; cash?: number; health?: number; spirit?: number }[] = [
+  { msg: 'Found $20 on the sidewalk.', toast: '🎉 Found $20 on the sidewalk.', cash: 20 },
+  { msg: 'A colleague bought your coffee.', toast: '☕ A colleague bought your coffee.', spirit: 1 },
+  { msg: 'Parking ticket.', toast: '💢 Parking ticket.', cash: -60 },
+  { msg: 'Sold an old gadget online.', toast: '🎉 Sold an old gadget online.', cash: 120 },
+  { msg: 'Caught a minor cold.', toast: '💢 Caught a minor cold — feeling under the weather.', cash: -40, health: -3 },
+  { msg: 'A friend dropped by with food.', toast: '🍵 A friend dropped by with food.', spirit: 3 },
+  { msg: 'Rebate cheque in the mail.', toast: '🎉 Rebate cheque in the mail.', cash: 80 },
+  { msg: 'Lost your wallet — cancelled cards.', toast: '💢 Lost your wallet — cancelled cards.', cash: -150, spirit: -2 },
+  { msg: 'Won a small office raffle.', toast: '🎉 Won a small office raffle.', cash: 90 },
+  { msg: 'Bus delayed — late for a meeting.', toast: '💢 Bus delayed — late for a meeting.', spirit: -2 },
+  { msg: 'A neighbour returned your borrowed tool.', toast: '🍵 A neighbour returned your borrowed tool.', spirit: 1 },
+  { msg: 'Subscription you forgot about renewed.', toast: '💢 Subscription you forgot about renewed.', cash: -25 },
+  { msg: 'Found a $5 in last winter\'s coat.', toast: '🎉 Found $5 in last winter\'s coat.', cash: 5, spirit: 2 },
+  { msg: 'Birds woke you at dawn — restless morning.', toast: '💢 Birds woke you at dawn — restless morning.', health: -1, spirit: -1 },
+  { msg: 'Free samples at the corner store.', toast: '🍵 Free samples at the corner store.', spirit: 1 },
+  { msg: 'Refunded for a defective product.', toast: '🎉 Refunded for a defective product.', cash: 45 },
+  { msg: 'Tip jar overflowed at your gig.', toast: '🎉 Tip jar overflowed at your gig.', cash: 35 },
+  { msg: 'Wi-Fi down for an hour.', toast: '💢 Wi-Fi down for an hour.', spirit: -2 },
+  { msg: 'A stranger complimented your outfit.', toast: '🍵 A stranger complimented your outfit.', spirit: 2 },
+  { msg: 'Drainpipe leak — quick plumber visit.', toast: '💢 Drainpipe leak — quick plumber visit.', cash: -110 },
+];
 export function yearEnd(s: GameState, age: number, rng: () => number = Math.random): void {
   pushLog(s, `Happy birthday. You are now ${age}.`);
   if (age === RETIRE) { s.job = null; s.sideJob = null; pushLog(s, 'You retired. Your pension starts.'); }
@@ -906,17 +974,29 @@ export function yearEnd(s: GameState, age: number, rng: () => number = Math.rand
   // opportunity; 2+ clubs get a synergy bonus chance. Member dues have
   // already been paid upfront at join time.
   const clubOps = rollClubOpportunities(s, rng);
-  if (clubOps) pushLog(s, `Club network: ${clubOps}`);
+  if (clubOps) { pushLog(s, `Club network: ${clubOps}`); queueToast(s, `🤝 Club network: ${clubOps}`); }
   // v11 — branch closure risk. Each branch rolls a closure chance based on
   // market mood, headcount, and manager quality.
   const closed = rollBranchClosures(s, rng);
-  if (closed > 0) pushLog(s, `${closed} branch(es) closed this year.`);
+  if (closed > 0) {
+    pushLog(s, `${closed} branch(es) closed this year.`);
+    queueToast(s, `⚠️ Business setback: ${closed} branch${closed > 1 ? 'es' : ''} closed this year.`);
+  }
   if (rng() < .6) {
     const ev = EVENTS[Math.floor(rng() * EVENTS.length)](s, rng);
     s.money += ev.cash;
     if (ev.fame) s.fame = Math.max(0, s.fame + ev.fame);
     if (ev.dip) STOCKS.forEach(x => s.prices[x.id] *= .9);
     pushLog(s, `${ev.msg} ${ev.cash >= 0 ? '+' : '\u2212'}${fmt(Math.abs(ev.cash))}`);
+    // v11.17 — surface significant EVENTS as toasts (|cash| > 5000 OR fame swing).
+    // Small swings stay in the log only — toasts would be too noisy otherwise.
+    if (Math.abs(ev.cash) >= 5000 || (ev.fame && Math.abs(ev.fame) >= 10)) {
+      const tag = ev.cash >= 0 ? 'tin vui' : 'sự cố';
+      const sign = ev.cash >= 0 ? '+' : '−';
+      const amt = fmt(Math.abs(ev.cash));
+      const famBit = ev.fame ? ` · fame ${ev.fame >= 0 ? '+' : ''}${ev.fame}` : '';
+      queueToast(s, `${ev.cash >= 0 ? '🎉' : '💢'} ${ev.msg} (${sign}${amt}${famBit})`);
+    }
   }
   // v11.3 — yearly power tick. Combines tier-promotion check (does net
   // worth cross a new threshold?) with the passive influence sources
@@ -930,18 +1010,21 @@ export function yearEnd(s: GameState, age: number, rng: () => number = Math.rand
   if (powerTick.promotedTo) {
     const label = POWER_TIERS.find(r => r.tier === powerTick.promotedTo)?.label || powerTick.promotedTo;
     pushLog(s, `Power tier unlocked: ${label}. New political avenues open.`);
+    queueToast(s, `🏛️ Power tier unlocked: ${label}`);
   }
   if (powerTick.influenceGained > 0) {
     pushLog(s, `Passive influence +${powerTick.influenceGained} this year (club / board / media).`);
   }
   if (powerTick.scandal) {
     pushLog(s, `Scandal! Press leaks dog you. Scrutiny +10, rivals emboldened, influence −5.`);
+    queueToast(s, `📰 Scandal! Press leaks — scrutiny +10, influence −5.`);
   }
   // v11.5 — entity tick (auto-promote conglomerate + inflation erosion
   // for nation+ tiers). Net worth passed in to avoid the circular import.
   const entityTick = tickEntity(s, nw, (msg: string) => pushLog(s, msg));
   if (entityTick.promotedTo) {
     pushLog(s, `Entity tier unlocked: ${entityTick.promotedTo}.`);
+    queueToast(s, `🏢 Entity tier unlocked: ${entityTick.promotedTo}`);
   }
   rollLife(s, age, rng);
 }
@@ -1960,6 +2043,11 @@ function finishStudy(s: GameState, study: Study, rng: () => number): void {
   pushLog(s, `Graduated: ${study.name}.`);
   addPost(s, study.kind === 'deg' ? `Officially graduated — ${study.name}!` : `Picked up a new licence: ${study.name}.`, 1.2, rng);
   recordActivity(s, `Completed: ${study.name}`);
+  // v11.17 — surface as a toast so the player sees it even if they're not on
+  // the career/edu tab when the study ends.
+  queueToast(s, study.kind === 'deg'
+    ? `🎓 Graduated: ${study.name}`
+    : `📜 ${study.kind === 'lic' ? 'Licence' : 'Short course'} complete: ${study.name}`);
 }
 export function gameOverTier(s: GameState): { tier: string; nw: number } {
   const nw = netWorth(s);
@@ -1968,8 +2056,8 @@ export function gameOverTier(s: GameState): { tier: string; nw: number } {
 }
 
 // ---------- main tick ----------
-export function tick(s: GameState, dtMs: number, rng: () => number = Math.random): { taxToast?: string; yearToast?: string; gameJustOver?: boolean } {
-  const out: { taxToast?: string; yearToast?: string; gameJustOver?: boolean } = {};
+export function tick(s: GameState, dtMs: number, rng: () => number = Math.random): { taxToast?: string; yearToast?: string; gameJustOver?: boolean; toasts?: string[] } {
+  const out: { taxToast?: string; yearToast?: string; gameJustOver?: boolean; toasts?: string[] } = {};
   if (s.over || s.pending || s.aiEv || !s.started) return out;
   s.day += dtMs / DAY_MS; // dt is milliseconds; DAY_MS milliseconds = 1 game day
   s.age = START + s.day / 365.25;
@@ -1979,6 +2067,7 @@ export function tick(s: GameState, dtMs: number, rng: () => number = Math.random
     s.spaceUpgrade = null;
     s.spaceTravel = true;
     pushLog(s, 'Deep-space navigation certified. Space venture income is now 20% higher.');
+    queueToast(s, '🚀 Deep-space navigation certified — space venture income +20%.');
   }
   const afterYear = worldYear(s);
   if (afterYear > beforeYear) {
@@ -1996,6 +2085,13 @@ export function tick(s: GameState, dtMs: number, rng: () => number = Math.random
   while (Math.floor(s.age) > s.lastYr && !s.over) { s.lastYr++; yearEnd(s, s.lastYr, rng); }
   if (s.age >= END_AGE && !s.over) { s.age = END_AGE; s.over = true; s.cause = 'age'; out.gameJustOver = true; }
   if (!s.over && s.health <= 0) { s.over = true; s.cause = 'health'; out.gameJustOver = true; }
+  // v11.17 — drain the pending toast queue into the return value so the React
+  // layer can surface each entry. The queue is cleared here; engine functions
+  // called above (processDay, yearEnd, finishStudy, etc.) pushed into it.
+  if (s.pendingToasts.length > 0) {
+    out.toasts = s.pendingToasts.slice();
+    s.pendingToasts = [];
+  }
   return out;
 }
 
@@ -2006,7 +2102,7 @@ export function tick(s: GameState, dtMs: number, rng: () => number = Math.random
 // unmonitored business then faces an extra closure roll + operational loss,
 // because nobody was minding the shop. Returns a human summary for the toast,
 // or null if no catch-up applied.
-export function applyOffline(s: GameState, rng: () => number = Math.random): { summary: string; days: number; closures: number; losses: number; gameJustOver?: boolean } | null {
+export function applyOffline(s: GameState, rng: () => number = Math.random): { summary: string; days: number; closures: number; losses: number; gameJustOver?: boolean; toasts?: string[] } | null {
   if (!s.started || s.over || s.lastSeen == null) {
     s.lastSeen = Date.now();
     return null;
@@ -2061,7 +2157,12 @@ export function applyOffline(s: GameState, rng: () => number = Math.random): { s
   if (res.gameJustOver) parts.push('life ended');
   const summary = 'While you were away: ' + parts.join(' · ') + '.';
   pushLog(s, summary);
-  return { summary, days, closures, losses, gameJustOver: res.gameJustOver };
+  // v11.17 — surface the most important offline toasts (capped at 3 so the
+  // player isn't spammed if many things happened). The summary covers the
+  // routine stuff (closures, losses); the toasts cover milestones that the
+  // player would otherwise miss (graduation, scandal, power promotion).
+  const offlineToasts = res.toasts ? res.toasts.slice(0, 3) : undefined;
+  return { summary, days, closures, losses, gameJustOver: res.gameJustOver, toasts: offlineToasts };
 }
 
 // ---------- ranking ----------

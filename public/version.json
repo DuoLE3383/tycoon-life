@@ -1,17 +1,21 @@
 {
-  "version": "v11.16",
+  "version": "v11.17",
   "releasedAt": "2026-11-10",
-  "headline": "HuyenBao v11.16 — Tarot nâng cao (full 78-card deck + multi-card spreads) integrated from Huyen-Hoc-AI",
-  "summary": "Fourth Huyen-Hoc-AI feature brought into the main app: an advanced Tarot spread in the Spirit tab, alongside Kinh Dịch (v11.11), Tử Vi (v11.14), and Phong Thuỷ Bát Trạch (v11.15). The full 78-card deck (22 major arcana + 4 suits × 14 ranks = 56 minor arcana), 3 spread layouts (1 card / 3 cards past-present-next / 5 cards situation-challenge-advice-possibility-next), and ~30% reversal chance are ported verbatim from the Huyen-Hoc-AI FastAPI backend to TypeScript (src/lib/tarot.ts) and runs client-side. A new /api/tarot endpoint interprets the spread through the app's existing local LLM (Ollama, same client as /api/story, /api/divine, /api/tuvi, and /api/phongthuy), falling back to ZAI cloud then to a deterministic local reading built from the cards' keywords + reversed state. The reading is stateless — no save-state change; the earlier v11.6 simple Tarot (single card, 30-day cooldown) stays above as a quick-hint feature, while this panel is the full multi-card upgrade. The reading is a cultural / contemplation reference per the source disclaimer.",
+  "headline": "HuyenBao v11.17 — online AI popup frequency bump + milestone/ambient toast notifications",
+  "summary": "Quality-of-life pass: the random AI oracle popup now fires more often during online play (~6% per eligible game-day, up from 4%), and a new engine-driven toast queue surfaces milestones + ambient flavor that previously only landed in the life log. The engine now pushes user-facing notifications for: study completion (degree / licence / short course), branch closures, club-network opportunities, significant EVENTS swings (|cash| >= 5000 or fame swing >= 10), power tier promotions, scandals, entity tier promotions, deep-space certification, and a new pool of 20 ambient mini-events ('found $20 on the sidewalk', 'parking ticket', 'a colleague bought your coffee', 'caught a minor cold', etc.) that fire ~3% per game-day with small ± cash/health/spirit swings (capped at ±$500 / ±5 health / ±5 spirit so the economy stays balanced). The ambient events are NOT full AI oracle popups — they're lightweight toast-only flavor lines that make the world feel alive during online play. tick() and applyOffline() both drain the new s.pendingToasts queue into their return value; the React layer surfaces them via the existing showToast() with 1.2s stagger so they don't visually stack. Offline catch-up surfaces up to 3 milestone toasts so players don't miss graduations / scandals / promotions that happened while they were away. No save-state migration beyond the new pendingToasts array (backfilled in migrate()). All four Huyen-Hoc-AI features (Kinh Dịch / Tử Vi / Phong Thuỷ / Tarot) remain unchanged.",
   "features": [
-    "New Tarot nâng cao panel in the Spirit tab: spread selector (1/3/5 cards) + optional question → full 78-card draw + multi-card LLM interpretation in the player's language",
-    "src/lib/tarot.ts: full deterministic deck ported from Huyen-Hoc-AI — 22 MAJOR_ARCANA (The Fool → The World, EN+VN+keyword), 4 SUITS (Wands/Cups/Swords/Pentacles with VN suit + element + theme), 14 RANKS (Ace→King with VN rank + keyword), SPREADS (1/3/5 position labels), deck() builder, drawCards() with Fisher-Yates sample-without-replacement + 30% reversal",
-    "POST /api/tarot: LLM interpretation via the existing Ollama connection, ZAI cloud fallback, deterministic local-reading fallback — always returns a structured reading in the player's language; structured JSON output with thongDiepChinh + per-card luanGiaiTungLa + tongHop + loiKhuyenCuThe + canhBao + cauChuc",
-    "Card grid: reversed cards rendered with 180° rotation + brick colour tag, upright with sage tag; minor arcana shows suit + element; major arcana shows just the name",
-    "Per-card interpretation rows: position label (accent) + card name + meaning + question-relevance (italicised, omitted if no question)",
-    "Optional question input — if provided, the LLM ties each card to the question; if omitted, general reading",
-    "Stateless — no save-state migration; the earlier v11.6 simple Tarot panel stays as a quick 1-card hint feature",
-    "Version label moved to the FRONT of the app name in the header (v11.16 HuyenBao) per the new house style",
-    "Disclaimer notes (TAROT_GHI_CHU + disc.aiNote) shown under every reading"
+    "Random AI oracle popup frequency bumped from ~4% to ~6% per eligible game-day (more online popups)",
+    "New pendingToasts queue on GameState + queueToast() helper — engine functions push user-facing notifications; tick() drains the queue into its return value",
+    "Study completion toasts: 🎓 Graduated for degrees, 📜 Licence/Short course complete for licences + short courses (previously only in the life log)",
+    "Branch closure toast: ⚠️ Business setback — N branches closed this year",
+    "Club-network toast: 🤝 Club network: <ops summary>",
+    "Significant EVENTS toast: 🎉/💢 event msg + cash + fame (only when |cash| >= 5000 OR fame swing >= 10 — small swings stay log-only)",
+    "Power tier promotion toast: 🏛️ Power tier unlocked: <label>",
+    "Scandal toast: 📰 Scandal! Press leaks — scrutiny +10, influence −5",
+    "Entity tier promotion toast: 🏢 Entity tier unlocked: <tier>",
+    "Deep-space certification toast: 🚀 Deep-space navigation certified — space venture income +20%",
+    "New AMBIENT_EVENTS pool: 20 lightweight flavor events that fire ~3% per game-day during online play — 🎉 tin vui (found $20, sold gadget, rebate cheque, won raffle, refund, tip jar overflow), 💢 sự cố (parking ticket, minor cold, lost wallet, bus delayed, Wi-Fi down, subscription renewed, drainpipe leak), 🍵 misc (colleague bought coffee, friend dropped by with food, neighbour returned tool, free samples, stranger complimented outfit). Small ± cash/health/spirit swings capped at ±$500 / ±5 / ±5",
+    "UI surfaces res.toasts via showToast() with 1.2s stagger between entries; offline catch-up surfaces up to 3 milestone toasts (capped) so the player sees graduations / scandals / promotions that happened while away",
+    "Version label at the FRONT of the app name in the header (v11.17 HuyenBao) — house style continues from v11.15.1"
   ]
 }

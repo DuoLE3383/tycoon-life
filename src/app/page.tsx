@@ -1,5 +1,5 @@
 'use client';
-// HuyenBao v11.16 — React edition. Two-level grouped nav, a systems links map,
+// HuyenBao v11.17 — React edition. Two-level grouped nav, a systems links map,
 // gigs, levels, social, the cosmic frontier, EN/VI/中文, LLM oracle with
 // random kind dispatch (luck / setback / life-stage / story), pre-owned
 // market + social listings, and a Hall of Fame tab.
@@ -71,7 +71,7 @@ if (typeof window !== 'undefined') {
 // v11.8 — the bundled version. The /version.json file in /public is polled
 // every 5 minutes; if its version is newer than this, a "reload to update"
 // banner appears even in a running session (no F5 needed).
-const BUNDLED_VERSION = 'v11.16';
+const BUNDLED_VERSION = 'v11.17';
 const VERSION_POLL_MS = 5 * 60 * 1000;
 const SEEN_KEY = 'tycoon_seen_' + BUNDLED_VERSION;
 
@@ -158,10 +158,13 @@ export default function Page() {
     // tab being closed since the last session). Time advances at the slower
     // OFFLINE_DAY_MS rate (10 min/day) and unmonitored businesses face extra
     // risk. The summary is toasted so the player sees what happened while away.
+    // v11.17 — also surface up to 3 milestone toasts the offline period
+    // produced (graduation, scandal, etc.) so the player doesn't miss them.
     const st0 = getState();
     if (st0.started && !st0.over) {
       const off = applyOffline(st0, Math.random);
       if (off?.summary) showToast(off.summary);
+      if (off?.toasts?.length) off.toasts.forEach((msg, i) => setTimeout(() => showToast(msg), 1200 + i * 1500));
       if (off?.gameJustOver) showToast(t('livedToast'));
       st0.lastSeen = Date.now();
       persist();
@@ -181,6 +184,11 @@ export default function Page() {
       // away time (not the gap between 250ms ticks).
       st.lastSeen = now;
       if (res.yearToast) showToast(res.yearToast);
+      // v11.17 — surface engine-emitted toasts (study complete, branch closure,
+      // scandal, power promotion, ambient mini-events). Stagger each by 1.2s so
+      // they don't all stack on top of each other; the toast component already
+      // shows only the latest, so this queues them visually.
+      if (res.toasts?.length) res.toasts.forEach((msg, i) => setTimeout(() => showToast(msg), i * 1200));
       if (res.gameJustOver) showToast(t('livedToast'));
       const got = checkAch(st);
       if (got.length) achToast(got);
@@ -436,7 +444,7 @@ function Header({ s, eraName }: { s: GameState; eraName: (y: number) => string }
     <header className="top">
       <div className="brand">
         <Art id="s-coin" className="logo" />
-        <div><h1><span className="mini">v11.16</span> HuyenBao</h1>
+        <div><h1><span className="mini">v11.17</span> HuyenBao</h1>
           <div className="mini">{s.started ? `${s.nation} · ${eraName(worldYear(s))}` : t('tagline')}</div></div>
       </div>
       <div><div className="mini">{t('cash')}</div><div id="tcash" style={{ color: s.money < 0 ? 'var(--brick)' : undefined }}>{fmt(s.money)}</div>
