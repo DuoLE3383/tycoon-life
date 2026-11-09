@@ -772,7 +772,12 @@ const D: Record<string, [string, string, string]> = {
   'livedToast': ['You lived to 90.', 'Bạn đã sống đến 90 tuổi.', '你活到了90岁。'],
   'newYear': ['New year {y}', 'Năm mới {y}', '{y} 新年'],
   // ---- footer
-  'footer': ['Time pauses while the tab is closed.', 'Thời gian dừng khi đóng tab.', '关闭标签页时时间暂停。'],
+  'footer': ['30s = 1 day online · 10 min = 1 day offline (with risks)', '30 giây = 1 ngày khi online · 10 phút = 1 ngày khi offline (kèm rủi ro)', '30 秒 = 1 天在线 · 10 分钟 = 1 天离线（含风险）'],
+  // ---- v11.19 — crypto hook to Elliott + real-prices note
+  'mk.cryptoHookTitle': ['Crypto trading on Elliott', 'Giao dịch crypto trên Elliott', '在 Elliott 上交易加密货币'],
+  'mk.cryptoHookBlurb': ['The COIN ticker here is a BTC proxy in the game economy. For real-time crypto charts + Elliott Wave analysis, visit the dedicated crypto companion app.', 'COIN trong game là proxy BTC. Để xem biểu đồ crypto thời gian thực + phân tích Elliott Wave, mở app crypto đồng hành.', '游戏中的 COIN 是 BTC 代理。如需实时加密货币图表 + 艾略特波浪分析，请打开配套的加密货币应用。'],
+  'mk.cryptoHookBtn': ['Open elliott.huyenbao.com', 'Mở elliott.huyenbao.com', '打开 elliott.huyenbao.com'],
+  'mk.realPricesNote': ['Base prices reflect real-world late-2024 levels; in-game movement is a deterministic random walk per game-day.', 'Giá cơ sở theo giá thật cuối 2024; biến động trong game là bước ngẫu nhiên mỗi ngày-game.', '基准价格反映 2024 年末真实水平；游戏内走势为每个游戏日的确定性随机游走。'],
   // ---- stages
   'stage.0': ['Student', 'Học sinh/sinh viên', '学生'],
   'stage.1': ['Young worker', 'Người đi làm mới', '职场新人'],

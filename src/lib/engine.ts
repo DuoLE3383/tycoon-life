@@ -108,6 +108,10 @@ export interface GameState {
   // psychic tracks opt-in + last draw + log for the Spirit-tab tarot action.
   gender: Gender;
   birthMonth: number;          // 1-12 (Jan..Dec)
+  // v11.19 — birth day (1-31). Stored at character creation so the Spirit
+  // tab panels (Tử Vi / Phong Thuỷ) can use the actual birth day instead of
+  // a default. The intro panel collects it next to the month.
+  birthDay: number;            // 1-31
   zodiac: ZodiacSign;          // derived at begin()
   psychic: PsychicState;
   started: boolean;
@@ -400,7 +404,7 @@ export function fresh(): GameState {
     lots: [], stk: {},     club: null, ownClub: null, job: null, sideJob: null,
     deg: { business: 0, engineering: 0, medicine: 0, science: 0, arts: 0 }, lic: {}, study: null, sideStudy: null,
     name: 'Alex', byear: 1992, nation: 'Vietnam', religion: 'none', ints: [], tals: [], topField: null, started: false,
-    gender: 'nonbinary', birthMonth: 1, zodiac: 'capricorn', psychic: freshPsychic(),
+    gender: 'nonbinary', birthMonth: 1, birthDay: 15, zodiac: 'capricorn', psychic: freshPsychic(),
     bank: { dep: 0, loan: 0 }, fame: 0, donated: 0, yIncome: 0, yTax: 0,
     prices: {}, hist: {}, eraBiz: 1, eraFac: 1,
     log: [], over: false, pending: null, aiEv: null,
@@ -478,6 +482,8 @@ export function migrate(raw: unknown): GameState {
   if (!RELIGIONS.includes(s.religion)) s.religion = 'none';
   s.gender = (s.gender === 'male' || s.gender === 'female' || s.gender === 'nonbinary') ? s.gender : 'nonbinary';
   s.birthMonth = Number.isFinite(s.birthMonth) && s.birthMonth >= 1 && s.birthMonth <= 12 ? s.birthMonth : 1;
+  // v11.19 — birthDay backfill for old saves.
+  s.birthDay = Number.isFinite(s.birthDay) && s.birthDay >= 1 && s.birthDay <= 31 ? s.birthDay : 15;
   s.zodiac = (ZODIAC.some(z => z.id === s.zodiac)) ? s.zodiac : zodiacOf(s.birthMonth, 1);
   s.psychic = s.psychic && typeof s.psychic === 'object'
     ? Object.assign(freshPsychic(), s.psychic)
@@ -522,7 +528,7 @@ export function migrate(raw: unknown): GameState {
   STOCKS.forEach(x => { if (s.prices[x.id] == null) { s.prices[x.id] = x.p; s.hist[x.id] = [x.p]; } });
   return s;
 }
-export function begin(s: GameState, opts: { name: string; byear: number; nation: string; religion?: Religion; ints: string[]; tals: string[]; gender?: Gender; birthMonth?: number }) {
+export function begin(s: GameState, opts: { name: string; byear: number; nation: string; religion?: Religion; ints: string[]; tals: string[]; gender?: Gender; birthMonth?: number; birthDay?: number }) {
   const a = analyze(opts.ints, opts.tals);
   Object.assign(s, fresh(), { started: true });
   s.name = opts.name.slice(0, 24) || 'Alex';
@@ -530,11 +536,12 @@ export function begin(s: GameState, opts: { name: string; byear: number; nation:
   s.ints = [...opts.ints]; s.tals = [...opts.tals]; s.topField = a.top;
   // v11.6 — gender + birth month + zodiac. Birth month drives the zodiac
   // sign at game start; the React layer passes both in from the Intro.
-  // Default day=15 (mid-month) for zodiac calculation so the day-of-month
-  // edge cases are not exposed to the player (v11.6 doesn't ask for day).
+  // v11.19 — birthDay (1-31) collected next to birthMonth in the Intro;
+  // feeds the Spirit tab panels (Tử Vi / Phong Thuỷ) and the zodiac calc.
   s.gender = opts.gender || 'nonbinary';
   s.birthMonth = Number.isFinite(opts.birthMonth) && opts.birthMonth! >= 1 && opts.birthMonth! <= 12 ? opts.birthMonth! : 1;
-  s.zodiac = zodiacOf(s.birthMonth, 15);
+  s.birthDay = Number.isFinite(opts.birthDay) && opts.birthDay! >= 1 && opts.birthDay! <= 31 ? opts.birthDay! : 15;
+  s.zodiac = zodiacOf(s.birthMonth, s.birthDay);
   if (opts.ints.includes('money')) s.money = 5000;
   s.log.push(`1 Sep ${s.byear + 18}: ${s.name} turns 18 in the ${eraOf(s.byear + 18).name}. Find a job, or study for a degree or licence.`);
   recordActivity(s, 'Started a new life');
@@ -1820,14 +1827,12 @@ export function reincarnate(s: GameState): GameState {
       next.deg[f] = kept;
     }
   }
-  // 5. Licences: ~50% chance to forget each one.
-  for (const licId of Object.keys(s.lic)) {
-    if (s.lic[licId] && Math.random() < 0.5) {
-      // forgotten
-    } else {
-      next.lic[licId] = true;
-    }
-  }
+  // 5. v11.19 — Licences: ALWAYS forget every licence on reincarnation.
+  //    Previously this was a ~50% chance per licence, which left players with
+  //    surviving licences they couldn't re-enroll in (the licence UI shows
+  //    "✓ Done" for owned licences). The reincarnation narrative is a fresh
+  //    start, so licences are wiped — the player can re-enroll any of them.
+  //    (Degrees still fade by 30-80% above; shortCompleted is reset by fresh().)
   // 6. Past-life memory note in the log so the player sees the chain.
   if (next.pastLives.length > 0) {
     next.log.push(`Past life: ${next.pastLives[next.pastLives.length - 1].note}`);

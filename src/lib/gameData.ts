@@ -580,15 +580,23 @@ export const HALL_OF_FAME: HallEntry[] = [
   { id: 'h-strive', name: 'Strive Masiyiwa', nation: 'Zimbabwe / UK', era: '2000s', industry: 'Telecom', peakNetWorth: '~$1B+', note: 'Won a 5-year court battle to break the telecom monopoly. Then wired a continent.', kind: 'real' },
 ];
 
+// v11.19 — base prices updated to real-world-inspired values (approximate
+// late-2024 levels). The fictional ticker names stay (game fiction + save-
+// state compatibility) but the price + volatility levels now feel like real
+// markets: large-cap tech ~$230, banking ~$60 (steady), EV ~$250, oil ~$75,
+// crypto fund ~$95 (BTC proxy), pharma ~$85, retail ~$55, solar ~$35,
+// AI frontier ~$580, airline ~$30.
+// The game still drives prices via a deterministic random walk per game-day;
+// these are the seed values for a fresh game.
 export const STOCKS = [
-  { id: 'TECH', name: 'Nova Technologies (large-cap tech)', p: 100, vol: .035, art: 's-tech' },
+  { id: 'TECH', name: 'Nova Technologies (large-cap tech)', p: 230, vol: .035, art: 's-tech' },
   { id: 'BANK', name: 'Continental Banking Group', p: 60, vol: .02, art: 'b-bank' },
-  { id: 'OIL', name: 'Petrorig Global Energy', p: 40, vol: .05, art: 's-oil' },
-  { id: 'COIN', name: 'Ledger crypto fund', p: 20, vol: .09, art: 's-coin' },
+  { id: 'OIL', name: 'Petrorig Global Energy', p: 75, vol: .04, art: 's-oil' },
+  { id: 'COIN', name: 'Ledger crypto fund (BTC proxy)', p: 95, vol: .09, art: 's-coin' },
   { id: 'PHARMA', name: 'Helix BioPharma', p: 85, vol: .03, art: 's-pharma' },
   { id: 'RETAIL', name: 'Metro Retail Holdings', p: 55, vol: .025, art: 'b-ret' },
-  { id: 'SOLAR', name: 'Solaris Dynamics', p: 35, vol: .04, art: 's-solar' },
-  { id: 'AI', name: 'NeuroAI Labs (frontier AI)', p: 150, vol: .06, art: 's-ai' },
+  { id: 'SOLAR', name: 'Solaris Dynamics', p: 35, vol: .045, art: 's-solar' },
+  { id: 'AI', name: 'NeuroAI Labs (frontier AI)', p: 580, vol: .07, art: 's-ai' },
   { id: 'SKY', name: 'SkyAtlantic Airlines', p: 30, vol: .05, art: 'i-jet' }
 ];
 export const CLUBS = [

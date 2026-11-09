@@ -42,11 +42,13 @@ test('bankOp safely deposits, withdraws, and caps borrowing', () => {
 
 test('trade validates purchases and caps sales at holdings', () => {
   const state = fresh();
-  state.money = 500;
+  // v11.19: TECH base price raised from $100 → $230. Bump cash accordingly
+  // so 3 × TECH = $690 fits, and the sell-back yields $690 (was $300).
+  state.money = 1000;
   assert.deepEqual(trade(state, 'TECH', 'buy', 3), { ok: true, msg: 'Bought 3 × TECH' });
   assert.equal(state.stk.TECH, 3);
   assert.equal(trade(state, 'TECH', 'buy', 100).ok, false);
-  assert.equal(trade(state, 'TECH', 'sell', 99).msg, 'Sold 3 × TECH for $300');
+  assert.equal(trade(state, 'TECH', 'sell', 99).msg, 'Sold 3 × TECH for $690');
   assert.equal(state.stk.TECH, 0);
 });
 

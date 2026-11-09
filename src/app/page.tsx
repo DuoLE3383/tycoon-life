@@ -1,5 +1,5 @@
 'use client';
-// HuyenBao v11.18 — React edition. Two-level grouped nav, a systems links map,
+// HuyenBao v11.19 — React edition. Two-level grouped nav, a systems links map,
 // gigs, levels, social, the cosmic frontier, EN/VI/中文, LLM oracle with
 // random kind dispatch (luck / setback / life-stage / story), pre-owned
 // market + social listings, and a Hall of Fame tab.
@@ -71,7 +71,7 @@ if (typeof window !== 'undefined') {
 // v11.8 — the bundled version. The /version.json file in /public is polled
 // every 5 minutes; if its version is newer than this, a "reload to update"
 // banner appears even in a running session (no F5 needed).
-const BUNDLED_VERSION = 'v11.18';
+const BUNDLED_VERSION = 'v11.19';
 const VERSION_POLL_MS = 5 * 60 * 1000;
 const SEEN_KEY = 'tycoon_seen_' + BUNDLED_VERSION;
 
@@ -84,7 +84,18 @@ export default function Page() {
   const curSubs = (GROUPS.find(g => g[0] === activeGroup) || GROUPS[0])[3];
   const [rankBoard, setRankBoard] = useState<'all' | 'young' | 'industry' | 'nation'>('all');
   const [curCat, setCurCat] = useState<string | null>(null);
+  // v11.19 — toast queue. Previously a single toast slot: rapid showToast()
+  // calls would overwrite each other and the player saw only the last one.
+  // Now toasts are queued; each shows for its full duration before the next
+  // appears, so milestone + ambient notifications don't disappear too fast.
   const [toast, setToast] = useState<{ id: number; msg: string } | null>(null);
+  const toastQueue = useRef<{ id: number; msg: string }[]>([]);
+  // Ref tracking whether a toast is currently showing — used to avoid the
+  // stale-closure bug where multiple synchronous showToast() calls would all
+  // see `toast === null` (the closure captures the value at call time, before
+  // React re-renders) and overwrite each other. The ref is updated in the same
+  // tick as setToast, so subsequent calls see it correctly.
+  const toastShowing = useRef(false);
   const [aiBusy, setAiBusy] = useState(false);
   const [aiNoteKey, setAiNoteKey] = useState('oracle.note');
   const [qtyMap, setQtyMap] = useState<Record<string, number>>({});
@@ -127,13 +138,47 @@ export default function Page() {
   }, []);
 
   const showToast = useCallback((msg: string) => {
-    setToast({ id: Date.now(), msg });
-    if (toastTimer.current) clearTimeout(toastTimer.current);
-    // v11.12 — adaptive duration: longer messages stay visible longer so the
-    // player has time to read them. Min 3.5s, max 8s, ~55ms per character.
+    // v11.19 — queue toasts instead of overwriting the current one. Each
+    // toast displays for its full duration (3.5–8s, adaptive) before the
+    // next appears. This fixes the "I see only one quick flash" complaint:
+    // previously rapid showToast() calls from tick() (which can return up to
+    // 5–10 toasts at once for milestones + ambient events) overwrote each
+    // other and the player saw only the last.
+    //
+    // We use a ref (toastShowing) instead of the `toast` state to decide
+    // whether to display immediately or queue — this avoids the stale-closure
+    // bug where multiple synchronous calls would all see `toast === null`.
+    const entry = { id: Date.now() + Math.floor(Math.random() * 1000), msg };
+    if (toastShowing.current) {
+      toastQueue.current.push(entry);
+      return;
+    }
+    toastShowing.current = true;
+    setToast(entry);
     const dur = Math.min(8000, Math.max(3500, msg.length * 55));
-    toastTimer.current = setTimeout(() => setToast(null), dur);
+    if (toastTimer.current) clearTimeout(toastTimer.current);
+    toastTimer.current = setTimeout(() => {
+      setToast(null);
+      toastShowing.current = false;
+    }, dur);
   }, []);
+
+  // v11.19 — drain the queue when the current toast expires. The setTimeout
+  // above sets toastShowing=false + setToast(null); this effect then picks up
+  // the next queued toast (if any) and shows it for its full duration.
+  useEffect(() => {
+    if (toastShowing.current) return; // current toast still showing
+    if (toastQueue.current.length === 0) return;
+    const next = toastQueue.current.shift()!;
+    toastShowing.current = true;
+    setToast(next);
+    const dur = Math.min(8000, Math.max(3500, next.msg.length * 55));
+    if (toastTimer.current) clearTimeout(toastTimer.current);
+    toastTimer.current = setTimeout(() => {
+      setToast(null);
+      toastShowing.current = false;
+    }, dur);
+  }, [toast]);
 
   const achToast = useCallback((got: string[]) => {
     const names = got.map(id => t('ach.' + id));
@@ -444,7 +489,7 @@ function Header({ s, eraName }: { s: GameState; eraName: (y: number) => string }
     <header className="top">
       <div className="brand">
         <Art id="s-coin" className="logo" />
-        <div><h1><span className="mini">v11.18</span> HuyenBao</h1>
+        <div><h1><span className="mini">v11.19</span> HuyenBao</h1>
           <div className="mini">{s.started ? `${s.nation} · ${eraName(worldYear(s))}` : t('tagline')}</div></div>
       </div>
       <div><div className="mini">{t('cash')}</div><div id="tcash" style={{ color: s.money < 0 ? 'var(--brick)' : undefined }}>{fmt(s.money)}</div>
@@ -1171,11 +1216,13 @@ function KinhDichPanel() {
 
 // v11.14 — Tử Vi (紫微斗数) panel. Builds a simplified natal chart (lá số)
 // client-side via src/lib/tuvi.ts (ported from Huyen-Hoc-AI), using the
-// character's byear + birthMonth plus a day + hour the player enters here. The
-// LLM interpretation comes from /api/tuvi. No save-state change.
+// character's byear + birthMonth + birthDay (v11.19: was day=15 default)
+// plus an hour the player enters here. The LLM interpretation comes from
+// /api/tuvi. No save-state change.
 function TuViPanel({ s }: { s: GameState }) {
   const { t, lang } = useT();
-  const [day, setDay] = useState(15);
+  // v11.19 — seed day from the character's birthDay instead of mid-month 15.
+  const [day, setDay] = useState(s.birthDay || 15);
   const [hour, setHour] = useState(12);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -1306,7 +1353,8 @@ function TuViPanel({ s }: { s: GameState }) {
 // runs on the main app's own LLM (same client as /api/divine + /api/tuvi).
 function PhongThuyPanel({ s }: { s: GameState }) {
   const { t, lang } = useT();
-  const [day, setDay] = useState(15);
+  // v11.19 — seed day from the character's birthDay instead of mid-month 15.
+  const [day, setDay] = useState(s.birthDay || 15);
   const [gender, setGender] = useState<'nam' | 'nu'>('nam');
   const [houseDir, setHouseDir] = useState<Huong>('Nam');
   const [kitchenDir, setKitchenDir] = useState<Huong | ''>('');
@@ -1929,7 +1977,20 @@ function StockTab({ s, act, qtyMap, setQtyMap }: { s: GameState; act: Act; qtyMa
           <svg className="spark" viewBox="0 0 96 30"><polyline fill="none" stroke={h[h.length - 1] >= h[0] ? '#4f7d5f' : '#a3524a'} strokeWidth="2.4" points={pts} /></svg>
         </Row>;
       })}
+      {/* v11.19 — crypto hook: link to the companion Elliott Wave crypto app.
+          COIN in-game is a BTC proxy; for real-time crypto charts + Elliott
+          analysis, the player can jump to the dedicated crypto app. */}
+      <Row art="s-coin">
+        <b>{t('mk.cryptoHookTitle')}</b>
+        <span className="sub">{t('mk.cryptoHookBlurb')}</span>
+        <div className="trade" style={{ marginTop: 6 }}>
+          <a className="ibtn" href="https://elliott.huyenbao.com/" target="_blank" rel="noopener noreferrer">
+            <Ic id="ic-up" className="bsi" /><span>{t('mk.cryptoHookBtn')}</span>
+          </a>
+        </div>
+      </Row>
       <p className="sub">{t('stockNote')}</p>
+      <p className="mini" style={{ opacity: .6, marginTop: 4 }}>{t('mk.realPricesNote')}</p>
     </>
   );
 }
@@ -2863,7 +2924,7 @@ function LinksTab({ s }: { s: GameState }) {
 }
 
 // ================= INTRO =================
-function Intro({ onBegin }: { onBegin: (o: { name: string; byear: number; nation: string; religion: Religion; ints: string[]; tals: string[]; gender: Gender; birthMonth: number }) => void }) {
+function Intro({ onBegin }: { onBegin: (o: { name: string; byear: number; nation: string; religion: Religion; ints: string[]; tals: string[]; gender: Gender; birthMonth: number; birthDay: number }) => void }) {
   const { t, lang, setLang } = useT();
   const [name, setName] = useState('');
   const [byear, setByear] = useState(1992);
@@ -2874,6 +2935,10 @@ function Intro({ onBegin }: { onBegin: (o: { name: string; byear: number; nation
   // v11.6 — gender + birth month → zodiac + tarot/spirit affinity
   const [gender, setGender] = useState<Gender>('nonbinary');
   const [birthMonth, setBirthMonth] = useState<number>(1);
+  // v11.19 — birth day (1–31). Stored on GameState as birthDay (default 15).
+  // Used by the Spirit tab panels (Tử Vi / Phong Thuỷ) that previously
+  // defaulted to day=15; now the player picks it once at character creation.
+  const [birthDay, setBirthDay] = useState<number>(15);
   // v11 — two-step flow: 'edit' (fill fields) → 'review' (summary + confirm)
   const [step, setStep] = useState<'edit' | 'review'>('edit');
   // v11.10 — mandatory legal disclaimer acknowledgment. The "Begin my life"
@@ -2889,8 +2954,8 @@ function Intro({ onBegin }: { onBegin: (o: { name: string; byear: number; nation
     if (i > -1) set(arr.filter(x => x !== id));
     else if (arr.length < max) set([...arr, id]);
   };
-  // v11.6 — zodiac derived from birthMonth (use day=15 mid-month for simplicity).
-  const zodiac = zodiacOf(birthMonth, 15);
+  // v11.6 — zodiac derived from birthMonth + birthDay (v11.19: was mid-month=15).
+  const zodiac = zodiacOf(birthMonth, birthDay);
   const zodiacDef = zodiacById(zodiac);
   // v11 — random character generator. Picks a name from the nation's pool,
   // a birth year weighted toward the modern era (1960-now-18), random
@@ -2912,7 +2977,7 @@ function Intro({ onBegin }: { onBegin: (o: { name: string; byear: number; nation
     const nt = 1 + Math.floor(Math.random() * 2);
     const newTals = shuffledTals.slice(0, nt).map(i => i.id);
     setName(nm); setByear(yr); setNation(nat); setReligion(rel);
-    setGender(g); setBirthMonth(bm);
+    setGender(g); setBirthMonth(bm); setBirthDay(1 + Math.floor(Math.random() * 28));
     setInts(newInts); setTals(newTals); setStep('edit');
   };
   const startEra = eraOf(byear + 18);
@@ -2935,8 +3000,10 @@ function Intro({ onBegin }: { onBegin: (o: { name: string; byear: number; nation
     <div className="modal on"><div className="mcard" style={{ maxWidth: 560 }}>
       <h2>{t('createLife')}</h2>
       <p className="mini" style={{ marginTop: 0 }}>{t('introSub')}</p>
-      {/* v11.10 — legal disclaimer, visible from the first screen of the intro */}
-      <p className="mini" style={{ margin: '6px 0 0', padding: '6px 8px', background: 'rgba(0,0,0,0.04)', borderRadius: 4, opacity: .9 }}>
+      {/* v11.10 — legal disclaimer, visible from the first screen of the intro.
+          v11.19 — wider container + line-height so the (long VI) text doesn't
+          render as a tall narrow column of single characters on small screens. */}
+      <p className="mini" style={{ margin: '6px 0 0', padding: '8px 10px', background: 'rgba(0,0,0,0.04)', borderRadius: 4, opacity: .9, lineHeight: 1.5, wordBreak: 'normal', overflowWrap: 'anywhere' }}>
         ⚠️ {t('disc.short')}
       </p>
       {step === 'edit' ? (
@@ -2957,11 +3024,20 @@ function Intro({ onBegin }: { onBegin: (o: { name: string; byear: number; nation
               <option value="female">{t('v11.genderFemale')}</option>
               <option value="male">{t('v11.genderMale')}</option>
             </select></div>
-          <div className="field"><label>{t('v11.birthMonth')}</label>
-            <select value={birthMonth} onChange={e => setBirthMonth(+e.target.value)}>
-              {MONTHS_NAMES.map((m, i) => <option key={i} value={i + 1}>{m} ({zodiacOf(i + 1, 15)})</option>)}
-            </select></div>
-          {/* v11.6 — zodiac preview */}
+          {/* v11.19 — birth month + birth day side-by-side. Day feeds the
+              Spirit tab panels (Tử Vi / Phong Thuỷ) that previously defaulted
+              to day=15; now the player picks it once at character creation. */}
+          <div className="trade" style={{ gap: 8 }}>
+            <div className="field" style={{ flex: 1 }}><label>{t('v11.birthMonth')}</label>
+              <select value={birthMonth} onChange={e => setBirthMonth(+e.target.value)}>
+                {MONTHS_NAMES.map((m, i) => <option key={i} value={i + 1}>{m} ({zodiacOf(i + 1, birthDay)})</option>)}
+              </select></div>
+            <div className="field" style={{ flex: '0 0 110px' }}><label>{t('v11.birthDay')}</label>
+              <select value={birthDay} onChange={e => setBirthDay(+e.target.value)}>
+                {Array.from({ length: 31 }, (_, i) => i + 1).map(d => <option key={d} value={d}>{d}</option>)}
+              </select></div>
+          </div>
+          {/* v11.6 — zodiac preview (now uses the picked day instead of mid-month) */}
           <div className="preview" style={{ padding: '6px 8px', background: 'rgba(0,0,0,0.04)', borderRadius: 4 }}>
             <b>{zodiacDef.symbol} {zodiac}</b>
             <span className="sub" style={{ marginLeft: 6 }}>
@@ -3039,7 +3115,7 @@ function Intro({ onBegin }: { onBegin: (o: { name: string; byear: number; nation
           <div className="trade">
             <button className="ibtn ghost" onClick={() => setStep('edit')}><Ic id="ic-x" className="bsi" /><span>{t('v11.back')}</span></button>
             {/* v11.10 — Begin stays disabled until the disclaimer is acknowledged */}
-            <button className="ibtn" style={{ flex: 1 }} disabled={!ack} onClick={() => onBegin({ name: name || 'Alex', byear, nation, religion, ints, tals, gender, birthMonth })}>
+            <button className="ibtn" style={{ flex: 1 }} disabled={!ack} onClick={() => onBegin({ name: name || 'Alex', byear, nation, religion, ints, tals, gender, birthMonth, birthDay })}>
               <Ic id="ic-plus" className="bsi" /><span>{t('begin')}</span>
             </button>
           </div>
