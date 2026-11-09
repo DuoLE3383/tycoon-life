@@ -1,13 +1,13 @@
 {
-  "version": "v11.9",
+  "version": "v11.10",
   "releasedAt": "2026-11-10",
-  "headline": "HuyenBao v11.9 — HuyenBao rebrand + choice hints + social cooldown",
-  "summary": "Three changes: (1) the app is rebranded from MOGUL to HuyenBao across the header, PWA manifest, page metadata, AI prompts, and default @handle — gameplay terms like the 'Industry mogul' power tier are unchanged. (2) The '(Balanced 50/50)' risk word is removed from behind every AI-oracle / life-event choice button; the colour-code legend stays below the choices, and each choice now gets its own small danger/benefit hint line (pay cost, possible gain, possible loss, health hit — localised EN/VI/ZH). (3) The social spam-click exploit is fixed: one post per game day across all five post buttons, enforced in the engine (addPost guard) and in the UI (buttons disabled + cooldown note).",
+  "headline": "HuyenBao v11.10 — legal disclaimer (EN/VI/ZH)",
+  "summary": "A clear legal warning is now built into the game at every important surface: (1) the character-creation intro shows the disclaimer from the first screen and requires an explicit checkbox acknowledgment — 'Begin my life' stays disabled until the player confirms they understand this is a simulation game, not real life; (2) a persistent one-line disclaimer is shown in the footer on every tab during play and on the game-over screen; (3) every event modal (including AI prophecies) carries a note that AI-written content is fictional and never real-life advice. All text is localised in English, Vietnamese and 中文.",
   "features": [
-    "Rebrand: MOGUL → HuyenBao in header, layout metadata, PWA manifest, package.json, AI post prompt, default @handle, i18n headline, README title (no changelog-history entry added per request)",
-    "Choice hints: every choice in the event modal shows a compact hint line — quality (low risk / uncertain / high risk) + possible gains (money, fame) + possible dangers (pay cost, lose up to N, fame drop, hp loss) in EN/VI/ZH",
-    "Choice labels: risk suffix ('· Balanced 50/50' etc.) removed from behind every choice; colour coding + bottom legend remain",
-    "Social exploit fix: POST_COOLDOWN_DAYS = 1 game day; addPost() engine-side guard (console hook cannot bypass); all 5 post buttons (AI / Update / Hype / Charity / Milestone) disabled during cooldown with a localised countdown note",
-    "Version bumped to v11.9 on homepage header + version.json"
+    "Intro disclaimer: warning box on the first screen of character creation + mandatory acknowledgment checkbox in the review step — 'Begin my life' is disabled until acknowledged",
+    "Persistent disclaimer line in the app footer (all tabs) and on the game-over screen: simulation game for entertainment only, do not apply to real life, player bears full legal responsibility for real-world actions",
+    "Event modal note: AI prophecies & life events are fictional — entertainment only, never real-life advice",
+    "Disclaimer text localised in EN / VI / 中文 (disc.title, disc.ack, disc.short, disc.aiNote)",
+    "Version bumped to v11.10 on homepage header + version.json"
   ]
 }

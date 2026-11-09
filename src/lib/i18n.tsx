@@ -601,6 +601,13 @@ const D: Record<string, [string, string, string]> = {
   'suggested': ['Suggested', 'Gợi ý', '推荐'],
   'pickHint': ['Pick interests and talents to see your suggested path.', 'Chọn sở thích & tài năng để xem lối đi gợi ý.', '选择兴趣与天赋以查看推荐路线。'],
   'begin': ['Begin my life', 'Bắt đầu cuộc đời', '开始人生'],
+  // ---- v11.10 legal disclaimer (user request: state clearly that the game is a
+  // simulation, must not be applied to real life, and the player bears full
+  // legal responsibility for their real-world actions)
+  'disc.title': ['Simulation game — entertainment only', 'Trò chơi mô phỏng — chỉ mang tính giải trí', '模拟游戏 — 仅供娱乐'],
+  'disc.ack': ['This is a simulation game, not real life. I will not apply anything from the game to real life, and I bear full legal responsibility for my own real-world actions.', 'Đây là trò chơi mô phỏng, không phải đời thật. Tôi sẽ không áp dụng bất cứ điều gì trong game vào đời thật, và tôi hoàn toàn tự chịu trách nhiệm pháp lý về hành động của mình ngoài đời.', '这是模拟游戏，不是现实生活。我不会将游戏中的任何内容应用于现实生活，并对自己的现实行为承担全部法律责任。'],
+  'disc.short': ['Simulation game for entertainment only — do not apply to real life. You bear full legal responsibility for your real-world actions.', 'Game mô phỏng chỉ để giải trí — không áp dụng vào đời thật. Bạn tự chịu hoàn toàn trách nhiệm pháp lý cho hành động ngoài đời.', '模拟游戏仅供娱乐——请勿应用于现实生活。玩家须对自己的现实行为承担全部法律责任。'],
+  'disc.aiNote': ['AI prophecies & life events are fictional — entertainment only, never real-life advice.', 'Tiên tri & sự kiện AI là hư cấu — chỉ để giải trí, không phải lời khuyên đời thật.', 'AI预言与人生事件均为虚构——仅供娱乐，并非现实建议。'],
   // ---- events
   'lifeEvent': ['Life event', 'Sự kiện cuộc đời', '人生事件'],
   'aiTwist': ['AI life twist — written for this exact moment', 'Bước ngoặt AI — viết riêng cho khoảnh khắc này', 'AI人生转折 — 专为此刻撰写'],

@@ -1,5 +1,5 @@
 'use client';
-// HuyenBao v11.9 — React edition. Two-level grouped nav, a systems links map,
+// HuyenBao v11.10 — React edition. Two-level grouped nav, a systems links map,
 // gigs, levels, social, the cosmic frontier, EN/VI/中文, LLM oracle with
 // random kind dispatch (luck / setback / life-stage / story), pre-owned
 // market + social listings, and a Hall of Fame tab.
@@ -67,7 +67,7 @@ if (typeof window !== 'undefined') {
 // v11.8 — the bundled version. The /version.json file in /public is polled
 // every 5 minutes; if its version is newer than this, a "reload to update"
 // banner appears even in a running session (no F5 needed).
-const BUNDLED_VERSION = 'v11.9';
+const BUNDLED_VERSION = 'v11.10';
 const VERSION_POLL_MS = 5 * 60 * 1000;
 const SEEN_KEY = 'tycoon_seen_' + BUNDLED_VERSION;
 
@@ -275,6 +275,8 @@ export default function Page() {
           {tab === 'links' && <LinksTab s={s} />}
         </main>
         <footer className="mini tfoot">
+          {/* v11.10 — persistent legal disclaimer, visible on every tab */}
+          <span style={{ opacity: .65, maxWidth: 560 }}>{t('disc.short')}</span>
           <span>{t('footer')}</span>
           <button className="newlife-btn" type="button"
             onClick={() => { if (typeof window !== 'undefined' && window.confirm(t('reincarnate.confirm'))) { reincarnateState(); showToast(t('reincarnate.toast')); } }}>
@@ -382,7 +384,7 @@ function Header({ s, eraName }: { s: GameState; eraName: (y: number) => string }
     <header className="top">
       <div className="brand">
         <Art id="s-coin" className="logo" />
-        <div><h1>HuyenBao <span className="mini">v11.9</span></h1>
+        <div><h1>HuyenBao <span className="mini">v11.10</span></h1>
           <div className="mini">{s.started ? `${s.nation} · ${eraName(worldYear(s))}` : t('tagline')}</div></div>
       </div>
       <div><div className="mini">{t('cash')}</div><div id="tcash" style={{ color: s.money < 0 ? 'var(--brick)' : undefined }}>{fmt(s.money)}</div>
@@ -2068,6 +2070,10 @@ function Intro({ onBegin }: { onBegin: (o: { name: string; byear: number; nation
   const [birthMonth, setBirthMonth] = useState<number>(1);
   // v11 — two-step flow: 'edit' (fill fields) → 'review' (summary + confirm)
   const [step, setStep] = useState<'edit' | 'review'>('edit');
+  // v11.10 — mandatory legal disclaimer acknowledgment. The "Begin my life"
+  // button stays disabled until the player ticks this box (per version: the
+  // intro only shows for a new life, so this is the natural consent gate).
+  const [ack, setAck] = useState(false);
   const years: number[] = [];
   const nowY = new Date().getUTCFullYear();
   for (let y = nowY - 126; y <= nowY - 18; y++) years.push(y);
@@ -2123,6 +2129,10 @@ function Intro({ onBegin }: { onBegin: (o: { name: string; byear: number; nation
     <div className="modal on"><div className="mcard" style={{ maxWidth: 560 }}>
       <h2>{t('createLife')}</h2>
       <p className="mini" style={{ marginTop: 0 }}>{t('introSub')}</p>
+      {/* v11.10 — legal disclaimer, visible from the first screen of the intro */}
+      <p className="mini" style={{ margin: '6px 0 0', padding: '6px 8px', background: 'rgba(0,0,0,0.04)', borderRadius: 4, opacity: .9 }}>
+        ⚠️ {t('disc.short')}
+      </p>
       {step === 'edit' ? (
         <>
           <div className="trade" style={{ justifyContent: 'space-between', marginBottom: 10 }}>
@@ -2215,9 +2225,15 @@ function Intro({ onBegin }: { onBegin: (o: { name: string; byear: number; nation
             <div className="mini" style={{ textTransform: 'uppercase', letterSpacing: '.4px' }}>{t('v11.firstStep')}</div>
             <p style={{ margin: '4px 0 0', fontSize: '.92rem' }}>{suggestion}</p>
           </div>
+          {/* v11.10 — mandatory disclaimer acknowledgment before starting a life */}
+          <label style={{ display: 'flex', gap: 8, alignItems: 'flex-start', margin: '4px 0 12px', padding: '8px 10px', background: 'rgba(0,0,0,0.04)', borderRadius: 6, cursor: 'pointer', textAlign: 'left' }}>
+            <input type="checkbox" checked={ack} onChange={e => setAck(e.target.checked)} style={{ marginTop: 3, flexShrink: 0 }} />
+            <span className="mini"><b>{t('disc.title')}.</b> {t('disc.ack')}</span>
+          </label>
           <div className="trade">
             <button className="ibtn ghost" onClick={() => setStep('edit')}><Ic id="ic-x" className="bsi" /><span>{t('v11.back')}</span></button>
-            <button className="ibtn" style={{ flex: 1 }} onClick={() => onBegin({ name: name || 'Alex', byear, nation, religion, ints, tals, gender, birthMonth })}>
+            {/* v11.10 — Begin stays disabled until the disclaimer is acknowledged */}
+            <button className="ibtn" style={{ flex: 1 }} disabled={!ack} onClick={() => onBegin({ name: name || 'Alex', byear, nation, religion, ints, tals, gender, birthMonth })}>
               <Ic id="ic-plus" className="bsi" /><span>{t('begin')}</span>
             </button>
           </div>
@@ -2294,6 +2310,8 @@ function EventModal({ s, act }: { s: GameState; act: Act }) {
         <span className="risk-dot" data-risk="medium" />{t('risk.medium')} ·
         <span className="risk-dot" data-risk="high" />{t('risk.high')}
       </p>
+      {/* v11.10 — disclaimer inside the event modal (covers AI prophecies too) */}
+      <p className="mini" style={{ margin: '6px 0 0', opacity: .7 }}>{t('disc.aiNote')}</p>
     </div></div>
   );
 }
@@ -2311,7 +2329,9 @@ function GameOver({ s, onAgain }: { s: GameState; onAgain: () => void }) {
         ? <>{t('livedToHealth', '', { a: Math.floor(s.age) })} <b>{fmt(nw)}</b>.</>
         : <>{t('livedTo')} <b>{fmt(nw)}</b>.</>}<br />
         <span className="mini">{t('finalLine', '', { k: knowledgeText(s), f: s.fame, d: fmt(s.donated), ka: s.karma, l: s.level, fo: s.social.followers.toLocaleString() })}</span></div>
-      <button className="ibtn" style={{ marginTop: 16 }} onClick={onAgain}>
+      {/* v11.10 — disclaimer on the game-over screen as well */}
+      <p className="mini" style={{ margin: '10px 0 0', opacity: .65 }}>{t('disc.short')}</p>
+      <button className="ibtn" style={{ marginTop: 12 }} onClick={onAgain}>
         <Ic id="ic-plus" className="bsi" /><span>{t('liveAgain')}</span>
       </button>
     </div></div>
