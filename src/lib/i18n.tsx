@@ -22,6 +22,13 @@ const D: Record<string, [string, string, string]> = {
   'reincarnate.confirm': ['Reincarnate? Knowledge fades 30-80% at random. Assets reset to age 18. Your name, nation and talents carry over.', 'Trùng sinh? Kiến thức mờ đi 30-80% ngẫu nhiên. Tài sản về lại tuổi 18. Tên, quốc tịch và năng khiếu được giữ lại.', '转生？知识随机消退 30-80%。资产回到 18 岁。姓名、国籍与天赋保留。'],
   'reincarnate.toast': ['Reincarnated — past-life memory lingers.', 'Trùng sinh — ký ức kiếp trước còn phai mờ.', '转生 — 前世记忆尚存。'],
   'lvl': ['Lv', 'Cấp', '级'],
+  // v11 — version banner / what's new
+  'v11.headline': ['MOGUL v11 — big update', 'MOGUL v11 — bản cập nhật lớn', 'MOGUL v11 — 大版本更新'],
+  'v11.summary': ['Eleven new systems land in this update. Existing saves migrate automatically — your run continues.', 'Mười một hệ thống mới cập nhật trong bản này. Save cũ tự động di chuyển — kiếp của bạn tiếp tục.', '本次更新加入十一个新系统。旧存档自动迁移 — 你的游戏继续。'],
+  'v11.gotIt': ['Got it — keep playing', 'Đã rõ — tiếp tục chơi', '了解 — 继续游戏'],
+  'v11.reloadPrompt': ['A new version ({v}) is live. Reload to get it.', 'Phiên bản mới ({v}) đã lên. Tải lại để nhận.', '新版本 ({v}) 已上线。刷新以获取。'],
+  'v11.reload': ['Reload', 'Tải lại', '刷新'],
+  'v11.later': ['Later', 'Để sau', '稍后'],
   // ---- age box
   'age': ['Age', 'Tuổi', '年龄'],
   'birthdayIn': ['Birthday in {n} days', 'Sinh nhật sau {n} ngày', '{n} 天后生日'],

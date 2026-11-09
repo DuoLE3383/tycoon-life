@@ -47,6 +47,13 @@ if (typeof window !== 'undefined') {
   };
 }
 
+// v11 — the bundled version. The /version.json file in /public is polled
+// every 5 minutes; if its version is newer than this, a "reload to update"
+// banner appears even in a running session (no F5 needed).
+const BUNDLED_VERSION = 'v11';
+const VERSION_POLL_MS = 5 * 60 * 1000;
+const SEEN_KEY = 'tycoon_seen_' + BUNDLED_VERSION;
+
 export default function Page() {
   const { s } = useGame();
   const { t } = useT();
@@ -60,7 +67,43 @@ export default function Page() {
   const [aiBusy, setAiBusy] = useState(false);
   const [aiNoteKey, setAiNoteKey] = useState('oracle.note');
   const [qtyMap, setQtyMap] = useState<Record<string, number>>({});
+  // v11 — version banner state. 'whatsNew' shows the V11 feature list once
+  // per player (localStorage flag). 'reload' shows when /version.json reports
+  // a newer version than the bundled one (polled every 5 min, no F5 needed).
+  const [whatsNew, setWhatsNew] = useState(false);
+  const [reloadPrompt, setReloadPrompt] = useState<{ version: string; headline: string } | null>(null);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Show the "what's new in V11" modal on first load if not seen yet.
+  useEffect(() => {
+    try {
+      if (!localStorage.getItem(SEEN_KEY)) setWhatsNew(true);
+    } catch { /* ignore */ }
+  }, []);
+
+  // Poll /version.json every 5 minutes — if the deployed version is newer
+  // than the bundled one, surface a "reload to update" banner. This works
+  // even in a long-running session without F5.
+  useEffect(() => {
+    const check = async () => {
+      try {
+        const res = await fetch(asset('/version.json'), { cache: 'no-store' });
+        if (!res.ok) return;
+        const j = await res.json() as { version?: string; headline?: string };
+        if (j.version && j.version !== BUNDLED_VERSION) {
+          setReloadPrompt({ version: j.version, headline: j.headline || j.version });
+        }
+      } catch { /* ignore */ }
+    };
+    check();
+    const iv = setInterval(check, VERSION_POLL_MS);
+    return () => clearInterval(iv);
+  }, []);
+
+  const dismissWhatsNew = useCallback(() => {
+    try { localStorage.setItem(SEEN_KEY, '1'); } catch { /* ignore */ }
+    setWhatsNew(false);
+  }, []);
 
   const showToast = useCallback((msg: string) => {
     setToast({ id: Date.now(), msg });
@@ -214,6 +257,55 @@ export default function Page() {
       {!s.started && <Intro onBegin={opts => act(st => { begin(st, opts); showToast(`${t('begin')}: ${opts.name} 🎉`); })} />}
       {(s.pending || s.aiEv) && <EventModal s={s} act={act} />}
       {s.over && <GameOver s={s} onAgain={() => { reincarnateState(); showToast(t('reincarnate.toast')); }} />}
+
+      {/* v11 — reload-to-update banner (no F5 needed; polled every 5 min) */}
+      {reloadPrompt && (
+        <div className="reload-banner" role="alert">
+          <span><b>{reloadPrompt.headline}</b> — {t('v11.reloadPrompt', '', { v: reloadPrompt.version })}</span>
+          <button className="ibtn" onClick={() => { try { localStorage.removeItem(SEEN_KEY); } catch { /* ignore */ } window.location.reload(); }}>{t('v11.reload')}</button>
+          <button className="ibtn ghost" onClick={() => setReloadPrompt(null)}>{t('v11.later')}</button>
+        </div>
+      )}
+
+      {/* v11 — what's-new modal, shown once per player per major version */}
+      {whatsNew && <WhatsNewModal onDismiss={dismissWhatsNew} />}
+    </div>
+  );
+}
+
+// ================= v11 WHAT'S NEW MODAL =================
+const V11_FEATURES: [string, string][] = [
+  ['Used-market era filter', 'No more 2018 Ducati in a 2001 game — listings now respect the timeline.'],
+  ['Jet / yacht crew hire', 'No licence needed — hire a crew instead, just pay monthly upkeep.'],
+  ['Random AI oracle popups', 'Life twists fire on their own every so often — no click required.'],
+  ['Enhanced character creation', 'Live preview, random button, confirm step, suggestion card.'],
+  ['Life-choice arcs', 'Change interests, drop out, re-enroll, take short/accelerated courses.'],
+  ['Per-degree roadmap', 'Each degree shows its goal, strengths, and career path.'],
+  ['Business two-path', 'Degree route OR capital+manager route with monthly closure risk.'],
+  ['IPO + conglomerate', 'Private → raise capital → IPO → conglomerate. Dividends, M&A, spinoffs.'],
+  ['Real-event market shocks', '1929 / 1973 / 2008 / 2020 reshape valuation, rates, demand, closure odds.'],
+  ['Bank credit overhaul', 'Loan limit from verified income + collateral + history. 18yo can\'t buy a mansion.'],
+  ['Legal consequences', 'Hint under each choice cites the rule. Fines + XP loss + humorous punishments + cheat shortcuts.'],
+];
+
+function WhatsNewModal({ onDismiss }: { onDismiss: () => void }) {
+  const { t } = useT();
+  return (
+    <div className="modal on" onClick={e => { if (e.target === e.currentTarget) onDismiss(); }}>
+      <div className="mcard" style={{ maxWidth: 580, textAlign: 'left' }}>
+        <div className="mhead"><h2>✨ {t('v11.headline')}</h2><button className="ibtn ghost" onClick={onDismiss}><Ic id="ic-x" className="bsi" /><span>✕</span></button></div>
+        <p className="sub" style={{ marginTop: 0 }}>{t('v11.summary')}</p>
+        <ul style={{ margin: '12px 0', paddingLeft: 20, display: 'grid', gap: 8 }}>
+          {V11_FEATURES.map(([title, desc]) => (
+            <li key={title} style={{ listStyle: 'disc' }}>
+              <b>{title}</b> — <span className="sub">{desc}</span>
+            </li>
+          ))}
+        </ul>
+        <button className="ibtn" style={{ width: '100%', marginTop: 12 }} onClick={onDismiss}>
+          <Ic id="ic-check" className="bsi" /><span>{t('v11.gotIt')}</span>
+        </button>
+      </div>
     </div>
   );
 }

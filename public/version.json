@@ -1,0 +1,19 @@
+{
+  "version": "v11",
+  "releasedAt": "2026-11-09",
+  "headline": "MOGUL v11 — big update",
+  "summary": "Used-market era filter, V11 banner, jet/yacht crew hire, random AI popups, enhanced character creation, life-choice arcs (change interests / drop out / short courses), business two-path system, IPO + conglomerate, real-event market shocks, bank credit overhaul, legal consequences with hints + cheats.",
+  "features": [
+    "Used-market era filter — no more 2018 bikes in a 2001 game",
+    "Jet/yacht — hire crew instead of needing a licence",
+    "Random AI oracle popups — life twists without clicking",
+    "Enhanced character creation — preview, random, confirm",
+    "Life-choice arcs — change interests, drop out, take short courses",
+    "Per-degree roadmap — goal, strengths, career path",
+    "Business two-path — degree route OR capital+manager route",
+    "IPO + conglomerate — go public, pay dividends, M&A",
+    "Real-event market shocks — 1929 / 1973 / 2008 / 2020 reshape valuation",
+    "Bank credit overhaul — loan limit by income + collateral + history",
+    "Legal consequences — hint under each choice, fines + XP loss + cheats"
+  ]
+}
