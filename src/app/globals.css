@@ -179,6 +179,14 @@ html[data-theme="light"] body{background:#e9e6df}
 .tgame .hof-kind[data-kind="real"]{background:#eaf0fb;color:#3a5a99}
 .tgame .hof-kind[data-kind="player"]{background:#f3eafe;color:#5b3da3}
 .tgame .hof-kind[data-kind="rival"]{background:#faeede;color:#8a6320}
+/* v10.5 — asset breakdown bar (per design image 3) */
+.tgame .asset-bar{display:flex;height:14px;border-radius:7px;overflow:hidden;background:var(--paper2);border:1px solid var(--line)}
+.tgame .asset-seg{height:100%;transition:width .3s}
+.tgame .asset-seg:hover{filter:brightness(1.15)}
+.tgame .asset-legend{display:flex;flex-wrap:wrap;gap:6px 12px;margin-top:6px}
+.tgame .asset-leg-item{display:inline-flex;align-items:center;gap:5px;font-size:.74rem;color:var(--mute);font-variant-numeric:tabular-nums}
+.tgame .asset-leg-item b{color:var(--ink);font-weight:650}
+.tgame .asset-leg-item .sw{width:9px;height:9px;border-radius:2px;flex:none}
 /* social */
 .tgame .sprof{display:flex;gap:14px;align-items:center;padding:14px}
 .tgame .avatar{width:64px;height:64px;border-radius:50%;background:var(--card);border:1px solid var(--line);padding:6px;flex:none}

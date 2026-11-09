@@ -371,7 +371,41 @@ function HomeTab({ s, act, askAI, aiBusy, aiNote, eraName }: { s: GameState; act
 
       <div className="card" style={{ marginBottom: 10 }}>
         <div className="lb"><span>{t('worth')} · {t('netWorth')}</span><b>{fmt(netWorth(s))}</b></div>
-        {assetRows.map(([k, v]) => <div key={k} className="lb"><span>{k}</span><span style={{ color: v < 0 ? 'var(--brick)' : undefined }}>{fmt(v)}</span></div>)}
+        {/* v10.5 — color-coded asset breakdown bar (per design image 3) */}
+        {(() => {
+          const cash = Math.max(0, s.money);
+          const stocks = Math.max(0, stockVal(s));
+          const property = Math.max(0, assetVal(s));
+          const biz = Math.max(0, bizVal(s));
+          const bank = Math.max(0, s.bank.dep);
+          const used = s.used.reduce((a, u) => a + usedItemValue(s, u), 0);
+          const total = Math.max(1, cash + stocks + property + biz + bank + used);
+          const segs: [string, number, string, string][] = [
+            [t('asset.cash'), cash, '#c9a070', fmt(cash)],
+            [t('asset.stocks'), stocks, '#5b8a72', fmt(stocks)],
+            [t('asset.property'), property, '#6a7d92', fmt(property)],
+            [t('asset.biz'), biz, '#9c6a4a', fmt(biz)],
+            [t('asset.bank'), bank, '#7a6a8e', fmt(bank)],
+            [t('asset.used'), used, '#a3524a', fmt(used)],
+          ];
+          return (
+            <div style={{ marginTop: 8, marginBottom: 8 }}>
+              <div className="asset-bar" role="img" aria-label={t('assetBreakdown')}>
+                {segs.map(([label, v, color]) => (
+                  v > 0 && (
+                    <div key={label} className="asset-seg" style={{ width: (v / total * 100).toFixed(2) + '%', background: color }}
+                      title={`${label}: ${fmt(v)}`} />
+                  )
+                ))}
+              </div>
+              <div className="asset-legend">
+                {segs.map(([label, v, color, txt]) => (
+                  <span key={label} className="asset-leg-item"><span className="sw" style={{ background: color }} />{label} <b>{v > 0 ? txt : '—'}</b></span>
+                ))}
+              </div>
+            </div>
+          );
+        })()}
         <div className="lb" style={{ marginTop: 8 }}><span><b>{t('incomeBreakdown')}</b></span><b>+{fmt(yearIncome(s))}{t('perYear')}</b></div>
         {incRows.map(([k, v]) => v > 0 ? <div key={k} className="lb"><span>{k}</span><span className="up">+{fmt(v)}</span></div> : null)}
       </div>
