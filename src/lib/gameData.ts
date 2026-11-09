@@ -400,7 +400,7 @@ export const USED_IMAGES: Record<string, string> = {
 export interface UsedItem {
   id: string;            // listing id (unique perused listing)
   baseId: string;        // references ITEMS[].id
-  name: string;          // display name (often with suffix "— pre-owned")
+  name: string;          // display name (NO absolute years — use ageYears instead)
   brand?: string;
   cat: string;
   c: string;
@@ -412,20 +412,21 @@ export interface UsedItem {
   lux: number;
   rate: number;          // appreciation/depreciation rate inherited from the item
   story: string;         // one-line backstory shown in the listing
+  since: number;         // v10.5: the real-world year this model first existed — used to filter the market by era
 }
 export const USED_MARKET: UsedItem[] = [
-  { id: 'u-camry-12y', baseId: 'c-toyota', name: 'Camry — 2012, one owner', brand: 'Toyota', cat: 'Car', c: '#dc2626', art: 'i-lambo', ageYears: 12, condition: 62, askPrice: 8800, newPrice: 30000, lux: 3, rate: -.12, story: 'Retired teacher\'s daily driver. Service book in the glovebox.' },
-  { id: 'u-3-series-8y', baseId: 'c-bmw', name: 'BMW M3 — 2016, modified', brand: 'BMW', cat: 'Car', c: '#1d4ed8', art: 'i-lambo', ageYears: 8, condition: 71, askPrice: 32000, newPrice: 85000, lux: 38, rate: -.12, story: 'Track-day toy of an enthusiast. Aftermarket exhaust, original parts included.' },
-  { id: 'u-911-22y', baseId: 'c-porsche', name: 'Porsche 911 — 2002, air-cooled', brand: 'Porsche', cat: 'Car', c: '#ca8a04', art: 'i-lambo', ageYears: 22, condition: 84, askPrice: 58000, newPrice: 120000, lux: 95, rate: .02, story: 'Garage-kept, numbers-matching. Already appreciating.' },
-  { id: 'u-tesla-4y', baseId: 'c-tesla', name: 'Tesla Model S — 2020 Plaid', brand: 'Tesla', cat: 'Car', c: '#7f1d1d', art: 'i-lambo', ageYears: 4, condition: 78, askPrice: 52000, newPrice: 100000, lux: 28, rate: -.13, story: 'Battery health 92%. Software-unlocked. First owner hit a kerb once.' },
-  { id: 'u-submariner-30y', baseId: 'w-rolex', name: 'Rolex Submariner — 1994, patina', brand: 'Rolex', cat: 'Watch', c: '#15803d', art: 'i-watch', ageYears: 30, condition: 70, askPrice: 18500, newPrice: 10000, lux: 120, rate: .08, story: 'Tropical dial. Watchmaker\'s receipt from 1998. A collector\'s piece.' },
-  { id: 'u-speedmaster-45y', baseId: 'w-omega', name: 'Omega Speedmaster — 1979, pre-Moon', brand: 'Omega', cat: 'Watch', c: '#1e3a8a', art: 'i-watch', ageYears: 45, condition: 66, askPrice: 12000, newPrice: 6500, lux: 130, rate: .06, story: 'Cousin of the Moon watch. Original bracelet, lightly polished.' },
-  { id: 'u-carrera-15y', baseId: 'w-tag', name: 'TAG Heuer Carrera — 2009', brand: 'TAG Heuer', cat: 'Watch', c: '#0f766e', art: 'i-watch', ageYears: 15, condition: 58, askPrice: 1800, newPrice: 6000, lux: 18, rate: -.02, story: 'Daily wearer for a dentist. Crystal has one tiny chip at 4 o\'clock.' },
-  { id: 'u-impress-50y', baseId: 'a-impress', name: 'Impressionist sketch — c.1970s', cat: 'Art', c: '#a16207', art: 'i-art', ageYears: 50, condition: 52, askPrice: 220000, newPrice: 40000000, lux: 1800, rate: .05, story: 'Attributed to a student of the master. Provenance paper-creased but legible.' },
-  { id: 'u-contemp-3y', baseId: 'a-contemp', name: 'Contemporary canvas — 2021, rising artist', cat: 'Art', c: '#db2777', art: 'i-art', ageYears: 3, condition: 90, askPrice: 32000, newPrice: 50000, lux: 110, rate: .12, story: 'Bought at the artist\'s first solo show. She is now in two museum collections.' },
-  { id: 'u-ghost-5y', baseId: 'c-rr', name: 'Rolls-Royce Ghost — 2019, executive lease', brand: 'Rolls-Royce', cat: 'Car', c: '#171717', art: 'i-lambo', ageYears: 5, condition: 82, askPrice: 195000, newPrice: 350000, lux: 280, rate: -.08, story: 'Chauffeur-driven for a bank. Starlight headliner intact, full service history.' },
-  { id: 'u-panigale-6y', baseId: 'bike-panigale', name: 'Ducati Panigale V4 — 2018, low km', brand: 'Ducati', cat: 'Sport bike', c: '#ef4444', art: 'i-bike', ageYears: 6, condition: 74, askPrice: 14000, newPrice: 30000, lux: 30, rate: -.1, story: 'Weekend rider. Removed the mirrors for trackdays, will refit on request.' },
-  { id: 'u-cbr-10y', baseId: 'bike-cbr', name: 'Honda CBR1000RR-R — 2014', brand: 'Honda', cat: 'Sport bike', c: '#dc2626', art: 'i-bike', ageYears: 10, condition: 60, askPrice: 7800, newPrice: 25000, lux: 18, rate: -.12, story: 'Stunt-practice spare. Crashed twice, repaired honestly.' }
+  { id: 'u-camry-12y', baseId: 'c-toyota', name: 'Camry — 12y old, one owner', brand: 'Toyota', cat: 'Car', c: '#dc2626', art: 'i-lambo', ageYears: 12, condition: 62, askPrice: 8800, newPrice: 30000, lux: 3, rate: -.12, story: 'Retired teacher\'s daily driver. Service book in the glovebox.', since: 1983 },
+  { id: 'u-3-series-8y', baseId: 'c-bmw', name: 'BMW M3 — 8y old, modified', brand: 'BMW', cat: 'Car', c: '#1d4ed8', art: 'i-lambo', ageYears: 8, condition: 71, askPrice: 32000, newPrice: 85000, lux: 38, rate: -.12, story: 'Track-day toy of an enthusiast. Aftermarket exhaust, original parts included.', since: 1986 },
+  { id: 'u-911-22y', baseId: 'c-porsche', name: 'Porsche 911 — 22y old, air-cooled', brand: 'Porsche', cat: 'Car', c: '#ca8a04', art: 'i-lambo', ageYears: 22, condition: 84, askPrice: 58000, newPrice: 120000, lux: 95, rate: .02, story: 'Garage-kept, numbers-matching. Already appreciating.', since: 1964 },
+  { id: 'u-tesla-4y', baseId: 'c-tesla', name: 'Tesla Model S — 4y old, Plaid', brand: 'Tesla', cat: 'Car', c: '#7f1d1d', art: 'i-lambo', ageYears: 4, condition: 78, askPrice: 52000, newPrice: 100000, lux: 28, rate: -.13, story: 'Battery health 92%. Software-unlocked. First owner hit a kerb once.', since: 2012 },
+  { id: 'u-submariner-30y', baseId: 'w-rolex', name: 'Rolex Submariner — 30y old, patina', brand: 'Rolex', cat: 'Watch', c: '#15803d', art: 'i-watch', ageYears: 30, condition: 70, askPrice: 18500, newPrice: 10000, lux: 120, rate: .08, story: 'Tropical dial. Watchmaker\'s receipt in the box. A collector\'s piece.', since: 1953 },
+  { id: 'u-speedmaster-45y', baseId: 'w-omega', name: 'Omega Speedmaster — 45y old, pre-Moon', brand: 'Omega', cat: 'Watch', c: '#1e3a8a', art: 'i-watch', ageYears: 45, condition: 66, askPrice: 12000, newPrice: 6500, lux: 130, rate: .06, story: 'Cousin of the Moon watch. Original bracelet, lightly polished.', since: 1957 },
+  { id: 'u-carrera-15y', baseId: 'w-tag', name: 'TAG Heuer Carrera — 15y old', brand: 'TAG Heuer', cat: 'Watch', c: '#0f766e', art: 'i-watch', ageYears: 15, condition: 58, askPrice: 1800, newPrice: 6000, lux: 18, rate: -.02, story: 'Daily wearer for a dentist. Crystal has one tiny chip at 4 o\'clock.', since: 1963 },
+  { id: 'u-impress-50y', baseId: 'a-impress', name: 'Impressionist sketch — ~50y old', cat: 'Art', c: '#a16207', art: 'i-art', ageYears: 50, condition: 52, askPrice: 220000, newPrice: 40000000, lux: 1800, rate: .05, story: 'Attributed to a student of the master. Provenance paper-creased but legible.', since: 1870 },
+  { id: 'u-contemp-3y', baseId: 'a-contemp', name: 'Contemporary canvas — 3y old, rising artist', cat: 'Art', c: '#db2777', art: 'i-art', ageYears: 3, condition: 90, askPrice: 32000, newPrice: 50000, lux: 110, rate: .12, story: 'Bought at the artist\'s first solo show. Now in two museum collections.', since: 1990 },
+  { id: 'u-ghost-5y', baseId: 'c-rr', name: 'Rolls-Royce Ghost — 5y old, executive lease', brand: 'Rolls-Royce', cat: 'Car', c: '#171717', art: 'i-lambo', ageYears: 5, condition: 82, askPrice: 195000, newPrice: 350000, lux: 280, rate: -.08, story: 'Chauffeur-driven for a bank. Starlight headliner intact, full service history.', since: 2010 },
+  { id: 'u-panigale-6y', baseId: 'bike-panigale', name: 'Ducati Panigale V4 — 6y old, low km', brand: 'Ducati', cat: 'Sport bike', c: '#ef4444', art: 'i-bike', ageYears: 6, condition: 74, askPrice: 14000, newPrice: 30000, lux: 30, rate: -.1, story: 'Weekend rider. Removed the mirrors for trackdays, will refit on request.', since: 2018 },
+  { id: 'u-cbr-10y', baseId: 'bike-cbr', name: 'Honda CBR1000RR-R — 10y old', brand: 'Honda', cat: 'Sport bike', c: '#dc2626', art: 'i-bike', ageYears: 10, condition: 60, askPrice: 7800, newPrice: 25000, lux: 18, rate: -.12, story: 'Stunt-practice spare. Crashed twice, repaired honestly.', since: 2004 }
 ];
 // Static pool of rotating listings shown to the player — at any given visit,
 // we surface a deterministic-ish 6-8 slice derived from USED_MARKET + a small

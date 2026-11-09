@@ -750,7 +750,10 @@ function AssetsTab({ s, act, curCat, setCurCat }: { s: GameState; act: Act; curC
   const y = worldYear(s);
   const usedShown = useMemo(() => {
     const seed = y * 7 + s.level;
-    const arr = [...USED_MARKET];
+    // v10.5: filter out anachronistic listings — only show items whose
+    // real-world 'since' year has passed in the current game timeline.
+    // A 2001 game will not show a 2018 Ducati Panigale.
+    const arr = [...USED_MARKET].filter(u => u.since <= y);
     for (let i = arr.length - 1; i > 0; i--) {
       const j = (seed * (i + 3) + 13) % (i + 1);
       [arr[i], arr[j]] = [arr[j], arr[i]];
