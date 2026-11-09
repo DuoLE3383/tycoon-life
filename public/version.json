@@ -1,11 +1,15 @@
 {
-  "version": "v11.13",
+  "version": "v11.14",
   "releasedAt": "2026-11-10",
-  "headline": "HuyenBao v11.13 — ecosystem development roadmap added to repo + in-app pointer",
-  "summary": "A full ecosystem development roadmap (ECOSYSTEM.md) is now committed to the repo, describing the connected family of apps around HuyenBao: the life-simulation hub (this game), future simulation games (racing, farming, livestock, manufacturing, armed-base building), the Elliot crypto-trading app (earn real money), and the Huyền Học AI app (mysticism research applied to daily life — app.huyenbao.com). The roadmap covers vision, the 8 components with status, connection principles (shared identity, shared local LLM/Ollama, cross-game assets), a 5-phase timeline, the shared tech stack, and the ecosystem-wide disclaimer. A new 'Ecosystem roadmap' fold in the Home tab lists all 8 components (EN/VI/ZH) and links to the GitHub document.",
+  "headline": "HuyenBao v11.14 — Tử Vi (紫微斗数) natal chart integrated from Huyen-Hoc-AI",
+  "summary": "Second Huyen-Hoc-AI feature brought into the main app: a simplified Tử Vi natal chart (lá số) in the Spirit tab. The full deterministic engine — AmLich solar→lunar conversion (Vietnamese UTC+7), nạp âm, cục mệnh, Tử Vi star placement, all 14 chính tinh, 13 phụ tinh (Tả Phù/Hữu Bật/Văn Xương/Văn Khúc/Thiên Khôi/Thiên Việt/Lộc Tồn/Kình Dương/Đà La/Hỏa Tinh/Linh Tinh/Đào Hoa/Hồng Loan), and per-star trạng thái (Miếu/Vượng/Đắc/Bình/Hãm) across 12 palaces — is ported verbatim from the Huyen-Hoc-AI FastAPI backend to TypeScript (src/lib/tuvi.ts) and runs client-side. A new /api/tuvi endpoint interprets the chart through the app's existing local LLM (Ollama, same client as /api/story and /api/divine), falling back to ZAI cloud then to a deterministic local reading. The chart uses the character's birth year + month (already collected) plus a day and hour the player enters in the panel — no save-state change. Two source typos were fixed in the port (Hồng Loan lookup, giờ sinh label). The chart is a simplified reference per the source disclaimer; it may differ from a given Tử Vi school.",
   "features": [
-    "New ECOSYSTEM.md in repo root: vision, 8-component table (HuyenBao hub + racing + farming + livestock + manufacturing + armed base + Elliot + Huyền Học AI) with status, connection principles (shared identity, shared Ollama LLM, cross-game assets/fame), 5-phase roadmap (hub+huyền học → Elliot → sim games → manufacturing+arsenal → ecosystem glue), shared tech stack, dev run instructions, ecosystem-wide disclaimer",
-    "New 'Ecosystem roadmap' fold in Home tab (after the How-to-play guide): blurb + 8 component one-liners + link to GitHub ECOSYSTEM.md (EN/VI/ZH via eco.* i18n keys)",
-    "Version bumped to v11.13 on homepage header + version.json"
+    "New Tử Vi panel in the Spirit tab: birth-day + birth-hour inputs → full lá số (solar/lunar dates, year Can-Chi, Cục, Mệnh/Thân/Tử-Vi positions, 12-palace grid with chính tinh + trạng thái colour-coded + phụ tinh, LLM interpretation + reflection)",
+    "src/lib/tuvi.ts: full deterministic engine ported from Huyen-Hoc-AI — AmLich (jd, new moon, sun longitude, lunar month 11, leap month offset, solar→lunar), nạp âm, cục mệnh (Ngũ Hổ Độn), an Tử Vi, an 14 chính tinh, an 13 phụ tinh, lap_la_so; two source typos fixed",
+    "POST /api/tuvi: LLM interpretation via the existing Ollama connection, ZAI cloud fallback, deterministic local-reading fallback — always returns a reading in the player's language; focuses on Mệnh chính tinh + Quan Lộc/Tài Bạch/Phu Thê",
+    "12-palace 4×3 grid: Mệnh palace highlighted (accent border + ★ Mệnh), Thân palace marked, star state colour-coded (Miếu/Vượng/Đắc = green, Hãm = red, Bình = mute)",
+    "Uses character's byear + birthMonth (no save migration); day + hour entered in-panel per reading",
+    "Disclaimer notes (ghi_chu + disc.aiNote) shown under every reading",
+    "Version bumped to v11.14 on homepage header + version.json"
   ]
 }

@@ -1,5 +1,5 @@
 'use client';
-// HuyenBao v11.13 — React edition. Two-level grouped nav, a systems links map,
+// HuyenBao v11.14 — React edition. Two-level grouped nav, a systems links map,
 // gigs, levels, social, the cosmic frontier, EN/VI/中文, LLM oracle with
 // random kind dispatch (luck / setback / life-stage / story), pre-owned
 // market + social listings, and a Hall of Fame tab.
@@ -54,6 +54,7 @@ import {
 } from '@/lib/engine';
 import { localTwist, pickKind } from '@/lib/story';
 import { castHexagram, validateQuestion, type CastResult } from '@/lib/iching';
+import { lapLaSo, type LaSo } from '@/lib/tuvi';
 import { useT, LANGS, type Lang } from '@/lib/i18n';
 
 const asset = (p: string) => (process.env.NEXT_PUBLIC_BASE_PATH || '') + p;
@@ -68,7 +69,7 @@ if (typeof window !== 'undefined') {
 // v11.8 — the bundled version. The /version.json file in /public is polled
 // every 5 minutes; if its version is newer than this, a "reload to update"
 // banner appears even in a running session (no F5 needed).
-const BUNDLED_VERSION = 'v11.13';
+const BUNDLED_VERSION = 'v11.14';
 const VERSION_POLL_MS = 5 * 60 * 1000;
 const SEEN_KEY = 'tycoon_seen_' + BUNDLED_VERSION;
 
@@ -433,7 +434,7 @@ function Header({ s, eraName }: { s: GameState; eraName: (y: number) => string }
     <header className="top">
       <div className="brand">
         <Art id="s-coin" className="logo" />
-        <div><h1>HuyenBao <span className="mini">v11.13</span></h1>
+        <div><h1>HuyenBao <span className="mini">v11.14</span></h1>
           <div className="mini">{s.started ? `${s.nation} · ${eraName(worldYear(s))}` : t('tagline')}</div></div>
       </div>
       <div><div className="mini">{t('cash')}</div><div id="tcash" style={{ color: s.money < 0 ? 'var(--brick)' : undefined }}>{fmt(s.money)}</div>
@@ -1025,6 +1026,8 @@ function SpiritTab({ s, act }: { s: GameState; act: Act }) {
       )}
       {/* v11.11 — Kinh Dịch (I Ching), first Huyen-Hoc-AI feature integrated into the main app */}
       <KinhDichPanel />
+      {/* v11.14 — Tử Vi (紫微斗数), second Huyen-Hoc-AI feature integrated */}
+      <TuViPanel s={s} />
     </>
   );
 }
@@ -1146,6 +1149,134 @@ function KinhDichPanel() {
           <div className="mini" style={{ textTransform: 'uppercase', letterSpacing: '.4px', marginTop: 8 }}>{t('kd.advice')}</div>
           <p className="mini" style={{ margin: '4px 0 0' }}>{result.reading.advice}</p>
           <p className="mini" style={{ marginTop: 6, opacity: .6 }}>{t('disc.aiNote')}</p>
+        </div>
+      )}
+    </>
+  );
+}
+
+// v11.14 — Tử Vi (紫微斗数) panel. Builds a simplified natal chart (lá số)
+// client-side via src/lib/tuvi.ts (ported from Huyen-Hoc-AI), using the
+// character's byear + birthMonth plus a day + hour the player enters here. The
+// LLM interpretation comes from /api/tuvi. No save-state change.
+function TuViPanel({ s }: { s: GameState }) {
+  const { t, lang } = useT();
+  const [day, setDay] = useState(15);
+  const [hour, setHour] = useState(12);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const [result, setResult] = useState<{ laso: LaSo; reading: { interpretation: string; advice: string; source: string } } | null>(null);
+
+  const canBuild = !busy && day >= 1 && day <= 31 && hour >= 0 && hour <= 23;
+
+  const doBuild = async () => {
+    setErr(null);
+    if (!(day >= 1 && day <= 31)) { setErr(t('tv.errDate')); return; }
+    setBusy(true);
+    let laso: LaSo;
+    try {
+      laso = lapLaSo(day, s.birthMonth, s.byear, hour);
+    } catch (e) {
+      setErr((e as Error).message || t('tv.errDate'));
+      setBusy(false);
+      return;
+    }
+    try {
+      const res = await fetch('/api/tuvi', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ laso, lang })
+      });
+      if (!res.ok) throw new Error('fetch');
+      const reading = await res.json();
+      setResult({ laso, reading });
+    } catch {
+      setErr(t('tv.errFetch'));
+    } finally { setBusy(false); }
+  };
+
+  // star-state → colour (Miếu/Vượng/Đắc = strong green, Bình = neutral, Hãm = red)
+  const stateColor = (st: string) =>
+    st === 'Hãm' ? 'var(--brick)' : (st === 'Miếu' || st === 'Vượng' || st === 'Đắc') ? 'var(--sage)' : 'var(--mute)';
+
+  return (
+    <>
+      <h3 style={{ marginTop: 14 }}>{t('tv.title')}</h3>
+      <Row art="ic-star"
+        right={<button className="ibtn" disabled={!canBuild} onClick={doBuild}>
+          <span>{busy ? t('tv.thinking') : t('tv.build')}</span>
+        </button>}>
+        <b>{t('tv.title')}</b>
+        <span className="sub">{t('tv.blurb')}</span>
+        <span className="mini" style={{ display: 'block', marginTop: 4 }}>{t('tv.useGame')}</span>
+        <div className="trade" style={{ marginTop: 6, gap: 10 }}>
+          <label className="mini" style={{ display: 'flex', flexDirection: 'column', gap: 2, flex: 1 }}>
+            <span>{t('tv.birthDay')}</span>
+            <input type="number" min={1} max={31} value={day}
+              onChange={e => setDay(Math.max(1, Math.min(31, +e.target.value || 1)))}
+              style={{ padding: '4px 6px', border: '1px solid var(--line2)', borderRadius: 4, background: 'transparent', color: 'inherit', fontFamily: 'inherit' }} />
+          </label>
+          <label className="mini" style={{ display: 'flex', flexDirection: 'column', gap: 2, flex: 1 }}>
+            <span>{t('tv.birthHour')}</span>
+            <input type="number" min={0} max={23} value={hour}
+              onChange={e => setHour(Math.max(0, Math.min(23, +e.target.value || 0)))}
+              style={{ padding: '4px 6px', border: '1px solid var(--line2)', borderRadius: 4, background: 'transparent', color: 'inherit', fontFamily: 'inherit' }} />
+          </label>
+        </div>
+        {err && <span className="sub" style={{ color: 'var(--brick)', display: 'block', marginTop: 4 }}>{err}</span>}
+      </Row>
+
+      {result && (
+        <div className="card" style={{ marginBottom: 10 }}>
+          {/* chart summary */}
+          <div className="lb"><span>{t('tv.solar')}</span><b>{result.laso.duongLich}</b></div>
+          <div className="lb"><span>{t('tv.lunar')}</span><b>{result.laso.amLich}</b></div>
+          <div className="lb"><span>{t('tv.yearCanChi')}</span><b>{result.laso.canChiNam}</b></div>
+          <div className="lb"><span>{t('tv.birthHourLabel')}</span><b>{result.laso.gioSinh}</b></div>
+          <div className="lb"><span>{t('tv.cuc')}</span><b>{result.laso.cuc}</b></div>
+          <div className="lb"><span>{t('tv.menhAt')}</span><b>{result.laso.menhChi}</b></div>
+          <div className="lb"><span>{t('tv.thanAt')}</span><b>{result.laso.thanChi}</b></div>
+          <div className="lb"><span>{t('tv.tuviAt')}</span><b>{result.laso.tuViTai}</b></div>
+
+          {/* 12-palace grid (4 cols × 3 rows) */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 6, margin: '10px 0' }}>
+            {result.laso.cung.map((p, i) => (
+              <div key={i} style={{
+                padding: '6px 7px', borderRadius: 8, border: '1px solid var(--line)',
+                background: p.laMenh ? 'rgba(0,0,0,0.05)' : 'var(--card)',
+                borderColor: p.laMenh ? 'var(--accent)' : p.laThan ? 'var(--line2)' : 'var(--line)',
+                borderWidth: p.laMenh || p.laThan ? 2 : 1,
+                minHeight: 64
+              }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+                  <b style={{ fontSize: '.86rem' }}>{p.cung}</b>
+                  <span className="mini" style={{ opacity: .7 }}>{p.diaChi}</span>
+                </div>
+                {p.chinhTinh.length ? (
+                  <div style={{ marginTop: 3 }}>
+                    {p.chinhTinh.map((st, j) => (
+                      <div key={j} className="mini" style={{ color: stateColor(st.trangThai), fontWeight: 600 }}>
+                        {st.sao} <span style={{ opacity: .7, fontWeight: 400 }}>({st.trangThai})</span>
+                      </div>
+                    ))}
+                  </div>
+                ) : <div className="mini" style={{ opacity: .45, marginTop: 3 }}>{t('tv.note')}</div>}
+                {p.phuTinh.length > 0 && (
+                  <div className="mini" style={{ marginTop: 3, opacity: .7, fontSize: '.72rem' }}>{p.phuTinh.join(', ')}</div>
+                )}
+                {p.laMenh && <div className="mini" style={{ color: 'var(--accent)', fontWeight: 700, marginTop: 2 }}>★ Mệnh</div>}
+                {!p.laMenh && p.laThan && <div className="mini" style={{ color: 'var(--slate)', fontWeight: 700, marginTop: 2 }}>Thân</div>}
+              </div>
+            ))}
+          </div>
+
+          {/* LLM interpretation */}
+          <div className="mini" style={{ textTransform: 'uppercase', letterSpacing: '.4px', marginTop: 6 }}>{t('tv.interpretation')}</div>
+          <p style={{ margin: '4px 0 0', fontSize: '.92rem' }}>{result.reading.interpretation}</p>
+          <div className="mini" style={{ textTransform: 'uppercase', letterSpacing: '.4px', marginTop: 8 }}>{t('tv.advice')}</div>
+          <p className="mini" style={{ margin: '4px 0 0' }}>{result.reading.advice}</p>
+          <p className="mini" style={{ marginTop: 6, opacity: .6 }}>{result.laso.ghiChu}</p>
+          <p className="mini" style={{ opacity: .6 }}>{t('disc.aiNote')}</p>
         </div>
       )}
     </>
