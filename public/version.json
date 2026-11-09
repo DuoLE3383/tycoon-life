@@ -1,18 +1,12 @@
 {
-  "version": "v11.6",
-  "releasedAt": "2026-11-09",
-  "headline": "MOGUL v11.6 — zodiac + tarot + psychic affinity",
-  "summary": "Gender + birth month added to character creation. Birth month drives a zodiac sign with an industry affinity — a passive +5% income bonus in that field (business / engineering / medicine / science / arts). Pre-game suggestion combines zodiac + historical era. Spirit tab gains an opt-in tarot draw with 22 major-arcana cards (30-day cooldown, cryptic hint per draw). The character-creation screen now matches the design image: name, gender, birth year + month, country, religion, interests, talents.",
+  "version": "v11.7",
+  "releasedAt": "2026-11-10",
+  "headline": "MOGUL v11.7 — fix AI oracle popup + tarot cooldown",
+  "summary": "Bug fixes: the random AI oracle popup was too rare to ever see (1% chance/day, 6-month play-time threshold) — now 3% chance/day with a 30-day threshold (~10 min real time). The Tarot draw button was incorrectly disabled when lastDrawDay=0 (fresh state) — now matches the engine logic: the first draw is always allowed; the 30-day cooldown applies only after the first draw.",
   "features": [
-    "Gender: male / female / nonbinary (cosmetic; random picks any of 3)",
-    "Birth month 1-12 → zodiac sign (Capricorn ... Pisces) with industry affinity",
-    "12 zodiac signs, each with symbol, trait, blurb, affinity field (5 arts / 3 business / 2 engineering / 2 medicine / 0 science)",
-    "zodiacAffinityMult: +5% income in the affinity field (wired into bizMultiplier, socialIncome, jobIncome)",
-    "Pre-game suggestion: combines zodiac affinity + historical era (translated en/vi/zh) shown on Intro review step",
-    "Zodiac preview box in Intro: shows sign symbol, trait, blurb, affinity",
-    "Tarot panel in Spirit tab: opt-in toggle, draw button (30-day cooldown), 22 major-arcana cards, recent draws log (last 10)",
-    "Random character generator now also picks gender + birth month",
-    "Character-creation screen now matches the design: name / gender / birth month+year / country / religion / interests / talents",
-    "Version bumped to v11.6 on homepage + version.json"
+    "AI oracle popup: chance raised from 1% to 3% per game-day (avg popup per 33 game-days → 11 game-days)",
+    "AI oracle popup: play-time threshold lowered from 180 days to 30 days (~10 min real time, was ~60 min)",
+    "Tarot draw button: no longer disabled on fresh state; cooldown only applies after first draw",
+    "Version bumped to v11.7 on homepage + version.json"
   ]
 }

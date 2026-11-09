@@ -64,10 +64,10 @@ if (typeof window !== 'undefined') {
   };
 }
 
-// v11.6 — the bundled version. The /version.json file in /public is polled
+// v11.7 — the bundled version. The /version.json file in /public is polled
 // every 5 minutes; if its version is newer than this, a "reload to update"
 // banner appears even in a running session (no F5 needed).
-const BUNDLED_VERSION = 'v11.6';
+const BUNDLED_VERSION = 'v11.7';
 const VERSION_POLL_MS = 5 * 60 * 1000;
 const SEEN_KEY = 'tycoon_seen_' + BUNDLED_VERSION;
 
@@ -382,7 +382,7 @@ function Header({ s, eraName }: { s: GameState; eraName: (y: number) => string }
     <header className="top">
       <div className="brand">
         <Art id="s-coin" className="logo" />
-        <div><h1>MOGUL <span className="mini">v11.6</span></h1>
+        <div><h1>MOGUL <span className="mini">v11.7</span></h1>
           <div className="mini">{s.started ? `${s.nation} · ${eraName(worldYear(s))}` : t('tagline')}</div></div>
       </div>
       <div><div className="mini">{t('cash')}</div><div id="tcash" style={{ color: s.money < 0 ? 'var(--brick)' : undefined }}>{fmt(s.money)}</div>
@@ -931,7 +931,8 @@ function SpiritTab({ s, act }: { s: GameState; act: Act }) {
         <span className="sub">{t('v11.tarotBlurb')}</span>
         {s.psychic?.optedIn && (
           <div className="trade" style={{ marginTop: 4 }}>
-            <button className="tbuy" disabled={s.lastDay - (s.psychic?.lastDrawDay || 0) < 30}
+            <button className="tbuy"
+              disabled={(s.psychic?.lastDrawDay || 0) > 0 && s.lastDay - (s.psychic?.lastDrawDay || 0) < 30}
               onClick={() => act(g => {
                 const r = tarotDraw(g);
                 if (!r) return t('v11.tarotCooldown');

@@ -687,11 +687,11 @@ export function processDay(s: GameState, d: number, rng: () => number = Math.ran
   recordActivity(s, routine.join(' · '), d);
   // v10.5 — pet passive effects (spirit regen + neglect health-drain).
   tickPets(s);
-  // v11 — random AI oracle popup. ~1% chance per game-day, only if no
-  // event is already pending/active and the player has been playing for
-  // at least ~6 months (avoids firing during the intro). The React layer
-  // watches s.aiEvPending and calls askAI() when it flips true.
-  if (!s.aiEvPending && !s.pending && !s.aiEv && s.started && s.day > 180 && rng() < 0.01) {
+  // v11 — random AI oracle popup. v11.7: increased to ~3% chance per
+  // game-day (was 1%) and lowered the play-time threshold from 180 days
+  // to 30 days (~10 minutes of real time, was ~60 min). The original
+  // numbers made popups too rare to ever see in a typical session.
+  if (!s.aiEvPending && !s.pending && !s.aiEv && s.started && s.day > 30 && rng() < 0.03) {
     s.aiEvPending = true;
   }
   // Sleep trades study time for health recovery; other wellbeing modifiers still apply.
