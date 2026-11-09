@@ -8,7 +8,7 @@ import { Art, Ic, ART_DEFS } from '@/lib/art';
 import { useGame, getState, persist, bump, resetState, reincarnateState } from '@/lib/store';
 import {
   START, END_AGE, RETIRE, RESALE_FEE, FOUND_COST, FOUND_MIN_NW, OWN_CLUB_MULT,
-  SAVE_RATE, LOAN_RATE, TAX_FREE, TAX_BRACKETS, ALLNEWS, eraOf, NATIONS, INTERESTS, TALENTS, PATHS,
+  SAVE_RATE, LOAN_RATE, TAX_FREE, TAX_BRACKETS, ALLNEWS, eraOf, NATIONS, NAME_POOLS, INTERESTS, TALENTS, PATHS,
   analyze, FIELDS, LICENSES, LIC_BY, LIC_FOR, STAGES, BIZ, FARM_LINES, FAC_LINES, ITEM_BY, ITEM_IMAGES, USED_IMAGES, STOCKS, ASSET_DEPRECIATION_RATE,
   CLUBS, JOBS, GIGS, SPACE_LINES, TABS, GROUPS, xpNeed, ITEMS, USED_MARKET, HALL_OF_FAME, itemRarity, RARITY_COLOR, NPCS, NPC_BY, PETS, PET_BY, MAX_PETS, CREW_COST, type Rarity, type FieldKey, type Req,
 } from '@/lib/gameData';
@@ -1579,6 +1579,8 @@ function Intro({ onBegin }: { onBegin: (o: { name: string; byear: number; nation
   const [religion, setReligion] = useState<Religion>('none');
   const [ints, setInts] = useState<string[]>([]);
   const [tals, setTals] = useState<string[]>([]);
+  // v11 — two-step flow: 'edit' (fill fields) → 'review' (summary + confirm)
+  const [step, setStep] = useState<'edit' | 'review'>('edit');
   const years: number[] = [];
   const nowY = new Date().getUTCFullYear();
   for (let y = nowY - 126; y <= nowY - 18; y++) years.push(y);
@@ -1588,44 +1590,110 @@ function Intro({ onBegin }: { onBegin: (o: { name: string; byear: number; nation
     if (i > -1) set(arr.filter(x => x !== id));
     else if (arr.length < max) set([...arr, id]);
   };
+  // v11 — random character generator. Picks a name from the nation's pool,
+  // a birth year weighted toward the modern era (1960-now-18), random
+  // religion, 1-3 interests, 1-2 talents.
+  const randomise = () => {
+    const nat = NATIONS[Math.floor(Math.random() * NATIONS.length)];
+    const pool = NAME_POOLS[nat] || ['Alex'];
+    const nm = pool[Math.floor(Math.random() * pool.length)];
+    const yMin = 1960, yMax = nowY - 18;
+    const yr = yMin + Math.floor(Math.random() * (yMax - yMin + 1));
+    const rel = RELIGIONS[Math.floor(Math.random() * RELIGIONS.length)];
+    const shuffledInts = [...INTERESTS].sort(() => Math.random() - 0.5);
+    const ni = 1 + Math.floor(Math.random() * 3);
+    const newInts = shuffledInts.slice(0, ni).map(i => i.id);
+    const shuffledTals = [...TALENTS].sort(() => Math.random() - 0.5);
+    const nt = 1 + Math.floor(Math.random() * 2);
+    const newTals = shuffledTals.slice(0, nt).map(i => i.id);
+    setName(nm); setByear(yr); setNation(nat); setReligion(rel);
+    setInts(newInts); setTals(newTals); setStep('edit');
+  };
+  const startEra = eraOf(byear + 18);
+  const startingCash = ints.includes('money') ? 5000 : 0;
+  // v11 — first-step suggestion card. Based on interests/talents, suggest
+  // the highest-leverage opening move.
+  const suggestion = (() => {
+    if (ints.includes('money') && tals.includes('math')) return t('v11.suggest.moneyMath');
+    if (a.top === 'business') return t('v11.suggest.business');
+    if (a.top === 'engineering') return t('v11.suggest.engineering');
+    if (a.top === 'medicine') return t('v11.suggest.medicine');
+    if (a.top === 'arts') return t('v11.suggest.arts');
+    if (a.top === 'science') return t('v11.suggest.science');
+    return t('v11.suggest.default');
+  })();
   return (
-    <div className="modal on"><div className="mcard">
+    <div className="modal on"><div className="mcard" style={{ maxWidth: 560 }}>
       <h2>{t('createLife')}</h2>
       <p className="mini" style={{ marginTop: 0 }}>{t('introSub')}</p>
-      <div className="field"><label>{t('lang')}</label>
-        <div className="lang" style={{ display: 'inline-flex' }} role="group" aria-label="Language">
-          {LANGS.map(l => <button key={l.id} type="button" aria-pressed={lang === l.id} data-lang={l.id} onClick={() => setLang(l.id as Lang)}>{l.label}</button>)}
-        </div>
-      </div>
-      <div className="field"><label>{t('name')}</label><input maxLength={24} placeholder="e.g. Minh" value={name} onChange={e => setName(e.target.value)} /></div>
-      <div className="field"><label>{t('birthYear')}</label>
-        <select value={byear} onChange={e => setByear(+e.target.value)}>{years.map(y => <option key={y} value={y}>{y}</option>)}</select></div>
-      <div className="field"><label>{t('country')}</label>
-        <select value={nation} onChange={e => setNation(e.target.value)}>{NATIONS.map(n => <option key={n} value={n}>{t('nat.' + n, n)}</option>)}</select></div>
-      <div className="field"><label>{t('religion')}</label>
-        <select value={religion} onChange={e => setReligion(e.target.value as Religion)}>
-          {RELIGIONS.map(option => <option key={option} value={option}>{t('religion.' + option)}</option>)}
-        </select>
-      </div>
-      <div className="field"><label>{t('interests')}</label>
-        <div className="chips">{INTERESTS.map(i => (
-          <button key={i.id} className={'chip' + (ints.includes(i.id) ? ' on' : '')} onClick={() => toggle(ints, setInts, i.id, 3)}><Art id={i.art} className="ca" />{t('int.' + i.id, i.label)}</button>
-        ))}</div></div>
-      <div className="field"><label>{t('talents')}</label>
-        <div className="chips">{TALENTS.map(tl => (
-          <button key={tl.id} className={'chip' + (tals.includes(tl.id) ? ' on' : '')} onClick={() => toggle(tals, setTals, tl.id, 2)}><Art id={tl.art} className="ca" />{t('tal.' + tl.id, tl.label)}</button>
-        ))}</div></div>
-      <div className="preview">
-        <p><b>{t('youTurn18', '', { y: byear + 18, era: t('era.' + eraOf(byear + 18).from, eraOf(byear + 18).name) })}</b></p>
-        {a.top
-          ? <><p><b>{t('strongest')}:</b> {t('field.' + a.top, FIELDS[a.top].name)}{a.second ? ' · ' + t('backup') + ': ' + t('field.' + a.second, FIELDS[a.second].name) : ''}</p>
-            <p><b>{t('suggested')}:</b> {PATHS[a.top].jobs}</p>
-            <div>{a.perks.map(p => <span key={p} className="perk">{p}</span>)}</div></>
-          : <p className="mini">{t('pickHint')}</p>}
-      </div>
-      <button className="ibtn" style={{ width: '100%' }} onClick={() => onBegin({ name: name || 'Alex', byear, nation, religion, ints, tals })}>
-        <Ic id="ic-plus" className="bsi" /><span>{t('begin')}</span>
-      </button>
+      {step === 'edit' ? (
+        <>
+          <div className="trade" style={{ justifyContent: 'space-between', marginBottom: 10 }}>
+            <div className="lang" role="group" aria-label="Language">
+              {LANGS.map(l => <button key={l.id} type="button" aria-pressed={lang === l.id} data-lang={l.id} onClick={() => setLang(l.id as Lang)}>{l.label}</button>)}
+            </div>
+            <button className="ibtn ghost" onClick={randomise}><Ic id="ic-star" className="bsi" /><span>{t('v11.random')}</span></button>
+          </div>
+          <div className="field"><label>{t('name')}</label><input maxLength={24} placeholder="e.g. Minh" value={name} onChange={e => setName(e.target.value)} /></div>
+          <div className="field"><label>{t('birthYear')}</label>
+            <select value={byear} onChange={e => setByear(+e.target.value)}>{years.map(y => <option key={y} value={y}>{y}</option>)}</select></div>
+          <div className="field"><label>{t('country')}</label>
+            <select value={nation} onChange={e => setNation(e.target.value)}>{NATIONS.map(n => <option key={n} value={n}>{t('nat.' + n, n)}</option>)}</select></div>
+          <div className="field"><label>{t('religion')}</label>
+            <select value={religion} onChange={e => setReligion(e.target.value as Religion)}>
+              {RELIGIONS.map(option => <option key={option} value={option}>{t('religion.' + option)}</option>)}
+            </select>
+          </div>
+          <div className="field"><label>{t('interests')} ({ints.length}/3)</label>
+            <div className="chips">{INTERESTS.map(i => (
+              <button key={i.id} className={'chip' + (ints.includes(i.id) ? ' on' : '')} onClick={() => toggle(ints, setInts, i.id, 3)}><Art id={i.art} className="ca" />{t('int.' + i.id, i.label)}</button>
+            ))}</div></div>
+          <div className="field"><label>{t('talents')} ({tals.length}/2)</label>
+            <div className="chips">{TALENTS.map(tl => (
+              <button key={tl.id} className={'chip' + (tals.includes(tl.id) ? ' on' : '')} onClick={() => toggle(tals, setTals, tl.id, 2)}><Art id={tl.art} className="ca" />{t('tal.' + tl.id, tl.label)}</button>
+            ))}</div></div>
+          {/* v11 — real-time preview */}
+          <div className="preview">
+            <p><b>{t('youTurn18', '', { y: byear + 18, era: t('era.' + startEra.from, startEra.name) })}</b></p>
+            {a.top
+              ? <><p><b>{t('strongest')}:</b> {t('field.' + a.top, FIELDS[a.top].name)}{a.second ? ' · ' + t('backup') + ': ' + t('field.' + a.second, FIELDS[a.second].name) : ''}</p>
+                <p><b>{t('suggested')}:</b> {PATHS[a.top].jobs}</p>
+                <div>{a.perks.map(p => <span key={p} className="perk">{p}</span>)}</div></>
+              : <p className="mini">{t('pickHint')}</p>}
+            {startingCash > 0 && <p className="mini" style={{ marginTop: 6 }}><b>{t('v11.startingCash')}</b>: {fmt(startingCash)}</p>}
+          </div>
+          <button className="ibtn" style={{ width: '100%' }} disabled={!name.trim()} onClick={() => setStep('review')}>
+            <Ic id="ic-check" className="bsi" /><span>{t('v11.review')}</span>
+          </button>
+        </>
+      ) : (
+        // v11 — review + confirm step
+        <>
+          <div className="card" style={{ marginBottom: 12 }}>
+            <h3 style={{ margin: '0 0 8px' }}>{t('v11.reviewTitle')}</h3>
+            <div className="lb"><span>{t('name')}</span><b>{name}</b></div>
+            <div className="lb"><span>{t('birthYear')}</span><b>{byear} → {t('age')} 18 in {byear + 18}</b></div>
+            <div className="lb"><span>{t('country')}</span><b>{t('nat.' + nation, nation)}</b></div>
+            <div className="lb"><span>{t('religion')}</span><b>{t('religion.' + religion)}</b></div>
+            <div className="lb"><span>{t('interests')}</span><b>{ints.map(i => t('int.' + i, i)).join(', ') || '—'}</b></div>
+            <div className="lb"><span>{t('talents')}</span><b>{tals.map(tl => t('tal.' + tl, tl)).join(', ') || '—'}</b></div>
+            <div className="lb"><span>{t('era')}</span><b>{t('era.' + startEra.from, startEra.name)}</b></div>
+            {a.top && <div className="lb"><span>{t('strongest')}</span><b>{t('field.' + a.top, FIELDS[a.top].name)}</b></div>}
+            {startingCash > 0 && <div className="lb"><span>{t('v11.startingCash')}</span><b>{fmt(startingCash)}</b></div>}
+          </div>
+          {/* v11 — first-step suggestion card */}
+          <div className="card" style={{ marginBottom: 12, borderLeft: '3px solid var(--accent)' }}>
+            <div className="mini" style={{ textTransform: 'uppercase', letterSpacing: '.4px' }}>{t('v11.firstStep')}</div>
+            <p style={{ margin: '4px 0 0', fontSize: '.92rem' }}>{suggestion}</p>
+          </div>
+          <div className="trade">
+            <button className="ibtn ghost" onClick={() => setStep('edit')}><Ic id="ic-x" className="bsi" /><span>{t('v11.back')}</span></button>
+            <button className="ibtn" style={{ flex: 1 }} onClick={() => onBegin({ name: name || 'Alex', byear, nation, religion, ints, tals })}>
+              <Ic id="ic-plus" className="bsi" /><span>{t('begin')}</span>
+            </button>
+          </div>
+        </>
+      )}
     </div></div>
   );
 }

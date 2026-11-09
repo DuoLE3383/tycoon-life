@@ -152,6 +152,22 @@ export const YEAR_EVENTS: Record<number, YearEvent> = {
 
 export const NATIONS = ['Vietnam', 'United States', 'United Kingdom', 'Japan', 'South Korea', 'France', 'Germany', 'Brazil', 'Nigeria', 'India', 'Australia', 'Canada'];
 
+// v11 — name pools for the random-character button in the Intro.
+export const NAME_POOLS: Record<string, string[]> = {
+  Vietnam: ['Minh', 'Linh', 'Nam', 'Hoa', 'Dũng', 'Mai', 'Anh', 'Quân', 'Trang', 'Hùng'],
+  'United States': ['Alex', 'Jordan', 'Taylor', 'Casey', 'Morgan', 'Riley', 'Quinn', 'Avery', 'Skyler', 'Drew'],
+  'United Kingdom': ['Oliver', 'Amelia', 'Harry', 'Isla', 'George', 'Ava', 'Jack', 'Mia', 'Charlie', 'Sophie'],
+  Japan: ['Haruto', 'Yui', 'Sota', 'Aoi', 'Yuto', 'Hina', 'Sora', 'Yuna', 'Ren', 'Sakura'],
+  'South Korea': ['Min-jun', 'Seo-yeon', 'Ji-ho', 'Yu-jin', 'Joon-ho', 'So-eun', 'Tae-hyung', 'Ji-woo', 'Do-yoon', 'Ha-eun'],
+  France: ['Lucas', 'Emma', 'Hugo', 'Léa', 'Louis', 'Chloé', 'Nathan', 'Manon', 'Theo', 'Camille'],
+  Germany: ['Felix', 'Lena', 'Jonas', 'Mia', 'Max', 'Hannah', 'Paul', 'Sophie', 'Leon', 'Marie'],
+  Brazil: ['Pedro', 'Ana', 'João', 'Beatriz', 'Lucas', 'Carla', 'Gabriel', 'Júlia', 'Rafael', 'Sofia'],
+  Nigeria: ['Chidi', 'Amara', 'Emeka', 'Ngozi', 'Tunde', 'Chioma', 'Kunle', 'Zainab', 'Seyi', 'Folake'],
+  India: ['Aarav', 'Diya', 'Vihaan', 'Ananya', 'Arjun', 'Aadhya', 'Rohan', 'Saanvi', 'Karan', 'Myra'],
+  Australia: ['Jack', 'Charlotte', 'William', 'Olivia', 'Noah', 'Ava', 'Thomas', 'Mia', 'James', 'Grace'],
+  Canada: ['Liam', 'Olivia', 'Noah', 'Emma', 'Lucas', 'Charlotte', 'William', 'Amelia', 'Benjamin', 'Sophia']
+};
+
 export const INTERESTS = [
   { id: 'cars', label: 'Cars & speed', art: 'i-lambo', w: { engineering: 2 } },
   { id: 'tech', label: 'Gadgets & tech', art: 'i-phone', w: { engineering: 2, science: 1 } },
