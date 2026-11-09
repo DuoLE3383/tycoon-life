@@ -65,6 +65,9 @@ export interface GameState {
   // history. Happiness decays each game-day; below 30, bonuses stop and the
   // pet's own health starts dropping. Caring (feed / play / walk) raises it.
   pets: { typeId: string; name: string; happiness: number; health: number; adoptedDay: number; lastCare: number }[];
+  // v11 — flag set by processDay when a random AI oracle popup should fire.
+  // The React layer watches this and calls askAI() (async) when it flips true.
+  aiEvPending: boolean;
 }
 
 // ---------- wellbeing: body & mind ----------
@@ -262,7 +265,7 @@ export function fresh(): GameState {
     level: 1, xp: 0, gigs: {}, space: {}, social: { followers: 0, posts: [] },
     health: 92, spirit: 18, karma: 0, diet: false, well: {}, cause: null,
     sleepHours: 8, timeline: [], ach: [],
-    used: [], hall: null, pastLives: [], relations: {}, pets: [], clubs: []
+    used: [], hall: null, pastLives: [], relations: {}, pets: [], clubs: [], aiEvPending: false
   };
   STOCKS.forEach(x => { s.prices[x.id] = x.p; s.hist[x.id] = [x.p]; });
   return s;
@@ -302,6 +305,7 @@ export function migrate(raw: unknown): GameState {
   s.relations = s.relations && typeof s.relations === 'object' ? s.relations : {};
   s.pets = Array.isArray(s.pets) ? s.pets : [];
   s.clubs = Array.isArray(s.clubs) ? s.clubs : (s.club ? [s.club] : []);
+  s.aiEvPending = !!s.aiEvPending;
   s.branches = s.branches || {};
   s.farm = s.farm || {}; s.fac = s.fac || {}; s.space = s.space || {};
   s.farmBought = s.farmBought || {}; s.facBought = s.facBought || {}; s.spaceBought = s.spaceBought || {};
@@ -492,6 +496,13 @@ export function processDay(s: GameState, d: number, rng: () => number = Math.ran
   recordActivity(s, routine.join(' · '), d);
   // v10.5 — pet passive effects (spirit regen + neglect health-drain).
   tickPets(s);
+  // v11 — random AI oracle popup. ~1% chance per game-day, only if no
+  // event is already pending/active and the player has been playing for
+  // at least ~6 months (avoids firing during the intro). The React layer
+  // watches s.aiEvPending and calls askAI() when it flips true.
+  if (!s.aiEvPending && !s.pending && !s.aiEv && s.started && s.day > 180 && rng() < 0.01) {
+    s.aiEvPending = true;
+  }
   // Sleep trades study time for health recovery; other wellbeing modifiers still apply.
   const dhp = ageDecayPerDay(s.age) * sleepHealthMult(s.sleepHours) * (s.diet ? .55 : 1) * (s.spirit >= 70 ? .85 : 1);
   s.health = Math.max(0, s.health - dhp * (0.75 + rng() * 0.5));

@@ -199,6 +199,18 @@ export default function Page() {
     setAiBusy(false);
   }, []);
 
+  // v11 — random AI oracle popup. The engine sets s.aiEvPending with ~1%
+  // chance per game-day; this effect watches the flag and triggers the
+  // async askAI() fetch when it flips true. The popup then renders via
+  // the existing EventModal — no click required.
+  useEffect(() => {
+    if (!s.aiEvPending || s.aiEv || s.pending || aiBusy) return;
+    const st = getState();
+    st.aiEvPending = false;
+    persist();
+    askAI();
+  }, [s.aiEvPending, s.aiEv, s.pending, aiBusy, askAI]);
+
   const stageName = (st: GameState) => t('stage.' + STAGES.indexOf(stageOf(st.age)), stageOf(st.age).name);
   const eraName = (y: number) => t('era.' + eraOf(y).from, eraOf(y).name);
 
