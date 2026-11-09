@@ -659,11 +659,16 @@ export const TABS: [string, string, string][] = [
 // v11.3 — Power tab joins the "world" group (alongside Ranking + Hall of
 // Fame) since power is a world-level concern (unlocked by net worth and
 // gating election/lobby actions).
+// v11.22 — reordered to life-flow per UX feedback: Character → Education →
+// Assets → Business → Social → Empire. Player accumulates cash (Assets)
+// before opening businesses, and Empire (world/meta-game) sits last.
+//   Old order: life → growth → empire → wealth → network → world
+//   New order: life → growth → wealth → empire → network → world
 export const GROUPS: [string, string, string, [string, string, string][]][] = [
   ['life', 'Character', 't-life', [['home', 'Overview', 't-life'], ['health', 'Wellbeing', 'w-heart'], ['spirit', 'Mind', 'w-lotus'], ['pets', 'Companions', 'ic-paw']]],
   ['growth', 'Capital', 't-cap', [['edu', 'Education', 't-cap'], ['career', 'Career', 't-work']]],
-  ['empire', 'Ventures', 't-biz', [['biz', 'Business', 't-biz'], ['space', 'Space', 't-space']]],
   ['wealth', 'Portfolio', 't-bank', [['assets', 'Assets', 'ic-bag'], ['markets', 'Markets', 't-stock'], ['bank', 'Banking', 't-bank']]],
+  ['empire', 'Ventures', 't-biz', [['biz', 'Business', 't-biz'], ['space', 'Space', 't-space']]],
   ['network', 'Sphere', 't-social', [['social', 'Social', 't-social'], ['relations', 'Relations', 'ic-heart'], ['club', 'Clubs', 't-club']]],
   ['world', 'World', 't-rank', [['power', 'Power', 't-power'], ['entity', 'Empire', 'b-corp'], ['rank', 'Ranking', 't-rank'], ['fame', 'Hall of Fame', 'ic-trophy'], ['links', 'Systems', 'ic-link']]],
 ];

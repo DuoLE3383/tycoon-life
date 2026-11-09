@@ -1,17 +1,19 @@
 {
-  "version": "v11.21",
+  "version": "v11.22",
   "releasedAt": "2026-11-10",
-  "headline": "HuyenBao v11.21 — Spirit-tab activities now grant spirit points (capped per day)",
-  "summary": "Per player request, the four Spirit-tab panels (Kinh Dịch / Tử Vi / Phong Thuỷ / Tarot nâng cao) now grant spirit points when a reading completes. Each activity is a contemplation act: Kinh Dịch cast +2, Tử Vi chart +3, Phong Thuỷ analysis +2, Tarot spread +1–3 (1-card → +1, 3-card → +2, 5-card → +3). Capped at SPIRIT_DAILY_CAP=8 points per game-day so the player can't farm spirit by spamming casts — the cap resets when the game-day rolls over. The Spirit tab shows the daily remaining budget inline. Spirit points feed the existing spirit-state system (Restless / Calm / Centered / Enlightened) and unlock the existing perks: spirit ≥ 70 → business ×1.10 + slower aging; spirit ≥ 80 → cosmic ventures ×1.25. 4 Huyen-Hoc-AI features unchanged in their reading logic — only a post-reading spirit grant was added.",
+  "headline": "HuyenBao v11.22 — notification visibility fix + nav visual hierarchy + tab rename + life-flow reorder",
+  "summary": "UX pass per detailed player feedback. (1) Notification visibility fix — AI oracle popup rate bumped 6%→9%/day, ambient mini-event rate bumped 3%→6%/day, toast moved from bottom-center to top-center with accent border + bigger font + slide-in-from-top animation + higher z-index. Previously the toast was easy to miss at the bottom; now it appears prominently at the top. (2) Nav visual hierarchy — Level 1 (group) active state now uses gold accent background + dark text (MOST prominent), Level 2 (sub-tab) active uses subtle muted bg + gold border + gold text (less prominent). Previously both used similar pill backgrounds causing confusion. Added divider line between the two rows. Level 1 tabs are now bigger + bolder; Level 2 tabs smaller + muted. (3) Tab rename per UX feedback — 'Danh mục'→'Tài sản' (Assets), 'Quan hệ'→'Xã hội' (Social), 'Thế giới'→'Đế chế' (Empire), 'Tri thức'→'Học vấn' (Education) in VI; EN: 'Portfolio'→'Assets', 'Sphere'→'Social', 'World'→'Empire', 'Capital'→'Education'. ZH updated too. (4) Life-flow reorder — groups reordered from Character→Education→Business→Assets→Social→World to Character→Education→Assets→Business→Social→Empire. Player accumulates cash (Assets) before opening businesses, and Empire (meta-game/end-game) sits last. 4 Huyen-Hoc-AI features unchanged.",
   "features": [
-    "Kinh Dịch cast grants +2 spirit on successful interpretation (capped per day)",
-    "Tử Vi chart build grants +3 spirit on successful interpretation (capped per day)",
-    "Phong Thuỷ analysis grants +2 spirit on successful interpretation (capped per day)",
-    "Tarot spread grants +1–3 spirit on successful interpretation (1-card → +1, 3-card → +2, 5-card → +3; capped per day)",
-    "grantSpirit() helper + SPIRIT_DAILY_CAP=8 + spiritGainTodayLeft() added to engine.ts; GameState.spiritGainToday tracks the daily total (backfilled in migrate)",
-    "Spirit tab shows inline daily-budget note: 'Each Spirit activity grants +1–3 spirit (capped 8/day) · N/8 left'",
-    "Toast on each grant: '{src} — spirit +{n}' so the player sees the gain; if cap hit, no toast (silently capped)",
-    "Spirit points feed the existing spirit-state system (Restless / Calm / Centered / Enlightened) + perks (biz ×1.10 at 70+, cosmic ×1.25 at 80+)",
-    "Version bumped to v11.21 at FRONT of app name (v11.21 HuyenBao)"
+    "AI oracle popup rate bumped 6%→9% per eligible game-day (~1 popup per 5.5 min of active play)",
+    "Ambient mini-event rate bumped 3%→6% per game-day (~1 toast per 8 min) + threshold lowered from day>60 to day>30",
+    "Toast moved from bottom-center to top-center with accent border + bigger font (1.08rem) + slide-in-from-top animation + z-index 200 (was 80)",
+    "Nav visual hierarchy: Level 1 active = gold accent bg + dark text + box-shadow (MOST prominent); Level 2 active = muted bg + gold border + gold text (less prominent)",
+    "Divider line added between Level 1 and Level 2 nav rows",
+    "Level 1 tabs: bigger (font-size .95rem) + bolder (font-weight 800); Level 2 tabs: smaller (.82rem) + muted (font-weight 550)",
+    "Tab rename VI: 'Danh mục'→'Tài sản', 'Quan hệ'→'Xã hội', 'Thế giới'→'Đế chế', 'Tri thức'→'Học vấn'",
+    "Tab rename EN: 'Portfolio'→'Assets', 'Sphere'→'Social', 'World'→'Empire', 'Capital'→'Education'",
+    "Tab rename ZH: '组合'→'资产', '圈子'→'社交', '世界'→'帝国', '资本'→'学业'",
+    "Life-flow reorder: Character→Education→Assets→Business→Social→Empire (was Character→Education→Business→Assets→Social→World). Player accumulates cash before opening businesses; Empire (meta-game) sits last",
+    "Version bumped to v11.22 at FRONT of app name (v11.22 HuyenBao)"
   ]
 }

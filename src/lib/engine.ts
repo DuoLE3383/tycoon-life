@@ -850,16 +850,18 @@ export function processDay(s: GameState, d: number, rng: () => number = Math.ran
   // v11.17: bumped to ~6%/day (more online AI popups) + added a separate
   // ambient mini-event pool below that fires lightweight "tin vui / sự cố"
   // flavor toasts without spinning up a full LLM call.
-  if (!s.aiEvPending && !s.pending && !s.aiEv && s.started && s.day > 30 && rng() < 0.06) {
+  // v11.22 — bumped to ~9%/day (was 6%) per player complaint that AI popups
+  // are not showing. At 9%/day with 30s=1day, that's roughly one popup every
+  // ~5.5 minutes of active play — frequent enough to feel alive.
+  if (!s.aiEvPending && !s.pending && !s.aiEv && s.started && s.day > 30 && rng() < 0.09) {
     s.aiEvPending = true;
   }
-  // v11.17 — ambient mini-events. These are NOT full AI oracle popups —
-  // they're short toast-only flavor lines ("found $20 on the sidewalk",
-  // "a colleague brought coffee", "minor cold — feeling under the weather")
-  // that surface during online play to make the world feel alive. ~3% per
-  // game-day, only when nothing else is pending. Cash swings are small
-  // (±$50 to ±$500) so they don't unbalance the economy.
-  if (!s.pending && !s.aiEv && s.started && s.day > 60 && rng() < 0.03) {
+  // v11.22 — ambient mini-events bumped to ~6%/day (was 3%). At 30s=1day,
+  // that's roughly one ambient toast every ~8 minutes. These are the
+  // "tin vui / sự cố" flavor notifications (found $20, parking ticket, etc.)
+  // that make the world feel alive during online play. NOT full AI oracle
+  // popups — short toast-only flavor lines with small ±$50–$500 swings.
+  if (!s.pending && !s.aiEv && s.started && s.day > 30 && rng() < 0.06) {
     const ambient = AMBIENT_EVENTS[Math.floor(rng() * AMBIENT_EVENTS.length)];
     if (ambient.cash) s.money += ambient.cash;
     if (ambient.health) s.health = Math.max(0, Math.min(100, s.health + ambient.health));
