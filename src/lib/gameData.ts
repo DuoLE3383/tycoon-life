@@ -582,7 +582,7 @@ export const TABS: [string, string, string][] = [
   ['health', 'Wellbeing', 'w-heart'], ['spirit', 'Mind', 'w-lotus'], ['pets', 'Companions', 'ic-paw'],
   ['assets', 'Assets', 'ic-bag'], ['markets', 'Markets', 't-stock'], ['bank', 'Banking', 't-bank'],
   ['social', 'Social', 't-social'], ['relations', 'Relations', 'ic-heart'], ['club', 'Clubs', 't-club'],
-  ['power', 'Power', 't-power'], ['rank', 'Ranking', 't-rank'], ['fame', 'Hall of Fame', 'ic-trophy']
+  ['power', 'Power', 't-power'], ['entity', 'Empire', 'b-corp'], ['rank', 'Ranking', 't-rank'], ['fame', 'Hall of Fame', 'ic-trophy']
 ];
 
 // v10.5: navigation — reorganised into 6 scientific groups along a
@@ -598,7 +598,7 @@ export const GROUPS: [string, string, string, [string, string, string][]][] = [
   ['empire', 'Ventures', 't-biz', [['biz', 'Business', 't-biz'], ['space', 'Space', 't-space']]],
   ['wealth', 'Portfolio', 't-bank', [['assets', 'Assets', 'ic-bag'], ['markets', 'Markets', 't-stock'], ['bank', 'Banking', 't-bank']]],
   ['network', 'Sphere', 't-social', [['social', 'Social', 't-social'], ['relations', 'Relations', 'ic-heart'], ['club', 'Clubs', 't-club']]],
-  ['world', 'World', 't-rank', [['power', 'Power', 't-power'], ['rank', 'Ranking', 't-rank'], ['fame', 'Hall of Fame', 'ic-trophy'], ['links', 'Systems', 'ic-link']]],
+  ['world', 'World', 't-rank', [['power', 'Power', 't-power'], ['entity', 'Empire', 'b-corp'], ['rank', 'Ranking', 't-rank'], ['fame', 'Hall of Fame', 'ic-trophy'], ['links', 'Systems', 'ic-link']]],
 ];
 
 // ================= v8: gigs, levels & XP, the cosmic frontier =================

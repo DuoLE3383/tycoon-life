@@ -42,6 +42,10 @@ import {
   // v11.4 — elections + scrutiny + alliances/rivals + endings
   ELECTION_PARAMS, electionParamsFor, runElection, TRANSPARENCY_ACTIONS, doTransparency,
   offerAlliance, breakWith, computeEnding, tickPowerV11_4,
+  // v11.5 — entity system
+  entityTierOf, qualifiedEntityTier, nextEntityTier, ENTITY_TIERS, CONSTITUTIONS, constitutionById,
+  actDeclareAutonomy, actCourtRecognition, actDeclareIndependence,
+  type EntityState, type EntityTier, type Constitution,
 } from '@/lib/engine';
 import { localTwist, pickKind } from '@/lib/story';
 import { useT, LANGS, type Lang } from '@/lib/i18n';
@@ -55,10 +59,10 @@ if (typeof window !== 'undefined') {
   };
 }
 
-// v11.4 — the bundled version. The /version.json file in /public is polled
+// v11.5 — the bundled version. The /version.json file in /public is polled
 // every 5 minutes; if its version is newer than this, a "reload to update"
 // banner appears even in a running session (no F5 needed).
-const BUNDLED_VERSION = 'v11.4';
+const BUNDLED_VERSION = 'v11.5';
 const VERSION_POLL_MS = 5 * 60 * 1000;
 const SEEN_KEY = 'tycoon_seen_' + BUNDLED_VERSION;
 
@@ -261,6 +265,7 @@ export default function Page() {
           {tab === 'bank' && <BankTab s={s} act={act} />}
           {tab === 'rank' && <RankTab s={s} board={rankBoard} setBoard={setRankBoard} />}
           {tab === 'power' && <PowerTab s={s} act={act} />}
+          {tab === 'entity' && <EntityTab s={s} act={act} />}
           {tab === 'fame' && <FameTab s={s} />}
           {tab === 'links' && <LinksTab s={s} />}
         </main>
@@ -372,7 +377,7 @@ function Header({ s, eraName }: { s: GameState; eraName: (y: number) => string }
     <header className="top">
       <div className="brand">
         <Art id="s-coin" className="logo" />
-        <div><h1>MOGUL <span className="mini">v11.4</span></h1>
+        <div><h1>MOGUL <span className="mini">v11.5</span></h1>
           <div className="mini">{s.started ? `${s.nation} · ${eraName(worldYear(s))}` : t('tagline')}</div></div>
       </div>
       <div><div className="mini">{t('cash')}</div><div id="tcash" style={{ color: s.money < 0 ? 'var(--brick)' : undefined }}>{fmt(s.money)}</div>
@@ -1615,6 +1620,161 @@ function PowerTab({ s, act }: { s: GameState; act: Act }) {
         </span>
       </Row>;
     })}
+  </>);
+}
+
+// ================= EMPIRE (v11.5) =================
+// Entity tab: shows the player's current entity tier (conglomerate →
+// autonomous → nation → empire → federation), thresholds for each,
+// and the actions to step up (declare autonomy, court recognition,
+// declare independence). Empires/federations are stubbed — v11.7 will
+// wire star-system control + galactic geography.
+function EntityTab({ s, act }: { s: GameState; act: Act }) {
+  const { t, lang } = useT();
+  const tier = entityTierOf(s);
+  const tierIdx = ENTITY_TIERS.findIndex(r => r.tier === tier);
+  const next = nextEntityTier(s);
+  const nw = netWorth(s);
+  const inf = s.power?.influence || 0;
+  const [pickedConst, setPickedConst] = useState<Constitution>('democratic');
+  const [currency, setCurrency] = useState<string>('');
+  const tierLabel = (l: Lang, idx: number) => {
+    const r = ENTITY_TIERS[idx];
+    return l === 'vi' ? r.label.vi : l === 'zh' ? r.label.zh : r.label.en;
+  };
+  return (<>
+    {/* Current tier + next-threshold hint */}
+    <Row art="b-corp">
+      <b>{t('v11.entityCurrentTier')} <span className={tier === 'none' ? 'down' : 'up'}>{tierLabel(lang, tierIdx)}</span></b>
+      <span className="sub">
+        {t('v11.entityNetWorth', '', { v: fmt(nw) })} · {t('v11.entityInfluence', '', { x: inf })}
+      </span>
+      <span className="mini" style={{ display: 'block', marginTop: 2 }}>
+        {next
+          ? t('v11.entityNextTier', '', { tier: next.tier, v: fmt(next.min), x: next.minInfluence })
+          : t('v11.entityTopTier')}
+      </span>
+      {s.entity?.originNation && (
+        <span className="mini" style={{ display: 'block', marginTop: 2 }}>
+          {t('v11.entityOrigin', '', { nation: s.entity.originNation })}
+        </span>
+      )}
+      {s.entity?.currency && s.entity.currency !== 'USD' && (
+        <span className="mini" style={{ display: 'block', marginTop: 2 }}>
+          {t('v11.entityCurrency', '', { c: s.entity.currency, i: ((s.entity.inflation || 0) * 100).toFixed(1) })}
+        </span>
+      )}
+    </Row>
+
+    {/* Entity tiers ladder */}
+    <h3 style={{ margin: '12px 0 4px' }}>{t('v11.entityLadderTitle')}</h3>
+    {ENTITY_TIERS.map((r, i) => {
+      const reached = i <= tierIdx;
+      const labelLang = (l: Lang): string => l === 'vi' ? r.label.vi : l === 'zh' ? r.label.zh : r.label.en;
+      const descLang = (l: Lang): string => l === 'vi' ? r.desc.vi : l === 'zh' ? r.desc.zh : r.desc.en;
+      return <Row key={r.tier} art={reached ? 'b-corp' : 'ic-x'}
+        right={<span className={reached ? 'up' : 'down'}>{reached ? '✓' : '—'}</span>}>
+        <b>{labelLang(lang)} <span className="mini">({fmt(r.minNetWorth)} · {t('v11.tier')} inf {r.minInfluence}{r.extra ? ` · ${r.extra}` : ''})</span></b>
+        <span className="sub">{descLang(lang)}</span>
+      </Row>;
+    })}
+
+    {/* Declare autonomy — only available at conglomerate tier */}
+    {tier === 'conglomerate' && (
+      <Row art="b-corp"
+        right={<button className="tbuy" disabled={nw < 50_000_000 || inf < 50}
+          onClick={() => act(g => {
+            const r = actDeclareAutonomy(g);
+            if (!r.ok) return r.reason === 'noInfluence' ? t('v11.advocacyNeedInfluence')
+              : r.reason === 'noNetWorth' ? t('v11.entityNeedNetWorth', '', { v: fmt(50_000_000) })
+              : r.reason || 'failed';
+            return t('v11.entityAutonomyDone');
+          })}>{t('v11.entityDeclareAutonomy')}</button>}>
+        <b>{t('v11.entityDeclareAutonomy')}</b>
+        <span className="sub">{t('v11.entityAutonomyBlurb', '', { v: fmt(50_000_000), x: 50 })}</span>
+      </Row>
+    )}
+
+    {/* Court recognition — only at autonomous tier, costs 30 influence */}
+    {tier === 'autonomous' && (
+      <Row art="s-coin"
+        right={<button className="tbuy" disabled={inf < 30 || (s.entity?.recognition || 0) >= 12}
+          onClick={() => act(g => {
+            const r = actCourtRecognition(g);
+            if (!r.ok) return r.reason === 'noInfluence' ? t('v11.advocacyNeedInfluence')
+              : r.reason === 'maxRecognition' ? t('v11.entityMaxRecognition')
+              : r.reason || 'failed';
+            return t('v11.entityRecognitionDone', '', { x: s.entity?.recognition || 0 });
+          })}>{t('v11.entityCourtRecognition')}</button>}>
+        <b>{t('v11.entityCourtRecognition')} <span className="mini">({t('v11.entityRecognitionProgress', '', { cur: s.entity?.recognition || 0, need: 3 })})</span></b>
+        <span className="sub">{t('v11.entityRecognitionBlurb', '', { x: 30 })}</span>
+      </Row>
+    )}
+
+    {/* Declare independence — only at autonomous tier with ≥3 recognition */}
+    {tier === 'autonomous' && (
+      <>
+        <h3 style={{ margin: '12px 0 4px' }}>{t('v11.entityIndependenceTitle')}</h3>
+        {/* Constitution picker */}
+        {CONSTITUTIONS.map(c => {
+          const labelLang = (l: Lang): string => l === 'vi' ? c.label.vi : l === 'zh' ? c.label.zh : c.label.en;
+          const descLang = (l: Lang): string => l === 'vi' ? c.desc.vi : l === 'zh' ? c.desc.zh : c.desc.en;
+          const picked = pickedConst === c.id;
+          return <Row key={c.id} art="b-corp"
+            right={<input type="radio" checked={picked} onChange={() => setPickedConst(c.id)} aria-label={c.id} />}>
+            <b>{labelLang(lang)} <span className="mini">biz ×{c.bizMult.toFixed(2)} · tax {(c.taxRate * 100).toFixed(0)}% · upkeep ×{c.militaryUpkeepMult.toFixed(2)}</span></b>
+            <span className="sub">{descLang(lang)}</span>
+          </Row>;
+        })}
+        {/* Currency input */}
+        <Row art="s-coin">
+          <b>{t('v11.entityCurrencyLabel')}</b>
+          <input className="qty" type="text" maxLength={3} value={currency} placeholder="NEW"
+            onChange={e => setCurrency(e.target.value.toUpperCase().slice(0, 3))} aria-label="currency" />
+          <span className="sub">{t('v11.entityCurrencyBlurb')}</span>
+        </Row>
+        {/* Declare button */}
+        <Row art="b-corp"
+          right={<button className="tbuy" disabled={inf < 200 || nw < 500_000_000 || (s.entity?.recognition || 0) < 3}
+            onClick={() => act(g => {
+              const r = actDeclareIndependence(g, pickedConst, currency || 'NEW');
+              if (!r.ok) return r.reason === 'noInfluence' ? t('v11.advocacyNeedInfluence')
+                : r.reason === 'noNetWorth' ? t('v11.entityNeedNetWorth', '', { v: fmt(500_000_000) })
+                : r.reason === 'noRecognition' ? t('v11.entityNeedRecognition')
+                : r.reason || 'failed';
+              return t('v11.entityIndependenceDone', '', { c: currency || 'NEW' });
+            })}>{t('v11.entityDeclareIndependence')}</button>}>
+          <b>{t('v11.entityDeclareIndependence')}</b>
+          <span className="sub">{t('v11.entityIndependenceBlurb', '', { v: fmt(500_000_000), x: 200, rec: 3 })}</span>
+        </Row>
+      </>
+    )}
+
+    {/* Constitution display (only at nation+ tier) */}
+    {(tier === 'nation' || tier === 'empire' || tier === 'federation') && s.entity?.constitution && (
+      <Row art="b-corp">
+        <b>{t('v11.entityConstitutionActive')} <span className="up">
+          {(() => {
+            const c = constitutionById(s.entity.constitution!);
+            return lang === 'vi' ? c.label.vi : lang === 'zh' ? c.label.zh : c.label.en;
+          })()}
+        </span></b>
+        <span className="sub">
+          {(() => {
+            const c = constitutionById(s.entity.constitution!);
+            return lang === 'vi' ? c.desc.vi : lang === 'zh' ? c.desc.zh : c.desc.en;
+          })()}
+        </span>
+      </Row>
+    )}
+
+    {/* v11.5 stub: empire + federation tiers gated behind v11.7 */}
+    {(tier === 'nation') && (
+      <p className="sub">{t('v11.entityStubEmpire')}</p>
+    )}
+    {(tier === 'empire' || tier === 'federation') && (
+      <p className="sub">{t('v11.entityStubGalaxy')}</p>
+    )}
   </>);
 }
 

@@ -24,6 +24,13 @@ import {
   tickScrutiny, TRANSPARENCY_ACTIONS, doTransparency,
   offerAlliance, breakWith, tickAlliancesRivals, rollScandal, computeEnding,
 } from './power';
+// v11.5 — Entity system (conglomerate → nation → federation).
+import {
+  type EntityState, type EntityTier, type Constitution,
+  freshEntity, entityTierOf, qualifiedEntityTier, nextEntityTier,
+  declareIndependence, declareAutonomy, courtRecognition, autoPromoteConglomerate, tickEntity,
+  ENTITY_TIERS, CONSTITUTIONS, constitutionById,
+} from './empire';
 // Re-export the public surface of the power module so the React layer
 // can import everything from one place (engine.ts).
 export {
@@ -37,6 +44,16 @@ export {
   offerAlliance, breakWith, tickAlliancesRivals, rollScandal, computeEnding,
 };
 export type { PowerState, PowerTier, InfluenceSource, AdvocacyAction, ElectionParams } from './power';
+// Re-export the entity module's public surface
+export {
+  freshEntity, entityTierOf, qualifiedEntityTier, nextEntityTier,
+  declareIndependence, declareAutonomy, courtRecognition, autoPromoteConglomerate, tickEntity,
+  ENTITY_TIERS, CONSTITUTIONS, constitutionById,
+  // v11.5 — engine wrappers that bridge the React layer to empire.ts.
+  // actDeclareAutonomy, actCourtRecognition, actDeclareIndependence are
+  // defined in this file (not empire.ts) because they need pushLog + netWorth.
+};
+export type { EntityState, EntityTier, Constitution } from './empire';
 
 export const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
@@ -122,6 +139,11 @@ export interface GameState {
   // the influence log. Fresh games start with freshPower(). Migrate()
   // backfills it on old saves.
   power: PowerState;
+  // v11.5 — entity system. The player's political organisation: conglomerate
+  // → autonomous → nation → empire → federation. Auto-promotes to
+  // conglomerate at $1M net worth; later tiers require deliberate actions
+  // (declareAutonomy, declareIndependence) plus thresholds + recognition.
+  entity: EntityState;
 }
 
 // ---------- wellbeing: body & mind ----------
@@ -336,6 +358,7 @@ export function fresh(): GameState {
     used: [], hall: null, pastLives: [], relations: {}, pets: [], clubs: [], aiEvPending: false, shortCompleted: [],
     crisis: null, shocks: [], lastResearchDay: 0, researchBrief: null,
     power: freshPower(),
+    entity: freshEntity(),
   };
   STOCKS.forEach(x => { s.prices[x.id] = x.p; s.hist[x.id] = [x.p]; });
   return s;
@@ -389,6 +412,10 @@ export function migrate(raw: unknown): GameState {
   s.power = s.power && typeof s.power === 'object'
     ? Object.assign(freshPower(), s.power)
     : freshPower();
+  // v11.5 — entity state. Same pattern: backfill from freshEntity().
+  s.entity = s.entity && typeof s.entity === 'object'
+    ? Object.assign(freshEntity(), s.entity)
+    : freshEntity();
   // v11.1 fix: clamp existing saves with astronomical follower counts.
   // Some saves had 10^23 followers due to the linear-growth bug; cap them
   // at MAX_FOLLOWERS (2B) so the new sqrt formulas produce sane numbers.
@@ -473,6 +500,7 @@ export const bizMultiplier = (s: GameState) => Math.min(
   BIZ_MULTIPLIER_CAP,
   clubMult(s) * (1 + BIZ_DEGREE_BONUS * s.deg.business) * fameBonus(s) * effEraBiz(s) * levelMult(s) * spiritBizMult(s)
     * (s.power?.boardNomineeBiz || 1) // v11.3 — advocacy 'boardNominee' grants +10%
+    * (constitutionById(s.entity?.constitution || 'democratic' as Constitution).bizMult) // v11.5 — constitution bizMult
 );
 export const bizIncome = (s: GameState) => { // annual
   let ann = 0;
@@ -816,6 +844,7 @@ export function yearEnd(s: GameState, age: number, rng: () => number = Math.rand
   // here and passed in so power.ts doesn't need to import netWorth().
   // v11.4 — now uses tickPowerV11_4 which also ticks scrutiny, decays
   // alliances/rivals, and rolls for scandal events.
+  // v11.5 — also ticks entity (auto-promote conglomerate + inflation).
   const nw = netWorth(s);
   const powerTick = tickPowerV11_4(s, nw, rng);
   if (powerTick.promotedTo) {
@@ -827,6 +856,12 @@ export function yearEnd(s: GameState, age: number, rng: () => number = Math.rand
   }
   if (powerTick.scandal) {
     pushLog(s, `Scandal! Press leaks dog you. Scrutiny +10, rivals emboldened, influence −5.`);
+  }
+  // v11.5 — entity tick (auto-promote conglomerate + inflation erosion
+  // for nation+ tiers). Net worth passed in to avoid the circular import.
+  const entityTick = tickEntity(s, nw, (msg: string) => pushLog(s, msg));
+  if (entityTick.promotedTo) {
+    pushLog(s, `Entity tier unlocked: ${entityTick.promotedTo}.`);
   }
   rollLife(s, age, rng);
 }
@@ -1230,6 +1265,27 @@ export function donate(s: GameState, amt: number): string | null {
   if (amt >= 10000) addPost(s, `Gave ${fmt(amt)} to charity today. Small acts, big ripples.`, 1.3);
   pushLog(s, `Donated ${fmt(amt)} to charity. Fame +${g}, karma +${ka}${infMsg}.`);
   return `Donated ${fmt(amt)} \u00b7 fame +${g}${infMsg}`;
+}
+
+// v11.5 — entity actions (declareAutonomy, declareIndependence,
+// courtRecognition). Wrappers that compute net worth + influence and
+// call into the empire module. Used by the React layer via act().
+export function actDeclareAutonomy(s: GameState): { ok: boolean; reason?: string } {
+  const nw = netWorth(s);
+  const inf = s.power?.influence || 0;
+  return declareAutonomy(s, nw, inf, (msg: string) => pushLog(s, msg));
+}
+export function actCourtRecognition(s: GameState): { ok: boolean; reason?: string } {
+  const inf = s.power?.influence || 0;
+  if (inf < 30) return { ok: false, reason: 'noInfluence' };
+  const r = courtRecognition(s, inf, (msg: string) => pushLog(s, msg));
+  if (r.ok && s.power) s.power.influence -= 30;
+  return r;
+}
+export function actDeclareIndependence(s: GameState, constitution: Constitution, currency: string): { ok: boolean; reason?: string } {
+  const nw = netWorth(s);
+  const inf = s.power?.influence || 0;
+  return declareIndependence(s, nw, inf, constitution, currency, (msg: string) => pushLog(s, msg));
 }
 export function applyEventChoice(s: GameState, idx: number, rng: () => number = Math.random): string {
   const ev = currentEvent(s); if (!ev) return '';
