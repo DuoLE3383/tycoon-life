@@ -15,8 +15,12 @@ export const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', '
 export interface Branch { r: number; mood: number; paid: number; day: number }
 export interface Study { kind: 'deg' | 'lic'; field?: FieldKey; lvl?: number; id?: string; name: string; end: number; tuition: number }
 export interface DayTimeline { day: number; entries: string[] }
-export interface AIChoice { l: string; cost?: number; money?: number; fame?: number; out?: string }
-export interface AIEvent { title: string; text: string; choices: AIChoice[]; source?: 'backend' | 'local' }
+export interface AIChoice { l: string; cost?: number; money?: number; fame?: number; out?: string; kind?: AIEventKind; decline?: number; dropout?: { slot: 'study' | 'sideStudy' }; liquidate?: { biz: string; n: number }; }
+// v10.4 — AI events are now categorised. 'story' = open-ended life twist (the
+// classic oracle), 'luck' = windfall, 'badluck' = loss/damage, 'lifestage' =
+// a meaningful life-stage pivot (close shop, drop out, wrong turn).
+export type AIEventKind = 'story' | 'luck' | 'badluck' | 'lifestage';
+export interface AIEvent { title: string; text: string; choices: AIChoice[]; source?: 'backend' | 'backend-local' | 'local'; kind?: AIEventKind }
 export interface Post { d: number; t: string; likes: number }
 export type Religion = 'none' | 'buddhism' | 'christianity' | 'islam' | 'hinduism' | 'folk';
 export const RELIGIONS: Religion[] = ['none', 'buddhism', 'christianity', 'islam', 'hinduism', 'folk'];
@@ -43,6 +47,10 @@ export interface GameState {
   cause: 'age' | 'health' | null;
   social: { followers: number; posts: Post[]; verified?: boolean };
   ach: string[];
+  // v10.4 — used-market purchases and player Hall of Fame entry written at
+  // game over. Kept on the same GameState shape so save migration is trivial.
+  used: { id: string; baseId: string; name: string; brand?: string; cat: string; c: string; art: string; ageYears: number; condition: number; paid: number; day: number; lux: number; rate: number; story: string }[];
+  hall: { name: string; nation: string; era: string; industry: string; peakNetWorth: string; note: string; livedTo: number; tier: string } | null;
 }
 
 // ---------- wellbeing: body & mind ----------
@@ -205,7 +213,8 @@ export function fresh(): GameState {
     partner: false, married: false, kids: 0, m1: false, story: { used: [] },
     level: 1, xp: 0, gigs: {}, space: {}, social: { followers: 0, posts: [] },
     health: 92, spirit: 18, karma: 0, diet: false, well: {}, cause: null,
-    sleepHours: 8, timeline: [], ach: []
+    sleepHours: 8, timeline: [], ach: [],
+    used: [], hall: null
   };
   STOCKS.forEach(x => { s.prices[x.id] = x.p; s.hist[x.id] = [x.p]; });
   return s;
@@ -239,6 +248,8 @@ export function migrate(raw: unknown): GameState {
   s.ach = Array.isArray(s.ach) ? s.ach : [];
   s.bank = s.bank || { dep: 0, loan: 0 };
   s.story = s.story || { used: [] };
+  s.used = Array.isArray(s.used) ? s.used : [];
+  s.hall = s.hall || null;
   s.branches = s.branches || {};
   s.farm = s.farm || {}; s.fac = s.fac || {}; s.space = s.space || {};
   s.farmBought = s.farmBought || {}; s.facBought = s.facBought || {}; s.spaceBought = s.spaceBought || {};
@@ -664,12 +675,121 @@ export function applyAIChoice(s: GameState, idx: number): string {
   if (c.cost) s.money -= c.cost;
   if (c.money) s.money += c.money;
   if (c.fame) s.fame = Math.min(100, Math.max(0, s.fame + c.fame));
+  // v10.4: life-stage outcomes.
+  // - decline: long-term health/spirit hit (a "wrong choice" with lasting cost)
+  // - dropout: abandon the named study slot mid-way (era demands a pivot)
+  // - liquidate: close N branches of a business line (cut losses / fire-sale)
+  if (c.decline) {
+    s.health = Math.max(0, s.health - c.decline);
+    s.spirit = Math.max(0, s.spirit - Math.round(c.decline * 0.6));
+  }
+  if (c.dropout && s[c.dropout.slot]) {
+    const study = s[c.dropout.slot]!;
+    pushLog(s, `Dropped out: ${study.name}.`);
+    addPost(s, `Pivoting. Quitting ${study.name} to chase what the era actually needs.`, 1.2);
+    s[c.dropout.slot] = null;
+  }
+  if (c.liquidate) {
+    const list = s.branches[c.liquidate.biz] || [];
+    const n = Math.min(c.liquidate.n, list.length);
+    if (n > 0) {
+      // fire-sale recovery: 35% of the branch's last paid income per closed branch
+      const def = BIZ.find(b => b.id === c.liquidate!.biz);
+      const per = def ? Math.max(2000, def.base * 0.35) : 5000;
+      const recovered = per * n;
+      s.money += recovered;
+      s.branches[c.liquidate.biz] = list.slice(0, list.length - n);
+      if (s.branches[c.liquidate.biz].length === 0) {
+        delete s.branches[c.liquidate.biz];
+        delete s.biz[c.liquidate.biz];
+      }
+      pushLog(s, `Liquidated ${n} × ${c.liquidate.biz} branch(es); recovered ${fmt(recovered)}.`);
+      addPost(s, `Hard day. Closed ${n} branch(es) to stop the bleeding. Onwards.`, 1);
+    }
+  }
   const msg = c.out || 'Time will tell.';
   pushLog(s, `AI twist \u2014 ${ev.title}: ${msg}`);
   addPost(s, `${ev.title} \u2014 you read it here first.`, 1);
   s.story.used.push(ev.title); if (s.story.used.length > 24) s.story.used.shift();
   s.aiEv = null;
   return msg;
+}
+
+// ---------- v10.4: used market + social listing ----------
+export function usedItemValue(s: GameState, u: GameState['used'][number]): number {
+  // Condition decay + age depreciation, then appreciation rate (positive for
+  // collectibles). Anchored against the original askPrice.
+  const condFactor = 0.4 + 0.6 * (u.condition / 100);
+  const ageFactor = Math.pow(1 + u.rate, Math.max(0, (s.day - u.day) / 365.25));
+  return Math.max(50, u.paid * condFactor * ageFactor);
+}
+// Real implementation — accepts a fully-resolved listing row.
+export function buyUsedItem(s: GameState, listing: {
+  id: string; baseId: string; name: string; brand?: string; cat: string; c: string; art: string;
+  ageYears: number; condition: number; askPrice: number; lux: number; rate: number; story: string;
+}): string | null {
+  if (s.used.some(u => u.id === listing.id)) return null;
+  if (s.money < listing.askPrice) return null;
+  s.money -= listing.askPrice;
+  s.used.push({
+    id: listing.id, baseId: listing.baseId, name: listing.name, brand: listing.brand,
+    cat: listing.cat, c: listing.c, art: listing.art,
+    ageYears: listing.ageYears, condition: listing.condition, paid: listing.askPrice,
+    day: s.day, lux: listing.lux, rate: listing.rate, story: listing.story
+  });
+  s.fame = Math.min(100, s.fame + (listing.lux >= 100 ? 2 : listing.lux >= 30 ? 1 : 0));
+  if (listing.askPrice >= 10000) addPost(s, `Picked up a pre-owned ${listing.name}. Has a story.`, 1);
+  pushLog(s, `Bought used: ${listing.name} for ${fmt(listing.askPrice)}.`);
+  return 'Bought ' + listing.name;
+}
+export function sellUsed(s: GameState, idx: number): string | null {
+  const u = s.used[idx]; if (!u) return null;
+  const v = usedItemValue(s, u) * (1 - RESALE_FEE);
+  s.money += v; s.used.splice(idx, 1);
+  pushLog(s, `Sold used ${u.name} for ${fmt(v)}.`);
+  return 'Sold for ' + fmt(v);
+}
+// List an owned lot (new or used) on the in-game social feed. Generates a
+// public post and, with some probability based on fame, an unsolicited
+// premium offer (a small immediate cash bump on top of the resale value).
+export function postItemListing(s: GameState, kind: 'lot' | 'used', idx: number): string | null {
+  if (kind === 'lot') {
+    const l = s.lots[idx]; if (!l) return null;
+    const it = ITEM_BY[l.id]; if (!it) return null;
+    const v = lotValue(s, l) * (1 - RESALE_FEE);
+    addPost(s, `Listing my ${it.name} on the feed. DM if serious. Asking ${fmt(v)}.`, 1.4);
+    s.fame = Math.min(100, s.fame + 1);
+    pushLog(s, `Posted listing for ${it.name}.`);
+    return 'Posted: ' + it.name;
+  }
+  const u = s.used[idx]; if (!u) return null;
+  const v = usedItemValue(s, u) * (1 - RESALE_FEE);
+  addPost(s, `Anyone want my ${u.name}? ${u.story} Asking ${fmt(v)}.`, 1.5);
+  s.fame = Math.min(100, s.fame + 1);
+  pushLog(s, `Posted used listing for ${u.name}.`);
+  return 'Posted: ' + u.name;
+}
+
+// ---------- v10.4: Hall of Fame ----------
+// Builds a Hall entry from the player's run, written to s.hall at game over
+// (or whenever the player chooses to "retire now" from the new-life button).
+export function playerHallEntry(s: GameState) {
+  const { tier, nw } = gameOverTier(s);
+  const y = worldYear(s);
+  return {
+    name: s.name,
+    nation: s.nation,
+    era: eraOf(y).name,
+    industry: playerIndustry(s),
+    peakNetWorth: fmt(nw),
+    note: `${s.cause === 'health' ? 'Burned out at ' + Math.floor(s.age) : 'Lived to ' + Math.floor(s.age)} · ${tier} · ${s.ach.length}/${ACHIEVEMENTS.length} milestones · level ${s.level}`,
+    livedTo: Math.floor(s.age),
+    tier
+  };
+}
+export function recordHallOnGameOver(s: GameState): void {
+  if (!s.over) return;
+  s.hall = playerHallEntry(s);
 }
 function finishStudy(s: GameState, study: Study, rng: () => number): void {
   if (study.kind === 'deg' && study.field) s.deg[study.field] = study.lvl!;

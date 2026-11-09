@@ -244,6 +244,74 @@ export const ITEMS: ItemDef[] = [
   { id: 'a-impress', cat: 'Art', name: 'Impressionist original', c: '#a16207', price: 40000000, lux: 9000, rate: .07, art: 'i-art' }
 ];
 export const ITEM_BY = Object.fromEntries(ITEMS.map(i => [i.id, i]));
+
+// ---- v10.4: used market — buy/sell pre-owned cars, watches, art at a discount
+// vs new, but each unit carries an ageYears + condition rating that drives its
+// resale price and upkeep. Listings appear with randomised condition; the
+// player can also list owned lots on social for a chance at premium offers.
+export interface UsedItem {
+  id: string;            // listing id (unique perused listing)
+  baseId: string;        // references ITEMS[].id
+  name: string;          // display name (often with suffix "— pre-owned")
+  brand?: string;
+  cat: string;
+  c: string;
+  art: string;
+  ageYears: number;      // 0..40
+  condition: number;     // 0..100 (100 = mint, 0 = scrap)
+  askPrice: number;      // what the seller is asking right now
+  newPrice: number;      // price of an equivalent new unit (for reference)
+  lux: number;
+  rate: number;          // appreciation/depreciation rate inherited from the item
+  story: string;         // one-line backstory shown in the listing
+}
+export const USED_MARKET: UsedItem[] = [
+  { id: 'u-camry-12y', baseId: 'c-toyota', name: 'Camry — 2012, one owner', brand: 'Toyota', cat: 'Car', c: '#dc2626', art: 'i-lambo', ageYears: 12, condition: 62, askPrice: 8800, newPrice: 30000, lux: 3, rate: -.12, story: 'Retired teacher\'s daily driver. Service book in the glovebox.' },
+  { id: 'u-3-series-8y', baseId: 'c-bmw', name: 'BMW M3 — 2016, modified', brand: 'BMW', cat: 'Car', c: '#1d4ed8', art: 'i-lambo', ageYears: 8, condition: 71, askPrice: 32000, newPrice: 85000, lux: 38, rate: -.12, story: 'Track-day toy of an enthusiast. Aftermarket exhaust, original parts included.' },
+  { id: 'u-911-22y', baseId: 'c-porsche', name: 'Porsche 911 — 2002, air-cooled', brand: 'Porsche', cat: 'Car', c: '#ca8a04', art: 'i-lambo', ageYears: 22, condition: 84, askPrice: 58000, newPrice: 120000, lux: 95, rate: .02, story: 'Garage-kept, numbers-matching. Already appreciating.' },
+  { id: 'u-tesla-4y', baseId: 'c-tesla', name: 'Tesla Model S — 2020 Plaid', brand: 'Tesla', cat: 'Car', c: '#7f1d1d', art: 'i-lambo', ageYears: 4, condition: 78, askPrice: 52000, newPrice: 100000, lux: 28, rate: -.13, story: 'Battery health 92%. Software-unlocked. First owner hit a kerb once.' },
+  { id: 'u-submariner-30y', baseId: 'w-rolex', name: 'Rolex Submariner — 1994, patina', brand: 'Rolex', cat: 'Watch', c: '#15803d', art: 'i-watch', ageYears: 30, condition: 70, askPrice: 18500, newPrice: 10000, lux: 120, rate: .08, story: 'Tropical dial. Watchmaker\'s receipt from 1998. A collector\'s piece.' },
+  { id: 'u-speedmaster-45y', baseId: 'w-omega', name: 'Omega Speedmaster — 1979, pre-Moon', brand: 'Omega', cat: 'Watch', c: '#1e3a8a', art: 'i-watch', ageYears: 45, condition: 66, askPrice: 12000, newPrice: 6500, lux: 130, rate: .06, story: 'Cousin of the Moon watch. Original bracelet, lightly polished.' },
+  { id: 'u-carrera-15y', baseId: 'w-tag', name: 'TAG Heuer Carrera — 2009', brand: 'TAG Heuer', cat: 'Watch', c: '#0f766e', art: 'i-watch', ageYears: 15, condition: 58, askPrice: 1800, newPrice: 6000, lux: 18, rate: -.02, story: 'Daily wearer for a dentist. Crystal has one tiny chip at 4 o\'clock.' },
+  { id: 'u-impress-50y', baseId: 'a-impress', name: 'Impressionist sketch — c.1970s', cat: 'Art', c: '#a16207', art: 'i-art', ageYears: 50, condition: 52, askPrice: 220000, newPrice: 40000000, lux: 1800, rate: .05, story: 'Attributed to a student of the master. Provenance paper-creased but legible.' },
+  { id: 'u-contemp-3y', baseId: 'a-contemp', name: 'Contemporary canvas — 2021, rising artist', cat: 'Art', c: '#db2777', art: 'i-art', ageYears: 3, condition: 90, askPrice: 32000, newPrice: 50000, lux: 110, rate: .12, story: 'Bought at the artist\'s first solo show. She is now in two museum collections.' },
+  { id: 'u-ghost-5y', baseId: 'c-rr', name: 'Rolls-Royce Ghost — 2019, executive lease', brand: 'Rolls-Royce', cat: 'Car', c: '#171717', art: 'i-lambo', ageYears: 5, condition: 82, askPrice: 195000, newPrice: 350000, lux: 280, rate: -.08, story: 'Chauffeur-driven for a bank. Starlight headliner intact, full service history.' },
+  { id: 'u-panigale-6y', baseId: 'bike-panigale', name: 'Ducati Panigale V4 — 2018, low km', brand: 'Ducati', cat: 'Sport bike', c: '#ef4444', art: 'i-bike', ageYears: 6, condition: 74, askPrice: 14000, newPrice: 30000, lux: 30, rate: -.1, story: 'Weekend rider. Removed the mirrors for trackdays, will refit on request.' },
+  { id: 'u-cbr-10y', baseId: 'bike-cbr', name: 'Honda CBR1000RR-R — 2014', brand: 'Honda', cat: 'Sport bike', c: '#dc2626', art: 'i-bike', ageYears: 10, condition: 60, askPrice: 7800, newPrice: 25000, lux: 18, rate: -.12, story: 'Stunt-practice spare. Crashed twice, repaired honestly.' }
+];
+// Static pool of rotating listings shown to the player — at any given visit,
+// we surface a deterministic-ish 6-8 slice derived from USED_MARKET + a small
+// random shuffle seed stored in state.
+export const USED_MARKET_BY = Object.fromEntries(USED_MARKET.map(u => [u.id, u]));
+
+// ---- v10.4: Hall of Fame — curated list of real-world icons + their note.
+// Renders as a separate tab under the World group, next to Ranking. The
+// player's own run also writes a Hall entry on game over (saved to state).
+export interface HallEntry {
+  id: string;
+  name: string;
+  nation: string;
+  era: string;          // human-readable era label
+  industry: string;
+  peakNetWorth: string; // human-readable, can be a number-string or a label like "undisclosed"
+  note: string;         // one-line quote / legacy note (EN, can be translated at display if desired)
+  kind: 'real' | 'player' | 'rival';
+}
+export const HALL_OF_FAME: HallEntry[] = [
+  { id: 'h-rockefeller', name: 'John D. Rockefeller', nation: 'United States', era: 'Gilded Age', industry: 'Oil', peakNetWorth: '~$400B (in today\'s dollars)', note: 'Founded Standard Oil; gave away more than half his fortune before he died.', kind: 'real' },
+  { id: 'h-ford', name: 'Henry Ford', nation: 'United States', era: 'Roaring Twenties', industry: 'Manufacturing', peakNetWorth: '~$200B equivalent', note: 'Put the world on wheels with the Model T and the assembly line.', kind: 'real' },
+  { id: 'h-esteelauder', name: 'Estée Lauder', nation: 'United States', era: 'Post-war boom', industry: 'Beauty', peakNetWorth: 'Undisclosed (private)', note: 'Built a cosmetics empire one jar at a time, then gave women a seat in the boardroom.', kind: 'real' },
+  { id: 'h-onassis', name: 'Aristotle Onassis', nation: 'Greece', era: 'Mid-century', industry: 'Shipping', peakNetWorth: '~$500M (1960s)', note: 'Owned the world\'s largest private tanker fleet and a private island.', kind: 'real' },
+  { id: 'h-walton', name: 'Sam Walton', nation: 'United States', era: 'Late 20th century', industry: 'Retail', peakNetWorth: '~$8B at death', note: 'Drove a pickup truck to work while building the largest retailer on Earth.', kind: 'real' },
+  { id: 'h-ikea', name: 'Ingvar Kamprad', nation: 'Sweden', era: 'Late 20th century', industry: 'Retail', peakNetWorth: '~$40B+', note: 'Flew economy, bought clothes at flea markets — and sold furniture to the world.', kind: 'real' },
+  { id: 'h-buffett', name: 'Warren Buffett', nation: 'United States', era: 'Modern era', industry: 'Finance', peakNetWorth: '~$100B+', note: 'Pledged 99% of his wealth away. Still lives in the house he bought in 1958.', kind: 'real' },
+  { id: 'h-ma', name: 'Jack Ma', nation: 'China', era: 'Internet era', industry: 'Tech', peakNetWorth: '~$40B+', note: 'Was an English teacher before Alibaba. "Today is hard, tomorrow is worse, but the day after tomorrow is sunshine."', kind: 'real' },
+  { id: 'h-musk', name: 'Elon Musk', nation: 'United States', era: '2020s', industry: 'Tech / Space', peakNetWorth: '~$200B+', note: 'Slept on the factory floor when Tesla nearly went under. Reusable rockets changed the economics of space.', kind: 'real' },
+  { id: 'h-zhou', name: 'Zhou Qunfei', nation: 'China', era: '2010s', industry: 'Manufacturing', peakNetWorth: '~$10B+', note: 'Started as a factory worker; built Lens Technology into a glass-screen empire.', kind: 'real' },
+  { id: 'h-dangote', name: 'Aliko Dangote', nation: 'Nigeria', era: 'Modern era', industry: 'Industry', peakNetWorth: '~$10B+', note: 'Built Africa\'s largest conglomerate from a small trading firm.', kind: 'real' },
+  { id: 'h-strive', name: 'Strive Masiyiwa', nation: 'Zimbabwe / UK', era: '2000s', industry: 'Telecom', peakNetWorth: '~$1B+', note: 'Won a 5-year court battle to break the telecom monopoly. Then wired a continent.', kind: 'real' },
+];
+
 export const STOCKS = [
   { id: 'TECH', name: 'Alpha Tech', p: 100, vol: .035, art: 's-tech' },
   { id: 'BANK', name: 'Beta Bank', p: 60, vol: .02, art: 'b-bank' },
@@ -304,7 +372,7 @@ export const TABS: [string, string, string][] = [
   ['home', 'Home', 't-life'], ['career', 'Jobs', 't-work'], ['edu', 'Education', 't-cap'], ['biz', 'Business', 't-biz'], ['space', 'Space', 't-space'],
   ['health', 'Health', 'w-heart'], ['spirit', 'Mind', 'w-lotus'],
   ['shop', 'Shop', 't-shop'], ['stock', 'Stocks', 't-stock'], ['social', 'Social', 't-social'],
-  ['club', 'Clubs', 't-club'], ['bank', 'Bank', 't-bank'], ['rank', 'Ranking', 't-rank']
+  ['club', 'Clubs', 't-club'], ['bank', 'Bank', 't-bank'], ['rank', 'Ranking', 't-rank'], ['fame', 'Hall of Fame', 'ic-trophy']
 ];
 
 // v9: two-level navigation — 6 groups arranged as a life pipeline:
@@ -315,7 +383,7 @@ export const GROUPS: [string, string, string, [string, string, string][]][] = [
   ['empire', 'Empire', 't-biz', [['biz', 'Business', 't-biz'], ['space', 'Space', 't-space']]],
   ['wealth', 'Wealth', 't-bank', [['stock', 'Stocks', 't-stock'], ['bank', 'Bank', 't-bank'], ['shop', 'Shop', 't-shop']]],
   ['network', 'Network', 't-social', [['social', 'Social', 't-social'], ['club', 'Clubs', 't-club']]],
-  ['world', 'World', 't-rank', [['rank', 'Ranking', 't-rank'], ['links', 'Links', 'ic-link']]],
+  ['world', 'World', 't-rank', [['rank', 'Ranking', 't-rank'], ['fame', 'Hall of Fame', 'ic-trophy'], ['links', 'Links', 'ic-link']]],
 ];
 
 // ================= v8: gigs, levels & XP, the cosmic frontier =================

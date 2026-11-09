@@ -2,26 +2,49 @@
 // player's exact situation (era, wealth, career, family...) while avoiding every
 // premise the player has already seen. Falls back to a local generator so the
 // endpoint ALWAYS returns a valid event.
+//
+// v10.4: tries a local LLM (Ollama-style) at LLM_BASE_URL (default
+// http://0.0.0.0:8888) FIRST. If unreachable, falls back to ZAI cloud, then
+// to the deterministic local template engine. Also accepts a `kind` hint so
+// the random "luck / badluck / lifestage / story" dispatch on the client can
+// be honoured by the LLM prompt.
 import { NextRequest, NextResponse } from 'next/server';
 import ZAI from 'z-ai-web-dev-sdk';
+import { localTwist, pickKind } from '@/lib/story';
+import type { AIEvent, AIEventKind } from '@/lib/engine';
 
-const DIRECTIONS = [
-  'a career crossroads: a risky promotion, a rival offering a job, or a bold pivot',
-  'family drama: an unexpected reunion, a relative needing money, or a celebration',
-  'a business opportunity tied to the current era technology or culture',
-  'a windfall or a loss that arrives in an unusual way',
-  'a brush with fame or scandal that changes how people see the player',
-  'health or lifestyle: a wake-up call, a new obsession, or a doctor visit',
-  'a rivalry with another tycoon that escalates in a surprising way',
-  'an investment tip with hidden risks and a tempting upside',
-  'a romance twist that collides with business ambitions',
-  'a civic or charity moment that could boost the player\u2019s reputation',
-  'a travel or relocation idea that could reshape the player\u2019s fortune',
-  'a mysterious encounter: an old letter, a stranger, a forgotten debt'
-];
+const LLM_BASE_URL = process.env.LLM_BASE_URL || 'http://0.0.0.0:8888';
+const LLM_MODEL = process.env.LLM_MODEL || 'qwen2.5:7b';
+const LLM_TIMEOUT_MS = Number(process.env.LLM_TIMEOUT_MS || 20000);
 
-interface Choice { l: string; cost?: number; money?: number; fame?: number; out?: string }
-interface StoryEv { title: string; text: string; choices: Choice[] }
+const DIRECTIONS_BY_KIND: Record<AIEventKind, string[]> = {
+  story: [
+    'a career crossroads: a risky promotion, a rival offering a job, or a bold pivot',
+    'a brush with fame or scandal that changes how people see the player',
+    'a romance twist that collides with business ambitions',
+    'a mysterious encounter: an old letter, a stranger, a forgotten debt'
+  ],
+  luck: [
+    'a windfall that arrives in an unusual way (inheritance, viral moment, forgotten asset)',
+    'a lucky break that boosts the player\'s fame, money, or connections',
+    'a serendipitous meeting that opens an unexpected door'
+  ],
+  badluck: [
+    'a loss that arrives in an unusual way (fire, theft, lawsuit, market crash)',
+    'a scandal or PR crisis that demands a fast decision',
+    'a betrayal by a trusted hire or partner that costs money and trust'
+  ],
+  lifestage: [
+    'a life-stage pivot: closing a losing line early to cut losses, liquidating branches',
+    'dropping out of a course mid-way to chase what the era actually needs',
+    'a wrong turn the player took that they now have to undo',
+    'a buyout offer for the player\'s main business line',
+    'burnout at the door: the body is keeping a ledger'
+  ]
+};
+
+interface Choice { l: string; cost?: number; money?: number; fame?: number; out?: string; decline?: number; dropout?: { slot: 'study' | 'sideStudy' }; liquidate?: { biz: string; n: number } }
+interface StoryEv { title: string; text: string; choices: Choice[]; kind?: AIEventKind }
 
 const RATE_WINDOW_MS = 60_000;
 const RATE_LIMIT = 10;
@@ -55,34 +78,81 @@ async function getZaiClient(): Promise<ZAI> {
   }
 }
 
-function clampEv(ev: StoryEv, netWorth: number): StoryEv {
+function clampEv(ev: StoryEv, netWorth: number): AIEvent {
   const cap = Math.max(5000, Math.round(Math.max(0, netWorth) * .4));
   const choices = (Array.isArray(ev.choices) ? ev.choices : []).slice(0, 3).map(c => ({
     l: String(c.l || 'Continue').slice(0, 48),
     cost: c.cost ? Math.min(Math.round(Math.abs(+c.cost)), cap) : undefined,
     money: c.money ? Math.max(-cap * 3, Math.min(Math.round(+c.money), cap * 3)) : undefined,
     fame: c.fame ? Math.max(-10, Math.min(10, Math.round(+c.fame))) : undefined,
-    out: c.out ? String(c.out).slice(0, 140) : undefined
+    out: c.out ? String(c.out).slice(0, 140) : undefined,
+    decline: c.decline ? Math.max(1, Math.min(20, Math.round(+c.decline))) : undefined,
+    dropout: c.dropout && (c.dropout.slot === 'study' || c.dropout.slot === 'sideStudy') ? { slot: c.dropout.slot } : undefined,
+    liquidate: c.liquidate && typeof c.liquidate.biz === 'string' && typeof c.liquidate.n === 'number'
+      ? { biz: String(c.liquidate.biz).slice(0, 16), n: Math.max(1, Math.min(10, Math.round(+c.liquidate.n))) }
+      : undefined
   }));
   return {
     title: String(ev.title || 'A twist of fate').slice(0, 64),
     text: String(ev.text || 'Something unexpected happens.').slice(0, 300),
-    choices: choices.length ? choices : [{ l: 'Face it', out: 'You deal with it in your own way.' }]
+    choices: choices.length ? choices : [{ l: 'Face it', out: 'You deal with it in your own way.' }],
+    kind: ev.kind,
+    source: 'backend'
   };
 }
 
-function localTwist(state: { era?: string; netWorth?: number; businesses?: string[] }): StoryEv {
-  const era = state.era || 'modern times';
-  const rich = (state.netWorth || 0) > 1e6;
-  const pool: StoryEv[] = [
-    { title: `A ${era} investor knocks`, text: 'Someone from the old money circle wants to co-invest in one of your ventures.', choices: [{ l: 'Accept the deal', cost: rich ? 50000 : 5000, money: rich ? 150000 : 12000, out: 'The partnership pays off beyond expectations.' }, { l: 'Stay independent', out: 'You keep full control and sleep well.' }] },
-    { title: 'Whispers at the club', text: 'Rivals gossip that your empire is a house of cards. A journalist wants a comment.', choices: [{ l: 'Invite them in, books open', fame: 5, out: 'The profile is glowing. The gossip dies.' }, { l: 'No comment', fame: -2, out: 'The story runs anyway. It stings.' }] },
-    { title: 'An anonymous envelope', text: 'A thick envelope with no sender arrives at your office.', choices: [{ l: 'Open it', money: 8000, out: 'Inside: cash and a note: "For the girl on the pier. Pay it forward."' }, { l: 'Hand it to the police', fame: 3, out: 'The local papers call you the honest tycoon.' }] },
-    { title: 'The warehouse fire', text: 'A small fire hits one of your storerooms. Nobody is hurt.', choices: [{ l: 'Rebuild fast', cost: 20000, out: 'Insurance plus hustle: you reopen in weeks.' }, { l: 'Claim and wait', money: 5000, out: 'The claim drags on, but the cheque clears.' }] },
-    { title: 'A worker\u2019s petition', text: 'Employees ask for better conditions. Word could reach the press either way.', choices: [{ l: 'Grant it', cost: 15000, fame: 4, out: 'Productivity soars. Your name trends for the right reason.' }, { l: 'Hold the line', out: 'Quiet grumbling. Business as usual.' }] },
-    { title: 'Old friend, new scheme', text: 'A childhood friend pitches a venture that fits this era perfectly.', choices: [{ l: 'Back them', cost: 30000, money: 90000, out: 'The scheme works. Your friend cries at dinner.' }, { l: 'Lend a little', cost: 5000, out: 'They make it on their own, and thank you anyway.' }] }
-  ];
-  return pool[Math.floor(Math.random() * pool.length)];
+// ----- local LLM (Ollama-style /v1/chat/completions or /api/chat) -----
+async function callLocalLLM(sys: string, user: string): Promise<string | null> {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), LLM_TIMEOUT_MS);
+  try {
+    // Try OpenAI-compatible /v1/chat/completions first (works for vLLM, LM Studio,
+    // text-generation-webserver, and Ollama with the OpenAI shim enabled).
+    const res = await fetch(`${LLM_BASE_URL}/v1/chat/completions`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: LLM_MODEL,
+        messages: [
+          { role: 'system', content: sys },
+          { role: 'user', content: user }
+        ],
+        temperature: 0.85,
+        stream: false
+      }),
+      signal: ctrl.signal
+    });
+    if (res.ok) {
+      const j = await res.json() as { choices?: { message?: { content?: string } }[] };
+      const raw = j.choices?.[0]?.message?.content || '';
+      if (raw) return raw;
+    }
+    // Fall back to Ollama's native /api/chat endpoint
+    const res2 = await fetch(`${LLM_BASE_URL}/api/chat`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: LLM_MODEL,
+        messages: [
+          { role: 'system', content: sys },
+          { role: 'user', content: user }
+        ],
+        stream: false
+      }),
+      signal: ctrl.signal
+    });
+    if (res2.ok) {
+      const j2 = await res2.json() as { message?: { content?: string } };
+      const raw2 = j2.message?.content || '';
+      if (raw2) return raw2;
+    }
+    return null;
+  } catch {
+    // network error / abort / non-JSON response — fall through to next provider
+    return null;
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 export async function POST(req: NextRequest) {
@@ -95,23 +165,49 @@ export async function POST(req: NextRequest) {
       { status: 429, headers: { 'Retry-After': '60' } }
     );
   }
-  let body: { state?: Record<string, unknown>; used?: string[] } = {};
+  let body: { state?: Record<string, unknown>; used?: string[]; kind?: AIEventKind } = {};
   try { body = await req.json(); } catch { /* ignore */ }
   const state = body.state || {};
   const used = Array.isArray(body.used) ? body.used.slice(-24) : [];
-  const direction = DIRECTIONS[Math.floor(Math.random() * DIRECTIONS.length)];
+  // Honour the kind the client picked, or sample one from the snapshot.
+  const kind: AIEventKind = (['story', 'luck', 'badluck', 'lifestage'].includes(body.kind as string))
+    ? (body.kind as AIEventKind)
+    : pickKind(state as Parameters<typeof pickKind>[0]);
+  const direction = DIRECTIONS_BY_KIND[kind][Math.floor(Math.random() * DIRECTIONS_BY_KIND[kind].length)];
 
   const sys = [
     'You are the Story Engine of "Tycoon Life", a life-simulation game.',
-    'Invent ONE brand-new life event that fits the player\u2019s exact situation: their era, country, age, wealth, career, businesses and family.',
-    'The event must feel grounded in the player\u2019s historical era and their current assets (mention one concrete detail from their snapshot).',
-    'It must NOT repeat any of the premises listed in "avoidThesePremises" and must not be generic.',
+    `Invent ONE brand-new life event of kind "${kind}".`,
+    kind === 'luck' ? 'The event must be a genuine windfall — money, asset, or fame gain.' : '',
+    kind === 'badluck' ? 'The event must be a real setback — loss, damage, scandal, or betrayal.' : '',
+    kind === 'lifestage' ? 'The event must be a meaningful life-stage pivot: closing a losing line early, dropping out to chase the era, undoing a wrong turn, a buyout offer, or burnout.' : '',
+    'The event must fit the player\'s exact situation: their era, country, age, wealth, career, businesses and family.',
+    'Mention ONE concrete detail from the player\'s snapshot.',
+    'It must NOT repeat any premise listed in "avoidThesePremises" and must not be generic.',
     'Respond with ONLY a JSON object, no markdown, in this exact shape:',
-    '{"title": string (max 60 chars), "text": string (2-3 sentences, second person), "choices": [{"l": string (max 40 chars), "cost": number (optional money the player pays), "money": number (optional money gained), "fame": number (optional -10..10), "out": string (result sentence)}]}',
+    '{"title": string (max 60 chars), "text": string (2-3 sentences, second person), "kind": "' + kind + '", "choices": [{"l": string (max 40 chars), "cost": number (optional money paid), "money": number (optional money gained, can be negative for a loss), "fame": number (optional -10..10), "decline": number (optional 1..20, health/spirit hit), "dropout": {"slot": "study"|"sideStudy"} (optional, only for lifestage), "liquidate": {"biz": string, "n": number} (optional, only for lifestage), "out": string (result sentence)}]}',
     'Give exactly 2 or 3 meaningful choices with different trade-offs.'
-  ].join(' ');
-  const user = JSON.stringify({ player: state, avoidThesePremises: used, direction });
+  ].filter(Boolean).join(' ');
+  const user = JSON.stringify({ player: state, avoidThesePremises: used, direction, kind });
 
+  // 1. Try the local LLM first (0.0.0.0:8888 by default).
+  try {
+    const raw = await callLocalLLM(sys, user);
+    if (raw) {
+      const m = raw.match(/\{[\s\S]*\}/);
+      if (m) {
+        const parsed = JSON.parse(m[0]) as StoryEv;
+        if (parsed && parsed.title && Array.isArray(parsed.choices) && parsed.choices.length) {
+          const ev = clampEv({ ...parsed, kind }, Number(state.netWorth) || 0);
+          return NextResponse.json({ ...ev, source: 'backend-local' });
+        }
+      }
+    }
+  } catch (e) {
+    console.error('story: local LLM failed, falling back to ZAI:', e);
+  }
+
+  // 2. Fall back to ZAI cloud (when available).
   try {
     const zai = await getZaiClient();
     const completion = await zai.chat.completions.create({
@@ -126,11 +222,14 @@ export async function POST(req: NextRequest) {
     if (m) {
       const parsed = JSON.parse(m[0]) as StoryEv;
       if (parsed && parsed.title && Array.isArray(parsed.choices) && parsed.choices.length) {
-        return NextResponse.json(clampEv(parsed, Number(state.netWorth) || 0));
+        return NextResponse.json(clampEv({ ...parsed, kind }, Number(state.netWorth) || 0));
       }
     }
   } catch (e) {
-    console.error('story: LLM failed, using local fallback:', e);
+    console.error('story: ZAI failed, using local template fallback:', e);
   }
-  return NextResponse.json(clampEv(localTwist(state as { netWorth?: number; era?: string }), Number(state.netWorth) || 0));
+
+  // 3. Final fallback — deterministic local template engine.
+  const local = localTwist(state as Parameters<typeof localTwist>[0], used, kind);
+  return NextResponse.json(local);
 }

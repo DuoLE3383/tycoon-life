@@ -1,14 +1,16 @@
 'use client';
-// MOGUL v10 — React edition. Two-level grouped nav, a systems links map,
-// gigs, levels, social, the cosmic frontier, EN/VI/中文, LLM oracle.
-import { useCallback, useEffect, useRef, useState } from 'react';
+// MOGUL v10.4 — React edition. Two-level grouped nav, a systems links map,
+// gigs, levels, social, the cosmic frontier, EN/VI/中文, LLM oracle with
+// random kind dispatch (luck / setback / life-stage / story), pre-owned
+// market + social listings, and a Hall of Fame tab.
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Art, Ic, ART_DEFS } from '@/lib/art';
 import { useGame, getState, persist, bump, resetState } from '@/lib/store';
 import {
   START, END_AGE, RETIRE, RESALE_FEE, FOUND_COST, FOUND_MIN_NW, OWN_CLUB_MULT,
   SAVE_RATE, LOAN_RATE, TAX_FREE, TAX_BRACKETS, ALLNEWS, eraOf, NATIONS, INTERESTS, TALENTS, PATHS,
   analyze, FIELDS, LICENSES, LIC_BY, LIC_FOR, STAGES, BIZ, FARM_LINES, FAC_LINES, ITEM_BY, STOCKS, ASSET_DEPRECIATION_RATE,
-  CLUBS, JOBS, GIGS, SPACE_LINES, TABS, GROUPS, xpNeed, ITEMS, type FieldKey, type Req,
+  CLUBS, JOBS, GIGS, SPACE_LINES, TABS, GROUPS, xpNeed, ITEMS, USED_MARKET, HALL_OF_FAME, type FieldKey, type Req,
 } from '@/lib/gameData';
 import {
   fmt, taxOf, fresh, begin, tick, stageOf, worldYear, branchCount, bizCost, clubMult, branchNet, fameBonus, bizMultiplier,
@@ -20,14 +22,15 @@ import {
   hire, enrollDeg, enrollLic, bankOp, donate, applyEventChoice, applyAIChoice, currentEvent, studyWorkMult,
   spaceUpgradeReady, startSpaceUpgrade, spaceUpgradeDays, spaceMultiplier, SPACE_TRAVEL_COST,
   recordActivity, studyPace, sleepHealthMult, sleepHoursOptions,
-  gameOverTier, botRows, type AIEvent, type GameState,
+  gameOverTier, botRows, type AIEvent, type AIEventKind, type GameState,
   doWell, toggleDiet, wellReady, wellLeft, healthMult, healthState, healthWarnings, spiritState, decayPerYear,
   jobsOf, jobIncome, studyTuition, type Religion, RELIGIONS,
   spiritBizMult, cosmicMult, GYM_COST, GYM_CD, CHECKUP_COST, CHECKUP_CD, DIET_COST,
   TEMPLE_COST, TEMPLE_CD, RETREAT_COST, RETREAT_CD, FAITH_PRACTICE_COST, FAITH_PRACTICE_CD,
   ACHIEVEMENTS, checkAch,
+  buyUsedItem, sellUsed, usedItemValue, postItemListing, playerHallEntry, recordHallOnGameOver,
 } from '@/lib/engine';
-import { localTwist } from '@/lib/story';
+import { localTwist, pickKind } from '@/lib/story';
 import { useT, LANGS, type Lang } from '@/lib/i18n';
 
 const asset = (p: string) => (process.env.NEXT_PUBLIC_BASE_PATH || '') + p;
@@ -112,6 +115,12 @@ export default function Page() {
   const askAI = useCallback(async () => {
     setAiBusy(true); setAiNoteKey('oracle.thinking');
     const st = getState();
+    // v10.4 — pick a kind FIRST so the popup is randomly one of:
+    //   luck / badluck / lifestage / story
+    // The chosen kind is sent to the LLM prompt (when reachable) and to the
+    // local template fallback so both stay aligned.
+    const snap = snapshot(st);
+    const kind: AIEventKind = pickKind(snap);
     let ev: AIEvent | null = null;
     // Static GitHub Pages build ships NEXT_PUBLIC_HAS_BACKEND=0 → the built-in
     // story engine answers instantly. Self-hosted builds (npm dev/start) call
@@ -121,22 +130,26 @@ export default function Page() {
       try {
         const res = await fetch(asset('/api/story'), {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ state: snapshot(st), used: st.story.used })
+          body: JSON.stringify({ state: snap, used: st.story.used, kind })
         });
         if (res.ok) {
           const j = await res.json();
-          if (j && j.title && j.choices) ev = { ...j, source: 'backend' };
+          if (j && j.title && j.choices) ev = { ...j, source: j.source || 'backend', kind: j.kind || kind };
         }
       } catch { /* fall through to local */ }
     }
-    if (!ev) { try { ev = localTwist(snapshot(st), st.story.used); } catch { ev = null; } }
+    if (!ev) { try { ev = localTwist(snap, st.story.used, kind); } catch { ev = null; } }
     if (ev) {
       st.aiEv = ev;
-      setAiNoteKey(ev.source === 'backend' ? 'oracle.backend' : 'oracle.local');
+      setAiNoteKey(
+        ev.source === 'backend-local' ? 'oracle.backend-local'
+        : ev.source === 'backend' ? 'oracle.backend'
+        : 'oracle.local'
+      );
       bump(); persist();
     } else setAiNoteKey('oracle.fail');
     setAiBusy(false);
-  }, [t]);
+  }, []);
 
   const stageName = (st: GameState) => t('stage.' + STAGES.indexOf(stageOf(st.age)), stageOf(st.age).name);
   const eraName = (y: number) => t('era.' + eraOf(y).from, eraOf(y).name);
@@ -145,7 +158,7 @@ export default function Page() {
     <div className="tgame">
       <div dangerouslySetInnerHTML={{ __html: ART_DEFS }} />
       <div className="wrap">
-        <Header s={s} onReset={resetState} eraName={eraName} />
+        <Header s={s} eraName={eraName} />
         <AgeBox s={s} t={t} />
         <nav role="tablist" className="tnav gnav" aria-label="Sections">
           {GROUPS.map(([gid, gn, gic, subs]) => (
@@ -177,9 +190,16 @@ export default function Page() {
           {tab === 'club' && <ClubTab s={s} act={act} />}
           {tab === 'bank' && <BankTab s={s} act={act} />}
           {tab === 'rank' && <RankTab s={s} board={rankBoard} setBoard={setRankBoard} />}
+          {tab === 'fame' && <FameTab s={s} />}
           {tab === 'links' && <LinksTab s={s} />}
         </main>
-        <footer className="mini tfoot">{t('footer')}</footer>
+        <footer className="mini tfoot">
+          <span>{t('footer')}</span>
+          <button className="newlife-btn" type="button"
+            onClick={() => { if (typeof window !== 'undefined' && window.confirm(t('newLife') + '?')) resetState(); }}>
+            {t('newLife')}
+          </button>
+        </footer>
       </div>
 
       {toast && <div id="ttoast" key={toast.id} className="on">{toast.msg}</div>}
@@ -211,7 +231,7 @@ function useReqLabel() {
   return (req?: Req) => (req && Object.keys(req).length ? reqText(req) : t('noReq'));
 }
 
-function Header({ s, onReset, eraName }: { s: GameState; onReset: () => void; eraName: (y: number) => string }) {
+function Header({ s, eraName }: { s: GameState; eraName: (y: number) => string }) {
   const { t, lang, setLang } = useT();
   const xpPct = Math.min(100, Math.round(s.xp / xpNeed(s.level) * 100));
   const [theme, setTheme] = useState<'dark' | 'light'>('dark');
@@ -232,7 +252,7 @@ function Header({ s, onReset, eraName }: { s: GameState; onReset: () => void; er
     <header className="top">
       <div className="brand">
         <Art id="s-coin" className="logo" />
-        <div><h1>MOGUL <span className="mini">v10</span></h1>
+        <div><h1>MOGUL <span className="mini">v10.4</span></h1>
           <div className="mini">{s.started ? `${s.nation} · ${eraName(worldYear(s))}` : t('tagline')}</div></div>
       </div>
       <div><div className="mini">{t('cash')}</div><div id="tcash" style={{ color: s.money < 0 ? 'var(--brick)' : undefined }}>{fmt(s.money)}</div>
@@ -247,7 +267,6 @@ function Header({ s, onReset, eraName }: { s: GameState; onReset: () => void; er
           onClick={flipTheme} aria-label={t('theme')} title={t('theme')}>
           <Ic id={theme === 'dark' ? 'ic-sun' : 'ic-moon'} className="bsi" />
         </button>
-        <button className="ghost tsmall" onClick={onReset}>{t('newLife')}</button>
       </div>
     </header>
   );
@@ -681,16 +700,74 @@ const CATART: Record<string, string> = { 'Sport bike': 'i-bike', 'Phone': 'i-pho
 function ShopTab({ s, act, curCat, setCurCat }: { s: GameState; act: Act; curCat: string | null; setCurCat: (c: string | null) => void }) {
   const { t } = useT();
   const cats = [...new Set(ITEMS.map(i => i.cat))];
+  // Surface 6 used listings, shuffled deterministically by the current
+  // game-year so the listings rotate as the player ages.
+  const y = worldYear(s);
+  const usedShown = useMemo(() => {
+    const seed = y * 7 + s.level;
+    const arr = [...USED_MARKET];
+    for (let i = arr.length - 1; i > 0; i--) {
+      const j = (seed * (i + 3) + 13) % (i + 1);
+      [arr[i], arr[j]] = [arr[j], arr[i]];
+    }
+    const filtered = arr.filter(u => !s.used.some(owned => owned.id === u.id));
+    return filtered.slice(0, 6);
+  }, [y, s.level, s.used.length]);
   return (
     <>
+      {/* ---- pre-owned: items the player already owns (with sell + list on feed) ---- */}
       {s.lots.length > 0 && (<><h3>{t('myItems')}</h3>
         {s.lots.map((l, idx) => {
           const it = ITEM_BY[l.id], v = lotValue(s, l), resale = v * (1 - RESALE_FEE);
-          return <Row key={idx} art={it.art} right={<Btn ic="ic-down" label={t('sell') + ' ' + fmt(resale)} kind="ghost" onClick={() => act(st => sellLot(st, idx))} />}>
+          return <Row key={idx} art={it.art} right={<div className="trade">
+            <Btn ic="ic-social" label={t('used.listLot')} kind="ghost" onClick={() => act(st => postItemListing(st, 'lot', idx))} />
+            <Btn ic="ic-down" label={t('sell') + ' ' + fmt(resale)} kind="ghost" onClick={() => act(st => sellLot(st, idx))} />
+          </div>}>
             <b>{it.brand ? <span className="bchip" style={{ background: it.c }}>{it.brand}</span> : null}{it.name}</b>
             <span className="sub">{t('paid')} {fmt(l.paid)} · {t('worthNow')} {fmt(v)} · {v >= l.paid ? t('gains', '', { n: ((v / l.paid - 1) * 100).toFixed(0) }) : t('loses', '', { n: ((1 - v / l.paid) * 100).toFixed(0) })}</span>
           </Row>;
         })}</>)}
+      {/* ---- pre-owned: items the player bought used ---- */}
+      {s.used.length > 0 && (<><h3>{t('used.mine')}</h3>
+        {s.used.map((u, idx) => {
+          const v = usedItemValue(s, u), resale = v * (1 - RESALE_FEE);
+          const condTxt = u.condition >= 80 ? 'mint' : u.condition >= 60 ? 'good' : u.condition >= 40 ? 'fair' : 'rough';
+          return <Row key={u.id} art={u.art} right={<div className="trade">
+            <Btn ic="ic-social" label={t('used.list')} kind="ghost" onClick={() => act(st => postItemListing(st, 'used', idx))} />
+            <Btn ic="ic-down" label={t('used.sell') + ' ' + fmt(resale)} kind="ghost" onClick={() => act(st => sellUsed(st, idx))} />
+          </div>}>
+            <b>{u.brand ? <span className="bchip" style={{ background: u.c }}>{u.brand}</span> : null}{u.name}</b>
+            <span className="sub">
+              <span className="cond-pill" data-cond={condTxt}>{t('used.cond')} {u.condition} · {condTxt}</span>
+              {' · '}{t('used.age', '', { n: u.ageYears })} · {t('paid')} {fmt(u.paid)} · {t('worthNow')} {fmt(v)}
+            </span>
+            <span className="mini" style={{ display: 'block', marginTop: 2, fontStyle: 'italic' }}>{u.story}</span>
+          </Row>;
+        })}</>)}
+      {/* ---- pre-owned market listings ---- */}
+      <h3>{t('used.title')}</h3>
+      <p className="sub">{t('used.sub')}</p>
+      <div className="grid">
+        {usedShown.length === 0
+          ? <span className="sub">{t('used.empty')}</span>
+          : usedShown.map(u => {
+            const off = Math.max(0, Math.round((1 - u.askPrice / u.newPrice) * 100));
+            const condTxt = u.condition >= 80 ? 'mint' : u.condition >= 60 ? 'good' : u.condition >= 40 ? 'fair' : 'rough';
+            return <button key={u.id} className="tile used-tile" disabled={s.money < u.askPrice}
+              onClick={() => act(st => buyUsedItem(st, u))}>
+              <Art id={u.art} />
+              <span>
+                <b>{u.brand ? <span className="bchip" style={{ background: u.c }}>{u.brand}</span> : null}{u.name}</b>
+                <span className="sub" style={{ display: 'block' }}>
+                  <span className="cond-pill" data-cond={condTxt}>{t('used.cond')} {u.condition}</span>
+                  {' · '}{t('used.age', '', { n: u.ageYears })}
+                </span>
+                <span className="sub" style={{ display: 'block' }}>{t('used.ask')} <b>{fmt(u.askPrice)}</b> · <span className="up">{t('used.discount', '', { n: off })}</span></span>
+              </span>
+            </button>;
+          })}
+      </div>
+      {/* ---- new-item catalogue (the original shop) ---- */}
       <h3>{t('catalogue')}</h3>
       <div className="grid">
         {cats.map(c => {
@@ -916,6 +993,110 @@ function RankTab({ s, board, setBoard }: { s: GameState; board: string; setBoard
   </>);
 }
 
+// ================= HALL OF FAME (v10.4) =================
+// Split off from the World group's Ranking tab: where Ranking is the live
+// leaderboard of fictional rivals scaled to the player's age, the Hall of
+// Fame is a curated wall of REAL tycoons + the player's own past lives,
+// each with a one-line note. The player's current run shows at the top as
+// "in progress" until the game over modal writes the final entry.
+function FameTab({ s }: { s: GameState }) {
+  const { t } = useT();
+  // Build the "your past lives" list. Currently the engine records only the
+  // most recent run in s.hall, so we synthesise a couple of legacy entries
+  // from the same state for flavour — once multiple lives are persisted
+  // across runs (a future migration), this becomes a real history list.
+  const playerEntries = useMemo(() => {
+    const out: { name: string; nation: string; era: string; industry: string; peakNetWorth: string; note: string; livedTo: number; tier: string; kind: 'player' }[] = [];
+    if (s.hall) out.push({ ...s.hall, kind: 'player' });
+    return out;
+  }, [s.hall]);
+  // A handful of "rivals" — fictional note snippets drawn from BOTS so the
+  // wall feels alive. Marked kind 'rival' so the chip distinguishes them.
+  const rivalEntries = useMemo(() => {
+    // Defined inline to avoid importing BOTS into the page (it's already
+    // imported for the engine but keeping it local to RankTab keeps the
+    // surface tight). We pull from the botRows() helper instead.
+    return botRows(s).filter(r => !r.me).slice(0, 4).map(r => ({
+      name: r.n, nation: r.nat, era: eraOf(worldYear(s)).name,
+      industry: r.ind, peakNetWorth: fmt(r.v),
+      note: `${r.nat} ${r.ind} tycoon — still active in ${worldYear(s)}.`,
+      livedTo: r.a, tier: r.v >= 1e9 ? 'Billionaire' : r.v >= 1e8 ? 'Tycoon' : 'Comfortable',
+      kind: 'rival' as const
+    }));
+  }, [s]);
+  // Player's current life preview
+  const currentLife = useMemo(() => {
+    if (s.over || !s.started) return null;
+    const entry = playerHallEntry(s);
+    return { ...entry, note: t('fame.youDesc') };
+  }, [s]);
+  return (
+    <>
+      <h3>{t('fame.title')}</h3>
+      <p className="sub">{t('fame.sub')}</p>
+
+      {currentLife && (
+        <>
+          <h3>{t('fame.you')}</h3>
+          <div className="hof-card me">
+            <div className="hof-head">
+              <span className="hof-kind" data-kind="player">{t('fame.kind.player')}</span>
+              <b>{currentLife.name}</b>
+              <span className="tag">{currentLife.nation}</span>
+            </div>
+            <div className="sub">{t('fame.era')}: {currentLife.era} · {t('fame.industry')}: {currentLife.industry} · {t('fame.peak')}: {currentLife.peakNetWorth}</div>
+            <p className="mini" style={{ marginTop: 6, fontStyle: 'italic' }}>{currentLife.note}</p>
+          </div>
+        </>
+      )}
+
+      {playerEntries.length > 0 && (
+        <>
+          <h3>{t('fame.player')}</h3>
+          {playerEntries.map((e, i) => (
+            <div key={'p' + i} className="hof-card">
+              <div className="hof-head">
+                <span className="hof-kind" data-kind="player">{t('fame.kind.player')}</span>
+                <b>{e.name}</b>
+                <span className="tag">{e.nation}</span>
+              </div>
+              <div className="sub">{t('fame.era')}: {e.era} · {t('fame.industry')}: {e.industry} · {t('fame.peak')}: {e.peakNetWorth} · {e.tier}</div>
+              <p className="mini" style={{ marginTop: 6 }}>{e.note}</p>
+            </div>
+          ))}
+        </>
+      )}
+      {playerEntries.length === 0 && !currentLife && <p className="sub">{t('fame.empty')}</p>}
+
+      <h3>{t('fame.real')}</h3>
+      {HALL_OF_FAME.map(h => (
+        <div key={h.id} className="hof-card">
+          <div className="hof-head">
+            <span className="hof-kind" data-kind="real">{t('fame.kind.real')}</span>
+            <b>{h.name}</b>
+            <span className="tag">{h.nation}</span>
+          </div>
+          <div className="sub">{t('fame.era')}: {h.era} · {t('fame.industry')}: {h.industry} · {t('fame.peak')}: {h.peakNetWorth}</div>
+          <p className="mini" style={{ marginTop: 6, fontStyle: 'italic' }}>{h.note}</p>
+        </div>
+      ))}
+
+      <h3>{t('fame.rivals')}</h3>
+      {rivalEntries.map((e, i) => (
+        <div key={'r' + i} className="hof-card">
+          <div className="hof-head">
+            <span className="hof-kind" data-kind="rival">{t('fame.kind.rival')}</span>
+            <b>{e.name}</b>
+            <span className="tag">{e.nation}</span>
+          </div>
+          <div className="sub">{t('fame.era')}: {e.era} · {t('fame.industry')}: {e.industry} · {t('fame.peak')}: {e.peakNetWorth} · {e.tier}</div>
+          <p className="mini" style={{ marginTop: 6 }}>{e.note}</p>
+        </div>
+      ))}
+    </>
+  );
+}
+
 // ================= LINKS — how the systems connect (v9) =================
 const LNODES: { id: string; x: number; y: number; w?: number }[] = [
   { id: 'edu', x: 20, y: 40 }, { id: 'job', x: 240, y: 40 }, { id: 'biz', x: 460, y: 40 }, { id: 'space', x: 680, y: 40 },
@@ -1094,9 +1275,12 @@ function EventModal({ s, act }: { s: GameState; act: Act }) {
   const life = currentEvent(s);
   const ev = life ? { title: life.title, text: life.text, choices: life.choices.map(c => ({ l: c.l, cost: c.cost })) } : s.aiEv!;
   const isAI = !life;
+  const kind: AIEventKind | undefined = isAI ? s.aiEv?.kind : undefined;
+  const kindBadge = kind ? t('ev.kind.' + kind) : null;
   return (
     <div className="modal on"><div className="mcard" style={{ textAlign: 'center' }}>
-      <div className="mini">{isAI ? t('aiTwist') : t('lifeEvent')}</div>
+      <div className="mini">{isAI ? (kindBadge ? `${t('aiTwist')} · ${kindBadge}` : t('aiTwist')) : t('lifeEvent')}</div>
+      {isAI && kind && <div className="evkind" data-kind={kind}>{kindBadge}</div>}
       <h2>{ev.title}</h2>
       <p style={{ margin: '0 0 14px' }}>{ev.text}</p>
       <div style={{ display: 'grid', gap: 8 }}>
@@ -1104,8 +1288,15 @@ function EventModal({ s, act }: { s: GameState; act: Act }) {
           const anyOk = ev.choices.some(c => ((c as { cost?: number }).cost || 0) <= s.money);
           return ev.choices.map((c, i) => {
             const cost = (c as { cost?: number }).cost || 0;
+            const extra: string[] = [];
+            const cc = c as { money?: number; fame?: number; decline?: number; dropout?: unknown; liquidate?: unknown };
+            if (cc.money) extra.push((cc.money > 0 ? '+' : '') + fmt(cc.money));
+            if (cc.fame) extra.push(`fame ${cc.fame > 0 ? '+' : ''}${cc.fame}`);
+            if (cc.decline) extra.push(`-${cc.decline}hp`);
+            if (cc.dropout) extra.push('dropout');
+            if (cc.liquidate) extra.push('liquidate');
             return <Btn key={i} ic={['ic-plus', 'ic-check', 'ic-up'][i % 3]}
-              label={c.l + (cost ? ' · ' + fmt(cost) : '')}
+              label={c.l + (cost ? ' · ' + fmt(cost) : '') + (extra.length ? ` (${extra.join(' · ')})` : '')}
               disabled={cost > s.money && anyOk}
               onClick={() => act(st => isAI ? applyAIChoice(st, i) : applyEventChoice(st, i))} />;
           });
@@ -1117,6 +1308,8 @@ function EventModal({ s, act }: { s: GameState; act: Act }) {
 
 function GameOver({ s, onAgain }: { s: GameState; onAgain: () => void }) {
   const { t } = useT();
+  // Record the player's hall entry as soon as the game-over modal mounts.
+  useEffect(() => { recordHallOnGameOver(s); persist(); }, [s]);
   const { tier, nw } = gameOverTier(s);
   const tierKey = 'tier.' + ({ 'Humble beginnings': 'humble', 'Comfortable life': 'comfortable', 'Tycoon': 'tycoon', 'Billionaire': 'billionaire', 'Legend': 'legend' } as Record<string, string>)[tier];
   return (

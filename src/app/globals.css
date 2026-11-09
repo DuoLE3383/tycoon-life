@@ -153,7 +153,32 @@ html[data-theme="light"] body{background:#e9e6df}
 .tgame .tsell{background:var(--brick)}
 .tgame .tsell:hover:not(:disabled){background:#9c4a42}
 .tgame .tbuy:disabled,.tgame .tsell:disabled{opacity:.35;cursor:not-allowed}
-.tgame .tfoot{margin:20px 0 10px;text-align:center}
+.tgame .tfoot{margin:20px 0 10px;text-align:center;display:flex;flex-direction:column;gap:10px;align-items:center}
+.tgame .tfoot .newlife-btn{font-size:.78rem;font-weight:600;border-radius:999px;padding:5px 14px;background:transparent;color:var(--faint);border:1px solid transparent;opacity:.45;cursor:pointer;transition:opacity .2s,border-color .2s,color .2s}
+.tgame .tfoot .newlife-btn:hover{opacity:.9;border-color:var(--line2);color:var(--mute)}
+/* v10.4 — AI event kind badge */
+.tgame .evkind{display:inline-block;margin:4px 0 8px;padding:3px 12px;border-radius:999px;font-size:.72rem;font-weight:700;letter-spacing:.4px;text-transform:uppercase}
+.tgame .evkind[data-kind="luck"]{background:#e6f4ea;color:#1e6b35}
+.tgame .evkind[data-kind="badluck"]{background:#faeae9;color:#9c4a42}
+.tgame .evkind[data-kind="lifestage"]{background:#f3eafe;color:#5b3da3}
+.tgame .evkind[data-kind="story"]{background:var(--paper2);color:var(--mute)}
+/* v10.4 — used-market condition pill */
+.tgame .cond-pill{display:inline-block;font-size:.7rem;font-weight:700;padding:2px 8px;border-radius:999px;margin-right:2px}
+.tgame .cond-pill[data-cond="mint"]{background:#e6f4ea;color:#1e6b35}
+.tgame .cond-pill[data-cond="good"]{background:#f4f1e6;color:#7a6a32}
+.tgame .cond-pill[data-cond="fair"]{background:#faeede;color:#8a6320}
+.tgame .cond-pill[data-cond="rough"]{background:#faeae9;color:#9c4a42}
+.tgame .used-tile{position:relative}
+.tgame .used-tile:disabled{opacity:.4;cursor:not-allowed}
+/* v10.4 — Hall of Fame card */
+.tgame .hof-card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px 14px;margin-bottom:8px}
+.tgame .hof-card.me{border-color:var(--accent);background:linear-gradient(180deg,rgba(var(--accent-rgb,180,140,80),.06),var(--card))}
+.tgame .hof-head{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:2px}
+.tgame .hof-head b{font-size:.95rem}
+.tgame .hof-kind{font-size:.66rem;font-weight:700;text-transform:uppercase;letter-spacing:.4px;padding:2px 8px;border-radius:999px;background:var(--paper2);color:var(--mute)}
+.tgame .hof-kind[data-kind="real"]{background:#eaf0fb;color:#3a5a99}
+.tgame .hof-kind[data-kind="player"]{background:#f3eafe;color:#5b3da3}
+.tgame .hof-kind[data-kind="rival"]{background:#faeede;color:#8a6320}
 /* social */
 .tgame .sprof{display:flex;gap:14px;align-items:center;padding:14px}
 .tgame .avatar{width:64px;height:64px;border-radius:50%;background:var(--card);border:1px solid var(--line);padding:6px;flex:none}
