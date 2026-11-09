@@ -60,7 +60,10 @@ test('monthly social income is added to taxable income once', () => {
   state.social.followers = 6_000;
   const before = state.yIncome;
   processDay(state, 30, () => 0.5);
-  assert.equal(state.yIncome - before, 30);
+  // v11.1: socialIncome now scales by sqrt(followers): sqrt(6000) * 6 / 12 ≈ 38.73
+  const expected = Math.sqrt(6000) * 6 / 12;
+  assert.ok(Math.abs(state.yIncome - before - expected) < 0.01,
+    `expected ${expected}, got ${state.yIncome - before}`);
 });
 
 test('business multiplier is capped at three despite stacked bonuses', () => {

@@ -169,7 +169,9 @@ export function gigLock(s: GameState, g: GigDef): string {
 }
 export function gigPay(s: GameState, g: GigDef): number {
   let pay = g.base + 0.05 * Math.sqrt(Math.max(0, yearIncome(s)));
-  if (g.id === 'sponsored') pay += s.social.followers * 0.02;
+  // v11.1 fix: scale sponsored pay by sqrt(followers) not linear — prevents
+  // the $7.5T-per-ad explosion when followers get large.
+  if (g.id === 'sponsored') pay += Math.sqrt(Math.max(0, s.social.followers)) * 2;
   pay *= levelMult(s) * (1 + Math.log10(Math.max(1, s.fame + 1)) * 0.2) * healthMult(s);
   if (s.ints.includes('sports') || s.tals.includes('hands')) pay *= 1.15;
   return Math.max(5, Math.round(pay));
@@ -185,7 +187,10 @@ export function doGig(s: GameState, id: string, rng: () => number = Math.random)
   return '+' + fmt(pay);
 }
 export function socialIncome(s: GameState): number { // annual ad revenue
-  return s.social.followers >= 500 ? s.social.followers * 0.06 * levelMult(s) : 0;
+  // v11.1 fix: scale by sqrt(followers) not linear — prevents the
+  // $10^21/year income explosion. At 1M followers → ~$6K/yr; 100M → $60K;
+  // 2B (cap) → ~$270K/yr. Meaningful but not universe-conquering.
+  return s.social.followers >= 500 ? Math.sqrt(s.social.followers) * 6 * levelMult(s) : 0;
 }
 export const spaceMultiplier = (s: GameState) => cosmicMult(s) * (s.spaceTravel ? 1.2 : 1);
 export function spaceIncome(s: GameState): number { // annual
@@ -198,11 +203,20 @@ export function startSpaceUpgrade(s: GameState): string | null {
   pushLog(s, 'Deep-space navigation program started. Flight readiness expected in one year.');
   return 'Deep-space navigation program started. Check back in one year.';
 }
+// v11.1 — hard cap on followers. 2 billion is more than any real-world
+// social media account (Instagram's most-followed is ~700M). Prevents the
+// exponential explosion where likes ∝ followers and followers += likes*0.3.
+export const MAX_FOLLOWERS = 2_000_000_000;
+
 export function addPost(s: GameState, t: string, boost = 1, rng: () => number = Math.random): void {
-  // v10.5: fame is now unbounded — scale likes by sqrt(fame) so a fame of
-  // 10k doesn't blow up the like count linearly.
+  // v11.1 fix: scale likes by sqrt(followers) not linear. Before:
+  //   likes = followers * 0.05 → followers += likes * 0.3 = followers * 0.015
+  //   each post multiplied followers by ~1.015, compounding to 10^23 over time.
+  // After: likes = sqrt(followers) * 5 → follower gain per post is ~sqrt(fol)*1.5,
+  //   which is sublinear and can never blow up.
   const fameLikes = Math.sqrt(Math.max(0, s.fame)) * 30;
-  let likes = Math.round((s.social.followers * 0.05 + fameLikes + 5) * (0.4 + rng() * 1.2) * boost);
+  const followerLikes = Math.sqrt(Math.max(0, s.social.followers)) * 5;
+  let likes = Math.round((followerLikes + fameLikes + 5) * (0.4 + rng() * 1.2) * boost);
   // v10.5 — follower dynamics:
   //   5% chance of a viral spike (2-3× normal followers gained)
   //   3% chance of a backlash (lose followers + this post gets fewer likes)
@@ -218,7 +232,7 @@ export function addPost(s: GameState, t: string, boost = 1, rng: () => number = 
   s.social.posts.unshift({ d: s.lastDay, t, likes });
   if (s.social.posts.length > 12) s.social.posts.pop();
   const gainMult = spike ? 2 + rng() : 1;
-  s.social.followers += Math.round(likes * 0.3 * boost * gainMult) + (s.fame > 0 ? 2 : 0);
+  s.social.followers = Math.min(MAX_FOLLOWERS, s.social.followers + Math.round(likes * 0.3 * boost * gainMult) + (s.fame > 0 ? 2 : 0));
   if (spike) pushLog(s, `A post went viral — followers surged.`);
   if (s.social.followers >= 100000 && !s.social.verified) {
     s.social.verified = true;
@@ -311,6 +325,12 @@ export function migrate(raw: unknown): GameState {
   s.clubs = Array.isArray(s.clubs) ? s.clubs : (s.club ? [s.club] : []);
   s.aiEvPending = !!s.aiEvPending;
   s.shortCompleted = Array.isArray(s.shortCompleted) ? s.shortCompleted : [];
+  // v11.1 fix: clamp existing saves with astronomical follower counts.
+  // Some saves had 10^23 followers due to the linear-growth bug; cap them
+  // at MAX_FOLLOWERS (2B) so the new sqrt formulas produce sane numbers.
+  if (s.social && typeof s.social.followers === 'number' && s.social.followers > MAX_FOLLOWERS) {
+    s.social.followers = MAX_FOLLOWERS;
+  }
   s.branches = s.branches || {};
   s.farm = s.farm || {}; s.fac = s.fac || {}; s.space = s.space || {};
   s.farmBought = s.farmBought || {}; s.facBought = s.facBought || {}; s.spaceBought = s.spaceBought || {};
@@ -536,10 +556,11 @@ export function processDay(s: GameState, d: number, rng: () => number = Math.ran
     s.money += profit - bills;
     if (profit > 0) s.yIncome += profit;
     // social media: follower graph drifts with fame every month (sqrt growth + hard cap)
+    // v11.1: raise the cap from 200M to MAX_FOLLOWERS (2B) and clamp properly.
     const fg = Math.min(
       Math.round((Math.sqrt(Math.max(0, s.fame)) * 140 + Math.sqrt(s.social.followers) * 8) * (0.4 + rng() * 1.2)),
-      200000000 - s.social.followers);
-    if (fg > 0) s.social.followers += fg;
+      MAX_FOLLOWERS - s.social.followers);
+    if (fg > 0) s.social.followers = Math.min(MAX_FOLLOWERS, s.social.followers + fg);
     if (s.social.followers > 0) addXp(s, Math.min(12, 1 + s.social.followers / 20000), rng);
     if (bizIncome(s) > 0) addXp(s, Math.min(25, 1 + profit / 12000), rng);
     let booms = 0, busts = 0;
