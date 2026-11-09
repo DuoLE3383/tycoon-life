@@ -1,5 +1,5 @@
 'use client';
-// MOGUL v10.4 — React edition. Two-level grouped nav, a systems links map,
+// HuyenBao v11.9 — React edition. Two-level grouped nav, a systems links map,
 // gigs, levels, social, the cosmic frontier, EN/VI/中文, LLM oracle with
 // random kind dispatch (luck / setback / life-stage / story), pre-owned
 // market + social listings, and a Hall of Fame tab.
@@ -17,7 +17,7 @@ import {
   bizIncome, yearIncome, living, lotValue, upkeep, assetVal, bizVal, stockVal, netWorth,
   effYears, tuitionOf, meets, reqText, knowledgeText, snapshot, dateOf,
   processDay, yearEnd,
-  doGig, gigReady, gigLock, gigPay, addPost, buySpace, spaceIncome, socialIncome, levelMult,
+  doGig, gigReady, gigLock, gigPay, addPost, buySpace, spaceIncome, socialIncome, levelMult, canPost, postCooldownLeft,
   openBranch, openBranchCapital, capitalPathCost, MANAGER_MONTHLY, rollBranchClosures, buyFarmLine, buyFacLine, buyItem, sellLot, trade, joinClub, leaveClub, foundClub,
   hire, enrollDeg, enrollLic, enrollShortCourse, dropStudySlot, changeInterest, bankOp, donate, applyEventChoice, applyAIChoice, currentEvent, studyWorkMult,
   spaceUpgradeReady, startSpaceUpgrade, spaceUpgradeDays, spaceMultiplier, SPACE_TRAVEL_COST,
@@ -67,7 +67,7 @@ if (typeof window !== 'undefined') {
 // v11.8 — the bundled version. The /version.json file in /public is polled
 // every 5 minutes; if its version is newer than this, a "reload to update"
 // banner appears even in a running session (no F5 needed).
-const BUNDLED_VERSION = 'v11.8';
+const BUNDLED_VERSION = 'v11.9';
 const VERSION_POLL_MS = 5 * 60 * 1000;
 const SEEN_KEY = 'tycoon_seen_' + BUNDLED_VERSION;
 
@@ -382,7 +382,7 @@ function Header({ s, eraName }: { s: GameState; eraName: (y: number) => string }
     <header className="top">
       <div className="brand">
         <Art id="s-coin" className="logo" />
-        <div><h1>MOGUL <span className="mini">v11.8</span></h1>
+        <div><h1>HuyenBao <span className="mini">v11.9</span></h1>
           <div className="mini">{s.started ? `${s.nation} · ${eraName(worldYear(s))}` : t('tagline')}</div></div>
       </div>
       <div><div className="mini">{t('cash')}</div><div id="tcash" style={{ color: s.money < 0 ? 'var(--brick)' : undefined }}>{fmt(s.money)}</div>
@@ -1194,7 +1194,7 @@ function SocialTab({ s, act }: { s: GameState; act: Act }) {
       <div className="card sprof">
         <Art id={stageOf(s.age).art} className="avatar" />
         <div style={{ flex: 1, minWidth: 0 }}>
-          <b className="big">@{s.name.toLowerCase().replace(/[^a-z0-9_]/g, '') || 'mogul'}
+          <b className="big">@{s.name.toLowerCase().replace(/[^a-z0-9_]/g, '') || 'huyenbao'}
             {s.social.verified && <span className="vbadge" title={t('verified')}>✓</span>}</b>
           <div className="mini">{s.nation} · {t('fame')} {Math.round(s.fame)}</div>
           <div className="sstat">
@@ -1206,18 +1206,21 @@ function SocialTab({ s, act }: { s: GameState; act: Act }) {
       </div>
       <h3>{t('posts')}</h3>
       <div className="trade" style={{ justifyContent: 'flex-start', marginBottom: 8, flexWrap: 'wrap' }}>
-        <Btn ic="ic-ai" label={aiBusy ? t('divine.thinking') : t('postAi')} disabled={aiBusy} onClick={aiPost} />
-        <Btn ic="ic-plus" label={t('postUpdate')} onClick={() => act(st => { addPost(st, creativePost(st, 'update'), 1); const n = st.social.followers.toLocaleString(); return t('posted', '', { n }); })} />
-        <Btn ic="ic-up" label={t('postHype')} disabled={!canHype} onClick={() => act(st => { addPost(st, creativePost(st, 'hype'), 1.6); const n = st.social.followers.toLocaleString(); return t('posted', '', { n }); })} />
-        <Btn ic="ic-heart" label={t('postCharity')} disabled={!canCharity} onClick={() => act(st => { addPost(st, creativePost(st, 'charity'), 1.4); const n = st.social.followers.toLocaleString(); return t('posted', '', { n }); })} />
-        <Btn ic="ic-star" label={t('postMilestone')} onClick={() => act(st => { addPost(st, creativePost(st, 'milestone'), 1.5); const n = st.social.followers.toLocaleString(); return t('posted', '', { n }); })} />
+        {/* v11.9 — all post buttons disabled during the one-post-per-game-day cooldown.
+            This kills the spam-click exploit (repeat clicks kept adding followers/likes). */}
+        <Btn ic="ic-ai" label={aiBusy ? t('divine.thinking') : t('postAi')} disabled={aiBusy || !canPost(s)} onClick={aiPost} />
+        <Btn ic="ic-plus" label={t('postUpdate')} disabled={!canPost(s)} onClick={() => act(st => { addPost(st, creativePost(st, 'update'), 1); const n = st.social.followers.toLocaleString(); return t('posted', '', { n }); })} />
+        <Btn ic="ic-up" label={t('postHype')} disabled={!canHype || !canPost(s)} onClick={() => act(st => { addPost(st, creativePost(st, 'hype'), 1.6); const n = st.social.followers.toLocaleString(); return t('posted', '', { n }); })} />
+        <Btn ic="ic-heart" label={t('postCharity')} disabled={!canCharity || !canPost(s)} onClick={() => act(st => { addPost(st, creativePost(st, 'charity'), 1.4); const n = st.social.followers.toLocaleString(); return t('posted', '', { n }); })} />
+        <Btn ic="ic-star" label={t('postMilestone')} disabled={!canPost(s)} onClick={() => act(st => { addPost(st, creativePost(st, 'milestone'), 1.5); const n = st.social.followers.toLocaleString(); return t('posted', '', { n }); })} />
       </div>
+      {!canPost(s) && <p className="mini" style={{ margin: '-2px 0 8px', opacity: .8 }}>{t('postCooldown', '', { n: postCooldownLeft(s) })}</p>}
       <div className="card">
         {s.social.posts.length ? s.social.posts.map((p, i) => (
           <div className="post" key={i}>
             <Art id={stageOf(s.age).art} className="pav" />
             <div style={{ flex: 1, minWidth: 0 }}>
-              <b style={{ fontSize: '.9rem' }}>@{s.name.toLowerCase().replace(/[^a-z0-9_]/g, '') || 'mogul'}{s.social.verified && <span className="vbadge">✓</span>}</b>
+              <b style={{ fontSize: '.9rem' }}>@{s.name.toLowerCase().replace(/[^a-z0-9_]/g, '') || 'huyenbao'}{s.social.verified && <span className="vbadge">✓</span>}</b>
               <div style={{ fontSize: '.92rem' }}>{p.t}</div>
               <span className="mini">♥ {p.likes.toLocaleString()} · {t('followers')} +{Math.round(p.likes * 0.3).toLocaleString()}</span>
             </div>
@@ -2255,13 +2258,34 @@ function EventModal({ s, act }: { s: GameState; act: Act }) {
             const risk: ChoiceRisk = isAI
               ? choiceRisk(cc as Parameters<typeof choiceRisk>[0], nwHint)
               : 'medium';
-            const riskLabel = risk === 'safe' ? t('risk.safe') : risk === 'medium' ? t('risk.medium') : t('risk.high');
-            return <Btn key={i} ic={['ic-check', 'ic-up', 'ic-plus'][risk === 'safe' ? 0 : risk === 'medium' ? 2 : 1]}
-              kind={risk === 'safe' ? 'sageb' : risk === 'high' ? 'danger' : ''}
-              dp={{ 'data-risk': risk } as Record<string, string>}
-              label={c.l + (cost ? ' · ' + fmt(cost) : '') + (extra.length ? ` (${extra.join(' · ')})` : '') + ` · ${riskLabel}`}
-              disabled={cost > s.money && anyOk}
-              onClick={() => act(st => isAI ? applyAIChoice(st, i) : applyEventChoice(st, i))} />;
+            // v11.9 — risk word REMOVED from the button label (user request: the
+            // "(Balanced 50/50)" suffix is noise). The legend below the choices
+            // keeps explaining the colour code, and each choice now gets its own
+            // small danger/benefit hint line underneath.
+            const gains: string[] = [];
+            const dangers: string[] = [];
+            if (cc.money && cc.money > 0) gains.push('+' + fmt(cc.money));
+            if (cc.fame && cc.fame > 0) gains.push(`+${cc.fame} ${t('hint.fameWord')}`);
+            if (cost > 0) dangers.push(`${t('hint.pay')} ${fmt(cost)}`);
+            if (cc.money && cc.money < 0) dangers.push(`${t('hint.loseUpTo')} ${fmt(-cc.money)}`);
+            if (cc.fame && cc.fame < 0) dangers.push(`${cc.fame} ${t('hint.fameWord')}`);
+            if (cc.decline && cc.decline > 0) dangers.push(`-${cc.decline} ${t('hint.hp')}`);
+            const quality = risk === 'safe' ? t('hint.safe') : risk === 'medium' ? t('hint.medium') : t('hint.high');
+            if (!gains.length && !dangers.length) dangers.push(t('hint.noCost'));
+            const hint = `${t('hint.label')}: ${quality}`
+              + (gains.length ? ` · ${t('hint.gain')}: ${gains.join(', ')}` : '')
+              + (dangers.length ? ` · ${t('hint.danger')}: ${dangers.join(', ')}` : '');
+            return (
+              <div key={i}>
+                <Btn ic={['ic-check', 'ic-up', 'ic-plus'][risk === 'safe' ? 0 : risk === 'medium' ? 2 : 1]}
+                  kind={risk === 'safe' ? 'sageb' : risk === 'high' ? 'danger' : ''}
+                  dp={{ 'data-risk': risk } as Record<string, string>}
+                  label={c.l + (cost ? ' · ' + fmt(cost) : '') + (extra.length ? ` (${extra.join(' · ')})` : '')}
+                  disabled={cost > s.money && anyOk}
+                  onClick={() => act(st => isAI ? applyAIChoice(st, i) : applyEventChoice(st, i))} />
+                <p className="mini" style={{ margin: '2px 0 0 6px', opacity: .8 }}>{hint}</p>
+              </div>
+            );
           });
         })()}
       </div>

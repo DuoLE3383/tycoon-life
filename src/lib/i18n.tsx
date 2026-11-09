@@ -23,7 +23,7 @@ const D: Record<string, [string, string, string]> = {
   'reincarnate.toast': ['Reincarnated — past-life memory lingers.', 'Trùng sinh — ký ức kiếp trước còn phai mờ.', '转生 — 前世记忆尚存。'],
   'lvl': ['Lv', 'Cấp', '级'],
   // v11 — version banner / what's new
-  'v11.headline': ['MOGUL v11 — big update', 'MOGUL v11 — bản cập nhật lớn', 'MOGUL v11 — 大版本更新'],
+  'v11.headline': ['HuyenBao v11 — big update', 'HuyenBao v11 — bản cập nhật lớn', 'HuyenBao v11 — 大版本更新'],
   'v11.summary': ['Eleven new systems land in this update. Existing saves migrate automatically — your run continues.', 'Mười một hệ thống mới cập nhật trong bản này. Save cũ tự động di chuyển — kiếp của bạn tiếp tục.', '本次更新加入十一个新系统。旧存档自动迁移 — 你的游戏继续。'],
   'v11.gotIt': ['Got it — keep playing', 'Đã rõ — tiếp tục chơi', '了解 — 继续游戏'],
   'v11.reloadPrompt': ['A new version ({v}) is live. Reload to get it.', 'Phiên bản mới ({v}) đã lên. Tải lại để nhận.', '新版本 ({v}) 已上线。刷新以获取。'],
@@ -280,6 +280,19 @@ const D: Record<string, [string, string, string]> = {
   'risk.safe': ['Safe 80/20', 'An toàn 80/20', '稳健 80/20'],
   'risk.medium': ['Balanced 50/50', 'Cân bằng 50/50', '平衡 50/50'],
   'risk.high': ['Bold 20/80', 'Liều mạng 20/80', '冒险 20/80'],
+  // v11.9 — per-choice danger/benefit hint (EventModal) + social post cooldown
+  'hint.label': ['Hint', 'Gợi ý', '提示'],
+  'hint.gain': ['Gain', 'Lợi', '收益'],
+  'hint.danger': ['Risk', 'Nguy', '风险'],
+  'hint.pay': ['pay', 'trả', '支付'],
+  'hint.loseUpTo': ['lose up to', 'có thể mất tới', '最多损失'],
+  'hint.fameWord': ['fame', 'danh tiếng', '名气'],
+  'hint.hp': ['hp', 'hp', '体力'],
+  'hint.safe': ['low risk, stable outcome', 'rủi ro thấp, kết quả ổn', '低风险，结果稳定'],
+  'hint.medium': ['uncertain — could swing either way', 'không chắc chắn — có thể đảo chiều', '不确定 — 可能反转'],
+  'hint.high': ['high risk — big upside or big loss', 'rủi ro cao — lãi lớn hoặc lỗ lớn', '高风险 — 大赚或大亏'],
+  'hint.noCost': ['no cash needed', 'không mất tiền', '无需现金'],
+  'postCooldown': ['Next post in {n} game day(s) — one post per day.', 'Bài tiếp theo sau {n} ngày game — mỗi ngày một bài.', '{n} 个游戏日后可再发 — 每天一篇。'],
   // v10.4 — used market
   'used.title': ['Pre-owned market', 'Chợ đồ cũ', '二手市场'],
   'used.sub': ['Buy pre-owned cars, watches and art at a discount — each listing carries an age and condition rating that drives its resale value.', 'Mua ô tô, đồng hồ, nghệ thuật cũ với giá hời — mỗi mặt hàng có tuổi và tình trạng quyết định giá bán lại.', '以折扣价购买二手车、表、艺术品 — 每件物品都有年龄和成色评分，决定转售价值。'],

@@ -115,7 +115,7 @@ export interface GameState {
   health: number; spirit: number; karma: number; diet: boolean; well: Record<string, number>;
   sleepHours: number; timeline: DayTimeline[];
   cause: 'age' | 'health' | null;
-  social: { followers: number; posts: Post[]; verified?: boolean };
+  social: { followers: number; posts: Post[]; verified?: boolean; lastPostDay?: number };
   ach: string[];
   // v10.4 — used-market purchases and player Hall of Fame entry written at
   // game over. Kept on the same GameState shape so save migration is trivial.
@@ -305,7 +305,21 @@ export function startSpaceUpgrade(s: GameState): string | null {
 // exponential explosion where likes ∝ followers and followers += likes*0.3.
 export const MAX_FOLLOWERS = 2_000_000_000;
 
+// v11.9 — anti-exploit cooldown: ONE post per game day, any type. Before, the
+// Social tab buttons could be clicked in rapid succession with no limit,
+// farming followers/likes indefinitely (each click gained likes*0.3 followers
+// and likes scale with sqrt(followers) — so spam-clicking kept pushing both up).
+export const POST_COOLDOWN_DAYS = 1;
+export const canPost = (s: GameState): boolean =>
+  s.social.lastPostDay == null || s.lastDay - s.social.lastPostDay >= POST_COOLDOWN_DAYS;
+export const postCooldownLeft = (s: GameState): number =>
+  s.social.lastPostDay == null ? 0 : Math.max(0, POST_COOLDOWN_DAYS - (s.lastDay - s.social.lastPostDay));
+
 export function addPost(s: GameState, t: string, boost = 1, rng: () => number = Math.random): void {
+  // v11.9 — engine-side cooldown guard (the UI also disables the buttons).
+  // Keeps the console hook (__tycoon) and any future callers from bypassing
+  // the one-post-per-day limit.
+  if (!canPost(s)) return;
   // v11.1 fix: scale likes by sqrt(followers) not linear. Before:
   //   likes = followers * 0.05 → followers += likes * 0.3 = followers * 0.015
   //   each post multiplied followers by ~1.015, compounding to 10^23 over time.
@@ -327,6 +341,7 @@ export function addPost(s: GameState, t: string, boost = 1, rng: () => number = 
     pushLog(s, `Backlash on a post — lost ${lost.toLocaleString()} followers.`);
   }
   s.social.posts.unshift({ d: s.lastDay, t, likes });
+  s.social.lastPostDay = s.lastDay;
   if (s.social.posts.length > 12) s.social.posts.pop();
   const gainMult = spike ? 2 + rng() : 1;
   s.social.followers = Math.min(MAX_FOLLOWERS, s.social.followers + Math.round(likes * 0.3 * boost * gainMult) + (s.fame > 0 ? 2 : 0));

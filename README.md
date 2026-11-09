@@ -1,10 +1,10 @@
-# MOGUL 🏙️
+# HuyenBao 🏙️
 
-**MOGUL** (trước đây là *Tycoon Life*) — game mô phỏng cuộc đời: bắt đầu ở tuổi 18 trong **chính thời đại lịch sử của bạn** (năm sinh + 18), đi làm, học hành, xây chuỗi kinh doanh khắp các vùng, cho nhà máy ăn từ trang trại của chính mình, lướt sóng chứng khoán, nổi tiếng trên mạng xã hội, nộp thuế, làm từ thiện — và cuối đời, đưa đế chế của bạn **lên vũ trụ** 🚀.
+**HuyenBao** — game mô phỏng cuộc đời: bắt đầu ở tuổi 18 trong **chính thời đại lịch sử của bạn** (năm sinh + 18), đi làm, học hành, xây chuỗi kinh doanh khắp các vùng, cho nhà máy ăn từ trang trại của chính mình, lướt sóng chứng khoán, nổi tiếng trên mạng xã hội, nộp thuế, làm từ thiện — và cuối đời, đưa đế chế của bạn **lên vũ trụ** 🚀.
 
 ▶ **Chơi ngay:** <https://huyenbao.com/> *(miền chính thức)* · <https://duole3383.github.io/tycoon-life/> *(phương án dự phòng — tự chuyển hướng)*
 
-📱 **Cài lên điện thoại:** mở huyenbao.com trên Chrome/Safari → “Thêm vào Màn hình chính” — MOGUL chạy như một ứng dụng riêng (PWA), không cần cửa hàng ứng dụng.
+📱 **Cài lên điện thoại:** mở huyenbao.com trên Chrome/Safari → “Thêm vào Màn hình chính” — HuyenBao chạy như một ứng dụng riêng (PWA), không cần cửa hàng ứng dụng.
 
 | | |
 |---|---|
@@ -355,7 +355,7 @@ Kèm theo mỗi năm là **tin thật lịch sử** đăng trong nhật ký (201
 
 ## ✨ AI — những gì khác biệt nhờ bổ sung AI
 
-Đây là phần **MOGUL khác hẳn bản life-sim cổ điển**. AI không phải sticker trang trí — nó tham gia thẳng vào lối chơi.
+Đây là phần **HuyenBao khác hẳn bản life-sim cổ điển**. AI không phải sticker trang trí — nó tham gia thẳng vào lối chơi.
 
 ### 1. 🤖 Bộ máy truyện "AI tiên tri" (AI Story Oracle)
 Nút **"Hỏi AI tiên tri một bước ngoặt"** nằm ngay tab Home. Mỗi lần bấm, AI **viết một sự kiện đời người hoàn toàn mới** — không có sẵn trong code:

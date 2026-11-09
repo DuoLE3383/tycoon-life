@@ -1,8 +1,8 @@
 {
-  "name": "mogul",
+  "name": "huyenbao",
   "version": "10.0.0",
   "private": true,
-  "description": "MOGUL — build an empire before you turn 90 (life-simulation game, Next.js + LLM story backend)",
+  "description": "HuyenBao — build an empire before you turn 90 (life-simulation game, Next.js + LLM story backend)",
   "scripts": {
     "dev": "next dev -p 3000",
     "build": "next build",

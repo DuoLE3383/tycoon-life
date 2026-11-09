@@ -74,7 +74,7 @@ export async function POST(req: NextRequest) {
   try { body = await req.json(); } catch { /* ignore */ }
   const snap = body.state || {};
   const sys = [
-    'You are the in-game social-media ghost writer for a tycoon in the Mogul life-simulation game.',
+    'You are the in-game social-media ghost writer for a tycoon in the HuyenBao life-simulation game.',
     'Given the player\'s snapshot (era, nation, wealth, businesses, fame), write ONE post — max 220 chars, second person, grounded in their exact situation.',
     'No hashtags, no emoji spam. Mention one concrete detail from the snapshot.',
     'Vary the tone: reflective, hype, grateful, or wry — never corporate.',

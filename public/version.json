@@ -1,14 +1,13 @@
 {
-  "version": "v11.8",
+  "version": "v11.9",
   "releasedAt": "2026-11-10",
-  "headline": "MOGUL v11.8 — hide Ask AI button + fix AI translations",
-  "summary": "Two focused fixes: (1) the manual 'Ask AI' button on the home tab is removed — the oracle now fires only via the random auto-popup effect (engine sets s.aiEvPending with ~3% chance/game-day). (2) AI event boxes that previously showed English text to VI/ZH players, or mixed-language/garbled text, are now localised: the /api/story request carries the player's UI language, the LLM system prompt instructs the model to respond in that language, and all 24 local fallback templates in story.ts are translated into Tiếng Việt and 简体中文. A legacy bug where the English template 'Sell the company?' accidentally contained the Chinese word 签字笔 ('signing pen') is also fixed.",
+  "headline": "HuyenBao v11.9 — HuyenBao rebrand + choice hints + social cooldown",
+  "summary": "Three changes: (1) the app is rebranded from MOGUL to HuyenBao across the header, PWA manifest, page metadata, AI prompts, and default @handle — gameplay terms like the 'Industry mogul' power tier are unchanged. (2) The '(Balanced 50/50)' risk word is removed from behind every AI-oracle / life-event choice button; the colour-code legend stays below the choices, and each choice now gets its own small danger/benefit hint line (pay cost, possible gain, possible loss, health hit — localised EN/VI/ZH). (3) The social spam-click exploit is fixed: one post per game day across all five post buttons, enforced in the engine (addPost guard) and in the UI (buttons disabled + cooldown note).",
   "features": [
-    "AI oracle: manual 'Ask AI' button removed from Home tab; auto-popup remains the only trigger (~3% chance/game-day, 30-day play-time threshold)",
-    "AI oracle: /api/story now accepts a 'lang' field in the request body; the LLM system prompt explicitly instructs the model to write title, text, choice labels, and outcomes in the player's UI language (EN/VI/ZH)",
-    "AI oracle: when the LLM is unreachable, the 24 local fallback templates in story.ts are now localised into Tiếng Việt and 简体中文 (previously English-only — this was the root cause of 'các ô hiện ra từ AI dịch ko đúng hoặc không dịch')",
-    "story.ts: fixed legacy bug where the 'Sell the company?' English template accidentally contained the Chinese word 签字笔 mixed into English text",
-    "story.ts: dedup of already-seen events now uses the canonical English title so existing saves (which stored English titles throughout v10–v11.7) remain compatible",
-    "Version bumped to v11.8 on homepage header + version.json"
+    "Rebrand: MOGUL → HuyenBao in header, layout metadata, PWA manifest, package.json, AI post prompt, default @handle, i18n headline, README title (no changelog-history entry added per request)",
+    "Choice hints: every choice in the event modal shows a compact hint line — quality (low risk / uncertain / high risk) + possible gains (money, fame) + possible dangers (pay cost, lose up to N, fame drop, hp loss) in EN/VI/ZH",
+    "Choice labels: risk suffix ('· Balanced 50/50' etc.) removed from behind every choice; colour coding + bottom legend remain",
+    "Social exploit fix: POST_COOLDOWN_DAYS = 1 game day; addPost() engine-side guard (console hook cannot bypass); all 5 post buttons (AI / Update / Hype / Charity / Milestone) disabled during cooldown with a localised countdown note",
+    "Version bumped to v11.9 on homepage header + version.json"
   ]
 }
