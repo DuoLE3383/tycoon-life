@@ -733,6 +733,23 @@ const D: Record<string, [string, string, string]> = {
   'v11.researchTitle': ['Market research', 'Nghiên cứu thị trường', '市场调研'],
   'v11.researchBlurb': ['Pay for a brief on the current crisis and next year\'s outlook. Predictions have noise — analysts miss ~15% of real shocks and invent ~10% false ones.', 'Trả tiền lấy bản tóm tắt về khủng hoảng hiện tại và triển vọng năm sau. Dự báo có nhiễu — chuyên gia lọt ~15% cú sốc thật và bịa ~10% cú sốc giả.', '付费获取当前危机与明年展望的简报。预测有噪音 — 分析师会漏掉约15%的真实冲击，并编造约10%的假冲击。'],
   'v11.researchBtn': ['Research ({x})', 'Nghiên cứu ({x})', '调研 ({x})'],
+  // v11.3 — power & influence
+  'v11.powerCurrentTier': ['Current tier', 'Cấp quyền lực hiện tại', '当前权力等级'],
+  'v11.powerNetWorth': ['Net worth: {v}', 'Tài sản ròng: {v}', '净资产：{v}'],
+  'v11.powerNextTier': ['Next: {tier} at {v}', 'Tiếp theo: {tier} lúc {v}', '下一级：{tier}（{v}）'],
+  'v11.powerTopTier': ['Top tier reached.', 'Đã đạt cấp cao nhất.', '已达到最高等级。'],
+  'v11.influenceLabel': ['Influence', 'Ảnh hưởng', '影响力'],
+  'v11.influenceBlurb': ['Political & social capital — unlocks lobby, board, election actions. Diminishing returns past 100.', 'Vốn chính trị & xã hội — mở vận động, ghế hội đồng, tranh cử. Hiệu suất giảm dần sau 100.', '政治与社会资本 — 解锁游说、董事会、选举。超过100后收益递减。'],
+  'v11.influenceSources': ['Recent sources', 'Nguồn gần đây', '近期来源'],
+  'v11.noSourcesYet': ['none yet — donate / found a club / own media', 'chưa có — từ thiện / lập CLB / sở hữu truyền thông', '尚无 — 捐款 / 创办俱乐部 / 拥有媒体'],
+  'v11.foundationActive': ['Foundation endowed — +{x}% influence gain', 'Quỹ đã lập — +{x}% gain influence', '基金会已设立 — 影响力收益+{x}%'],
+  'v11.boardNomineeActive': ['Board nominee placed — +{x}% industry income', 'Đã cài người vào hội đồng — +{x}% thu nhập ngành', '已安插董事会人选 — 行业收入+{x}%'],
+  'v11.advocacyTitle': ['Advocacy actions', 'Hành động vận động', '倡导行动'],
+  'v11.advocacyBtn': ['Spend {x}', 'Tiêu {x}', '消耗 {x}'],
+  'v11.advocacyDone': ['Done: {action}', 'Đã làm: {action}', '完成：{action}'],
+  'v11.advocacyNeedInfluence': ['Not enough influence.', 'Không đủ ảnh hưởng.', '影响力不足。'],
+  'v11.advocacyNeedTier': ['Tier too low.', 'Cấp quyền lực quá thấp.', '权力等级不足。'],
+  'v11.tier': ['tier', 'cấp', '等级'],
 };
 
 export function makeT(lang: Lang) {

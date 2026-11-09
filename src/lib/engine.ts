@@ -10,6 +10,26 @@ import {
   NPC_BY, PET_BY, MAX_PETS, CREW_COST, SHORT_BY,
   analyze, type FieldKey, type LineDef, type Req, type GigDef, type SpaceDef, type Rarity, RARITY_MULT, itemRarity, POST_TEMPLATES
 } from './gameData';
+// v11.3 — Power & influence system. Engine imports PowerState type + the
+// passive tick + advocacy helpers; PowerState lives on GameState below.
+import {
+  type PowerState, freshPower, tickPower, addInfluence, influenceFromCharity,
+  doAdvocacy, powerTierOf, powerTierIdx, nextTierOf,
+  type PowerTier, type InfluenceSource, type AdvocacyAction,
+  influenceGainMult, spendInfluence,
+  influenceFromClubChair, influenceFromBoardSeat, influenceFromMediaOwnership,
+  POWER_TIERS, ADVOCACY_ACTIONS, INFLUENCE_SOURCE_LABELS,
+} from './power';
+// Re-export the public surface of the power module so the React layer
+// can import everything from one place (engine.ts).
+export {
+  freshPower, tickPower, addInfluence, influenceFromCharity,
+  doAdvocacy, powerTierOf, powerTierIdx, nextTierOf,
+  influenceGainMult, spendInfluence,
+  influenceFromClubChair, influenceFromBoardSeat, influenceFromMediaOwnership,
+  POWER_TIERS, ADVOCACY_ACTIONS, INFLUENCE_SOURCE_LABELS,
+};
+export type { PowerState, PowerTier, InfluenceSource, AdvocacyAction } from './power';
 
 export const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
@@ -90,6 +110,11 @@ export interface GameState {
   // them until next research. Cleared by Jan 1 of a new year (stale).
   lastResearchDay: number;
   researchBrief: string[] | null;
+  // v11.3 — power & influence. PowerState tracks the player's unlocked
+  // power tier (driven by net worth), accumulated influence resource, and
+  // the influence log. Fresh games start with freshPower(). Migrate()
+  // backfills it on old saves.
+  power: PowerState;
 }
 
 // ---------- wellbeing: body & mind ----------
@@ -303,6 +328,7 @@ export function fresh(): GameState {
     sleepHours: 8, timeline: [], ach: [],
     used: [], hall: null, pastLives: [], relations: {}, pets: [], clubs: [], aiEvPending: false, shortCompleted: [],
     crisis: null, shocks: [], lastResearchDay: 0, researchBrief: null,
+    power: freshPower(),
   };
   STOCKS.forEach(x => { s.prices[x.id] = x.p; s.hist[x.id] = [x.p]; });
   return s;
@@ -350,6 +376,12 @@ export function migrate(raw: unknown): GameState {
   s.shocks = Array.isArray(s.shocks) ? s.shocks : [];
   s.lastResearchDay = typeof s.lastResearchDay === 'number' ? s.lastResearchDay : 0;
   s.researchBrief = Array.isArray(s.researchBrief) ? s.researchBrief : null;
+  // v11.3 — power state. Old saves have no power; fresh-start it. If the
+  // save has a partial PowerState (e.g. only unlockedTier), keep the known
+  // fields and backfill the rest from freshPower().
+  s.power = s.power && typeof s.power === 'object'
+    ? Object.assign(freshPower(), s.power)
+    : freshPower();
   // v11.1 fix: clamp existing saves with astronomical follower counts.
   // Some saves had 10^23 followers due to the linear-growth bug; cap them
   // at MAX_FOLLOWERS (2B) so the new sqrt formulas produce sane numbers.
@@ -433,6 +465,7 @@ export const effDemand = (s: GameState) => s.crisis ? s.crisis.demand : 1;
 export const bizMultiplier = (s: GameState) => Math.min(
   BIZ_MULTIPLIER_CAP,
   clubMult(s) * (1 + BIZ_DEGREE_BONUS * s.deg.business) * fameBonus(s) * effEraBiz(s) * levelMult(s) * spiritBizMult(s)
+    * (s.power?.boardNomineeBiz || 1) // v11.3 — advocacy 'boardNominee' grants +10%
 );
 export const bizIncome = (s: GameState) => { // annual
   let ann = 0;
@@ -769,6 +802,19 @@ export function yearEnd(s: GameState, age: number, rng: () => number = Math.rand
     if (ev.fame) s.fame = Math.max(0, s.fame + ev.fame);
     if (ev.dip) STOCKS.forEach(x => s.prices[x.id] *= .9);
     pushLog(s, `${ev.msg} ${ev.cash >= 0 ? '+' : '\u2212'}${fmt(Math.abs(ev.cash))}`);
+  }
+  // v11.3 — yearly power tick. Combines tier-promotion check (does net
+  // worth cross a new threshold?) with the passive influence sources
+  // (club chair / board seat / media ownership). Net worth is computed
+  // here and passed in so power.ts doesn't need to import netWorth().
+  const nw = netWorth(s);
+  const powerTick = tickPower(s, nw);
+  if (powerTick.promotedTo) {
+    const label = POWER_TIERS.find(r => r.tier === powerTick.promotedTo)?.label || powerTick.promotedTo;
+    pushLog(s, `Power tier unlocked: ${label}. New political avenues open.`);
+  }
+  if (powerTick.influenceGained > 0) {
+    pushLog(s, `Passive influence +${powerTick.influenceGained} this year (club / board / media).`);
   }
   rollLife(s, age, rng);
 }
@@ -1159,9 +1205,19 @@ export function donate(s: GameState, amt: number): string | null {
   s.fame = Math.max(0, s.fame + g);
   s.karma += ka;
   addXp(s, Math.max(2, Math.round(amt / 10000)));
+  // v11.3 — charity grants influence: 1 base per $10K donated. The
+  // diminishing-returns factor in addInfluence() reduces the actual
+  // gain as the player accumulates more influence, so the first
+  // million donated counts much more than the tenth.
+  let infMsg = '';
+  const baseInf = influenceFromCharity(amt);
+  if (baseInf > 0) {
+    const gained = addInfluence(s, baseInf, 'charity');
+    infMsg = ` · influence +${gained}`;
+  }
   if (amt >= 10000) addPost(s, `Gave ${fmt(amt)} to charity today. Small acts, big ripples.`, 1.3);
-  pushLog(s, `Donated ${fmt(amt)} to charity. Fame +${g}, karma +${ka}.`);
-  return `Donated ${fmt(amt)} \u00b7 fame +${g}`;
+  pushLog(s, `Donated ${fmt(amt)} to charity. Fame +${g}, karma +${ka}${infMsg}.`);
+  return `Donated ${fmt(amt)} \u00b7 fame +${g}${infMsg}`;
 }
 export function applyEventChoice(s: GameState, idx: number, rng: () => number = Math.random): string {
   const ev = currentEvent(s); if (!ev) return '';

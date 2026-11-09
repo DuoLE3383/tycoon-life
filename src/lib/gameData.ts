@@ -582,20 +582,23 @@ export const TABS: [string, string, string][] = [
   ['health', 'Wellbeing', 'w-heart'], ['spirit', 'Mind', 'w-lotus'], ['pets', 'Companions', 'ic-paw'],
   ['assets', 'Assets', 'ic-bag'], ['markets', 'Markets', 't-stock'], ['bank', 'Banking', 't-bank'],
   ['social', 'Social', 't-social'], ['relations', 'Relations', 'ic-heart'], ['club', 'Clubs', 't-club'],
-  ['rank', 'Ranking', 't-rank'], ['fame', 'Hall of Fame', 'ic-trophy']
+  ['power', 'Power', 't-power'], ['rank', 'Ranking', 't-rank'], ['fame', 'Hall of Fame', 'ic-trophy']
 ];
 
 // v10.5: navigation — reorganised into 6 scientific groups along a
 // personal → human-capital → enterprise → portfolio → network → world axis.
 // Tab labels use proper terminology (Character / Wellbeing / Capital /
 // Ventures / Markets / Banking / Vault / Sphere / Society / Registry).
+// v11.3 — Power tab joins the "world" group (alongside Ranking + Hall of
+// Fame) since power is a world-level concern (unlocked by net worth and
+// gating election/lobby actions).
 export const GROUPS: [string, string, string, [string, string, string][]][] = [
   ['life', 'Character', 't-life', [['home', 'Overview', 't-life'], ['health', 'Wellbeing', 'w-heart'], ['spirit', 'Mind', 'w-lotus'], ['pets', 'Companions', 'ic-paw']]],
   ['growth', 'Capital', 't-cap', [['edu', 'Education', 't-cap'], ['career', 'Career', 't-work']]],
   ['empire', 'Ventures', 't-biz', [['biz', 'Business', 't-biz'], ['space', 'Space', 't-space']]],
   ['wealth', 'Portfolio', 't-bank', [['assets', 'Assets', 'ic-bag'], ['markets', 'Markets', 't-stock'], ['bank', 'Banking', 't-bank']]],
   ['network', 'Sphere', 't-social', [['social', 'Social', 't-social'], ['relations', 'Relations', 'ic-heart'], ['club', 'Clubs', 't-club']]],
-  ['world', 'World', 't-rank', [['rank', 'Ranking', 't-rank'], ['fame', 'Hall of Fame', 'ic-trophy'], ['links', 'Systems', 'ic-link']]],
+  ['world', 'World', 't-rank', [['power', 'Power', 't-power'], ['rank', 'Ranking', 't-rank'], ['fame', 'Hall of Fame', 'ic-trophy'], ['links', 'Systems', 'ic-link']]],
 ];
 
 // ================= v8: gigs, levels & XP, the cosmic frontier =================

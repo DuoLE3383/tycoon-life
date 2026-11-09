@@ -36,6 +36,9 @@ import {
   adoptPet, careForPet, abandonPet, petFameBonus,
   // v11.2 — real events affecting market
   effEraBiz, effEraFac, effLoanRate, effRisk, effDemand, researchCost, researchMarket,
+  // v11.3 — power & influence
+  powerTierOf, powerTierIdx, nextTierOf, POWER_TIERS, ADVOCACY_ACTIONS,
+  doAdvocacy, INFLUENCE_SOURCE_LABELS, type PowerTier, type InfluenceSource, type AdvocacyAction,
 } from '@/lib/engine';
 import { localTwist, pickKind } from '@/lib/story';
 import { useT, LANGS, type Lang } from '@/lib/i18n';
@@ -49,10 +52,10 @@ if (typeof window !== 'undefined') {
   };
 }
 
-// v11.2 — the bundled version. The /version.json file in /public is polled
+// v11.3 — the bundled version. The /version.json file in /public is polled
 // every 5 minutes; if its version is newer than this, a "reload to update"
 // banner appears even in a running session (no F5 needed).
-const BUNDLED_VERSION = 'v11.2';
+const BUNDLED_VERSION = 'v11.3';
 const VERSION_POLL_MS = 5 * 60 * 1000;
 const SEEN_KEY = 'tycoon_seen_' + BUNDLED_VERSION;
 
@@ -254,6 +257,7 @@ export default function Page() {
           {tab === 'club' && <ClubTab s={s} act={act} />}
           {tab === 'bank' && <BankTab s={s} act={act} />}
           {tab === 'rank' && <RankTab s={s} board={rankBoard} setBoard={setRankBoard} />}
+          {tab === 'power' && <PowerTab s={s} act={act} />}
           {tab === 'fame' && <FameTab s={s} />}
           {tab === 'links' && <LinksTab s={s} />}
         </main>
@@ -365,7 +369,7 @@ function Header({ s, eraName }: { s: GameState; eraName: (y: number) => string }
     <header className="top">
       <div className="brand">
         <Art id="s-coin" className="logo" />
-        <div><h1>MOGUL <span className="mini">v11.2</span></h1>
+        <div><h1>MOGUL <span className="mini">v11.3</span></h1>
           <div className="mini">{s.started ? `${s.nation} · ${eraName(worldYear(s))}` : t('tagline')}</div></div>
       </div>
       <div><div className="mini">{t('cash')}</div><div id="tcash" style={{ color: s.money < 0 ? 'var(--brick)' : undefined }}>{fmt(s.money)}</div>
@@ -1437,6 +1441,81 @@ function RankTab({ s, board, setBoard }: { s: GameState; board: string; setBoard
     <div className="rt">{tabs.map(([k, l]) => <button key={k} data-rt={k} aria-pressed={board === k} onClick={() => setBoard(k as 'all')}>{l}</button>)}</div>
     {body}
     <p className="sub">{t('rankNote')}</p>
+  </>);
+}
+
+// ================= POWER (v11.3) =================
+// Power & influence tab. Shows the player's current power tier (driven
+// by net worth), the influence resource + its sources, and the advocacy
+// actions they can spend influence on. Tier unlocks at $10M / $100M /
+// $1B / $10B; influence comes from charity, club chair, board seats,
+// media ownership. Diminishing returns on influence gain so it's
+// harder to climb past 1000.
+function PowerTab({ s, act }: { s: GameState; act: Act }) {
+  const { t, lang } = useT();
+  const tier = powerTierOf(s);
+  const tierIdx = POWER_TIERS.findIndex(r => r.tier === tier);
+  const next = nextTierOf(s);
+  const nw = netWorth(s);
+  const tierLabel = (POWER_TIERS[tierIdx] || POWER_TIERS[0]);
+  const showTier = (l: Lang) => l === 'vi' ? tierLabel.vi : l === 'zh' ? tierLabel.zh : tierLabel.en;
+  return (<>
+    {/* Current tier + next-threshold hint */}
+    <Row art="t-power">
+      <b>{t('v11.powerCurrentTier')} <span className={tier === 'none' ? 'down' : 'up'}>{showTier(lang)}</span></b>
+      <span className="sub">{t('v11.powerNetWorth', '', { v: fmt(nw) })}</span>
+      <span className="mini" style={{ display: 'block', marginTop: 2 }}>
+        {next
+          ? t('v11.powerNextTier', '', { tier: next.label, v: fmt(next.min) })
+          : t('v11.powerTopTier')}
+      </span>
+    </Row>
+
+    {/* Influence resource + sources */}
+    <Row art="s-coin">
+      <b>{t('v11.influenceLabel')} <span className="up">{s.power?.influence || 0}</span></b>
+      <span className="sub">{t('v11.influenceBlurb')}</span>
+      <span className="mini" style={{ display: 'block', marginTop: 2 }}>
+        {t('v11.influenceSources')}:{' '}
+        {(s.power?.influenceLog || []).slice(-5).reverse().map(e => {
+          const src = INFLUENCE_SOURCE_LABELS[e.source as keyof typeof INFLUENCE_SOURCE_LABELS];
+          const label = src ? (lang === 'vi' ? src.vi : lang === 'zh' ? src.zh : src.en) : e.source;
+          return `${label} +${e.amount}`;
+        }).join(' · ') || t('v11.noSourcesYet')}
+      </span>
+      {s.power?.foundationMult && (
+        <span className="mini" style={{ display: 'block', marginTop: 2, color: 'var(--green)' }}>
+          {t('v11.foundationActive', '', { x: ((s.power.foundationMult - 1) * 100).toFixed(0) })}
+        </span>
+      )}
+      {s.power?.boardNomineeBiz && (
+        <span className="mini" style={{ display: 'block', marginTop: 2, color: 'var(--green)' }}>
+          {t('v11.boardNomineeActive', '', { x: ((s.power.boardNomineeBiz - 1) * 100).toFixed(0) })}
+        </span>
+      )}
+    </Row>
+
+    {/* Advocacy actions — spend influence here */}
+    <h3 style={{ margin: '12px 0 4px' }}>{t('v11.advocacyTitle')}</h3>
+    {ADVOCACY_ACTIONS.map(a => {
+      const reqIdx = POWER_TIERS.findIndex(r => r.tier === a.minTier);
+      const locked = tierIdx < reqIdx;
+      const notEnough = (s.power?.influence || 0) < a.cost;
+      const labelLang = (l: Lang): string => l === 'vi' ? a.label.vi : l === 'zh' ? a.label.zh : a.label.en;
+      const descLang = (l: Lang): string => l === 'vi' ? a.desc.vi : l === 'zh' ? a.desc.zh : a.desc.en;
+      return <Row key={a.id} art="s-tech"
+        right={<button className="tbuy" disabled={locked || notEnough}
+          onClick={() => act(g => {
+            const r = doAdvocacy(g, a.id, worldYear(g));
+            if (!r.ok) return r.reason === 'noInfluence' ? t('v11.advocacyNeedInfluence')
+              : r.reason === 'wrongTier' ? t('v11.advocacyNeedTier')
+              : r.reason || 'failed';
+            return t('v11.advocacyDone', '', { action: labelLang(lang) });
+          })}>{t('v11.advocacyBtn', '', { x: a.cost })}</button>}>
+        <b>{labelLang(lang)} <span className="mini">{locked ? `(${t('v11.tier')} ${POWER_TIERS[reqIdx].label})` : ''}</span></b>
+        <span className="sub">{descLang(lang)}</span>
+      </Row>;
+    })}
   </>);
 }
 

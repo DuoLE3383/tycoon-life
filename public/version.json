@@ -1,16 +1,18 @@
 {
-  "version": "v11.2",
+  "version": "v11.3",
   "releasedAt": "2026-11-09",
-  "headline": "MOGUL v11.2 — real events affecting market",
-  "summary": "Real crises now hit four dimensions beyond stocks: valuation, loan rates, consumer demand, branch-closure risk. Multi-year crises persist (1929 → 3-year depression, 2008 → 2-year GFC). Crashes unfold over 30-60 days via delayed shocks. Player can pay for market research — a noised brief on the current crisis + next year's outlook (false neg ~15%, false pos ~10%).",
+  "headline": "MOGUL v11.3 — power & influence",
+  "summary": "A new tier system on top of net worth. Beyond money, players accrue political and social capital — influence — that unlocks a power ladder from industry mogul ($10M) to influencer ($100M) to national power ($1B) to state leader ($10B). Influence comes from charity (1 per $10K), founding a club (5/year passive), board seats (3 per founded club + 1.5 per member club), and media ownership (10 per source: film studio + verified 1M+ followers). Diminishing returns: 1 / (1 + sqrt(I/100)). Three advocacy actions: lobby industry policy (+5% biz for 1 year, 25 influence, requires industry mogul), place a board nominee (permanent +10% biz, 60 influence, requires influencer), endow a foundation (permanent +20% influence gain, 120 influence, requires national power). Tier is sticky — once unlocked, it stays even if net worth drops.",
   "features": [
-    "Real events 1929/1973/2008/2020 (and more) now modify valuation, rates, demand, closure prob — not just stock prices",
-    "Multi-year crises: 1929 lasts 3 years, 2008 lasts 2 — biz/rates/risk/demand carry forward",
-    "Stock + deposit shocks split into instant + 30/60-day delayed slices (crashes unfold over weeks)",
-    "New market-research action: pay for a brief on the current crisis + next year's outlook (with noise)",
-    "Loan interest scales with crisis.rates — debt service balloons during a credit crunch",
-    "Branch mood drift applies a demand-drag during crises (e.g. -3%/month at demand 0.7)",
-    "Markets tab shows an active-crisis banner + a research panel",
-    "Version bumped to v11.2 on homepage + version.json + 10 new engine tests"
+    "PowerTier system: industry_mogul / influencer / national_power / state_leader, unlocked by net worth",
+    "Influence resource with diminishing returns (1 / (1 + sqrt(I/100)))",
+    "Influence sources: charity (donate), club chair (passive 5/year), board seats (passive), media ownership (passive)",
+    "Three advocacy actions: lobby, board nominee, endow foundation — each consumes influence",
+    "Tier is sticky — promotion persists even if net worth later drops below the threshold",
+    "yearEnd now ticks passive influence + checks tier promotion; logs both events",
+    "bizMultiplier now stacks the boardNomineeBiz bonus from the advocacy action",
+    "New 'Power' tab in the World group showing tier, influence, sources, advocacy actions",
+    "Donation now grants influence (with diminishing returns) on top of fame + karma",
+    "Version bumped to v11.3 on homepage + version.json + 22 new power tests"
   ]
 }
