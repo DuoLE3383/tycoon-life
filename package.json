@@ -9,7 +9,7 @@
     "build:static": "node scripts/static-build.mjs",
     "start": "next start -p 3333",
     "lint": "eslint .",
-    "test": "tsx --test src/lib/engine.test.ts src/lib/power.test.ts src/lib/empire.test.ts src/lib/zodiac.test.ts",
+    "test": "tsx --test src/lib/engine.test.ts src/lib/power.test.ts src/lib/empire.test.ts src/lib/zodiac.test.ts src/lib/phongthuy.test.ts",
     "typecheck": "tsc --noEmit"
   },
   "engines": {

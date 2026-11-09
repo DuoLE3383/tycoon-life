@@ -1,5 +1,5 @@
 'use client';
-// HuyenBao v11.14 — React edition. Two-level grouped nav, a systems links map,
+// HuyenBao v11.15 — React edition. Two-level grouped nav, a systems links map,
 // gigs, levels, social, the cosmic frontier, EN/VI/中文, LLM oracle with
 // random kind dispatch (luck / setback / life-stage / story), pre-owned
 // market + social listings, and a Hall of Fame tab.
@@ -55,6 +55,7 @@ import {
 import { localTwist, pickKind } from '@/lib/story';
 import { castHexagram, validateQuestion, type CastResult } from '@/lib/iching';
 import { lapLaSo, type LaSo } from '@/lib/tuvi';
+import { phanTichToanDien, HUONG, type PhongThuyReading, type Huong } from '@/lib/phongthuy';
 import { useT, LANGS, type Lang } from '@/lib/i18n';
 
 const asset = (p: string) => (process.env.NEXT_PUBLIC_BASE_PATH || '') + p;
@@ -69,7 +70,7 @@ if (typeof window !== 'undefined') {
 // v11.8 — the bundled version. The /version.json file in /public is polled
 // every 5 minutes; if its version is newer than this, a "reload to update"
 // banner appears even in a running session (no F5 needed).
-const BUNDLED_VERSION = 'v11.14';
+const BUNDLED_VERSION = 'v11.15';
 const VERSION_POLL_MS = 5 * 60 * 1000;
 const SEEN_KEY = 'tycoon_seen_' + BUNDLED_VERSION;
 
@@ -434,7 +435,7 @@ function Header({ s, eraName }: { s: GameState; eraName: (y: number) => string }
     <header className="top">
       <div className="brand">
         <Art id="s-coin" className="logo" />
-        <div><h1>HuyenBao <span className="mini">v11.14</span></h1>
+        <div><h1>HuyenBao <span className="mini">v11.15</span></h1>
           <div className="mini">{s.started ? `${s.nation} · ${eraName(worldYear(s))}` : t('tagline')}</div></div>
       </div>
       <div><div className="mini">{t('cash')}</div><div id="tcash" style={{ color: s.money < 0 ? 'var(--brick)' : undefined }}>{fmt(s.money)}</div>
@@ -1028,6 +1029,8 @@ function SpiritTab({ s, act }: { s: GameState; act: Act }) {
       <KinhDichPanel />
       {/* v11.14 — Tử Vi (紫微斗数), second Huyen-Hoc-AI feature integrated */}
       <TuViPanel s={s} />
+      {/* v11.15 — Phong Thuỷ Bát Trạch (八宅), third Huyen-Hoc-AI feature integrated */}
+      <PhongThuyPanel s={s} />
     </>
   );
 }
@@ -1276,6 +1279,185 @@ function TuViPanel({ s }: { s: GameState }) {
           <div className="mini" style={{ textTransform: 'uppercase', letterSpacing: '.4px', marginTop: 8 }}>{t('tv.advice')}</div>
           <p className="mini" style={{ margin: '4px 0 0' }}>{result.reading.advice}</p>
           <p className="mini" style={{ marginTop: 6, opacity: .6 }}>{result.laso.ghiChu}</p>
+          <p className="mini" style={{ opacity: .6 }}>{t('disc.aiNote')}</p>
+        </div>
+      )}
+    </>
+  );
+}
+
+// v11.15 — Phong Thuỷ (Bát Trạch 八宅) panel. Computes a simplified feng-shui
+// reading client-side via the deterministic engine (src/lib/phongthuy.ts),
+// then asks /api/phongthuy for an LLM interpretation in the player's language.
+// Uses the character's birth year + month (already collected) plus the day,
+// gender, and house/kitchen/bedroom directions the player enters — no save
+// change. Mirrors the Huyen-Hoc-AI FastAPI Bát Trạch + Cửu Tinh reference, but
+// runs on the main app's own LLM (same client as /api/divine + /api/tuvi).
+function PhongThuyPanel({ s }: { s: GameState }) {
+  const { t, lang } = useT();
+  const [day, setDay] = useState(15);
+  const [gender, setGender] = useState<'nam' | 'nu'>('nam');
+  const [houseDir, setHouseDir] = useState<Huong>('Nam');
+  const [kitchenDir, setKitchenDir] = useState<Huong | ''>('');
+  const [bedroomDir, setBedroomDir] = useState<Huong | ''>('');
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const [result, setResult] = useState<{ reading: PhongThuyReading; interp: { interpretation: string; advice: string; source: string } } | null>(null);
+
+  const canAnalyze = !busy && day >= 1 && day <= 31;
+
+  const doAnalyze = async () => {
+    setErr(null);
+    if (!(day >= 1 && day <= 31)) { setErr(t('pt.errDate')); return; }
+    setBusy(true);
+    let reading: PhongThuyReading;
+    try {
+      reading = phanTichToanDien(
+        day, s.birthMonth, s.byear, gender, houseDir,
+        kitchenDir || undefined, bedroomDir || undefined,
+      );
+    } catch (e) {
+      setErr((e as Error).message || t('pt.errDate'));
+      setBusy(false);
+      return;
+    }
+    try {
+      const res = await fetch('/api/phongthuy', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reading, lang })
+      });
+      if (!res.ok) throw new Error('fetch');
+      const interp = await res.json();
+      setResult({ reading, interp });
+    } catch {
+      setErr(t('pt.errFetch'));
+    } finally { setBusy(false); }
+  };
+
+  const selectStyle: React.CSSProperties = {
+    padding: '4px 6px', border: '1px solid var(--line2)', borderRadius: 4,
+    background: 'transparent', color: 'inherit', fontFamily: 'inherit', fontSize: '.9rem',
+  };
+
+  const totColor = (tot: boolean) => tot ? 'var(--sage)' : 'var(--brick)';
+
+  const matchRow = (label: string, r?: { huongNha: Huong; cung: string; tot: boolean; diemThamKhao: number }) => (
+    <div className="lb">
+      <span>{label}</span>
+      <b>
+        {r ? (
+          <>
+            <span style={{ color: totColor(r.tot) }}>{r.huongNha} → {r.cung}</span>
+            {' '}
+            <span className="mini" style={{ opacity: .65 }}>
+              ({r.tot ? t('pt.totYes') : t('pt.totNo')}, {t('pt.score')} {r.diemThamKhao})
+            </span>
+          </>
+        ) : <span className="mini" style={{ opacity: .5 }}>{t('pt.none')}</span>}
+      </b>
+    </div>
+  );
+
+  return (
+    <>
+      <h3 style={{ marginTop: 14 }}>{t('pt.title')}</h3>
+      <Row art="ic-star"
+        right={<button className="ibtn" disabled={!canAnalyze} onClick={doAnalyze}>
+          <span>{busy ? t('pt.thinking') : t('pt.analyze')}</span>
+        </button>}>
+        <b>{t('pt.title')}</b>
+        <span className="sub">{t('pt.blurb')}</span>
+        <span className="mini" style={{ display: 'block', marginTop: 4 }}>{t('pt.useGame')}</span>
+        <div className="trade" style={{ marginTop: 6, gap: 10, flexWrap: 'wrap' }}>
+          <label className="mini" style={{ display: 'flex', flexDirection: 'column', gap: 2, flex: '0 0 80px' }}>
+            <span>{t('pt.birthDay')}</span>
+            <input type="number" min={1} max={31} value={day}
+              onChange={e => setDay(Math.max(1, Math.min(31, +e.target.value || 1)))}
+              style={{ padding: '4px 6px', border: '1px solid var(--line2)', borderRadius: 4, background: 'transparent', color: 'inherit', fontFamily: 'inherit' }} />
+          </label>
+          <label className="mini" style={{ display: 'flex', flexDirection: 'column', gap: 2, flex: 1 }}>
+            <span>{t('pt.gender')}</span>
+            <select value={gender} onChange={e => setGender(e.target.value as 'nam' | 'nu')} style={selectStyle}>
+              <option value="nam">{t('pt.male')}</option>
+              <option value="nu">{t('pt.female')}</option>
+            </select>
+          </label>
+          <label className="mini" style={{ display: 'flex', flexDirection: 'column', gap: 2, flex: 1 }}>
+            <span>{t('pt.houseDir')}</span>
+            <select value={houseDir} onChange={e => setHouseDir(e.target.value as Huong)} style={selectStyle}>
+              {HUONG.map(h => <option key={h} value={h}>{h}</option>)}
+            </select>
+          </label>
+          <label className="mini" style={{ display: 'flex', flexDirection: 'column', gap: 2, flex: 1 }}>
+            <span>{t('pt.kitchenDir')}</span>
+            <select value={kitchenDir} onChange={e => setKitchenDir(e.target.value as Huong | '')} style={selectStyle}>
+              <option value="">{t('pt.none')}</option>
+              {HUONG.map(h => <option key={h} value={h}>{h}</option>)}
+            </select>
+          </label>
+          <label className="mini" style={{ display: 'flex', flexDirection: 'column', gap: 2, flex: 1 }}>
+            <span>{t('pt.bedroomDir')}</span>
+            <select value={bedroomDir} onChange={e => setBedroomDir(e.target.value as Huong | '')} style={selectStyle}>
+              <option value="">{t('pt.none')}</option>
+              {HUONG.map(h => <option key={h} value={h}>{h}</option>)}
+            </select>
+          </label>
+        </div>
+        {err && <span className="sub" style={{ color: 'var(--brick)', display: 'block', marginTop: 4 }}>{err}</span>}
+      </Row>
+
+      {result && (
+        <div className="card" style={{ marginBottom: 10 }}>
+          {/* summary */}
+          <div className="lb"><span>{t('pt.kua')}</span><b>{result.reading.cungPhi}</b></div>
+          <div className="lb"><span>{t('pt.quai')}</span><b>{result.reading.quai}</b></div>
+          <div className="lb"><span>{t('pt.group')}</span><b>{result.reading.nhom}</b></div>
+
+          {/* 4 good directions */}
+          <div className="mini" style={{ textTransform: 'uppercase', letterSpacing: '.4px', marginTop: 8 }}>{t('pt.goodDirs')}</div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 4, marginTop: 4 }}>
+            {result.reading.huongTot.map((h, i) => (
+              <div key={i} className="mini" style={{ padding: '3px 6px', border: '1px solid var(--line)', borderRadius: 4, background: 'rgba(0,0,0,0.02)' }}>
+                <b style={{ color: 'var(--sage)' }}>{h.huong}</b>
+                <span style={{ opacity: .75 }}> · {h.cung}</span>
+              </div>
+            ))}
+          </div>
+
+          {/* 4 bad directions */}
+          <div className="mini" style={{ textTransform: 'uppercase', letterSpacing: '.4px', marginTop: 8 }}>{t('pt.badDirs')}</div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 4, marginTop: 4 }}>
+            {result.reading.huongXau.map((h, i) => (
+              <div key={i} className="mini" style={{ padding: '3px 6px', border: '1px solid var(--line)', borderRadius: 4, background: 'rgba(0,0,0,0.02)' }}>
+                <b style={{ color: 'var(--brick)' }}>{h.huong}</b>
+                <span style={{ opacity: .75 }}> · {h.cung}</span>
+              </div>
+            ))}
+          </div>
+
+          {/* direction matches */}
+          <div className="mini" style={{ textTransform: 'uppercase', letterSpacing: '.4px', marginTop: 10 }}>{t('pt.houseMatch')}</div>
+          <div style={{ marginTop: 4 }}>
+            {matchRow(t('pt.houseDir'), result.reading.huongNha)}
+            {matchRow(t('pt.kitchenDir'), result.reading.huongBep)}
+            {matchRow(t('pt.bedroomDir'), result.reading.huongPhongNgu)}
+          </div>
+
+          {/* today's flying star */}
+          <div className="lb" style={{ marginTop: 8 }}>
+            <span>{t('pt.todayStar')}</span>
+            <b>
+              {result.reading.phiTinhHomNay.saoTrungCung} ({result.reading.phiTinhHomNay.saoInfo.ten}, {result.reading.phiTinhHomNay.saoInfo.hanh})
+            </b>
+          </div>
+
+          {/* LLM interpretation */}
+          <div className="mini" style={{ textTransform: 'uppercase', letterSpacing: '.4px', marginTop: 10 }}>{t('pt.interpretation')}</div>
+          <p style={{ margin: '4px 0 0', fontSize: '.92rem' }}>{result.interp.interpretation}</p>
+          <div className="mini" style={{ textTransform: 'uppercase', letterSpacing: '.4px', marginTop: 8 }}>{t('pt.advice')}</div>
+          <p className="mini" style={{ margin: '4px 0 0' }}>{result.interp.advice}</p>
+          <p className="mini" style={{ marginTop: 6, opacity: .6 }}>{result.reading.ghiChu}</p>
           <p className="mini" style={{ opacity: .6 }}>{t('disc.aiNote')}</p>
         </div>
       )}
