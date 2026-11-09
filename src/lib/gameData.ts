@@ -245,6 +245,37 @@ export const ITEMS: ItemDef[] = [
 ];
 export const ITEM_BY = Object.fromEntries(ITEMS.map(i => [i.id, i]));
 
+// v10.5 — real-world item photos. Mapped by item id; falls back to the SVG
+// <Art> icon when no photo is available. Photos are compressed to ~800px wide.
+export const ITEM_IMAGES: Record<string, string> = {
+  'c-lambo': '/img/items/lambo.jpg',
+  'c-rr': '/img/items/rr.jpg',
+  'c-porsche': '/img/items/porsche.jpg',
+  'c-tesla': '/img/items/tesla.jpg',
+  'w-rolex': '/img/items/rolex.jpg',
+  'w-patek': '/img/items/patek.jpg',
+  'bike-panigale': '/img/items/panigale.jpg',
+  'a-contemp': '/img/items/art.jpg',
+  'p-gulf': '/img/items/gulf.jpg',
+  'y-sunseeker': '/img/items/yacht.jpg',
+};
+// Same mapping keyed by USED_MARKET listing id — used listings inherit the
+// photo of their base item when available.
+export const USED_IMAGES: Record<string, string> = {
+  'u-camry-12y': '/img/items/lambo.jpg',     // closest: a Toyota saloon
+  'u-3-series-8y': '/img/items/porsche.jpg', // BMW M3 — closest sport sedan photo
+  'u-911-22y': '/img/items/porsche.jpg',
+  'u-tesla-4y': '/img/items/tesla.jpg',
+  'u-submariner-30y': '/img/items/rolex.jpg',
+  'u-speedmaster-45y': '/img/items/rolex.jpg', // vintage watch — closest
+  'u-carrera-15y': '/img/items/patek.jpg',     // TAG Heuer — closest sport photo
+  'u-impress-50y': '/img/items/art.jpg',
+  'u-contemp-3y': '/img/items/art.jpg',
+  'u-ghost-5y': '/img/items/rr.jpg',
+  'u-panigale-6y': '/img/items/panigale.jpg',
+  'u-cbr-10y': '/img/items/panigale.jpg',
+};
+
 // ---- v10.4: used market — buy/sell pre-owned cars, watches, art at a discount
 // vs new, but each unit carries an ageYears + condition rating that drives its
 // resale price and upkeep. Listings appear with randomised condition; the

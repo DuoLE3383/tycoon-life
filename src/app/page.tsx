@@ -9,7 +9,7 @@ import { useGame, getState, persist, bump, resetState } from '@/lib/store';
 import {
   START, END_AGE, RETIRE, RESALE_FEE, FOUND_COST, FOUND_MIN_NW, OWN_CLUB_MULT,
   SAVE_RATE, LOAN_RATE, TAX_FREE, TAX_BRACKETS, ALLNEWS, eraOf, NATIONS, INTERESTS, TALENTS, PATHS,
-  analyze, FIELDS, LICENSES, LIC_BY, LIC_FOR, STAGES, BIZ, FARM_LINES, FAC_LINES, ITEM_BY, STOCKS, ASSET_DEPRECIATION_RATE,
+  analyze, FIELDS, LICENSES, LIC_BY, LIC_FOR, STAGES, BIZ, FARM_LINES, FAC_LINES, ITEM_BY, ITEM_IMAGES, USED_IMAGES, STOCKS, ASSET_DEPRECIATION_RATE,
   CLUBS, JOBS, GIGS, SPACE_LINES, TABS, GROUPS, xpNeed, ITEMS, USED_MARKET, HALL_OF_FAME, type FieldKey, type Req,
 } from '@/lib/gameData';
 import {
@@ -217,8 +217,8 @@ export default function Page() {
 type Act = (fn: (st: GameState) => string | null | void) => void;
 type TFn = ReturnType<typeof useT>['t'];
 
-function Row({ art, children, right }: { art: string; children: React.ReactNode; right?: React.ReactNode }) {
-  return <div className="row">{art && <Art id={art} />}<div className="info">{children}</div>{right}</div>;
+function Row({ art, image, children, right }: { art: string; image?: string; children: React.ReactNode; right?: React.ReactNode }) {
+  return <div className="row">{image ? <img className="rowimg" src={asset(image)} alt="" loading="lazy" /> : (art && <Art id={art} />)}<div className="info">{children}</div>{right}</div>;
 }
 function Btn({ ic, label, onClick, disabled, kind, dp }: { ic: string; label: string; onClick?: () => void; disabled?: boolean; kind?: string; dp?: Record<string, string> }) {
   return (
@@ -327,7 +327,7 @@ function HomeTab({ s, act, askAI, aiBusy, aiNote, eraName }: { s: GameState; act
   return (
     <>
       <div className="card hero">
-        <div className="heroimg" style={{ backgroundImage: 'url(' + asset('/img/hero-city.jpg') + ')' }} aria-hidden="true" />
+        <div className="heroimg" style={{ backgroundImage: 'url(' + asset('/img/hero-city-v10.jpg') + ')' }} aria-hidden="true" />
         <div className="herobody">
           <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
             <Art id={stageOf(s.age).art} />
@@ -758,7 +758,7 @@ function AssetsTab({ s, act, curCat, setCurCat }: { s: GameState; act: Act; curC
       {s.lots.length > 0 && (<><h3>{t('myItems')}</h3>
         {s.lots.map((l, idx) => {
           const it = ITEM_BY[l.id], v = lotValue(s, l), resale = v * (1 - RESALE_FEE);
-          return <Row key={idx} art={it.art} right={<div className="trade">
+          return <Row key={idx} art={it.art} image={ITEM_IMAGES[l.id]} right={<div className="trade">
             <Btn ic="ic-social" label={t('used.listLot')} kind="ghost" onClick={() => act(st => postItemListing(st, 'lot', idx))} />
             <Btn ic="ic-down" label={t('sell') + ' ' + fmt(resale)} kind="ghost" onClick={() => act(st => sellLot(st, idx))} />
           </div>}>
@@ -771,7 +771,7 @@ function AssetsTab({ s, act, curCat, setCurCat }: { s: GameState; act: Act; curC
         {s.used.map((u, idx) => {
           const v = usedItemValue(s, u), resale = v * (1 - RESALE_FEE);
           const condTxt = u.condition >= 80 ? 'mint' : u.condition >= 60 ? 'good' : u.condition >= 40 ? 'fair' : 'rough';
-          return <Row key={u.id} art={u.art} right={<div className="trade">
+          return <Row key={u.id} art={u.art} image={USED_IMAGES[u.id]} right={<div className="trade">
             <Btn ic="ic-social" label={t('used.list')} kind="ghost" onClick={() => act(st => postItemListing(st, 'used', idx))} />
             <Btn ic="ic-down" label={t('used.sell') + ' ' + fmt(resale)} kind="ghost" onClick={() => act(st => sellUsed(st, idx))} />
           </div>}>
@@ -794,7 +794,9 @@ function AssetsTab({ s, act, curCat, setCurCat }: { s: GameState; act: Act; curC
             const condTxt = u.condition >= 80 ? 'mint' : u.condition >= 60 ? 'good' : u.condition >= 40 ? 'fair' : 'rough';
             return <button key={u.id} className="tile used-tile" disabled={s.money < u.askPrice}
               onClick={() => act(st => buyUsedItem(st, u))}>
-              <Art id={u.art} />
+              {USED_IMAGES[u.id]
+                ? <img className="tile-photo" src={asset(USED_IMAGES[u.id])} alt={u.name} loading="lazy" />
+                : <Art id={u.art} />}
               <span>
                 <b>{u.brand ? <span className="bchip" style={{ background: u.c }}>{u.brand}</span> : null}{u.name}</b>
                 <span className="sub" style={{ display: 'block' }}>
@@ -827,7 +829,7 @@ function AssetsTab({ s, act, curCat, setCurCat }: { s: GameState; act: Act; curC
             <div className="sub" style={{ marginBottom: 8 }}>{ITEMS.filter(i => i.cat === curCat).length} {t('items')}{LIC_FOR[curCat] ? ` · ${t('lic.' + LIC_FOR[curCat], LIC_BY[LIC_FOR[curCat]].name)}${s.lic[LIC_FOR[curCat]] ? ' ✓' : ''}` : ''}</div>
             {ITEMS.filter(i => i.cat === curCat).map(i => {
               const need = LIC_FOR[curCat], locked = need && !s.lic[need];
-              return <Row key={i.id} art={i.art} right={<Btn ic={locked ? 'ic-lock' : 'ic-bag'} label={locked ? t('needLicence') : fmt(i.price)} disabled={!!locked || s.money < i.price} onClick={() => act(st => buyItem(st, i.id))} />}>
+              return <Row key={i.id} art={i.art} image={ITEM_IMAGES[i.id]} right={<Btn ic={locked ? 'ic-lock' : 'ic-bag'} label={locked ? t('needLicence') : fmt(i.price)} disabled={!!locked || s.money < i.price} onClick={() => act(st => buyItem(st, i.id))} />}>
                 <b>{i.brand ? <span className="bchip" style={{ background: i.c }}>{i.brand}</span> : null}{i.name}</b>
                 <span className="sub">+{i.lux} {t('status')} · {t('loses', '', { n: (Math.abs(Math.min(i.rate, ASSET_DEPRECIATION_RATE)) * 100).toFixed(0) })} · {t('upkeep')} {fmt(i.price * 0.02)}{t('perYear')}</span>
               </Row>;
