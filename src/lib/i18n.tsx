@@ -60,6 +60,13 @@ const D: Record<string, [string, string, string]> = {
   'v11.swapTo': ['Swap to', 'Đổi sang', '换成'],
   'v11.noInterests': ['No interests set yet.', 'Chưa có sở thích nào.', '尚未设置兴趣。'],
   'remaining': ['remaining', 'còn lại', '剩余'],
+  // v11 — business two-path
+  'v11.twoPaths': ['Two paths to open a business', 'Hai đường mở doanh nghiệp', '两条创业路径'],
+  'v11.twoPathsNote': ['Degree path: cheaper, needs the matching degree. Capital path: 2.5× cost + 20% reserve + a hired manager (monthly fee), but no degree required. Each branch rolls a yearly closure risk based on market mood, headcount, and manager quality.', 'Đường bằng: rẻ hơn, cần bằng liên quan. Đường vốn: 2.5× chi phí + 20% dự phòng + thuê quản lý (phí hàng tháng), nhưng không cần bằng. Mỗi chi nhánh lượt rủi ro đóng cửa hằng năm theo tâm trạng thị trường, số nhân sự, chất lượng quản lý.', '学位路径：更便宜，需对应学位。资本路径：2.5 倍成本 + 20% 储备 + 雇经理（月费），但无需学位。每个分店每年按市场情绪、人数、经理素质掷关店风险。'],
+  'v11.degreePath': ['Degree', 'Bằng cấp', '学位'],
+  'v11.capitalPath': ['Capital', 'Vốn', '资本'],
+  'v11.capitalPathSummary': ['Capital: {cost} + 20% reserve · Manager: {manager}/mo · Closure risk: ~{chance}%/yr', 'Vốn: {cost} + 20% dự phòng · Quản lý: {manager}/tháng · Rủi ro đóng cửa: ~{chance}%/năm', '资本：{cost} + 20% 储备 · 经理：{manager}/月 · 关店风险：~{chance}%/年'],
+  'v11.manager': ['manager', 'quản lý', '经理'],
   // ---- age box
   'age': ['Age', 'Tuổi', '年龄'],
   'birthdayIn': ['Birthday in {n} days', 'Sinh nhật sau {n} ngày', '{n} 天后生日'],

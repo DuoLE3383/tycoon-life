@@ -18,7 +18,7 @@ import {
   effYears, tuitionOf, meets, reqText, knowledgeText, snapshot, dateOf,
   processDay, yearEnd,
   doGig, gigReady, gigLock, gigPay, addPost, buySpace, spaceIncome, socialIncome, levelMult,
-  openBranch, buyFarmLine, buyFacLine, buyItem, sellLot, trade, joinClub, leaveClub, foundClub,
+  openBranch, openBranchCapital, capitalPathCost, MANAGER_MONTHLY, rollBranchClosures, buyFarmLine, buyFacLine, buyItem, sellLot, trade, joinClub, leaveClub, foundClub,
   hire, enrollDeg, enrollLic, enrollShortCourse, dropStudySlot, changeInterest, bankOp, donate, applyEventChoice, applyAIChoice, currentEvent, studyWorkMult,
   spaceUpgradeReady, startSpaceUpgrade, spaceUpgradeDays, spaceMultiplier, SPACE_TRAVEL_COST,
   recordActivity, studyPace, sleepHealthMult, sleepHoursOptions,
@@ -724,14 +724,29 @@ function BizTab({ s, act }: { s: GameState; act: Act }) {
   const mult = bizMultiplier(s);
   return (
     <>
+      {/* v11 — two-path explainer */}
+      <div className="card" style={{ marginBottom: 10 }}>
+        <div className="mini" style={{ textTransform: 'uppercase', letterSpacing: '.4px' }}>{t('v11.twoPaths')}</div>
+        <p className="sub" style={{ margin: '4px 0 0' }}>{t('v11.twoPathsNote')}</p>
+      </div>
       {BIZ.map(b => {
         const n = branchCount(s, b.id), c = bizCost(s, b), ok = meets(s, b.req);
-        return <Row key={b.id} art={b.art} right={<Btn ic={ok ? (n ? 'ic-up' : 'ic-plus') : 'ic-x'} label={!ok ? t('needDegree') : n ? t('openBranch') + ' · ' + fmt(c) : t('open') + ' · ' + fmt(c)} disabled={!ok || s.money < c} onClick={() => act(st => openBranch(st, b.id))} />}>
+        const cap = capitalPathCost(s, b);
+        const managerMo = MANAGER_MONTHLY(b.base);
+        const closureChance = Math.max(1, Math.min(35, Math.round((0.04 + (s.eraBiz < 0.9 ? 0.08 : 0) + (n > 5 ? 0.01 * (n - 5) : 0)) * 100)));
+        return <Row key={b.id} art={b.art} right={<div className="trade" style={{ flexWrap: 'wrap' }}>
+          {/* Degree path */}
+          <Btn ic={ok ? (n ? 'ic-up' : 'ic-plus') : 'ic-x'} label={t('v11.degreePath') + ': ' + fmt(c)} kind={ok ? '' : 'ghost'} disabled={!ok || s.money < c} onClick={() => act(st => openBranch(st, b.id))} />
+          {/* Capital path */}
+          <Btn ic="ic-coins" label={t('v11.capitalPath') + ': ' + fmt(cap)} kind="ghost" disabled={s.money < cap + cap * 0.2} onClick={() => act(st => openBranchCapital(st, b.id))} />
+        </div>}>
           <b>{t('biz.' + b.id, b.name)} <span className="tag">{b.ind}</span> <span className="tag">{n} {t('branches')}</span></b>
           <span className="sub">{n ? t('chain') + ': ' : t('openIn', '', { r: b.reg[0] }) + ' (+' + fmt(b.inc * 1.25 * 12) + t('ifSteady') + ') · '}{t('requires')} {reqLabel(b.req)}</span>
+          <span className="mini" style={{ display: 'block', marginTop: 2 }}>{t('v11.capitalPathSummary', '', { cost: fmt(cap), manager: fmt(managerMo), chance: closureChance })}</span>
           {n > 0 && <div>{(s.branches[b.id] || []).map((br, i) => {
             const net = branchNet(s, b, br) * mult;
-            return <span key={i} className={'brchip ' + (net >= 0 ? 'up' : 'dn')}>{b.reg[br.r % b.reg.length]} · {net >= 0 ? '+' : ''}{fmt(net)}/mo · {br.mood >= 1.35 ? t('booming') : br.mood <= .55 ? t('struggling') : t('steady')}</span>;
+            const isCapital = br.paid > c * 1.5; // paid ≥1.5× normal → capital path
+            return <span key={i} className={'brchip ' + (net >= 0 ? 'up' : 'dn')}>{b.reg[br.r % b.reg.length]} · {net >= 0 ? '+' : ''}{fmt(net)}/mo · {br.mood >= 1.35 ? t('booming') : br.mood <= .55 ? t('struggling') : t('steady')}{isCapital ? ' · ' + t('v11.manager') : ''}</span>;
           })}</div>}
         </Row>;
       })}

@@ -616,6 +616,10 @@ export function yearEnd(s: GameState, age: number, rng: () => number = Math.rand
   // already been paid upfront at join time.
   const clubOps = rollClubOpportunities(s, rng);
   if (clubOps) pushLog(s, `Club network: ${clubOps}`);
+  // v11 — branch closure risk. Each branch rolls a closure chance based on
+  // market mood, headcount, and manager quality.
+  const closed = rollBranchClosures(s, rng);
+  if (closed > 0) pushLog(s, `${closed} branch(es) closed this year.`);
   if (rng() < .6) {
     const ev = EVENTS[Math.floor(rng() * EVENTS.length)](s, rng);
     s.money += ev.cash;
@@ -651,6 +655,75 @@ export function openBranch(s: GameState, id: string): string | null {
   pushLog(s, `Opened ${b.name} branch in ${reg}.`);
   addPost(s, `Ribbon cut! New ${b.name} opening in ${reg}.`, 1.2);
   return `Opened a ${b.name} in ${reg}!`;
+}
+// v11 — capital path: open a branch WITHOUT a degree by paying 2.5× the
+// normal cost (capital reserve) and committing to a monthly manager fee.
+// The branch is tagged managerHired=true so branchNet accounts for the
+// manager's quality boost (random 0.8..1.2 multiplier, rolled at open).
+// Requires the player to keep ≥20% of the cost as cash reserve after
+// purchase (so they can't dump everything into one branch).
+export const CAPITAL_PATH_MULT = 2.5;
+export const CAPITAL_RESERVE_PCT = 0.20;
+export const MANAGER_MONTHLY = (base: number) => Math.round(base * 0.015); // ~1.5% of base per month
+export function capitalPathCost(s: GameState, b: { id: string; base: number }): number {
+  return Math.round(bizCost(s, b) * CAPITAL_PATH_MULT);
+}
+export function openBranchCapital(s: GameState, id: string): string | null {
+  const b = BIZ.find(x => x.id === id); if (!b) return null;
+  const c = capitalPathCost(s, b);
+  // Player must have the cost AND a 20% reserve left after paying.
+  if (s.money < c + c * CAPITAL_RESERVE_PCT) return null;
+  s.money -= c;
+  // Manager quality: random 0.8..1.2 — stored in the branch's mood field
+  // (scaled). branchNet reads mood to apply the multiplier.
+  const managerQuality = 0.8 + Math.random() * 0.4;
+  s.branches[b.id] = (s.branches[b.id] || []).concat([{ r: branchCount(s, b.id) % 6, mood: managerQuality, paid: c, day: s.day }]);
+  s.biz[b.id] = branchCount(s, b.id);
+  s.fame = s.fame + 1; // less fame than the degree path — you bought your way in
+  addXp(s, 15);
+  const reg = b.reg[(branchCount(s, b.id) - 1) % b.reg.length];
+  pushLog(s, `Opened ${b.name} via capital path in ${reg} (manager quality ${(managerQuality * 100).toFixed(0)}%).`);
+  addPost(s, `Bought my way into ${b.name} — ${reg}. The manager starts Monday.`, 1.1);
+  return `Opened ${b.name} (capital path) in ${reg}!`;
+}
+// v11 — monthly closure risk per branch. Rolled in yearEnd. Based on:
+//   - market mood (eraBiz / eraFac — a down era raises closure odds)
+//   - headcount (more branches = more exposure)
+//   - manager quality (mood < 0.9 raises odds)
+// Returns the number of branches that closed this roll.
+export function rollBranchClosures(s: GameState, rng: () => number = Math.random): number {
+  let closed = 0;
+  for (const bizId of Object.keys(s.branches)) {
+    const list = s.branches[bizId];
+    const kept: Branch[] = [];
+    for (const br of list) {
+      // Base closure chance 4%/year, modified by:
+      //   manager quality (mood < 0.9 → +6%, mood > 1.05 → −2%)
+      //   era downturn (eraBiz < 0.9 → +8%)
+      //   branch count > 5 (+1% each)
+      let chance = 0.04;
+      if (br.mood < 0.9) chance += 0.06;
+      if (br.mood > 1.05) chance -= 0.02;
+      if (s.eraBiz < 0.9) chance += 0.08;
+      const count = list.length;
+      if (count > 5) chance += 0.01 * (count - 5);
+      chance = Math.max(0.01, Math.min(0.35, chance));
+      if (rng() < chance) {
+        closed++;
+        pushLog(s, `${BIZ.find(x => x.id === bizId)?.name || bizId} branch closed (market + management risk).`);
+      } else {
+        kept.push(br);
+      }
+    }
+    s.branches[bizId] = kept;
+    s.biz[bizId] = kept.length;
+    if (kept.length === 0) {
+      delete s.branches[bizId];
+      delete s.biz[bizId];
+    }
+  }
+  if (closed > 0) addPost(s, `Tough quarter — ${closed} branch(es) closed. The market does not wait.`, 0.8);
+  return closed;
 }
 export function buyFarmLine(s: GameState, id: string): string | null {
   const l = FARM_LINES.find(x => x.id === id); if (!l || s.farm[l.id]) return null;
