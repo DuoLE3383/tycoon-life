@@ -202,6 +202,32 @@ export const NPCS: NPCDef[] = [
   { id: 'priya', name: 'Priya Sharma', gender: 'f', nation: 'India', age: 33, career: 'Biotech founder', interests: ['science', 'money', 'helping'], vibe: 'ambitious', blurb: 'Wants to cure a disease before 40. Already has two patents and a series B.', art: 'j-mgr' },
 ];
 export const NPC_BY: Record<string, NPCDef> = Object.fromEntries(NPCS.map(n => [n.id, n]));
+
+// v10.5 — pets. Each pet type has an upfront adoption cost, a monthly
+// upkeep, and a passive bonus (spirit / fame / health). Happiness decays
+// if not cared for; low happiness reduces the bonus and can eventually
+// drop the pet's health. The player can own up to 3 pets at once.
+export interface PetDef {
+  id: string;
+  name: string;
+  art: string;
+  cost: number;       // adoption fee
+  upkeep: number;     // monthly upkeep cost
+  spiritBonus: number; // flat spirit regen per game-day when happy
+  fameBonus: number;   // passive fame per game-year
+  healthDrain: number; // health lost per game-day when neglected (happiness 0)
+  blurb: string;
+}
+export const PETS: PetDef[] = [
+  { id: 'dog', name: 'Dog', art: 'ic-paw', cost: 500, upkeep: 80, spiritBonus: 0.3, fameBonus: 0, healthDrain: 0, blurb: 'Loyal. Walks you as much as you walk it.' },
+  { id: 'cat', name: 'Cat', art: 'ic-paw', cost: 300, upkeep: 50, spiritBonus: 0.25, fameBonus: 0, healthDrain: 0, blurb: 'Picks you. The contract is non-negotiable.' },
+  { id: 'parrot', name: 'Parrot', art: 'ic-paw', cost: 1500, upkeep: 120, spiritBonus: 0.2, fameBonus: 1, healthDrain: 0, blurb: 'Outlives most plans. Will learn your best lines.' },
+  { id: 'horse', name: 'Horse', art: 'ic-paw', cost: 8000, upkeep: 600, spiritBonus: 0.5, fameBonus: 3, healthDrain: 0, blurb: 'Riding clears the inbox in your head faster than email.' },
+  { id: 'koi', name: 'Koi pond', art: 'ic-paw', cost: 5000, upkeep: 100, spiritBonus: 0.15, fameBonus: 2, healthDrain: 0, blurb: 'A living watercolour. Some outlive tycoons.' },
+  { id: 'tiger', name: 'Tiger (exotic)', art: 'ic-paw', cost: 50000, upkeep: 2000, spiritBonus: 0.8, fameBonus: 12, healthDrain: 0.05, blurb: 'Not legal everywhere. Definitely a conversation starter.' },
+];
+export const PET_BY: Record<string, PetDef> = Object.fromEntries(PETS.map(p => [p.id, p]));
+export const MAX_PETS = 3;
 export const PATHS: Record<FieldKey, { jobs: string; biz: string }> = {
   business: { jobs: 'Accountant, Project manager, Marketing director, Executive director', biz: 'Convenience store, Boutique hotel, Private bank, Conglomerate' },
   engineering: { jobs: 'Software engineer, Lead engineer', biz: 'Factory, Software studio' },

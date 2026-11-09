@@ -7,7 +7,7 @@ import {
   LEVEL_INCOME_BONUS, xpNeed, GIGS, SPACE_LINES,
   ALLNEWS, YEAR_EVENTS, eraOf, FIELDS, LICENSES, LIC_BY, LIC_FOR, STAGES,
   BIZ, FARM_LINES, FAC_LINES, ITEM_BY, STOCKS, CLUBS, JOBS, BOTS,
-  NPC_BY,
+  NPC_BY, PET_BY, MAX_PETS,
   analyze, type FieldKey, type LineDef, type Req, type GigDef, type SpaceDef, type Rarity, RARITY_MULT, itemRarity, POST_TEMPLATES
 } from './gameData';
 
@@ -60,6 +60,10 @@ export interface GameState {
   // Keyed by NPC id. friendship is -100..100 (hostile to best friend);
   // romance is 0..100 (only meaningful for one NPC at a time).
   relations: Record<string, { friendship: number; romance: number; lastInteract: number; interactions: number }>;
+  // v10.5 — pets. Up to MAX_PETS (3). Each tracks happiness + health + care
+  // history. Happiness decays each game-day; below 30, bonuses stop and the
+  // pet's own health starts dropping. Caring (feed / play / walk) raises it.
+  pets: { typeId: string; name: string; happiness: number; health: number; adoptedDay: number; lastCare: number }[];
 }
 
 // ---------- wellbeing: body & mind ----------
@@ -257,7 +261,7 @@ export function fresh(): GameState {
     level: 1, xp: 0, gigs: {}, space: {}, social: { followers: 0, posts: [] },
     health: 92, spirit: 18, karma: 0, diet: false, well: {}, cause: null,
     sleepHours: 8, timeline: [], ach: [],
-    used: [], hall: null, pastLives: [], relations: {}
+    used: [], hall: null, pastLives: [], relations: {}, pets: []
   };
   STOCKS.forEach(x => { s.prices[x.id] = x.p; s.hist[x.id] = [x.p]; });
   return s;
@@ -295,6 +299,7 @@ export function migrate(raw: unknown): GameState {
   s.hall = s.hall || null;
   s.pastLives = Array.isArray(s.pastLives) ? s.pastLives : [];
   s.relations = s.relations && typeof s.relations === 'object' ? s.relations : {};
+  s.pets = Array.isArray(s.pets) ? s.pets : [];
   s.branches = s.branches || {};
   s.farm = s.farm || {}; s.fac = s.fac || {}; s.space = s.space || {};
   s.farmBought = s.farmBought || {}; s.facBought = s.facBought || {}; s.spaceBought = s.spaceBought || {};
@@ -472,6 +477,8 @@ export function processDay(s: GameState, d: number, rng: () => number = Math.ran
   const studies = [s.study, s.sideStudy].filter((study): study is Study => !!study);
   if (studies.length) routine.push(`Study: ${studies.map(study => study.name).join(' + ')}`);
   recordActivity(s, routine.join(' · '), d);
+  // v10.5 — pet passive effects (spirit regen + neglect health-drain).
+  tickPets(s);
   // Sleep trades study time for health recovery; other wellbeing modifiers still apply.
   const dhp = ageDecayPerDay(s.age) * sleepHealthMult(s.sleepHours) * (s.diet ? .55 : 1) * (s.spirit >= 70 ? .85 : 1);
   s.health = Math.max(0, s.health - dhp * (0.75 + rng() * 0.5));
@@ -565,6 +572,9 @@ export function yearEnd(s: GameState, age: number, rng: () => number = Math.rand
   pushLog(s, `Happy birthday. You are now ${age}.`);
   if (age === RETIRE) { s.job = null; s.sideJob = null; pushLog(s, 'You retired. Your pension starts.'); }
   if (s.fame > 0) s.fame = Math.max(0, Math.round(s.fame * .92));
+  // v10.5 — pets grant passive fame per year (only happy pets).
+  const petFame = petFameBonus(s);
+  if (petFame > 0) s.fame = s.fame + petFame;
   if (rng() < .6) {
     const ev = EVENTS[Math.floor(rng() * EVENTS.length)](s, rng);
     s.money += ev.cash;
@@ -1201,6 +1211,92 @@ export function proposeToNPC(s: GameState, npcId: string): string | null {
   s.fame = s.fame + 3;
   addXp(s, 40);
   return `Now dating ${npc.name}.`;
+}
+
+// ---------- v10.5: pets ----------
+// Adopt a pet (up to MAX_PETS). Cost is the adoption fee; the player can
+// name the pet. Passive bonuses (spirit / fame / health-drain) start
+// applying on the next tick.
+export function adoptPet(s: GameState, typeId: string, name: string): string | null {
+  const def = PET_BY[typeId]; if (!def) return null;
+  if (s.pets.length >= MAX_PETS) return `You already have ${MAX_PETS} pets — find a home for one first.`;
+  if (s.money < def.cost) return null;
+  s.money -= def.cost;
+  s.pets.push({
+    typeId, name: (name || def.name).slice(0, 24),
+    happiness: 80, health: 100, adoptedDay: s.day, lastCare: s.day
+  });
+  pushLog(s, `Adopted a ${def.name}${name ? ' named ' + name : ''}.`);
+  addPost(s, `New family member today: a ${def.name}${name ? ' named ' + name : ''}. The office will never be the same.`, 1.3);
+  s.spirit = Math.min(100, s.spirit + 5);
+  return `Adopted a ${def.name}!`;
+}
+// Care actions: feed / play / walk. Each raises happiness, costs cash or
+// time. 1-day cooldown per pet per action.
+export function careForPet(s: GameState, idx: number, action: 'feed' | 'play' | 'walk'): string | null {
+  const pet = s.pets[idx]; if (!pet) return null;
+  if (s.lastDay - pet.lastCare < 1) return 'Give them a day.';
+  const def = PET_BY[pet.typeId]; if (!def) return null;
+  pet.lastCare = s.day;
+  switch (action) {
+    case 'feed': {
+      const cost = Math.round(def.upkeep * 0.5);
+      if (s.money < cost) return null;
+      s.money -= cost;
+      pet.happiness = Math.min(100, pet.happiness + 8);
+      pet.health = Math.min(100, pet.health + 3);
+      return `Fed ${pet.name}: +8 happiness, +3 health.`;
+    }
+    case 'play': {
+      // Free; small happiness + small spirit regen to the player
+      pet.happiness = Math.min(100, pet.happiness + 6);
+      s.spirit = Math.min(100, s.spirit + 2);
+      return `Played with ${pet.name}: +6 happiness, +2 spirit.`;
+    }
+    case 'walk': {
+      // Free; bigger happiness + small health regen to the player (only dogs)
+      if (pet.typeId !== 'dog' && pet.typeId !== 'horse') return `${def.name}s don't really walk.`;
+      pet.happiness = Math.min(100, pet.happiness + 10);
+      s.health = Math.min(100, s.health + 2);
+      return `Walked ${pet.name}: +10 happiness, +2 health.`;
+    }
+  }
+}
+// Give away a pet (free, no refund). Used when the player hits MAX_PETS
+// and wants to swap, or when a pet's health has collapsed.
+export function abandonPet(s: GameState, idx: number): string | null {
+  const pet = s.pets[idx]; if (!pet) return null;
+  const def = PET_BY[pet.typeId];
+  s.pets.splice(idx, 1);
+  pushLog(s, `Rehomed ${pet.name}.`);
+  s.spirit = Math.max(0, s.spirit - 5);
+  if (pet.happiness < 30) s.karma -= 2;
+  return `Rehomed ${pet.name} the ${def?.name || 'pet'}.`;
+}
+// Passive pet effects per game-day. Called from processDay. Applies the
+// spiritBonus when the pet is happy (≥30), drains healthDrain when neglected.
+export function tickPets(s: GameState): void {
+  for (const pet of s.pets) {
+    const def = PET_BY[pet.typeId]; if (!def) continue;
+    // Happiness decays ~1.5/day; health follows happiness.
+    pet.happiness = Math.max(0, pet.happiness - 1.5);
+    if (pet.happiness < 30) pet.health = Math.max(0, pet.health - 1);
+    // Apply passive bonus only if the pet is happy enough.
+    if (pet.happiness >= 30) {
+      s.spirit = Math.min(100, s.spirit + def.spiritBonus);
+    }
+    if (def.healthDrain > 0 && pet.happiness < 30) {
+      // Exotic pets that aren't cared for can hurt the player's health too.
+      s.health = Math.max(0, s.health - def.healthDrain);
+    }
+  }
+}
+// Passive fame per year from pets — called from yearEnd.
+export function petFameBonus(s: GameState): number {
+  return s.pets.reduce((sum, pet) => {
+    const def = PET_BY[pet.typeId];
+    return sum + (def && pet.happiness >= 30 ? def.fameBonus : 0);
+  }, 0);
 }
 function finishStudy(s: GameState, study: Study, rng: () => number): void {
   if (study.kind === 'deg' && study.field) s.deg[study.field] = study.lvl!;
