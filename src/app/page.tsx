@@ -64,16 +64,16 @@ if (typeof window !== 'undefined') {
   };
 }
 
-// v11.7 — the bundled version. The /version.json file in /public is polled
+// v11.8 — the bundled version. The /version.json file in /public is polled
 // every 5 minutes; if its version is newer than this, a "reload to update"
 // banner appears even in a running session (no F5 needed).
-const BUNDLED_VERSION = 'v11.7';
+const BUNDLED_VERSION = 'v11.8';
 const VERSION_POLL_MS = 5 * 60 * 1000;
 const SEEN_KEY = 'tycoon_seen_' + BUNDLED_VERSION;
 
 export default function Page() {
   const { s } = useGame();
-  const { t } = useT();
+  const { t, lang } = useT();
   const [tab, setTab] = useState('home');
   const [lastTab, setLastTab] = useState<Record<string, string>>({});
   const activeGroup = GROUPS.find(g => g[3].some(([k]) => k === tab))?.[0] || 'life';
@@ -195,7 +195,7 @@ export default function Page() {
       try {
         const res = await fetch(asset('/api/story'), {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ state: snap, used: st.story.used, kind })
+          body: JSON.stringify({ state: snap, used: st.story.used, kind, lang })
         });
         if (res.ok) {
           const j = await res.json();
@@ -203,7 +203,7 @@ export default function Page() {
         }
       } catch { /* fall through to local */ }
     }
-    if (!ev) { try { ev = localTwist(snap, st.story.used, kind); } catch { ev = null; } }
+    if (!ev) { try { ev = localTwist(snap, st.story.used, kind, lang); } catch { ev = null; } }
     if (ev) {
       st.aiEv = ev;
       setAiNoteKey(
@@ -382,7 +382,7 @@ function Header({ s, eraName }: { s: GameState; eraName: (y: number) => string }
     <header className="top">
       <div className="brand">
         <Art id="s-coin" className="logo" />
-        <div><h1>MOGUL <span className="mini">v11.7</span></h1>
+        <div><h1>MOGUL <span className="mini">v11.8</span></h1>
           <div className="mini">{s.started ? `${s.nation} · ${eraName(worldYear(s))}` : t('tagline')}</div></div>
       </div>
       <div><div className="mini">{t('cash')}</div><div id="tcash" style={{ color: s.money < 0 ? 'var(--brick)' : undefined }}>{fmt(s.money)}</div>
@@ -558,10 +558,12 @@ function HomeTab({ s, act, askAI, aiBusy, aiNote, eraName }: { s: GameState; act
         })}
       </div>
 
-      <button id="twork" className="ibtn ghost tai" style={{ width: '100%', justifyContent: 'center', margin: '12px 0 4px' }} onClick={askAI} disabled={aiBusy}>
-        {Ic({ id: 'ic-ai', className: 'si' })}<span>{aiBusy ? t('oracle.thinking') : t('oracle.ask')}</span>
-      </button>
-      <p className="sub">{aiNote}</p>
+      {/* v11.8 — manual "Ask AI" button removed. The oracle now fires only via
+          the auto-popup effect (engine sets s.aiEvPending with ~3% chance/game-day).
+          The status note below is kept so players still see where a twist came
+          from after it pops up (e.g. "Written by backend LLM…"). */}
+      {aiBusy && <p className="sub">{t('oracle.thinking')}</p>}
+      {!aiBusy && aiNote && <p className="sub">{aiNote}</p>}
 
       <h3>{t('inWorld', '', { y, era: eraName(y) })}</h3>
       <div className="card" style={{ marginBottom: 10 }}>

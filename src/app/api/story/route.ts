@@ -12,10 +12,25 @@ import { NextRequest, NextResponse } from 'next/server';
 import ZAI from 'z-ai-web-dev-sdk';
 import { localTwist, pickKind } from '@/lib/story';
 import type { AIEvent, AIEventKind } from '@/lib/engine';
+import type { Lang } from '@/lib/i18n';
 
 const LLM_BASE_URL = process.env.LLM_BASE_URL || 'http://0.0.0.0:8888';
 const LLM_MODEL = process.env.LLM_MODEL || 'qwen2.5:7b';
 const LLM_TIMEOUT_MS = Number(process.env.LLM_TIMEOUT_MS || 20000);
+
+// v11.8 — language directive injected into the LLM system prompt so the
+// response (title, text, choice labels, outcomes) is written in the player's
+// UI language, not always English.
+const LANG_NAME: Record<Lang, string> = {
+  en: 'English',
+  vi: 'Tiếng Việt (Vietnamese)',
+  zh: '简体中文 (Simplified Chinese)'
+};
+const LANG_DIRECTIVE: Record<Lang, string> = {
+  en: 'Write the title, text, choice labels, and outcomes in English.',
+  vi: 'Write the title, text, choice labels, and outcomes in Tiếng Việt (Vietnamese). Do NOT use English.',
+  zh: '请用简体中文撰写 title、text、choice labels 和 outcomes。不要使用英文。'
+};
 
 const DIRECTIONS_BY_KIND: Record<AIEventKind, string[]> = {
   story: [
@@ -165,10 +180,11 @@ export async function POST(req: NextRequest) {
       { status: 429, headers: { 'Retry-After': '60' } }
     );
   }
-  let body: { state?: Record<string, unknown>; used?: string[]; kind?: AIEventKind } = {};
+  let body: { state?: Record<string, unknown>; used?: string[]; kind?: AIEventKind; lang?: Lang } = {};
   try { body = await req.json(); } catch { /* ignore */ }
   const state = body.state || {};
   const used = Array.isArray(body.used) ? body.used.slice(-24) : [];
+  const lang: Lang = (['en', 'vi', 'zh'].includes(body.lang as string) ? body.lang : 'en') as Lang;
   // Honour the kind the client picked, or sample one from the snapshot.
   const kind: AIEventKind = (['story', 'luck', 'badluck', 'lifestage'].includes(body.kind as string))
     ? (body.kind as AIEventKind)
@@ -184,11 +200,12 @@ export async function POST(req: NextRequest) {
     'The event must fit the player\'s exact situation: their era, country, age, wealth, career, businesses and family.',
     'Mention ONE concrete detail from the player\'s snapshot.',
     'It must NOT repeat any premise listed in "avoidThesePremises" and must not be generic.',
+    LANG_DIRECTIVE[lang],
     'Respond with ONLY a JSON object, no markdown, in this exact shape:',
     '{"title": string (max 60 chars), "text": string (2-3 sentences, second person), "kind": "' + kind + '", "choices": [{"l": string (max 40 chars), "cost": number (optional money paid), "money": number (optional money gained, can be negative for a loss), "fame": number (optional -10..10), "decline": number (optional 1..20, health/spirit hit), "dropout": {"slot": "study"|"sideStudy"} (optional, only for lifestage), "liquidate": {"biz": string, "n": number} (optional, only for lifestage), "out": string (result sentence)}]}',
     'Give exactly 2 or 3 meaningful choices with different trade-offs.'
   ].filter(Boolean).join(' ');
-  const user = JSON.stringify({ player: state, avoidThesePremises: used, direction, kind });
+  const user = JSON.stringify({ player: state, avoidThesePremises: used, direction, kind, responseLanguage: LANG_NAME[lang] });
 
   // 1. Try the local LLM first (0.0.0.0:8888 by default).
   try {
@@ -230,6 +247,6 @@ export async function POST(req: NextRequest) {
   }
 
   // 3. Final fallback — deterministic local template engine.
-  const local = localTwist(state as Parameters<typeof localTwist>[0], used, kind);
+  const local = localTwist(state as Parameters<typeof localTwist>[0], used, kind, lang);
   return NextResponse.json(local);
 }

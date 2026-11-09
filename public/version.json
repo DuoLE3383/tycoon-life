@@ -1,12 +1,14 @@
 {
-  "version": "v11.7",
+  "version": "v11.8",
   "releasedAt": "2026-11-10",
-  "headline": "MOGUL v11.7 — fix AI oracle popup + tarot cooldown",
-  "summary": "Bug fixes: the random AI oracle popup was too rare to ever see (1% chance/day, 6-month play-time threshold) — now 3% chance/day with a 30-day threshold (~10 min real time). The Tarot draw button was incorrectly disabled when lastDrawDay=0 (fresh state) — now matches the engine logic: the first draw is always allowed; the 30-day cooldown applies only after the first draw.",
+  "headline": "MOGUL v11.8 — hide Ask AI button + fix AI translations",
+  "summary": "Two focused fixes: (1) the manual 'Ask AI' button on the home tab is removed — the oracle now fires only via the random auto-popup effect (engine sets s.aiEvPending with ~3% chance/game-day). (2) AI event boxes that previously showed English text to VI/ZH players, or mixed-language/garbled text, are now localised: the /api/story request carries the player's UI language, the LLM system prompt instructs the model to respond in that language, and all 24 local fallback templates in story.ts are translated into Tiếng Việt and 简体中文. A legacy bug where the English template 'Sell the company?' accidentally contained the Chinese word 签字笔 ('signing pen') is also fixed.",
   "features": [
-    "AI oracle popup: chance raised from 1% to 3% per game-day (avg popup per 33 game-days → 11 game-days)",
-    "AI oracle popup: play-time threshold lowered from 180 days to 30 days (~10 min real time, was ~60 min)",
-    "Tarot draw button: no longer disabled on fresh state; cooldown only applies after first draw",
-    "Version bumped to v11.7 on homepage + version.json"
+    "AI oracle: manual 'Ask AI' button removed from Home tab; auto-popup remains the only trigger (~3% chance/game-day, 30-day play-time threshold)",
+    "AI oracle: /api/story now accepts a 'lang' field in the request body; the LLM system prompt explicitly instructs the model to write title, text, choice labels, and outcomes in the player's UI language (EN/VI/ZH)",
+    "AI oracle: when the LLM is unreachable, the 24 local fallback templates in story.ts are now localised into Tiếng Việt and 简体中文 (previously English-only — this was the root cause of 'các ô hiện ra từ AI dịch ko đúng hoặc không dịch')",
+    "story.ts: fixed legacy bug where the 'Sell the company?' English template accidentally contained the Chinese word 签字笔 mixed into English text",
+    "story.ts: dedup of already-seen events now uses the canonical English title so existing saves (which stored English titles throughout v10–v11.7) remain compatible",
+    "Version bumped to v11.8 on homepage header + version.json"
   ]
 }
