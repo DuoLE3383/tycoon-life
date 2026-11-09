@@ -91,6 +91,11 @@ export const ART_DEFS = `<svg width="0" height="0" style="position:absolute" ari
 <symbol id="s-lunar" viewBox="0 0 48 48"><circle cx="24" cy="24" r="14" fill="#d8d2c4"/><circle cx="19" cy="20" r="3" fill="#b5ac97"/><circle cx="29" cy="28" r="2.2" fill="#b5ac97"/><circle cx="25" cy="15.5" r="1.6" fill="#b5ac97"/><path d="M38 12l6 3-6 3z" fill="#b3a179"/><path d="M38 12v12" stroke="#b3a179" stroke-width="1.6"/></symbol>
 <symbol id="s-mars" viewBox="0 0 48 48"><circle cx="24" cy="24" r="14" fill="#b06a5b"/><path d="M14 20q6-4 12 0t10-2M16 30q5-3 10 0t9-2" fill="none" stroke="#8a5346" stroke-width="2"/><circle cx="38" cy="12" r="3" fill="#d8d2c4"/></symbol>
 <symbol id="img-none" viewBox="0 0 48 48"><rect x="6" y="6" width="36" height="36" rx="4" fill="#e3dfd6"/></symbol>
+<symbol id="i-coin" viewBox="0 0 48 48"><circle cx="24" cy="24" r="14" fill="#ca8a04"/><circle cx="24" cy="24" r="10" fill="none" stroke="#fde68a" stroke-width="1.5"/><text x="24" y="29" font-size="14" text-anchor="middle" fill="#fde68a" font-family="serif">$</text></symbol>
+<symbol id="i-stamp" viewBox="0 0 48 48"><rect x="10" y="10" width="28" height="28" rx="2" fill="#15803d" stroke="#f4f2ec" stroke-width="1.5" stroke-dasharray="3 2"/><rect x="14" y="14" width="20" height="20" fill="#f4f2ec"/><circle cx="24" cy="24" r="6" fill="#15803d"/><path d="M24 21v6M21 24h6" stroke="#f4f2ec" stroke-width="1.5"/></symbol>
+<symbol id="i-wine" viewBox="0 0 48 48"><path d="M16 8h16l-2 14a6 6 0 0 1-12 0z" fill="#7f1d1d"/><path d="M24 22v14M18 36h12" stroke="#7a5c40" stroke-width="2"/><path d="M16 8h16" fill="none" stroke="#b06a5b" stroke-width="2"/></symbol>
+<symbol id="i-vase" viewBox="0 0 48 48"><path d="M16 8h16v6q0 4-3 6v18a4 4 0 0 1-8 0V20q-3-2-3-6z" fill="#0c4a6e"/><path d="M16 8h16M19 14h10" stroke="#f4f2ec" stroke-width="1.5"/></symbol>
+<symbol id="i-violin" viewBox="0 0 48 48"><path d="M16 30q-4-4-4-8a8 8 0 0 1 16 0q0 4-4 8l-2 8a4 4 0 0 1-8 0z" fill="#92400e"/><path d="M22 4v18M22 26v8" stroke="#f4f2ec" stroke-width="1.5"/><circle cx="20" cy="34" r="1" fill="#f4f2ec"/><circle cx="24" cy="36" r="1" fill="#f4f2ec"/></symbol>
 </defs></svg>`;
 
 export function Art({ id, className = 'art' }: { id: string; className?: string }) {

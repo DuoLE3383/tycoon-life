@@ -1,5 +1,5 @@
 'use client';
-// HuyenBao v11.17 — React edition. Two-level grouped nav, a systems links map,
+// HuyenBao v11.18 — React edition. Two-level grouped nav, a systems links map,
 // gigs, levels, social, the cosmic frontier, EN/VI/中文, LLM oracle with
 // random kind dispatch (luck / setback / life-stage / story), pre-owned
 // market + social listings, and a Hall of Fame tab.
@@ -10,7 +10,7 @@ import {
   START, END_AGE, RETIRE, RESALE_FEE, FOUND_COST, FOUND_MIN_NW, OWN_CLUB_MULT,
   SAVE_RATE, LOAN_RATE, TAX_FREE, TAX_BRACKETS, ALLNEWS, eraOf, NATIONS, NAME_POOLS, INTERESTS, TALENTS, PATHS,
   analyze, FIELDS, LICENSES, LIC_BY, LIC_FOR, STAGES, BIZ, FARM_LINES, FAC_LINES, ITEM_BY, ITEM_IMAGES, USED_IMAGES, STOCKS, ASSET_DEPRECIATION_RATE,
-  CLUBS, JOBS, GIGS, SPACE_LINES, TABS, GROUPS, xpNeed, ITEMS, USED_MARKET, HALL_OF_FAME, itemRarity, RARITY_COLOR, NPCS, NPC_BY, PETS, PET_BY, MAX_PETS, CREW_COST, SHORT_COURSES, SHORT_BY, BOTS, type Rarity, type FieldKey, type Req,
+  CLUBS, JOBS, GIGS, SPACE_LINES, TABS, GROUPS, xpNeed, ITEMS, USED_MARKET, HALL_OF_FAME, itemRarity, RARITY_COLOR, NPCS, NPC_BY, PETS, PET_BY, MAX_PETS, CREW_COST, SHORT_COURSES, SHORT_BY, BOTS, type Rarity, type FieldKey, type Req, type ItemDef, type UsedItem,
 } from '@/lib/gameData';
 import {
   fmt, taxOf, fresh, begin, tick, applyOffline, stageOf, worldYear, branchCount, bizCost, clubMult, branchNet, fameBonus, bizMultiplier,
@@ -71,7 +71,7 @@ if (typeof window !== 'undefined') {
 // v11.8 — the bundled version. The /version.json file in /public is polled
 // every 5 minutes; if its version is newer than this, a "reload to update"
 // banner appears even in a running session (no F5 needed).
-const BUNDLED_VERSION = 'v11.17';
+const BUNDLED_VERSION = 'v11.18';
 const VERSION_POLL_MS = 5 * 60 * 1000;
 const SEEN_KEY = 'tycoon_seen_' + BUNDLED_VERSION;
 
@@ -444,7 +444,7 @@ function Header({ s, eraName }: { s: GameState; eraName: (y: number) => string }
     <header className="top">
       <div className="brand">
         <Art id="s-coin" className="logo" />
-        <div><h1><span className="mini">v11.17</span> HuyenBao</h1>
+        <div><h1><span className="mini">v11.18</span> HuyenBao</h1>
           <div className="mini">{s.started ? `${s.nation} · ${eraName(worldYear(s))}` : t('tagline')}</div></div>
       </div>
       <div><div className="mini">{t('cash')}</div><div id="tcash" style={{ color: s.money < 0 ? 'var(--brick)' : undefined }}>{fmt(s.money)}</div>
@@ -1649,11 +1649,16 @@ function TarotSpreadPanel() {
 // v10.5: renamed from ShopTab. The "buy/sell" of physical items now lives
 // under the Portfolio → Assets tab, alongside the player's owned items +
 // pre-owned market + social listings + (new) repair/restore workshop.
-const CATART: Record<string, string> = { 'Sport bike': 'i-bike', 'Phone': 'i-phone', 'Watch': 'i-watch', 'Jewelry': 'i-ring', 'Suit': 'i-suit', 'Car': 'i-lambo', 'Property': 'i-house', 'Yacht': 'i-yacht', 'Private jet': 'i-jet', 'Art': 'i-art' };
+const CATART: Record<string, string> = { 'Sport bike': 'i-bike', 'Phone': 'i-phone', 'Watch': 'i-watch', 'Jewelry': 'i-ring', 'Suit': 'i-suit', 'Car': 'i-lambo', 'Property': 'i-house', 'Yacht': 'i-yacht', 'Private jet': 'i-jet', 'Art': 'i-art', 'Collectibles': 'i-coin' };
 
 function AssetsTab({ s, act, curCat, setCurCat }: { s: GameState; act: Act; curCat: string | null; setCurCat: (c: string | null) => void }) {
   const { t } = useT();
   const cats = [...new Set(ITEMS.map(i => i.cat))];
+  // v11.18 — pending purchase confirmation. Clicking "buy" on a new or used
+  // item no longer fires buyItem/buyUsedItem directly; instead it opens this
+  // modal so the player can review price + cash-after + upkeep + rarity and
+  // confirm or cancel. Lets the player back out if they clicked by mistake.
+  const [pendingBuy, setPendingBuy] = useState<{ kind: 'new'; item: ItemDef } | { kind: 'used'; used: UsedItem } | null>(null);
   // Surface 6 used listings, shuffled deterministically by the current
   // game-year so the listings rotate as the player ages.
   const y = worldYear(s);
@@ -1728,7 +1733,7 @@ function AssetsTab({ s, act, curCat, setCurCat }: { s: GameState; act: Act; curC
             const off = Math.max(0, Math.round((1 - u.askPrice / u.newPrice) * 100));
             const condTxt = u.condition >= 80 ? 'mint' : u.condition >= 60 ? 'good' : u.condition >= 40 ? 'fair' : 'rough';
             return <button key={u.id} className="tile used-tile" disabled={s.money < u.askPrice}
-              onClick={() => act(st => buyUsedItem(st, u))}>
+              onClick={() => setPendingBuy({ kind: 'used', used: u })}>
               {USED_IMAGES[u.id]
                 ? <img className="tile-photo" src={asset(USED_IMAGES[u.id])} alt={u.name} loading="lazy" />
                 : <Art id={u.art} />}
@@ -1768,7 +1773,7 @@ function AssetsTab({ s, act, curCat, setCurCat }: { s: GameState; act: Act; curC
               const irar = itemRarity(i);
               const crew = CREW_COST[curCat] || 0;
               const crewNow = crew > 0 ? ((curCat === 'Yacht' && s.lic['boat']) || (curCat === 'Private jet' && s.lic['pilot']) ? Math.round(crew / 2) : crew) : 0;
-              return <Row key={i.id} art={i.art} image={ITEM_IMAGES[i.id]} right={<Btn ic={locked ? 'ic-lock' : 'ic-bag'} label={locked ? t('needLicence') : fmt(i.price)} disabled={!!locked || s.money < i.price} onClick={() => act(st => buyItem(st, i.id))} />}>
+              return <Row key={i.id} art={i.art} image={ITEM_IMAGES[i.id]} right={<Btn ic={locked ? 'ic-lock' : 'ic-bag'} label={locked ? t('needLicence') : fmt(i.price)} disabled={!!locked || s.money < i.price} onClick={() => setPendingBuy({ kind: 'new', item: i })} />}>
                 <b>{i.brand ? <span className="bchip" style={{ background: i.c }}>{i.brand}</span> : null}{i.name} <span className="rarity-chip" data-rarity={irar} style={{ '--rc': RARITY_COLOR[irar] } as React.CSSProperties}>{t('rarity.' + irar)}</span></b>
                 <span className="sub">+{i.lux} {t('status')} · {t('loses', '', { n: (Math.abs(Math.min(i.rate, ASSET_DEPRECIATION_RATE)) * 100).toFixed(0) })} · {t('upkeep')} {fmt(i.price * 0.02)}{t('perYear')}</span>
                 {crew > 0 && <span className="mini" style={{ display: 'block', marginTop: 2 }}>{t('v11.crewCost', '', { x: fmt(crewNow) })}{crewNow < crew ? ` (${t('v11.crewHalved')})` : ''}</span>}
@@ -1777,7 +1782,88 @@ function AssetsTab({ s, act, curCat, setCurCat }: { s: GameState; act: Act; curC
           </div>
         </div>
       )}
+      {/* v11.18 — purchase confirmation modal. Opens when pendingBuy is set;
+          lets the player review price + cash-after + upkeep and confirm/cancel. */}
+      {pendingBuy && <PurchaseConfirm s={s} pending={pendingBuy} onConfirm={() => {
+        act(st => {
+          if (pendingBuy.kind === 'new') return buyItem(st, pendingBuy.item.id);
+          return buyUsedItem(st, pendingBuy.used);
+        });
+        setPendingBuy(null);
+      }} onCancel={() => setPendingBuy(null)} />}
     </>
+  );
+}
+
+// v11.18 — purchase confirmation modal. Shown before any new or used item buy
+// goes through. Reviews the item's photo + name + rarity + price + cash-after
+// + upkeep + appreciate/depreciate rate (+ crew cost for yachts/jets + condition
+// + age + listing note for used). Two buttons: Confirm buy / Cancel. The
+// underlying buy logic (buyItem / buyUsedItem) is unchanged — this is purely a
+// pre-confirm gate so a stray click doesn't commit the purchase.
+function PurchaseConfirm({ s, pending, onConfirm, onCancel }: { s: GameState; pending: { kind: 'new'; item: ItemDef } | { kind: 'used'; used: UsedItem }; onConfirm: () => void; onCancel: () => void }) {
+  const { t } = useT();
+  const isNew = pending.kind === 'new';
+  const it: ItemDef = isNew ? pending.item : ITEM_BY[(pending.used as UsedItem).baseId];
+  const u: UsedItem | null = isNew ? null : pending.used;
+  const price = isNew ? (pending.item as ItemDef).price : (u as UsedItem).askPrice;
+  const cashAfter = s.money - price;
+  const canAfford = cashAfter >= 0;
+  const irar = itemRarity(isNew ? (pending.item as ItemDef) : (u as UsedItem));
+  const upkeepYr = Math.round(price * 0.02);
+  // Appreciate or depreciate? Items with rate >= 0 appreciate.
+  const rate = it.rate;
+  const ratePct = Math.abs(Math.min(rate, ASSET_DEPRECIATION_RATE) * 100).toFixed(0);
+  const appreciates = rate > 0;
+  // Crew cost for yachts + private jets.
+  const crewCat = CREW_COST[it.cat] || 0;
+  const crewNow = crewCat > 0 ? ((it.cat === 'Yacht' && s.lic['boat']) || (it.cat === 'Private jet' && s.lic['pilot']) ? Math.round(crewCat / 2) : crewCat) : 0;
+  // Licence requirement.
+  const need = LIC_FOR[it.cat];
+  const locked = !!need && !s.lic[need];
+  const img = isNew ? ITEM_IMAGES[(pending.item as ItemDef).id] : USED_IMAGES[(u as UsedItem).id];
+  const condTxt = u ? (u.condition >= 80 ? 'mint' : u.condition >= 60 ? 'good' : u.condition >= 40 ? 'fair' : 'rough') : '';
+  const off = u ? Math.max(0, Math.round((1 - u.askPrice / u.newPrice) * 100)) : 0;
+  return (
+    <div className="modal on" onClick={e => { if (e.target === e.currentTarget) onCancel(); }}>
+      <div className="mcard" style={{ maxWidth: 460 }}>
+        <div className="mhead">
+          <h2>{t('buy.title')} · <span className="mini">{isNew ? t('buy.new') : t('buy.used')}</span></h2>
+          <button className="ibtn ghost" onClick={onCancel}><Ic id="ic-x" className="bsi" /><span>✕</span></button>
+        </div>
+        {/* photo + name + rarity */}
+        <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start', marginBottom: 10 }}>
+          <div style={{ flex: '0 0 110px', height: 90, borderRadius: 8, overflow: 'hidden', background: 'rgba(0,0,0,0.04)' }}>
+            {img ? <img src={asset(img)} alt={it.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} loading="lazy" /> : <Art id={it.art} />}
+          </div>
+          <div style={{ flex: 1 }}>
+            <b>{it.brand ? <span className="bchip" style={{ background: it.c, marginRight: 4 }}>{it.brand}</span> : null}{it.name}</b>
+            <div style={{ marginTop: 4 }}><span className="rarity-chip" data-rarity={irar} style={{ '--rc': RARITY_COLOR[irar] } as React.CSSProperties}>{t('rarity.' + irar)}</span></div>
+            <div className="mini" style={{ marginTop: 4, opacity: .7 }}>{t('buy.luxury')}: +{it.lux}</div>
+            {u && <div className="mini" style={{ marginTop: 4, opacity: .7 }}>{t('buy.discountOff', '', { n: off })}</div>}
+          </div>
+        </div>
+        {/* price + cash-after + upkeep + rate */}
+        <div className="lb"><span>{t('buy.price')}</span><b style={{ color: canAfford ? 'inherit' : 'var(--brick)' }}>{fmt(price)}</b></div>
+        <div className="lb"><span>{t('buy.cashAfter')}</span><b style={{ color: cashAfter < 0 ? 'var(--brick)' : 'var(--sage)' }}>{fmt(cashAfter)}</b></div>
+        <div className="lb"><span>{t('buy.upkeep')}</span><b>{fmt(upkeepYr)}</b></div>
+        {crewCat > 0 && <div className="lb"><span>{t('buy.crew')}</span><b>{fmt(crewNow)}{crewNow < crewCat ? ` (${t('v11.crewHalved')})` : ''}</b></div>}
+        <div className="lb"><span>{appreciates ? t('buy.appreciates', '', { n: ratePct }) : t('buy.depreciates', '', { n: ratePct })}</span><b style={{ color: appreciates ? 'var(--sage)' : 'var(--brick)' }}>{appreciates ? '↗' : '↘'}</b></div>
+        {/* used-only fields */}
+        {u && <>
+          <div className="lb"><span>{t('buy.cond')}</span><b><span className="cond-pill" data-cond={condTxt}>{u.condition} · {condTxt}</span></b></div>
+          <div className="lb"><span>{t('buy.ageYears')}</span><b>{u.ageYears} {t('years')}</b></div>
+          {u.story && <p className="mini" style={{ marginTop: 6, fontStyle: 'italic', opacity: .8 }}>{u.story}</p>}
+        </>}
+        {/* confirm / cancel buttons */}
+        <div className="trade" style={{ marginTop: 12, justifyContent: 'flex-end', gap: 8 }}>
+          <button className="ibtn ghost" onClick={onCancel}><span>{t('buy.cancel')}</span></button>
+          <button className="tbuy" disabled={!canAfford || locked} onClick={onConfirm}>
+            <span>{locked ? t('buy.locked') : canAfford ? t('buy.confirm') : t('buy.insufficient')}</span>
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -2207,6 +2293,14 @@ function PowerTab({ s, act }: { s: GameState; act: Act }) {
     && (!electionResult || electionResult.status !== 'won' || electionResult.termEnds <= s.lastDay);
   // Bot rows for alliances/rivals UI (runElection expects {name, nation, nw}[]).
   const botRows = BOTS.map(([n, a, nat, ind, v]) => ({ name: n, nation: nat, ind, nw: v * Math.pow(1.12, Math.max(0, s.age - 18)) }));
+  // v11.18 — pick the explanation key for the current tier.
+  const tierExplainKey: Record<string, string> = {
+    'none': 'pw.explainMogul',
+    'industry_mogul': 'pw.explainMogul',
+    'influencer': 'pw.explainInfluencer',
+    'national_power': 'pw.explainNational',
+    'state_leader': 'pw.explainState',
+  };
   return (<>
     {/* Current tier + next-threshold hint */}
     <Row art="t-power">
@@ -2217,6 +2311,12 @@ function PowerTab({ s, act }: { s: GameState; act: Act }) {
           ? t('v11.powerNextTier', '', { tier: next.label, v: fmt(next.min) })
           : t('v11.powerTopTier')}
       </span>
+      {/* v11.18 — explanation: what this tier actually means */}
+      <span className="mini" style={{ display: 'block', marginTop: 6, padding: '6px 8px', border: '1px solid var(--line)', borderRadius: 4, background: 'rgba(0,0,0,0.02)' }}>
+        <b style={{ opacity: .8 }}>{t('pw.explainTitle')}</b>
+        <span style={{ display: 'block', marginTop: 2 }}>{t(tierExplainKey[tier] || 'pw.explainMogul')}</span>
+      </span>
+      <span className="mini" style={{ display: 'block', marginTop: 4, opacity: .65 }}>{t('pw.hardening')}</span>
     </Row>
 
     {/* Influence resource + sources */}
@@ -2250,6 +2350,10 @@ function PowerTab({ s, act }: { s: GameState; act: Act }) {
       <span className="mini" style={{ display: 'block', marginTop: 2 }}>
         {t('v11.transparencyLabel')}: {s.power?.transparency || 0}/100
         {((s.power?.scrutiny || 0) >= 80) && <span className="down"> · {t('v11.scrutinyHigh')}</span>}
+      </span>
+      {/* v11.18 — scrutiny explanation */}
+      <span className="mini" style={{ display: 'block', marginTop: 6, padding: '6px 8px', border: '1px solid var(--line)', borderRadius: 4, background: 'rgba(0,0,0,0.02)', opacity: .85 }}>
+        {t('pw.scrutinyExplain')}
       </span>
     </Row>
     {/* v11.4 — Transparency actions */}
@@ -2374,6 +2478,15 @@ function EntityTab({ s, act }: { s: GameState; act: Act }) {
     const r = ENTITY_TIERS[idx];
     return l === 'vi' ? r.label.vi : l === 'zh' ? r.label.zh : r.label.en;
   };
+  // v11.18 — explanation key for each entity tier.
+  const entityExplainKey: Record<string, string> = {
+    'none': 'emp.explainConglomerate',
+    'conglomerate': 'emp.explainConglomerate',
+    'autonomous': 'emp.explainAutonomous',
+    'nation': 'emp.explainNation',
+    'empire': 'emp.explainEmpire',
+    'federation': 'emp.explainFederation',
+  };
   return (<>
     {/* Current tier + next-threshold hint */}
     <Row art="b-corp">
@@ -2385,6 +2498,11 @@ function EntityTab({ s, act }: { s: GameState; act: Act }) {
         {next
           ? t('v11.entityNextTier', '', { tier: next.tier, v: fmt(next.min), x: next.minInfluence })
           : t('v11.entityTopTier')}
+      </span>
+      {/* v11.18 — explanation: what this entity tier means */}
+      <span className="mini" style={{ display: 'block', marginTop: 6, padding: '6px 8px', border: '1px solid var(--line)', borderRadius: 4, background: 'rgba(0,0,0,0.02)' }}>
+        <b style={{ opacity: .8 }}>{t('emp.explainTitle')}</b>
+        <span style={{ display: 'block', marginTop: 2 }}>{t(entityExplainKey[tier] || 'emp.explainConglomerate')}</span>
       </span>
       {s.entity?.originNation && (
         <span className="mini" style={{ display: 'block', marginTop: 2 }}>

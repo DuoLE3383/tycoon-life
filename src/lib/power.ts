@@ -20,12 +20,20 @@ import type { GameState } from './engine';
 //   state_leader   — $10B+   : the late-game stretch goal — head of state
 //                              (only the very richest runs ever reach here)
 export type PowerTier = 'none' | 'industry_mogul' | 'influencer' | 'national_power' | 'state_leader';
+// v11.18 — thresholds raised. The climb to state_leader is now a true
+// late-game stretch (was 10x jumps; now ~15x at the upper end). The previous
+// numbers let a player reach state_leader in a single lucky late-game year;
+// the new ones require sustained accumulation across multiple years.
+//   mogul     : $10M    → $15M     (+50%)
+//   influencer: $100M   → $200M    (doubled — fame + platform take longer)
+//   national  : $1B     → $2B      (doubled — elections are expensive)
+//   state     : $10B    → $30B     (tripled — true endgame stretch)
 export const POWER_TIERS: { tier: PowerTier; min: number; label: string; en: string; vi: string; zh: string }[] = [
   { tier: 'none', min: 0, label: '—', en: 'Private citizen', vi: 'Công dân bình thường', zh: '普通公民' },
-  { tier: 'industry_mogul', min: 10_000_000, label: 'Industry mogul', en: 'Industry mogul', vi: 'Trùm ngành', zh: '行业大亨' },
-  { tier: 'influencer', min: 100_000_000, label: 'Influencer', en: 'Influencer', vi: 'Người ảnh hưởng', zh: '影响力人物' },
-  { tier: 'national_power', min: 1_000_000_000, label: 'National power', en: 'National power', vi: 'Quyền lực quốc gia', zh: '国家权力' },
-  { tier: 'state_leader', min: 10_000_000_000, label: 'State leader', en: 'State leader', vi: 'Lãnh đạo quốc gia', zh: '国家领导人' },
+  { tier: 'industry_mogul', min: 15_000_000, label: 'Industry mogul', en: 'Industry mogul', vi: 'Trùm ngành', zh: '行业大亨' },
+  { tier: 'influencer', min: 200_000_000, label: 'Influencer', en: 'Influencer', vi: 'Người ảnh hưởng', zh: '影响力人物' },
+  { tier: 'national_power', min: 2_000_000_000, label: 'National power', en: 'National power', vi: 'Quyền lực quốc gia', zh: '国家权力' },
+  { tier: 'state_leader', min: 30_000_000_000, label: 'State leader', en: 'State leader', vi: 'Lãnh đạo quốc gia', zh: '国家领导人' },
 ];
 
 // Compute the highest tier the player's net worth currently qualifies for.

@@ -374,29 +374,42 @@ export const RARITY_MULT: Record<Rarity, number> = { common: 1, uncommon: 1.4, r
 export const RARITY_COLOR: Record<Rarity, string> = { common: '#78725f', uncommon: '#3a5a99', rare: '#5b3da3', legendary: '#a16207' };
 export interface ItemDef { id: string; cat: string; brand?: string; name: string; c: string; price: number; lux: number; rate: number; art: string; rarity?: Rarity }
 export const ITEMS: ItemDef[] = [
+  // ---- Sport bikes ----
   { id: 'bike-ktm', cat: 'Sport bike', brand: 'KTM', name: 'RC 390', c: '#f97316', price: 6000, lux: 6, rate: -.15, art: 'i-bike' },
   { id: 'bike-ninja', cat: 'Sport bike', brand: 'Kawasaki', name: 'Ninja ZX-10R', c: '#16a34a', price: 16000, lux: 20, rate: -.12, art: 'i-bike' },
   { id: 'bike-r1', cat: 'Sport bike', brand: 'Yamaha', name: 'YZF-R1', c: '#2563eb', price: 18000, lux: 25, rate: -.12, art: 'i-bike' },
   { id: 'bike-s1000', cat: 'Sport bike', brand: 'BMW', name: 'S 1000 RR', c: '#1d4ed8', price: 20000, lux: 30, rate: -.12, art: 'i-bike' },
   { id: 'bike-cbr', cat: 'Sport bike', brand: 'Honda', name: 'CBR1000RR-R', c: '#dc2626', price: 25000, lux: 35, rate: -.12, art: 'i-bike' },
   { id: 'bike-panigale', cat: 'Sport bike', brand: 'Ducati', name: 'Panigale V4', c: '#ef4444', price: 30000, lux: 50, rate: -.1, art: 'i-bike' },
+  // ---- Phones ----
   { id: 'ph-pixel', cat: 'Phone', brand: 'Google', name: 'Pixel 9 Pro', c: '#10b981', price: 999, lux: 3, rate: -.35, art: 'i-phone' },
   { id: 'ph-iphone', cat: 'Phone', brand: 'Apple', name: 'iPhone 16 Pro', c: '#64748b', price: 1199, lux: 4, rate: -.35, art: 'i-phone' },
   { id: 'ph-samsung', cat: 'Phone', brand: 'Samsung', name: 'Galaxy S25 Ultra', c: '#1e40af', price: 1299, lux: 5, rate: -.35, art: 'i-phone' },
   { id: 'ph-vertu', cat: 'Phone', brand: 'Vertu', name: 'Signature Gold', c: '#ca8a04', price: 15000, lux: 60, rate: -.2, art: 'i-phone' },
+  // ---- Watches ----
   { id: 'w-casio', cat: 'Watch', brand: 'Casio', name: 'G-Shock', c: '#374151', price: 150, lux: 1, rate: -.1, art: 'i-watch' },
   { id: 'w-tag', cat: 'Watch', brand: 'TAG Heuer', name: 'Carrera', c: '#0f766e', price: 6000, lux: 25, rate: -.02, art: 'i-watch' },
   { id: 'w-omega', cat: 'Watch', brand: 'Omega', name: 'Speedmaster', c: '#1e3a8a', price: 6500, lux: 28, rate: .01, art: 'i-watch' },
   { id: 'w-rolex', cat: 'Watch', brand: 'Rolex', name: 'Submariner', c: '#15803d', price: 10000, lux: 80, rate: .05, art: 'i-watch' },
   { id: 'w-ap', cat: 'Watch', brand: 'Audemars Piguet', name: 'Royal Oak', c: '#7c3aed', price: 30000, lux: 200, rate: .06, art: 'i-watch' },
   { id: 'w-patek', cat: 'Watch', brand: 'Patek Philippe', name: 'Nautilus', c: '#0c4a6e', price: 35000, lux: 300, rate: .07, art: 'i-watch' },
+  // v11.18 — extra watches (collectible-grail tier)
+  { id: 'w-vacheron', cat: 'Watch', brand: 'Vacheron Constantin', name: 'Overseas Perpetual', c: '#4338ca', price: 55000, lux: 450, rate: .08, art: 'i-watch' },
+  { id: 'w-richardmille', cat: 'Watch', brand: 'Richard Mille', name: 'RM 011', c: '#92400e', price: 180000, lux: 1500, rate: .09, art: 'i-watch' },
+  // ---- Jewelry ----
   { id: 'j-tiffany', cat: 'Jewelry', brand: 'Tiffany & Co.', name: 'Solitaire ring', c: '#0ea5e9', price: 12000, lux: 60, rate: .02, art: 'i-ring' },
   { id: 'j-cartier', cat: 'Jewelry', brand: 'Cartier', name: 'Love bracelet', c: '#b91c1c', price: 7500, lux: 50, rate: .03, art: 'i-ring' },
   { id: 'j-bulgari', cat: 'Jewelry', brand: 'Bulgari', name: 'Serpenti necklace', c: '#854d0e', price: 14000, lux: 90, rate: .03, art: 'i-ring' },
+  // v11.18 — extra jewelry (statement pieces)
+  { id: 'j-harrywinston', cat: 'Jewelry', brand: 'Harry Winston', name: 'Emerald drop necklace', c: '#047857', price: 85000, lux: 350, rate: .04, art: 'i-ring' },
+  // ---- Suits ----
   { id: 's-zara', cat: 'Suit', brand: 'Zara', name: 'Slim suit', c: '#111827', price: 250, lux: 2, rate: -.2, art: 'i-suit' },
   { id: 's-boss', cat: 'Suit', brand: 'Hugo Boss', name: 'Business suit', c: '#1f2937', price: 800, lux: 6, rate: -.2, art: 'i-suit' },
   { id: 's-armani', cat: 'Suit', brand: 'Armani', name: 'Two-piece suit', c: '#312e81', price: 2500, lux: 20, rate: -.15, art: 'i-suit' },
   { id: 's-brioni', cat: 'Suit', brand: 'Brioni', name: 'Bespoke suit', c: '#4c1d95', price: 4000, lux: 40, rate: -.1, art: 'i-suit' },
+  // v11.18 — extra suit (sartorial grail)
+  { id: 's-kiton', cat: 'Suit', brand: 'Kiton', name: 'Cipa 1960 bespoke', c: '#1e3a8a', price: 8000, lux: 80, rate: -.08, art: 'i-suit' },
+  // ---- Cars ----
   { id: 'c-toyota', cat: 'Car', brand: 'Toyota', name: 'Camry', c: '#dc2626', price: 30000, lux: 5, rate: -.12, art: 'i-lambo' },
   { id: 'c-tesla', cat: 'Car', brand: 'Tesla', name: 'Model S Plaid', c: '#7f1d1d', price: 100000, lux: 40, rate: -.13, art: 'i-lambo' },
   { id: 'c-bmw', cat: 'Car', brand: 'BMW', name: 'M3', c: '#1d4ed8', price: 85000, lux: 60, rate: -.12, art: 'i-lambo' },
@@ -404,17 +417,31 @@ export const ITEMS: ItemDef[] = [
   { id: 'c-lambo', cat: 'Car', brand: 'Lamborghini', name: 'Urus', c: '#16a34a', price: 240000, lux: 250, rate: -.1, art: 'i-lambo' },
   { id: 'c-ferrari', cat: 'Car', brand: 'Ferrari', name: '296 GTB', c: '#dc2626', price: 330000, lux: 300, rate: -.08, art: 'i-lambo' },
   { id: 'c-rr', cat: 'Car', brand: 'Rolls-Royce', name: 'Ghost', c: '#171717', price: 350000, lux: 400, rate: -.08, art: 'i-lambo' },
+  // v11.18 — extra car (hypercar)
+  { id: 'c-bugatti', cat: 'Car', brand: 'Bugatti', name: 'Chiron', c: '#0ea5e9', price: 3000000, lux: 2500, rate: -.05, art: 'i-lambo' },
+  // ---- Properties ----
   { id: 'h-condo', cat: 'Property', name: 'City condo', c: '#0ea5e9', price: 300000, lux: 40, rate: .03, art: 'i-house' },
   { id: 'h-house', cat: 'Property', name: 'Suburban house', c: '#16a34a', price: 550000, lux: 60, rate: .03, art: 'i-house' },
   { id: 'h-penthouse', cat: 'Property', name: 'Downtown penthouse', c: '#7c3aed', price: 2500000, lux: 250, rate: .04, art: 'i-house' },
   { id: 'h-villa', cat: 'Property', name: 'Beach villa', c: '#f59e0b', price: 3500000, lux: 350, rate: .04, art: 'i-villa' },
   { id: 'h-island', cat: 'Property', name: 'Private island', c: '#06b6d4', price: 30000000, lux: 9000, rate: .05, art: 'i-island' },
+  // ---- Yachts ----
   { id: 'y-azimut', cat: 'Yacht', brand: 'Azimut', name: '40 m motor yacht', c: '#0369a1', price: 8000000, lux: 900, rate: -.06, art: 'i-yacht' },
   { id: 'y-sunseeker', cat: 'Yacht', brand: 'Sunseeker', name: 'Predator 74', c: '#0f172a', price: 12000000, lux: 1400, rate: -.06, art: 'i-yacht' },
+  // ---- Private jets ----
   { id: 'p-cessna', cat: 'Private jet', brand: 'Cessna', name: 'Citation CJ3', c: '#475569', price: 10000000, lux: 1500, rate: -.08, art: 'i-jet' },
   { id: 'p-gulf', cat: 'Private jet', brand: 'Gulfstream', name: 'G650', c: '#1e293b', price: 70000000, lux: 6000, rate: -.07, art: 'i-jet' },
+  // ---- Art ----
   { id: 'a-contemp', cat: 'Art', name: 'Contemporary canvas', c: '#db2777', price: 50000, lux: 150, rate: .06, art: 'i-art' },
-  { id: 'a-impress', cat: 'Art', name: 'Impressionist original', c: '#a16207', price: 40000000, lux: 9000, rate: .07, art: 'i-art' }
+  { id: 'a-impress', cat: 'Art', name: 'Impressionist original', c: '#a16207', price: 40000000, lux: 9000, rate: .07, art: 'i-art' },
+  // ---- v11.18: Collectibles (new category) — appreciating tangible assets ----
+  // Rare coins, stamps, wine, antiques. All appreciate slowly (rate > 0).
+  // No licence required — these are pure luxury/collectible plays.
+  { id: 'col-goldcoin', cat: 'Collectibles', name: 'Rare gold coin (19th c.)', c: '#ca8a04', price: 25000, lux: 100, rate: .05, art: 'i-coin' },
+  { id: 'col-stamp', cat: 'Collectibles', name: 'Rare postage stamp (mint)', c: '#15803d', price: 8000, lux: 40, rate: .04, art: 'i-stamp' },
+  { id: 'col-wine', cat: 'Collectibles', name: 'Vintage wine case (6 bt)', c: '#7f1d1d', price: 18000, lux: 70, rate: .06, art: 'i-wine' },
+  { id: 'col-ming', cat: 'Collectibles', name: 'Ming-dynasty porcelain vase', c: '#0c4a6e', price: 350000, lux: 800, rate: .07, art: 'i-vase' },
+  { id: 'col-strad', cat: 'Collectibles', name: 'Stradivarius violin', c: '#92400e', price: 2500000, lux: 3000, rate: .08, art: 'i-violin' },
 ];
 // v10.5 — derive rarity from luxury tier if not set explicitly.
 // 0-9 common · 10-49 uncommon · 50-299 rare · 300+ legendary.
@@ -428,9 +455,11 @@ export function itemRarity(it: { rarity?: Rarity; lux: number }): Rarity {
 }
 export const ITEM_BY = Object.fromEntries(ITEMS.map(i => [i.id, i]));
 
-// v10.5 — real-world item photos. Mapped by item id; falls back to the SVG
+// v11.18 — real-world item photos. Mapped by item id; falls back to the SVG
 // <Art> icon when no photo is available. Photos are compressed to ~800px wide.
+// v11.18 expanded the photo set from 10 → 30 entries via image-search fetches.
 export const ITEM_IMAGES: Record<string, string> = {
+  // original 10 photos
   'c-lambo': '/img/items/lambo.jpg',
   'c-rr': '/img/items/rr.jpg',
   'c-porsche': '/img/items/porsche.jpg',
@@ -441,17 +470,41 @@ export const ITEM_IMAGES: Record<string, string> = {
   'a-contemp': '/img/items/art.jpg',
   'p-gulf': '/img/items/gulf.jpg',
   'y-sunseeker': '/img/items/yacht.jpg',
+  // v11.18 — new photos fetched via image-search
+  'bike-ktm': '/img/items/ktm.jpg',
+  'w-omega': '/img/items/omega.jpg',
+  'w-ap': '/img/items/ap.jpg',
+  'w-tag': '/img/items/tag.jpg',
+  'w-casio': '/img/items/casio.jpg',
+  'c-ferrari': '/img/items/ferrari.jpg',
+  'c-bmw': '/img/items/bmw.jpg',
+  'c-toyota': '/img/items/toyota.jpg',
+  'ph-iphone': '/img/items/iphone.jpg',
+  'j-cartier': '/img/items/cartier.jpg',
+  'j-tiffany': '/img/items/tiffany.jpg',
+  'h-penthouse': '/img/items/penthouse.jpg',
+  'h-villa': '/img/items/villa.jpg',
+  'h-island': '/img/items/island.jpg',
+  'y-azimut': '/img/items/azimut.jpg',
+  'p-cessna': '/img/items/cessna.jpg',
+  's-armani': '/img/items/armani.jpg',
+  // collectibles
+  'col-goldcoin': '/img/items/goldcoin.jpg',
+  'col-stamp': '/img/items/stamp.jpg',
+  'col-wine': '/img/items/wine.jpg',
 };
 // Same mapping keyed by USED_MARKET listing id — used listings inherit the
-// photo of their base item when available.
+// photo of their base item when available. v11.18: re-pointed at the new
+// real photos where the base item now has one (Toyota Camry → toyota.jpg
+// instead of the old lambo.jpg fallback).
 export const USED_IMAGES: Record<string, string> = {
-  'u-camry-12y': '/img/items/lambo.jpg',     // closest: a Toyota saloon
-  'u-3-series-8y': '/img/items/porsche.jpg', // BMW M3 — closest sport sedan photo
+  'u-camry-12y': '/img/items/toyota.jpg',
+  'u-3-series-8y': '/img/items/bmw.jpg',
   'u-911-22y': '/img/items/porsche.jpg',
   'u-tesla-4y': '/img/items/tesla.jpg',
   'u-submariner-30y': '/img/items/rolex.jpg',
-  'u-speedmaster-45y': '/img/items/rolex.jpg', // vintage watch — closest
-  'u-carrera-15y': '/img/items/patek.jpg',     // TAG Heuer — closest sport photo
+  'u-speedmaster-45y': '/img/items/omega.jpg',
+  'u-carrera-15y': '/img/items/tag.jpg',
   'u-impress-50y': '/img/items/art.jpg',
   'u-contemp-3y': '/img/items/art.jpg',
   'u-ghost-5y': '/img/items/rr.jpg',

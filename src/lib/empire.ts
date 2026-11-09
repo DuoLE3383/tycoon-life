@@ -53,14 +53,14 @@ export const ENTITY_TIERS: {
            zh: '同一控制下的多家公司 — 净资产达$1M后的默认等级。' },
   },
   {
-    tier: 'autonomous', minNetWorth: 50_000_000, minInfluence: 50,
+    tier: 'autonomous', minNetWorth: 75_000_000, minInfluence: 60,
     label: { en: 'Autonomous territory', vi: 'Lãnh thổ tự trị', zh: '自治领土' },
     desc: { en: 'A region you govern with self-rule but still nominally inside your origin nation.',
            vi: 'Vùng bạn tự cai quản nhưng vẫn thuộc quốc gốc.',
            zh: '你自治的领土，但名义上仍在原国内。' },
   },
   {
-    tier: 'nation', minNetWorth: 500_000_000, minInfluence: 200,
+    tier: 'nation', minNetWorth: 750_000_000, minInfluence: 220,
     extra: 'Recognized by ≥3 nations',
     label: { en: 'Independent nation', vi: 'Quốc gia độc lập', zh: '独立国家' },
     desc: { en: 'A sovereign state you founded. Recognition by ≥3 other nations required to step up here.',
@@ -68,7 +68,7 @@ export const ENTITY_TIERS: {
            zh: '你建立的主权国家。需获≥3国承认。' },
   },
   {
-    tier: 'empire', minNetWorth: 5_000_000_000, minInfluence: 500,
+    tier: 'empire', minNetWorth: 7_500_000_000, minInfluence: 550,
     extra: 'Control 5 star systems',
     label: { en: 'Interstellar empire', vi: 'Đế chế liên hành tinh', zh: '星际帝国' },
     desc: { en: 'Sovereign nation expanded to ≥5 star systems. v11.7 will define star-system control.',

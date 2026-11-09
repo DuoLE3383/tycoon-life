@@ -20,14 +20,14 @@ import {
 test('v11.3: powerTierOfNw returns the right tier for each net worth threshold', () => {
   assert.equal(powerTierOfNw(0), 'none');
   assert.equal(powerTierOfNw(1_000_000), 'none');
-  assert.equal(powerTierOfNw(10_000_000), 'industry_mogul');
+  assert.equal(powerTierOfNw(15_000_000), 'industry_mogul');
   assert.equal(powerTierOfNw(50_000_000), 'industry_mogul');
-  assert.equal(powerTierOfNw(100_000_000), 'influencer');
-  assert.equal(powerTierOfNw(999_999_999), 'influencer');
-  assert.equal(powerTierOfNw(1_000_000_000), 'national_power');
+  assert.equal(powerTierOfNw(200_000_000), 'influencer');
+  assert.equal(powerTierOfNw(1_999_999_999), 'influencer');
+  assert.equal(powerTierOfNw(2_000_000_000), 'national_power');
   assert.equal(powerTierOfNw(5_000_000_000), 'national_power');
-  assert.equal(powerTierOfNw(10_000_000_000), 'state_leader');
-  assert.equal(powerTierOfNw(100_000_000_000), 'state_leader');
+  assert.equal(powerTierOfNw(30_000_000_000), 'state_leader');
+  // $100B still state_leader under v11.18 raised thresholds.
 });
 
 test('v11.3: powerTierOf reads GameState and matches the inline net-worth calc', () => {
@@ -37,15 +37,15 @@ test('v11.3: powerTierOf reads GameState and matches the inline net-worth calc',
   assert.equal(powerTierOf(s), 'none');
   assert.equal(powerTierIdx(s), 0);
   assert.equal(nextTierOf(s)?.tier, 'industry_mogul');
-  assert.equal(nextTierOf(s)?.min, 10_000_000);
+  assert.equal(nextTierOf(s)?.min, 15_000_000);
   // Cross $10M
-  s.money = 12_000_000;
+  s.money = 16_000_000;
   assert.equal(powerTierOf(s), 'industry_mogul');
   assert.equal(powerTierIdx(s), 1);
   assert.equal(nextTierOf(s)?.tier, 'influencer');
-  assert.equal(nextTierOf(s)?.min, 100_000_000);
+  assert.equal(nextTierOf(s)?.min, 200_000_000);
   // Cross $10B
-  s.money = 11_000_000_000;
+  s.money = 31_000_000_000;
   assert.equal(powerTierOf(s), 'state_leader');
   assert.equal(nextTierOf(s), null, 'no next tier above state_leader');
 });
@@ -139,7 +139,7 @@ test('v11.3: influenceFromMediaOwnership: 10 per source (film studio + verified 
 test('v11.3: donate grants influence with diminishing returns; first donation yields most', () => {
   const s = fresh();
   begin(s, { name: 'T', byear: 1990, nation: 'Vietnam', ints: ['money'], tals: ['math'] });
-  s.money = 10_000_000;
+  s.money = 15_000_000;
   // Donate $100K → 10 base influence × 1.0 (first donation) = 10
   donate(s, 100_000);
   assert.equal(s.power.influence, 10, 'first $100K should grant 10');
@@ -159,7 +159,7 @@ test('v11.3: tickTierPromotion bumps unlockedTier when net worth crosses', () =>
   s.power = freshPower();
   assert.equal(s.power.unlockedTier, 'none');
   // Cross $10M
-  s.money = 12_000_000;
+  s.money = 16_000_000;
   const promoted = tickTierPromotion(s, netWorth(s));
   assert.equal(promoted, 'industry_mogul');
   assert.equal(s.power.unlockedTier, 'industry_mogul');
@@ -173,7 +173,7 @@ test('v11.3: tickTierPromotion bumps unlockedTier when net worth crosses', () =>
   assert.equal(third, null, 'tier is sticky — does not demote');
   assert.equal(s.power.unlockedTier, 'industry_mogul');
   // Cross $100M later → promote to influencer
-  s.money = 110_000_000;
+  s.money = 210_000_000;
   const fourth = tickTierPromotion(s, netWorth(s));
   assert.equal(fourth, 'influencer');
   assert.equal(s.power.unlockedTier, 'influencer');
@@ -185,7 +185,7 @@ test('v11.3: tickPower combines promotion + passive influence in one call', () =
   s.power = freshPower();
   s.ownClub = 'My Circle';
   s.clubs = ['own'];
-  s.money = 12_000_000;
+  s.money = 16_000_000;
   const r = tickPower(s, netWorth(s));
   assert.equal(r.promotedTo, 'industry_mogul');
   assert.ok(r.influenceGained > 0, 'passive influence granted from club chair');
@@ -197,7 +197,7 @@ test('v11.3: doAdvocacy industryPolicy lobbies a 1-year +5% biz crisis', () => {
   begin(s, { name: 'T', byear: 1990, nation: 'Vietnam', ints: [], tals: [] });
   s.power = freshPower();
   s.power.influence = 50;
-  s.money = 12_000_000;
+  s.money = 16_000_000;
   // Need industry_mogul tier — net worth just crossed $10M
   const year = worldYear(s);
   const r = doAdvocacy(s, 'industryPolicy', year);
@@ -215,7 +215,7 @@ test('v11.3: doAdvocacy boardNominee sets permanent +10% biz multiplier', () => 
   begin(s, { name: 'T', byear: 1990, nation: 'Vietnam', ints: [], tals: [] });
   s.power = freshPower();
   s.power.influence = 100;
-  s.money = 110_000_000; // influencer tier ($100M)
+  s.money = 210_000_000; // influencer tier ($100M)
   const r = doAdvocacy(s, 'boardNominee', worldYear(s));
   assert.equal(r.ok, true);
   assert.equal(s.power.boardNomineeBiz, 1.10);
@@ -227,7 +227,7 @@ test('v11.3: doAdvocacy endowFoundation sets +20% influence gain mult', () => {
   begin(s, { name: 'T', byear: 1990, nation: 'Vietnam', ints: [], tals: [] });
   s.power = freshPower();
   s.power.influence = 200;
-  s.money = 1_100_000_000; // national_power tier ($1B)
+  s.money = 2_100_000_000; // national_power tier ($2B)
   const r = doAdvocacy(s, 'endowFoundation', worldYear(s));
   assert.equal(r.ok, true);
   assert.equal(s.power.foundationMult, 1.20);
@@ -245,7 +245,7 @@ test('v11.3: doAdvocacy refuses when below the required tier', () => {
   begin(s, { name: 'T', byear: 1990, nation: 'Vietnam', ints: [], tals: [] });
   s.power = freshPower();
   s.power.influence = 200;
-  s.money = 50_000_000; // below industry_mogul? no — $50M is industry_mogul ($10M+)
+  s.money = 50_000_000; // below industry_mogul? no — $50M is industry_mogul ($15M+, v11.18)
   // Actually $50M IS industry_mogul — let me go lower
   s.money = 5_000_000;
   assert.equal(powerTierOf(s), 'none');
@@ -261,7 +261,7 @@ test('v11.3: doAdvocacy refuses when insufficient influence', () => {
   begin(s, { name: 'T', byear: 1990, nation: 'Vietnam', ints: [], tals: [] });
   s.power = freshPower();
   s.power.influence = 10; // less than industryPolicy's 25 cost
-  s.money = 12_000_000;
+  s.money = 16_000_000;
   const r = doAdvocacy(s, 'industryPolicy', worldYear(s));
   assert.equal(r.ok, false);
   assert.equal(r.reason, 'noInfluence');
@@ -306,7 +306,7 @@ test('v11.3: yearEnd grants passive influence + promotes tier when net worth cro
   begin(s, { name: 'T', byear: 1990, nation: 'Vietnam', ints: [], tals: [] });
   s.ownClub = 'My Circle';
   s.clubs = ['own'];
-  s.money = 12_000_000;
+  s.money = 16_000_000;
   // Force age to trigger yearEnd
   yearEnd(s, 30, () => 0.5);
   // After yearEnd, the player should be at industry_mogul (passed $10M)
@@ -323,7 +323,7 @@ test('v11.3: bizMultiplier applies boardNomineeBiz (+10%) on top of everything',
   begin(s, { name: 'T', byear: 1990, nation: 'Vietnam', ints: [], tals: [] });
   s.deg.business = 1;
   s.fame = 10;
-  s.money = 12_000_000;
+  s.money = 16_000_000;
   const baseline = bizMultiplier(s);
   // Now apply boardNominee
   s.power.boardNomineeBiz = 1.10;
@@ -388,7 +388,7 @@ test('v11.4: runElection refuses when tier below national_power', () => {
   begin(s, { name: 'T', byear: 1990, nation: 'Vietnam', ints: [], tals: [] });
   s.power = freshPower();
   s.power.influence = 200;
-  s.money = 50_000_000; // industry_mogul — too low
+  s.money = 50_000_000; // industry_mogul ($15M+, v11.18 raised thresholds) — too low for influencer
   const bots = BOTS.map(([n, a, nat, ind, v]) => ({ name: n, nation: nat, nw: v }));
   const r = runElection(s, () => 0.5, bots, 2020);
   assert.equal(r.ok, false);
@@ -401,7 +401,7 @@ test('v11.4: runElection succeeds at national_power; win grants +50 influence + 
   begin(s, { name: 'T', byear: 1990, nation: 'Vietnam', ints: [], tals: [] });
   s.power = freshPower();
   s.power.influence = 200; // moderate — diminishing returns will cut the +50 gain
-  s.money = 1_100_000_000; // national_power
+  s.money = 2_100_000_000; // national_power
   const bots = BOTS.map(([n, a, nat, ind, v]) => ({ name: n, nation: nat, nw: v }));
   // With influence=200, influenceBonus = min(20, 25) = 20. Opponent at rng=0.99:
   // personalStrength = 50 * (0.8 + 0.99*0.4) = 50 * 1.196 = 59.8 → opponentPenalty = -(9.8/50)*25 ≈ -4.9
@@ -430,7 +430,7 @@ test('v11.4: runElection refuses when scrutiny ≥95', () => {
   s.power = freshPower();
   s.power.influence = 500;
   s.power.scrutiny = 96;
-  s.money = 1_100_000_000;
+  s.money = 2_100_000_000;
   const bots = BOTS.map(([n, a, nat, ind, v]) => ({ name: n, nation: nat, nw: v }));
   const r = runElection(s, () => 0.5, bots, 2020);
   assert.equal(r.ok, false);
@@ -442,7 +442,7 @@ test('v11.4: runElection refuses when term still active (won last election)', ()
   begin(s, { name: 'T', byear: 1990, nation: 'Vietnam', ints: [], tals: [] });
   s.power = freshPower();
   s.power.influence = 500;
-  s.money = 1_100_000_000;
+  s.money = 2_100_000_000;
   s.power.elections['Vietnam'] = {
     status: 'won', year: 2020, opponent: 'X', margin: 5, termEnds: s.lastDay + 365,
   };
@@ -457,7 +457,7 @@ test('v11.4: runElection refuses when influence < 80', () => {
   begin(s, { name: 'T', byear: 1990, nation: 'Vietnam', ints: [], tals: [] });
   s.power = freshPower();
   s.power.influence = 50;
-  s.money = 1_100_000_000;
+  s.money = 2_100_000_000;
   const bots = BOTS.map(([n, a, nat, ind, v]) => ({ name: n, nation: nat, nw: v }));
   const r = runElection(s, () => 0.5, bots, 2020);
   assert.equal(r.ok, false);
@@ -469,18 +469,18 @@ test('v11.4: tickScrutiny rises by tier + extra for high influence; falls with t
   begin(s, { name: 'T', byear: 1990, nation: 'Vietnam', ints: [], tals: [] });
   s.power = freshPower();
   // industry_mogul tier
-  s.money = 12_000_000;
+  s.money = 16_000_000;
   assert.equal(powerTierOf(s), 'industry_mogul');
   const r1 = tickScrutiny(s);
   assert.equal(r1, 2, 'industry_mogul → +2');
   assert.equal(s.power.scrutiny, 2);
   // influencer tier
-  s.money = 110_000_000;
+  s.money = 210_000_000;
   s.power.scrutiny = 0;
   const r2 = tickScrutiny(s);
   assert.equal(r2, 4, 'influencer → +4');
   // national_power with influence >500
-  s.money = 1_100_000_000;
+  s.money = 2_100_000_000;
   s.power.influence = 600;
   s.power.scrutiny = 0;
   const r3 = tickScrutiny(s);
@@ -683,7 +683,7 @@ test('v11.4: tickPowerV11_4 returns combined promotion + influence + scrutiny + 
   s.power = freshPower();
   s.ownClub = 'My Circle';
   s.clubs = ['own'];
-  s.money = 12_000_000; // cross $10M → industry_mogul promotion
+  s.money = 16_000_000; // cross $15M → industry_mogul promotion (v11.18 raised thresholds)
   s.power.scrutiny = 100; // force a scandal roll
   const r = tickPowerV11_4(s, netWorth(s), () => 0.0); // rng=0 → scandal fires (chance ≥0)
   assert.equal(r.promotedTo, 'industry_mogul');

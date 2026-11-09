@@ -103,12 +103,12 @@ test('v11.5: declareAutonomy requires conglomerate + $50M + 50 influence', () =>
   s.entity.tier = 'none';
   assert.equal(declareAutonomy(s, 100_000_000, 100, m => logs.push(m)).ok, false);
   s.entity.tier = 'conglomerate';
-  // No net worth
+  // No net worth (below v11.18 autonomous threshold of $75M)
   assert.equal(declareAutonomy(s, 10_000_000, 100, m => logs.push(m)).ok, false);
-  // No influence
+  // No influence (below v11.18 autonomous threshold of 60)
   assert.equal(declareAutonomy(s, 100_000_000, 30, m => logs.push(m)).ok, false);
-  // Success
-  const r = declareAutonomy(s, 60_000_000, 60, m => logs.push(m));
+  // Success (above v11.18 thresholds: $75M / 60)
+  const r = declareAutonomy(s, 90_000_000, 70, m => logs.push(m));
   assert.equal(r.ok, true);
   assert.equal(s.entity.tier, 'autonomous');
   assert.equal(s.entity.originNation, 'Vietnam');
@@ -136,7 +136,7 @@ test('v11.5: courtRecognition requires autonomous tier + 30 influence', () => {
   assert.equal(courtRecognition(s, 100, m => logs.push(m)).reason, 'maxRecognition');
 });
 
-test('v11.5: declareIndependence requires autonomous + $500M + 200 infl + recognition 3', () => {
+test('v11.5: declareIndependence requires autonomous + $750M + 220 infl + recognition 3 (v11.18 raised thresholds)', () => {
   const s = fresh();
   begin(s, { name: 'T', byear: 1990, nation: 'Vietnam', ints: [], tals: [] });
   s.entity = freshEntity();
@@ -144,15 +144,15 @@ test('v11.5: declareIndependence requires autonomous + $500M + 200 infl + recogn
   // Wrong tier
   s.entity.tier = 'conglomerate';
   assert.equal(declareIndependence(s, 1e9, 300, 'democratic', 'NEW', m => logs.push(m)).ok, false);
-  // Autonomous but missing other reqs
+  // Autonomous but missing other reqs (v11.18 nation threshold: $750M / 220)
   s.entity.tier = 'autonomous';
-  assert.equal(declareIndependence(s, 100e6, 300, 'democratic', 'NEW', m => logs.push(m)).ok, false);
+  assert.equal(declareIndependence(s, 200e6, 300, 'democratic', 'NEW', m => logs.push(m)).ok, false);
   assert.equal(declareIndependence(s, 1e9, 100, 'democratic', 'NEW', m => logs.push(m)).ok, false);
   s.entity.recognition = 2;
   assert.equal(declareIndependence(s, 1e9, 300, 'democratic', 'NEW', m => logs.push(m)).ok, false);
-  // All reqs met
+  // All reqs met (v11.18 nation threshold: $750M / 220)
   s.entity.recognition = 3;
-  const r = declareIndependence(s, 600e6, 250, 'technocratic', 'ACM', m => logs.push(m));
+  const r = declareIndependence(s, 800e6, 250, 'technocratic', 'ACM', m => logs.push(m));
   assert.equal(r.ok, true);
   assert.equal(s.entity.tier, 'nation');
   assert.equal(s.entity.constitution, 'technocratic');
@@ -304,14 +304,14 @@ test('v11.5: qualifiedEntityTier computes the highest tier qualified for', () =>
   assert.equal(qualifiedEntityTier(s, 100_000, 0), 'none');
   // ≥$1M → conglomerate
   assert.equal(qualifiedEntityTier(s, 1_500_000, 0), 'conglomerate');
-  // ≥$50M + 50 infl → autonomous
-  assert.equal(qualifiedEntityTier(s, 60_000_000, 60), 'autonomous');
-  // ≥$500M + 200 infl + recognition 3 → nation
+  // ≥$75M + 60 infl → autonomous (v11.18 raised from $50M/50)
+  assert.equal(qualifiedEntityTier(s, 90_000_000, 70), 'autonomous');
+  // ≥$750M + 220 infl + recognition 3 → nation (v11.18 raised from $500M/200)
   s.entity.recognition = 3;
-  assert.equal(qualifiedEntityTier(s, 600_000_000, 250), 'nation');
-  // ≥$500M + 200 infl but recognition < 3 → still autonomous
+  assert.equal(qualifiedEntityTier(s, 800_000_000, 250), 'nation');
+  // ≥$750M + 220 infl but recognition < 3 → still autonomous
   s.entity.recognition = 2;
-  assert.equal(qualifiedEntityTier(s, 600_000_000, 250), 'autonomous');
+  assert.equal(qualifiedEntityTier(s, 800_000_000, 250), 'autonomous');
 });
 
 test('v11.5: nextEntityTier returns the next tier with its threshold; null at top', () => {
