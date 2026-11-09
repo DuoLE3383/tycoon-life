@@ -1,5 +1,5 @@
 'use client';
-// HuyenBao v11.12 — React edition. Two-level grouped nav, a systems links map,
+// HuyenBao v11.13 — React edition. Two-level grouped nav, a systems links map,
 // gigs, levels, social, the cosmic frontier, EN/VI/中文, LLM oracle with
 // random kind dispatch (luck / setback / life-stage / story), pre-owned
 // market + social listings, and a Hall of Fame tab.
@@ -68,7 +68,7 @@ if (typeof window !== 'undefined') {
 // v11.8 — the bundled version. The /version.json file in /public is polled
 // every 5 minutes; if its version is newer than this, a "reload to update"
 // banner appears even in a running session (no F5 needed).
-const BUNDLED_VERSION = 'v11.12';
+const BUNDLED_VERSION = 'v11.13';
 const VERSION_POLL_MS = 5 * 60 * 1000;
 const SEEN_KEY = 'tycoon_seen_' + BUNDLED_VERSION;
 
@@ -433,7 +433,7 @@ function Header({ s, eraName }: { s: GameState; eraName: (y: number) => string }
     <header className="top">
       <div className="brand">
         <Art id="s-coin" className="logo" />
-        <div><h1>HuyenBao <span className="mini">v11.12</span></h1>
+        <div><h1>HuyenBao <span className="mini">v11.13</span></h1>
           <div className="mini">{s.started ? `${s.nation} · ${eraName(worldYear(s))}` : t('tagline')}</div></div>
       </div>
       <div><div className="mini">{t('cash')}</div><div id="tcash" style={{ color: s.money < 0 ? 'var(--brick)' : undefined }}>{fmt(s.money)}</div>
@@ -636,6 +636,26 @@ function HomeTab({ s, act, askAI, aiBusy, aiNote, eraName }: { s: GameState; act
           <p className="sub">{t('guide.5')}</p>
           <p className="sub">{t('guide.6')}</p>
           <p className="sub">{t('guide.7')}</p>
+        </div>
+      </details>
+      {/* v11.13 — ecosystem roadmap fold; points to ECOSYSTEM.md in the repo */}
+      <details className="fold" id="ecosystem">
+        <summary>{t('eco.title')}</summary>
+        <div className="foldbody">
+          <p className="sub">{t('eco.blurb')}</p>
+          <ul className="sub" style={{ paddingLeft: 18, margin: '6px 0', lineHeight: 1.7 }}>
+            <li>{t('eco.c1')}</li>
+            <li>{t('eco.c2')}</li>
+            <li>{t('eco.c3')}</li>
+            <li>{t('eco.c4')}</li>
+            <li>{t('eco.c5')}</li>
+            <li>{t('eco.c6')}</li>
+            <li>{t('eco.c7')}</li>
+            <li>{t('eco.c8')}</li>
+          </ul>
+          <p className="mini" style={{ marginTop: 6 }}>
+            <a href="https://github.com/DuoLE3383/tycoon-life/blob/main/ECOSYSTEM.md" target="_blank" rel="noopener noreferrer">{t('eco.viewGithub')} →</a>
+          </p>
         </div>
       </details>
       <details className="fold" id="ach">

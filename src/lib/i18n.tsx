@@ -370,6 +370,18 @@ const D: Record<string, [string, string, string]> = {
   // v11.12 — new line explaining random career/business events (the user asked
   // for clarification that situations — good and bad — happen during work)
   'guide.7': ['Random life events — both lucky breaks and setbacks — fire during your career and business. The AI oracle writes them for your exact moment. They are in-game fiction, not real-life advice.', 'Sự kiện cuộc đời ngẫu nhiên — cả may mắn lẫn rủi ro — xảy ra trong sự nghiệp và kinh doanh của bạn. AI tiên tri viết riêng cho khoảnh khắc hiện tại. Đây là hư cấu trong game, không phải lời khuyên đời thật.', '随机人生事件——既有好运也有挫折——会在你的事业与生意中发生。AI先知专为你此刻撰写。这是游戏内虚构，并非现实建议。'],
+  // ---- v11.13 ecosystem roadmap (in-app pointer to ECOSYSTEM.md)
+  'eco.title': ['Ecosystem roadmap', 'Lộ trình hệ sinh thái', '生态系统路线图'],
+  'eco.blurb': ['The HuyenBao ecosystem — a connected family of simulation games, a crypto-trading app, and a mysticism research app sharing one identity and one local LLM.', 'Hệ sinh thái HuyenBao — họ game mô phỏng liên kết, app giao dịch crypto, và app nghiên cứu huyền học, dùng chung nhân thân và LLM local.', 'HuyenBao生态系统 — 相连的模拟游戏家族、加密交易应用、玄学研究应用，共享身份与本地LLM。'],
+  'eco.c1': ['HuyenBao (this game) — life simulation: build an empire before 90.', 'HuyenBao (game này) — mô phỏng đời: xây đế chế trước 90 tuổi.', 'HuyenBao（本游戏）— 人生模拟：90岁前建立帝国。'],
+  'eco.c2': ['Racing sim — garage, seasons; fame flows back here.', 'Đua xe — garage, giải đua; danh tiếng đưa về đây.', '赛车模拟 — 车库、赛事；名气回流本游戏。'],
+  'eco.c3': ['Farming sim — seasonal crops supply the factories (+30%).', 'Trồng trọt — mùa vụ cung cấp cho nhà máy (+30%).', '种植模拟 — 季节作物为工厂供货（+30%）。'],
+  'eco.c4': ['Livestock sim — herds and by-products for manufacturing.', 'Chăn nuôi — đàn vật và sản phẩm phụ cho sản xuất.', '畜牧模拟 — 牲畜与副产品供制造。'],
+  'eco.c5': ['Manufacturing sim — supply chain: farm/ranch → factory → retail.', 'Sản xuất — chuỗi cung ứng: farm/ranch → nhà máy → bán lẻ.', '制造模拟 — 供应链：农场/牧场→工厂→零售。'],
+  'eco.c6': ['Armed base building — R&D, training, defence (late-game).', 'Căn cứ vũ khí vũ trang — R&D, huấn luyện, phòng thủ (cuối game).', '武装基地建造 — 研发、训练、防御（后期）。'],
+  'eco.c7': ['Elliot — crypto trading pages (earn real money; not investment advice).', 'Elliot — trang giao dịch crypto (kiếm tiền thật; không phải tư vấn đầu tư).', 'Elliot — 加密货币交易页（赚真钱；非投资建议）。'],
+  'eco.c8': ['Huyền Học AI — Tarot / I Ching / Tử Vi / Phong thủy for daily life.', 'Huyền Học AI — Tarot / Kinh Dịch / Tử Vi / Phong thủy cho đời sống.', '玄学AI — 塔罗/易经/紫微/风水应用于生活。'],
+  'eco.viewGithub': ['View full roadmap on GitHub', 'Xem lộ trình đầy đủ trên GitHub', '在 GitHub 查看完整路线图'],
   'lifeLog': ['Life log', 'Nhật ký cuộc đời', '人生日志'],
   // ---- achievements
   'achTitle': ['Achievements', 'Thành tựu', '成就'],

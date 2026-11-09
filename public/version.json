@@ -1,15 +1,11 @@
 {
-  "version": "v11.12",
+  "version": "v11.13",
   "releasedAt": "2026-11-10",
-  "headline": "HuyenBao v11.12 — bigger toasts, fixed VI guide, online/offline time overhaul",
-  "summary": "Four player-facing fixes: (1) Notification toasts are bigger (larger padding, font, radius, scrollable) and stay visible longer — duration is now adaptive (3.5s min, 8s max, ~55ms per character) so long messages don't vanish before you finish reading. (2) The Vietnamese how-to-play guide had broken phrasing ('bằng lái' for licence, 'tâm thế' for mood, 'VŨ TRỤ' for space) — all fixed, and a new guide.7 line explains that random good/bad events fire during your career and business. (3) Online time now runs at 30 real-seconds per game day (was 20s). (4) Offline time is no longer paused: closing the tab advances the world at 10 real-minutes per game day (capped at 30 days), and each unmonitored business faces extra closure risk + operational losses while you're away — a summary toast tells you what happened. The AI-oracle event rate is also bumped from 3% to 4% per game-day so in-work situations fire more often.",
+  "headline": "HuyenBao v11.13 — ecosystem development roadmap added to repo + in-app pointer",
+  "summary": "A full ecosystem development roadmap (ECOSYSTEM.md) is now committed to the repo, describing the connected family of apps around HuyenBao: the life-simulation hub (this game), future simulation games (racing, farming, livestock, manufacturing, armed-base building), the Elliot crypto-trading app (earn real money), and the Huyền Học AI app (mysticism research applied to daily life — app.huyenbao.com). The roadmap covers vision, the 8 components with status, connection principles (shared identity, shared local LLM/Ollama, cross-game assets), a 5-phase timeline, the shared tech stack, and the ecosystem-wide disclaimer. A new 'Ecosystem roadmap' fold in the Home tab lists all 8 components (EN/VI/ZH) and links to the GitHub document.",
   "features": [
-    "Toasts: adaptive duration (3.5–8s by message length) + bigger box (padding 14×22, font 1.02rem, radius 14, max-height 60vh scroll)",
-    "Guide VI fixes: 'bằng lái' → 'chứng chỉ chuyên ngành', 'tâm thế' → 'tình hình', 'VŨ TRỤ' → 'vũ trụ'; guide.1 updated to 30s + offline mention (EN/VI/ZH); new guide.7 about random career/business events (EN/VI/ZH)",
-    "Time: DAY_MS 20000 → 30000 (online 30s/day); new OFFLINE_DAY_MS = 600000 (offline 10min/day)",
-    "Offline catch-up: new engine.applyOffline() — on mount + on tab-visible, advances time at OFFLINE_DAY_MS for elapsed since s.lastSeen (capped 30 days), applies extra unsupervised-business closure roll (~2%/day) + operational losses, returns a summary toast; GameState gains lastSeen field (null-safe for old saves)",
-    "Game clock rewrite: visible ticks refresh lastSeen; hidden stamps lastSeen + persists; beforeunload stamps lastSeen; mount runs applyOffline + toast",
-    "AI oracle event rate bumped 3% → 4% per game-day (more in-work situations, good and bad)",
-    "Version bumped to v11.12 on homepage header + version.json"
+    "New ECOSYSTEM.md in repo root: vision, 8-component table (HuyenBao hub + racing + farming + livestock + manufacturing + armed base + Elliot + Huyền Học AI) with status, connection principles (shared identity, shared Ollama LLM, cross-game assets/fame), 5-phase roadmap (hub+huyền học → Elliot → sim games → manufacturing+arsenal → ecosystem glue), shared tech stack, dev run instructions, ecosystem-wide disclaimer",
+    "New 'Ecosystem roadmap' fold in Home tab (after the How-to-play guide): blurb + 8 component one-liners + link to GitHub ECOSYSTEM.md (EN/VI/ZH via eco.* i18n keys)",
+    "Version bumped to v11.13 on homepage header + version.json"
   ]
 }
