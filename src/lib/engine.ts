@@ -149,7 +149,7 @@ export function gigLock(s: GameState, g: GigDef): string {
 export function gigPay(s: GameState, g: GigDef): number {
   let pay = g.base + 0.05 * Math.sqrt(Math.max(0, yearIncome(s)));
   if (g.id === 'sponsored') pay += s.social.followers * 0.02;
-  pay *= levelMult(s) * (1 + s.fame * 0.004) * healthMult(s);
+  pay *= levelMult(s) * (1 + Math.log10(Math.max(1, s.fame + 1)) * 0.2) * healthMult(s);
   if (s.ints.includes('sports') || s.tals.includes('hands')) pay *= 1.15;
   return Math.max(5, Math.round(pay));
 }
@@ -160,7 +160,7 @@ export function doGig(s: GameState, id: string, rng: () => number = Math.random)
   const pay = gigPay(s, g);
   s.money += pay; s.yIncome += pay;
   addXp(s, g.id === 'ad' ? 4 : 10, rng);
-  if (g.id !== 'ad' && rng() < 0.04) s.fame = Math.min(100, s.fame + 1);
+  if (g.id !== 'ad' && rng() < 0.04) s.fame = s.fame + 1;
   return '+' + fmt(pay);
 }
 export function socialIncome(s: GameState): number { // annual ad revenue
@@ -178,7 +178,10 @@ export function startSpaceUpgrade(s: GameState): string | null {
   return 'Deep-space navigation program started. Check back in one year.';
 }
 export function addPost(s: GameState, t: string, boost = 1, rng: () => number = Math.random): void {
-  const likes = Math.round((s.social.followers * 0.05 + s.fame * 3 + 5) * (0.4 + rng() * 1.2) * boost);
+  // v10.5: fame is now unbounded — scale likes by sqrt(fame) so a fame of
+  // 10k doesn't blow up the like count linearly.
+  const fameLikes = Math.sqrt(Math.max(0, s.fame)) * 30;
+  const likes = Math.round((s.social.followers * 0.05 + fameLikes + 5) * (0.4 + rng() * 1.2) * boost);
   s.social.posts.unshift({ d: s.lastDay, t, likes });
   if (s.social.posts.length > 12) s.social.posts.pop();
   s.social.followers += Math.round(likes * 0.3 * boost) + (s.fame > 0 ? 2 : 0);
@@ -192,7 +195,7 @@ export function buySpace(s: GameState, id: string): string | null {
   const l = SPACE_LINES.find(x => x.id === id); if (!l || s.space[id]) return null;
   if (s.level < l.lvl || worldYear(s) < l.since || s.money < l.cost) return null;
   s.money -= l.cost; s.space[id] = 1; s.spaceBought[id] = s.day;
-  s.fame = Math.min(100, s.fame + 5);
+  s.fame = s.fame + 5;
   addXp(s, 200);
   pushLog(s, `Frontier venture founded: ${l.name}.`);
   addPost(s, `We are officially going beyond Earth. ${l.name} is a go.`, 2);
@@ -301,7 +304,7 @@ export const stageOf = (a: number) => STAGES.find(x => a < x.to) || STAGES[STAGE
 
 export const branchCount = (s: GameState, bid: string) => (s.branches[bid] || []).length;
 export const bizCost = (s: GameState, b: { id: string; base: number }) => Math.floor(b.base * Math.pow(BRANCH_GROWTH, branchCount(s, b.id)));
-export const fameBonus = (s: GameState) => 1 + s.fame * .002;
+export const fameBonus = (s: GameState) => 1 + Math.log10(Math.max(1, s.fame + 1)) * 0.1;
 export const clubMult = (s: GameState) => {
   if (s.club === 'own') return OWN_CLUB_MULT;
   const c = CLUBS.find(c => c.id === s.club); return c ? c.mult : 1;
@@ -449,7 +452,7 @@ export function processDay(s: GameState, d: number, rng: () => number = Math.ran
     if (profit > 0) s.yIncome += profit;
     // social media: follower graph drifts with fame every month (sqrt growth + hard cap)
     const fg = Math.min(
-      Math.round((s.fame * 14 + Math.sqrt(s.social.followers) * 8) * (0.4 + rng() * 1.2)),
+      Math.round((Math.sqrt(Math.max(0, s.fame)) * 140 + Math.sqrt(s.social.followers) * 8) * (0.4 + rng() * 1.2)),
       200000000 - s.social.followers);
     if (fg > 0) s.social.followers += fg;
     if (s.social.followers > 0) addXp(s, Math.min(12, 1 + s.social.followers / 20000), rng);
@@ -523,7 +526,7 @@ export function yearEnd(s: GameState, age: number, rng: () => number = Math.rand
   if (rng() < .6) {
     const ev = EVENTS[Math.floor(rng() * EVENTS.length)](s, rng);
     s.money += ev.cash;
-    if (ev.fame) s.fame = Math.min(100, s.fame + ev.fame);
+    if (ev.fame) s.fame = Math.max(0, s.fame + ev.fame);
     if (ev.dip) STOCKS.forEach(x => s.prices[x.id] *= .9);
     pushLog(s, `${ev.msg} ${ev.cash >= 0 ? '+' : '\u2212'}${fmt(Math.abs(ev.cash))}`);
   }
@@ -549,7 +552,7 @@ export function openBranch(s: GameState, id: string): string | null {
   s.money -= c;
   s.branches[b.id] = (s.branches[b.id] || []).concat([{ r: branchCount(s, b.id) % 6, mood: 1, paid: c, day: s.day }]);
   s.biz[b.id] = branchCount(s, b.id);
-  s.fame = Math.min(100, s.fame + 2);
+  s.fame = s.fame + 2;
   addXp(s, 25);
   const reg = b.reg[(branchCount(s, b.id) - 1) % b.reg.length];
   pushLog(s, `Opened ${b.name} branch in ${reg}.`);
@@ -575,7 +578,7 @@ export function buyFacLine(s: GameState, id: string): string | null {
 export function buyItem(s: GameState, id: string): string | null {
   const it = ITEM_BY[id]; if (!it || s.money < it.price) return null;
   s.money -= it.price; addLot(s, id);
-  s.fame = Math.min(100, s.fame + (it.lux >= 100 ? 3 : it.lux >= 30 ? 1 : 0));
+  s.fame = s.fame + (it.lux >= 100 ? 3 : it.lux >= 30 ? 1 : 0);
   if (it.price >= 10000) addPost(s, `Just picked up a new ${it.name}. Life is good.`, it.lux >= 100 ? 2 : 1);
   return 'Bought ' + it.name;
 }
@@ -663,7 +666,7 @@ export function donate(s: GameState, amt: number): string | null {
   s.money -= amt; s.donated += amt;
   const g = amt >= 100000 ? 5 : amt >= 10000 ? 2 : 1;
   const ka = amt >= 100000 ? 8 : amt >= 10000 ? 3 : 1;
-  s.fame = Math.min(100, s.fame + g);
+  s.fame = Math.max(0, s.fame + g);
   s.karma += ka;
   addXp(s, Math.max(2, Math.round(amt / 10000)));
   if (amt >= 10000) addPost(s, `Gave ${fmt(amt)} to charity today. Small acts, big ripples.`, 1.3);
@@ -816,7 +819,7 @@ export function buyUsedItem(s: GameState, listing: {
     ageYears: listing.ageYears, condition: listing.condition, paid: listing.askPrice,
     day: s.day, lux: listing.lux, rate: listing.rate, story: listing.story
   });
-  s.fame = Math.min(100, s.fame + (listing.lux >= 100 ? 2 : listing.lux >= 30 ? 1 : 0));
+  s.fame = s.fame + (listing.lux >= 100 ? 2 : listing.lux >= 30 ? 1 : 0);
   if (listing.askPrice >= 10000) addPost(s, `Picked up a pre-owned ${listing.name}. Has a story.`, 1);
   pushLog(s, `Bought used: ${listing.name} for ${fmt(listing.askPrice)}.`);
   return 'Bought ' + listing.name;
@@ -837,14 +840,14 @@ export function postItemListing(s: GameState, kind: 'lot' | 'used', idx: number)
     const it = ITEM_BY[l.id]; if (!it) return null;
     const v = lotValue(s, l) * (1 - RESALE_FEE);
     addPost(s, `Listing my ${it.name} on the feed. DM if serious. Asking ${fmt(v)}.`, 1.4);
-    s.fame = Math.min(100, s.fame + 1);
+    s.fame = s.fame + 1;
     pushLog(s, `Posted listing for ${it.name}.`);
     return 'Posted: ' + it.name;
   }
   const u = s.used[idx]; if (!u) return null;
   const v = usedItemValue(s, u) * (1 - RESALE_FEE);
   addPost(s, `Anyone want my ${u.name}? ${u.story} Asking ${fmt(v)}.`, 1.5);
-  s.fame = Math.min(100, s.fame + 1);
+  s.fame = s.fame + 1;
   pushLog(s, `Posted used listing for ${u.name}.`);
   return 'Posted: ' + u.name;
 }
@@ -1082,6 +1085,9 @@ export const ACHIEVEMENTS: AchDef[] = [
   { id: 'married', cond: s => s.married },
   { id: 'kids3', cond: s => s.kids >= 3 },
   { id: 'fame50', cond: s => s.fame >= 50 },
+  { id: 'fame100', cond: s => s.fame >= 100 },
+  { id: 'fame300', cond: s => s.fame >= 300 },
+  { id: 'fame1000', cond: s => s.fame >= 1000 },
   { id: 'verified', cond: s => !!s.social.verified },
   { id: 'millionFans', cond: s => s.social.followers >= 1e6 },
   { id: 'philanthropist', cond: s => s.donated >= 1e6 },

@@ -901,7 +901,7 @@ function SocialTab({ s, act }: { s: GameState; act: Act }) {
         <div style={{ flex: 1, minWidth: 0 }}>
           <b className="big">@{s.name.toLowerCase().replace(/[^a-z0-9_]/g, '') || 'mogul'}
             {s.social.verified && <span className="vbadge" title={t('verified')}>✓</span>}</b>
-          <div className="mini">{s.nation} · {t('fame')} {s.fame}/100</div>
+          <div className="mini">{s.nation} · {t('fame')} {Math.round(s.fame)}</div>
           <div className="sstat">
             <div><b>{s.social.followers.toLocaleString()}</b><div className="mini">{t('followers')}</div></div>
             <div><b>{s.social.posts.length}</b><div className="mini">{t('posts')}</div></div>
@@ -997,7 +997,7 @@ function BankTab({ s, act }: { s: GameState; act: Act }) {
   const { t } = useT();
   const maxLoan = Math.max(0, Math.floor(netWorth(s) * .5 - s.bank.loan));
   let marginal = 0; { let lo = 0; for (const [hi, rate] of TAX_BRACKETS) { if (s.yIncome > lo) marginal = rate; lo = hi; } }
-  const fameTxt = s.fame >= 80 ? t('fameHousehold') : s.fame >= 50 ? t('fameFamous') : s.fame >= 25 ? t('fameWell') : s.fame > 0 ? t('fameGetting') : t('fameLevels');
+  const fameTxt = s.fame >= 1000 ? t('fameIconic') : s.fame >= 300 ? t('fameHousehold') : s.fame >= 100 ? t('fameFamous') : s.fame >= 25 ? t('fameWell') : s.fame > 0 ? t('fameGetting') : t('fameLevels');
   return (
     <>
       <div className="card" style={{ marginBottom: 10 }}>
@@ -1037,8 +1037,8 @@ function BankTab({ s, act }: { s: GameState; act: Act }) {
       </Row>
       <h3>{t('charityFame')}</h3>
       <div className="card" style={{ marginBottom: 8 }}>
-        <div className="famewrap"><span className="mini">{t('fame')}</span><div className="famebar"><i style={{ width: s.fame + '%' }} /></div><b>{s.fame}</b></div>
-        <div className="mini">{fameTxt} · {t('bizIncomeFame', '', { n: (s.fame * .2).toFixed(1) })}</div>
+        <div className="famewrap"><span className="mini">{t('fame')}</span><div className="famebar"><i style={{ width: Math.min(100, Math.log10(Math.max(1, s.fame + 1)) * 25) + '%' }} /></div><b>{Math.round(s.fame)}</b></div>
+        <div className="mini">{fameTxt} · {t('bizIncomeFame', '', { n: ((fameBonus(s) - 1) * 100).toFixed(1) })}</div>
       </div>
       <Row art="i-art" right={<div className="trade">
         <Btn ic="ic-heart" label="+$1K" disabled={s.money < 1000} onClick={() => act(st => donate(st, 1000))} />
@@ -1236,7 +1236,7 @@ function LinksTab({ s }: { s: GameState }) {
       case 'health': return Math.round(s.health) + '/100';
       case 'level': return `${t('lvl')} ${s.level} · ×${levelMult(s).toFixed(2)}`;
       case 'club': return '×' + clubMult(s).toFixed(2);
-      case 'fame': return Math.round(s.fame) + '/100';
+      case 'fame': return String(Math.round(s.fame));
       case 'spirit': return Math.round(s.spirit) + '/100';
       case 'social': return s.social.followers.toLocaleString();
       case 'bank': return fmt(s.bank.dep) + (s.bank.loan > 0 ? ' · ' + fmt(-s.bank.loan) : '');
