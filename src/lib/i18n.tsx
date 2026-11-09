@@ -801,6 +801,21 @@ const D: Record<string, [string, string, string]> = {
   'v11.entityCurrencyBlurb': ['3-letter code (e.g. NEW). Used for your nation\'s own money.', 'Mã 3 chữ (vd NEW). Dùng cho tiền quốc gia bạn.', '3字母代码（如NEW）。用于你国家的货币。'],
   'v11.entityStubEmpire': ['Interstellar empire + galactic federation tiers arrive in v11.7 (need star-system control + galactic geography).', 'Cấp đế chế liên hành tinh + liên minh thiên hà sẽ có ở v11.7 (cần kiểm soát hệ sao + thiên hà).', '星际帝国与银河联邦等级将在v11.7上线（需星系控制+银河地理）。'],
   'v11.entityStubGalaxy': ['Galactic geography arrives in v11.7.', 'Địa lý thiên hà sẽ có ở v11.7.', '银河地理将在v11.7上线。'],
+  // v11.6 — gender + birth month + zodiac + tarot/spirit affinity
+  'v11.gender': ['Gender', 'Giới tính', '性别'],
+  'v11.genderMale': ['Male', 'Nam', '男'],
+  'v11.genderFemale': ['Female', 'Nữ', '女'],
+  'v11.genderNonbinary': ['Non-binary', 'Phi nhị nguyên', '非二元'],
+  'v11.birthMonth': ['Birth month', 'Tháng sinh', '出生月份'],
+  'v11.zodiacAffinity': ['affinity', 'hợp', '亲和'],
+  'v11.zodiacEraHint': ['Zodiac + era hint', 'Gợi ý cung + thời đại', '星座+时代提示'],
+  'v11.tarotTitle': ['Tarot draw', 'Rút tarot', '塔罗抽牌'],
+  'v11.tarotBlurb': ['Opt into monthly tarot draws. Each card hints at the season ahead.', 'Bật rút tarot hàng tháng. Mỗi lá gợi ý mùa sắp tới.', '启用每月塔罗抽牌。每张牌暗示即将到来的季节。'],
+  'v11.tarotOptIn': ['Enable tarot', 'Bật tarot', '启用塔罗'],
+  'v11.tarotOptOut': ['Disable tarot', 'Tắt tarot', '关闭塔罗'],
+  'v11.tarotDraw': ['Draw a card', 'Rút một lá', '抽一张牌'],
+  'v11.tarotCooldown': ['Need to wait (30-day cooldown).', 'Cần chờ (30 ngày).', '需等待（30天冷却）。'],
+  'v11.tarotRecent': ['Recent draws', 'Lần rút gần đây', '近期抽牌'],
 };
 
 export function makeT(lang: Lang) {

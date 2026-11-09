@@ -31,6 +31,16 @@ import {
   declareIndependence, declareAutonomy, courtRecognition, autoPromoteConglomerate, tickEntity,
   ENTITY_TIERS, CONSTITUTIONS, constitutionById,
 } from './empire';
+// v11.6 — Zodiac + tarot + psychic affinity. Adds gender + birth month
+// to character creation; derives a zodiac sign with an industry affinity
+// (passive +5% income in that field); enables optional monthly tarot
+// draws in the Spirit tab; and feeds the pre-game suggestion that
+// combines zodiac + historical era.
+import {
+  type ZodiacSign, type Gender, type ZodiacDef, type PsychicState,
+  ZODIAC, zodiacOf, zodiacById, freshPsychic, TAROT_CARDS,
+  tarotDraw, togglePsychic, zodiacAffinityMult, zodiacIntroSuggestion,
+} from './zodiac';
 // Re-export the public surface of the power module so the React layer
 // can import everything from one place (engine.ts).
 export {
@@ -54,6 +64,12 @@ export {
   // defined in this file (not empire.ts) because they need pushLog + netWorth.
 };
 export type { EntityState, EntityTier, Constitution } from './empire';
+// Re-export the zodiac module's public surface
+export {
+  ZODIAC, zodiacOf, zodiacById, freshPsychic, TAROT_CARDS,
+  tarotDraw, togglePsychic, zodiacAffinityMult, zodiacIntroSuggestion,
+};
+export type { ZodiacSign, Gender, ZodiacDef, PsychicState } from './zodiac';
 
 export const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
@@ -81,6 +97,14 @@ export interface GameState {
   clubs: string[]; // v10.5 — multiple-club membership (s.club stays as the 'active' / highest-mult one)
   deg: Record<FieldKey, number>; lic: Record<string, boolean>; study: Study | null; sideStudy: Study | null;
   name: string; byear: number; nation: string; religion: Religion; ints: string[]; tals: string[]; topField: FieldKey | null;
+  // v11.6 — gender + birth month (drives zodiac) + psychic tarot state.
+  // gender is cosmetic + minor dialogue tweaks; birthMonth (1-12) sets the
+  // zodiac sign at game start (stored as `zodiac` for easy access);
+  // psychic tracks opt-in + last draw + log for the Spirit-tab tarot action.
+  gender: Gender;
+  birthMonth: number;          // 1-12 (Jan..Dec)
+  zodiac: ZodiacSign;          // derived at begin()
+  psychic: PsychicState;
   started: boolean;
   bank: { dep: number; loan: number }; fame: number; donated: number; yIncome: number; yTax: number;
   prices: Record<string, number>; hist: Record<string, number[]>;
@@ -262,7 +286,8 @@ export function socialIncome(s: GameState): number { // annual ad revenue
   // v11.1 fix: scale by sqrt(followers) not linear — prevents the
   // $10^21/year income explosion. At 1M followers → ~$6K/yr; 100M → $60K;
   // 2B (cap) → ~$270K/yr. Meaningful but not universe-conquering.
-  return s.social.followers >= 500 ? Math.sqrt(s.social.followers) * 6 * levelMult(s) : 0;
+  // v11.6 — zodiac arts affinity (+5% if zodiac is an arts-affinity sign)
+  return s.social.followers >= 500 ? Math.sqrt(s.social.followers) * 6 * levelMult(s) * zodiacAffinityMult(s, 'arts') : 0;
 }
 export const spaceMultiplier = (s: GameState) => cosmicMult(s) * (s.spaceTravel ? 1.2 : 1);
 export function spaceIncome(s: GameState): number { // annual
@@ -348,6 +373,7 @@ export function fresh(): GameState {
     lots: [], stk: {},     club: null, ownClub: null, job: null, sideJob: null,
     deg: { business: 0, engineering: 0, medicine: 0, science: 0, arts: 0 }, lic: {}, study: null, sideStudy: null,
     name: 'Alex', byear: 1992, nation: 'Vietnam', religion: 'none', ints: [], tals: [], topField: null, started: false,
+    gender: 'nonbinary', birthMonth: 1, zodiac: 'capricorn', psychic: freshPsychic(),
     bank: { dep: 0, loan: 0 }, fame: 0, donated: 0, yIncome: 0, yTax: 0,
     prices: {}, hist: {}, eraBiz: 1, eraFac: 1,
     log: [], over: false, pending: null, aiEv: null,
@@ -416,6 +442,16 @@ export function migrate(raw: unknown): GameState {
   s.entity = s.entity && typeof s.entity === 'object'
     ? Object.assign(freshEntity(), s.entity)
     : freshEntity();
+  // v11.6 — zodiac / gender / birthMonth / psychic. Old saves have none;
+  // backfill from freshPsychic() + defaults. gender defaults to
+  // 'nonbinary', birthMonth to 1 (Jan), zodiac to 'capricorn'.
+  if (!RELIGIONS.includes(s.religion)) s.religion = 'none';
+  s.gender = (s.gender === 'male' || s.gender === 'female' || s.gender === 'nonbinary') ? s.gender : 'nonbinary';
+  s.birthMonth = Number.isFinite(s.birthMonth) && s.birthMonth >= 1 && s.birthMonth <= 12 ? s.birthMonth : 1;
+  s.zodiac = (ZODIAC.some(z => z.id === s.zodiac)) ? s.zodiac : zodiacOf(s.birthMonth, 1);
+  s.psychic = s.psychic && typeof s.psychic === 'object'
+    ? Object.assign(freshPsychic(), s.psychic)
+    : freshPsychic();
   // v11.1 fix: clamp existing saves with astronomical follower counts.
   // Some saves had 10^23 followers due to the linear-growth bug; cap them
   // at MAX_FOLLOWERS (2B) so the new sqrt formulas produce sane numbers.
@@ -456,12 +492,19 @@ export function migrate(raw: unknown): GameState {
   STOCKS.forEach(x => { if (s.prices[x.id] == null) { s.prices[x.id] = x.p; s.hist[x.id] = [x.p]; } });
   return s;
 }
-export function begin(s: GameState, opts: { name: string; byear: number; nation: string; religion?: Religion; ints: string[]; tals: string[] }) {
+export function begin(s: GameState, opts: { name: string; byear: number; nation: string; religion?: Religion; ints: string[]; tals: string[]; gender?: Gender; birthMonth?: number }) {
   const a = analyze(opts.ints, opts.tals);
   Object.assign(s, fresh(), { started: true });
   s.name = opts.name.slice(0, 24) || 'Alex';
   s.byear = opts.byear; s.nation = opts.nation; s.religion = opts.religion || 'none';
   s.ints = [...opts.ints]; s.tals = [...opts.tals]; s.topField = a.top;
+  // v11.6 — gender + birth month + zodiac. Birth month drives the zodiac
+  // sign at game start; the React layer passes both in from the Intro.
+  // Default day=15 (mid-month) for zodiac calculation so the day-of-month
+  // edge cases are not exposed to the player (v11.6 doesn't ask for day).
+  s.gender = opts.gender || 'nonbinary';
+  s.birthMonth = Number.isFinite(opts.birthMonth) && opts.birthMonth! >= 1 && opts.birthMonth! <= 12 ? opts.birthMonth! : 1;
+  s.zodiac = zodiacOf(s.birthMonth, 15);
   if (opts.ints.includes('money')) s.money = 5000;
   s.log.push(`1 Sep ${s.byear + 18}: ${s.name} turns 18 in the ${eraOf(s.byear + 18).name}. Find a job, or study for a degree or licence.`);
   recordActivity(s, 'Started a new life');
@@ -501,6 +544,7 @@ export const bizMultiplier = (s: GameState) => Math.min(
   clubMult(s) * (1 + BIZ_DEGREE_BONUS * s.deg.business) * fameBonus(s) * effEraBiz(s) * levelMult(s) * spiritBizMult(s)
     * (s.power?.boardNomineeBiz || 1) // v11.3 — advocacy 'boardNominee' grants +10%
     * (constitutionById(s.entity?.constitution || 'democratic' as Constitution).bizMult) // v11.5 — constitution bizMult
+    * zodiacAffinityMult(s, 'business') // v11.6 — zodiac industry affinity (+5% if zodiac = business)
 );
 export const bizIncome = (s: GameState) => { // annual
   let ann = 0;
@@ -513,7 +557,21 @@ export const jobsOf = (s: GameState) => [s.job, s.sideJob]
   .map(id => JOBS.find(j => j.id === id))
   .filter((job): job is (typeof JOBS)[number] => !!job);
 export const jobOf = (s: GameState) => jobsOf(s)[0];
-export const jobIncome = (s: GameState) => jobsOf(s).reduce((total, job) => total + job.salary * (job.ft ? studyWorkMult(s) : 1), 0);
+export const jobIncome = (s: GameState) => jobsOf(s).reduce((total, job) => {
+  // v11.6 — zodiac affinity: if the job's degree req matches the player's
+  // zodiac affinity, +5% salary. Falls back to the affinity lookup, which
+  // returns 1.0 for non-matching fields (no penalty).
+  let mult = job.ft ? studyWorkMult(s) : 1;
+  // Check if this job's req matches the zodiac affinity field
+  if (job.req?.deg) {
+    const fields = Object.keys(job.req.deg) as FieldKey[];
+    for (const f of fields) {
+      mult *= zodiacAffinityMult(s, f);
+      break; // only apply the first matching field (most jobs have one)
+    }
+  }
+  return total + job.salary * mult;
+}, 0);
 export const studyTuition = (s: GameState) => [s.study, s.sideStudy]
   .reduce((total, study) => total + (study?.kind === 'deg' ? study.tuition : 0), 0);
 export const yearIncome = (s: GameState) => bizIncome(s) + spaceIncome(s) + socialIncome(s) + jobIncome(s) + (s.age >= RETIRE ? PENSION : 0);

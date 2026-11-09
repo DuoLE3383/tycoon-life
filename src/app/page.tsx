@@ -46,6 +46,11 @@ import {
   entityTierOf, qualifiedEntityTier, nextEntityTier, ENTITY_TIERS, CONSTITUTIONS, constitutionById,
   actDeclareAutonomy, actCourtRecognition, actDeclareIndependence,
   type EntityState, type EntityTier, type Constitution,
+  // v11.6 — zodiac + tarot + psychic affinity
+  ZODIAC, zodiacOf, zodiacById, freshPsychic, TAROT_CARDS, tarotDraw, togglePsychic, zodiacAffinityMult, zodiacIntroSuggestion,
+  type ZodiacSign, type Gender, type ZodiacDef, type PsychicState,
+  // v11.6 — MONTHS array renamed to avoid clashing with month names below
+  MONTHS as MONTHS_NAMES,
 } from '@/lib/engine';
 import { localTwist, pickKind } from '@/lib/story';
 import { useT, LANGS, type Lang } from '@/lib/i18n';
@@ -59,10 +64,10 @@ if (typeof window !== 'undefined') {
   };
 }
 
-// v11.5 — the bundled version. The /version.json file in /public is polled
+// v11.6 — the bundled version. The /version.json file in /public is polled
 // every 5 minutes; if its version is newer than this, a "reload to update"
 // banner appears even in a running session (no F5 needed).
-const BUNDLED_VERSION = 'v11.5';
+const BUNDLED_VERSION = 'v11.6';
 const VERSION_POLL_MS = 5 * 60 * 1000;
 const SEEN_KEY = 'tycoon_seen_' + BUNDLED_VERSION;
 
@@ -377,7 +382,7 @@ function Header({ s, eraName }: { s: GameState; eraName: (y: number) => string }
     <header className="top">
       <div className="brand">
         <Art id="s-coin" className="logo" />
-        <div><h1>MOGUL <span className="mini">v11.5</span></h1>
+        <div><h1>MOGUL <span className="mini">v11.6</span></h1>
           <div className="mini">{s.started ? `${s.nation} · ${eraName(worldYear(s))}` : t('tagline')}</div></div>
       </div>
       <div><div className="mini">{t('cash')}</div><div id="tcash" style={{ color: s.money < 0 ? 'var(--brick)' : undefined }}>{fmt(s.money)}</div>
@@ -912,6 +917,37 @@ function SpiritTab({ s, act }: { s: GameState; act: Act }) {
         <Ic id={p.on ? 'ic-check' : 'ic-lock'} className="bsi" /><span>{p.label}</span>
         <span className="mini">{p.on ? '✓' : t('sp.locked', '', { n: p.need })}</span>
       </div>)}
+
+      {/* v11.6 — Tarot panel. Player opts in; monthly draws (30-day cooldown)
+          give a cryptic hint about the season ahead. Drawn cards are logged
+          for later reference. */}
+      <h3 style={{ marginTop: 12 }}>{t('v11.tarotTitle')}</h3>
+      <Row art="w-lotus"
+        right={<button className="ibtn" onClick={() => act(g => {
+          const on = togglePsychic(g);
+          return on ? t('v11.tarotOptIn') + ' ✓' : t('v11.tarotOptOut') + ' ✓';
+        })}>{s.psychic?.optedIn ? t('v11.tarotOptOut') : t('v11.tarotOptIn')}</button>}>
+        <b>{t('v11.tarotTitle')}</b>
+        <span className="sub">{t('v11.tarotBlurb')}</span>
+        {s.psychic?.optedIn && (
+          <div className="trade" style={{ marginTop: 4 }}>
+            <button className="tbuy" disabled={s.lastDay - (s.psychic?.lastDrawDay || 0) < 30}
+              onClick={() => act(g => {
+                const r = tarotDraw(g);
+                if (!r) return t('v11.tarotCooldown');
+                return `${r.card}: ${r.meaning}`;
+              })}>{t('v11.tarotDraw')}</button>
+          </div>
+        )}
+      </Row>
+      {s.psychic?.draws && s.psychic.draws.length > 0 && (
+        <Row art="ic-star">
+          <b className="mini">{t('v11.tarotRecent')}:</b>
+          <span className="sub" style={{ display: 'block', marginTop: 2 }}>
+            {s.psychic.draws.slice(-5).reverse().map(d => `${d.card}`).join(' · ')}
+          </span>
+        </Row>
+      )}
     </>
   );
 }
@@ -2013,7 +2049,7 @@ function LinksTab({ s }: { s: GameState }) {
 }
 
 // ================= INTRO =================
-function Intro({ onBegin }: { onBegin: (o: { name: string; byear: number; nation: string; religion: Religion; ints: string[]; tals: string[] }) => void }) {
+function Intro({ onBegin }: { onBegin: (o: { name: string; byear: number; nation: string; religion: Religion; ints: string[]; tals: string[]; gender: Gender; birthMonth: number }) => void }) {
   const { t, lang, setLang } = useT();
   const [name, setName] = useState('');
   const [byear, setByear] = useState(1992);
@@ -2021,6 +2057,9 @@ function Intro({ onBegin }: { onBegin: (o: { name: string; byear: number; nation
   const [religion, setReligion] = useState<Religion>('none');
   const [ints, setInts] = useState<string[]>([]);
   const [tals, setTals] = useState<string[]>([]);
+  // v11.6 — gender + birth month → zodiac + tarot/spirit affinity
+  const [gender, setGender] = useState<Gender>('nonbinary');
+  const [birthMonth, setBirthMonth] = useState<number>(1);
   // v11 — two-step flow: 'edit' (fill fields) → 'review' (summary + confirm)
   const [step, setStep] = useState<'edit' | 'review'>('edit');
   const years: number[] = [];
@@ -2032,6 +2071,9 @@ function Intro({ onBegin }: { onBegin: (o: { name: string; byear: number; nation
     if (i > -1) set(arr.filter(x => x !== id));
     else if (arr.length < max) set([...arr, id]);
   };
+  // v11.6 — zodiac derived from birthMonth (use day=15 mid-month for simplicity).
+  const zodiac = zodiacOf(birthMonth, 15);
+  const zodiacDef = zodiacById(zodiac);
   // v11 — random character generator. Picks a name from the nation's pool,
   // a birth year weighted toward the modern era (1960-now-18), random
   // religion, 1-3 interests, 1-2 talents.
@@ -2042,6 +2084,9 @@ function Intro({ onBegin }: { onBegin: (o: { name: string; byear: number; nation
     const yMin = 1960, yMax = nowY - 18;
     const yr = yMin + Math.floor(Math.random() * (yMax - yMin + 1));
     const rel = RELIGIONS[Math.floor(Math.random() * RELIGIONS.length)];
+    const genders: Gender[] = ['male', 'female', 'nonbinary'];
+    const g = genders[Math.floor(Math.random() * genders.length)];
+    const bm = 1 + Math.floor(Math.random() * 12);
     const shuffledInts = [...INTERESTS].sort(() => Math.random() - 0.5);
     const ni = 1 + Math.floor(Math.random() * 3);
     const newInts = shuffledInts.slice(0, ni).map(i => i.id);
@@ -2049,10 +2094,14 @@ function Intro({ onBegin }: { onBegin: (o: { name: string; byear: number; nation
     const nt = 1 + Math.floor(Math.random() * 2);
     const newTals = shuffledTals.slice(0, nt).map(i => i.id);
     setName(nm); setByear(yr); setNation(nat); setReligion(rel);
+    setGender(g); setBirthMonth(bm);
     setInts(newInts); setTals(newTals); setStep('edit');
   };
   const startEra = eraOf(byear + 18);
   const startingCash = ints.includes('money') ? 5000 : 0;
+  // v11.6 — pre-game suggestion combines zodiac affinity + historical era.
+  // Built from the zodiacIntroSuggestion helper (translated per lang).
+  const zodiacSuggestion = zodiacIntroSuggestion(zodiac, t('era.' + startEra.from, startEra.name), byear + 18, lang);
   // v11 — first-step suggestion card. Based on interests/talents, suggest
   // the highest-leverage opening move.
   const suggestion = (() => {
@@ -2079,6 +2128,29 @@ function Intro({ onBegin }: { onBegin: (o: { name: string; byear: number; nation
           <div className="field"><label>{t('name')}</label><input maxLength={24} placeholder="e.g. Minh" value={name} onChange={e => setName(e.target.value)} /></div>
           <div className="field"><label>{t('birthYear')}</label>
             <select value={byear} onChange={e => setByear(+e.target.value)}>{years.map(y => <option key={y} value={y}>{y}</option>)}</select></div>
+          {/* v11.6 — gender + birth month */}
+          <div className="field"><label>{t('v11.gender')}</label>
+            <select value={gender} onChange={e => setGender(e.target.value as Gender)}>
+              <option value="nonbinary">{t('v11.genderNonbinary')}</option>
+              <option value="female">{t('v11.genderFemale')}</option>
+              <option value="male">{t('v11.genderMale')}</option>
+            </select></div>
+          <div className="field"><label>{t('v11.birthMonth')}</label>
+            <select value={birthMonth} onChange={e => setBirthMonth(+e.target.value)}>
+              {MONTHS_NAMES.map((m, i) => <option key={i} value={i + 1}>{m} ({zodiacOf(i + 1, 15)})</option>)}
+            </select></div>
+          {/* v11.6 — zodiac preview */}
+          <div className="preview" style={{ padding: '6px 8px', background: 'rgba(0,0,0,0.04)', borderRadius: 4 }}>
+            <b>{zodiacDef.symbol} {zodiac}</b>
+            <span className="sub" style={{ marginLeft: 6 }}>
+              {lang === 'vi' ? zodiacDef.trait.vi : lang === 'zh' ? zodiacDef.trait.zh : zodiacDef.trait.en}
+              {' · '}
+              {t('v11.zodiacAffinity')}: {zodiacDef.affinity}
+            </span>
+            <div className="mini" style={{ marginTop: 2 }}>
+              {lang === 'vi' ? zodiacDef.blurb.vi : lang === 'zh' ? zodiacDef.blurb.zh : zodiacDef.blurb.en}
+            </div>
+          </div>
           <div className="field"><label>{t('country')}</label>
             <select value={nation} onChange={e => setNation(e.target.value)}>{NATIONS.map(n => <option key={n} value={n}>{t('nat.' + n, n)}</option>)}</select></div>
           <div className="field"><label>{t('religion')}</label>
@@ -2114,7 +2186,9 @@ function Intro({ onBegin }: { onBegin: (o: { name: string; byear: number; nation
           <div className="card" style={{ marginBottom: 12 }}>
             <h3 style={{ margin: '0 0 8px' }}>{t('v11.reviewTitle')}</h3>
             <div className="lb"><span>{t('name')}</span><b>{name}</b></div>
+            <div className="lb"><span>{t('v11.gender')}</span><b>{t('v11.gender' + gender.charAt(0).toUpperCase() + gender.slice(1))}</b></div>
             <div className="lb"><span>{t('birthYear')}</span><b>{byear} → {t('age')} 18 in {byear + 18}</b></div>
+            <div className="lb"><span>{t('v11.birthMonth')}</span><b>{MONTHS_NAMES[birthMonth - 1]} · {zodiacDef.symbol} {zodiac}</b></div>
             <div className="lb"><span>{t('country')}</span><b>{t('nat.' + nation, nation)}</b></div>
             <div className="lb"><span>{t('religion')}</span><b>{t('religion.' + religion)}</b></div>
             <div className="lb"><span>{t('interests')}</span><b>{ints.map(i => t('int.' + i, i)).join(', ') || '—'}</b></div>
@@ -2123,6 +2197,13 @@ function Intro({ onBegin }: { onBegin: (o: { name: string; byear: number; nation
             {a.top && <div className="lb"><span>{t('strongest')}</span><b>{t('field.' + a.top, FIELDS[a.top].name)}</b></div>}
             {startingCash > 0 && <div className="lb"><span>{t('v11.startingCash')}</span><b>{fmt(startingCash)}</b></div>}
           </div>
+          {/* v11.6 — zodiac + era suggestion card (the "most important"
+              hint that combines astrological affinity + historical era) */}
+          <div className="card" style={{ marginBottom: 12, borderLeft: '3px solid var(--accent)' }}>
+            <div className="mini" style={{ textTransform: 'uppercase', letterSpacing: '.4px' }}>{t('v11.zodiacEraHint')}</div>
+            <p style={{ margin: '4px 0 0', fontSize: '.92rem' }}>{zodiacSuggestion.zodiacLine}</p>
+            <p className="mini" style={{ margin: '4px 0 0' }}>{zodiacSuggestion.eraLine}</p>
+          </div>
           {/* v11 — first-step suggestion card */}
           <div className="card" style={{ marginBottom: 12, borderLeft: '3px solid var(--accent)' }}>
             <div className="mini" style={{ textTransform: 'uppercase', letterSpacing: '.4px' }}>{t('v11.firstStep')}</div>
@@ -2130,7 +2211,7 @@ function Intro({ onBegin }: { onBegin: (o: { name: string; byear: number; nation
           </div>
           <div className="trade">
             <button className="ibtn ghost" onClick={() => setStep('edit')}><Ic id="ic-x" className="bsi" /><span>{t('v11.back')}</span></button>
-            <button className="ibtn" style={{ flex: 1 }} onClick={() => onBegin({ name: name || 'Alex', byear, nation, religion, ints, tals })}>
+            <button className="ibtn" style={{ flex: 1 }} onClick={() => onBegin({ name: name || 'Alex', byear, nation, religion, ints, tals, gender, birthMonth })}>
               <Ic id="ic-plus" className="bsi" /><span>{t('begin')}</span>
             </button>
           </div>

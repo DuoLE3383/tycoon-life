@@ -1,20 +1,18 @@
 {
-  "version": "v11.5",
+  "version": "v11.6",
   "releasedAt": "2026-11-09",
-  "headline": "MOGUL v11.5 — from empire to galactic federation (steps 1-2)",
-  "summary": "V11-9 phase 1: five entity tiers climbed strictly one at a time — conglomerate → autonomous territory → independent nation → interstellar empire → galactic federation. Tiers 4-5 (empire, federation) are stubbed; v11.7 will wire star-system control + galactic geography. v11.5 lands the first three tiers fully. Declare autonomy from your origin nation once you hit $50M + 50 influence. Court foreign recognition (30 influence per nation, need 3). Declare independence with $500M + 200 influence + recognition 3/3 — pick one of 4 constitutions (corporatist/democratic/authoritarian/technocratic) with different bizMult / taxRate / militaryUpkeep / closureRisk, and a 3-letter currency code (with 2% baseline inflation that compounds yearly).",
+  "headline": "MOGUL v11.6 — zodiac + tarot + psychic affinity",
+  "summary": "Gender + birth month added to character creation. Birth month drives a zodiac sign with an industry affinity — a passive +5% income bonus in that field (business / engineering / medicine / science / arts). Pre-game suggestion combines zodiac + historical era. Spirit tab gains an opt-in tarot draw with 22 major-arcana cards (30-day cooldown, cryptic hint per draw). The character-creation screen now matches the design image: name, gender, birth year + month, country, religion, interests, talents.",
   "features": [
-    "Five entity tiers: conglomerate ($1M, auto) / autonomous ($50M + 50 infl, action) / nation ($500M + 200 infl + 3 recognition, action) / empire ($5B + 500 infl + 5 systems — v11.7 stub) / federation ($50B + 2000 infl + 50% space — v11.7 stub)",
-    "No skipping — must climb strictly one tier at a time",
-    "Auto-promote to conglomerate when net worth crosses $1M (yearly tick)",
-    "Declare autonomy: requires conglomerate tier + $50M + 50 influence; sets originNation",
-    "Court recognition: 30 influence per nation, cap 12; needed for independence",
-    "Declare independence: requires autonomous tier + $500M + 200 influence + recognition ≥3",
-    "4 constitutions: corporatist (biz×1.20, tax 15%, closure +2%), democratic (baseline, tax 25%, upkeep ×1.2), authoritarian (biz×0.90, tax 35%, upkeep ×0.7, closure +5%), technocratic (biz×1.10, tax 20%, upkeep ×0.9, closure +1%)",
-    "Custom 3-letter currency code; 2% baseline inflation erodes cash yearly at nation+ tier",
-    "bizMultiplier now stacks the constitution's bizMult on top of everything else",
-    "New 'Empire' tab in the World group showing tier ladder + constitution picker + currency input + action buttons",
-    "v11.7 stub note for empire + federation tiers (gated by star-system control)",
-    "Version bumped to v11.5 on homepage + version.json"
+    "Gender: male / female / nonbinary (cosmetic; random picks any of 3)",
+    "Birth month 1-12 → zodiac sign (Capricorn ... Pisces) with industry affinity",
+    "12 zodiac signs, each with symbol, trait, blurb, affinity field (5 arts / 3 business / 2 engineering / 2 medicine / 0 science)",
+    "zodiacAffinityMult: +5% income in the affinity field (wired into bizMultiplier, socialIncome, jobIncome)",
+    "Pre-game suggestion: combines zodiac affinity + historical era (translated en/vi/zh) shown on Intro review step",
+    "Zodiac preview box in Intro: shows sign symbol, trait, blurb, affinity",
+    "Tarot panel in Spirit tab: opt-in toggle, draw button (30-day cooldown), 22 major-arcana cards, recent draws log (last 10)",
+    "Random character generator now also picks gender + birth month",
+    "Character-creation screen now matches the design: name / gender / birth month+year / country / religion / interests / talents",
+    "Version bumped to v11.6 on homepage + version.json"
   ]
 }
