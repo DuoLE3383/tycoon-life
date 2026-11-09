@@ -72,6 +72,24 @@ export interface GameState {
   // Each completion grants a 10% tuition reduction on the matching full
   // degree field, read by tuitionOf.
   shortCompleted: string[];
+  // v11.2 — multi-year crisis state. Set by YearEvents with biz/fac/rates/
+  // risk/demand modifiers; carries them forward for `yearsLeft` years after
+  // the trigger year. effEraBiz/effEraFac/effLoanRate/effRisk/effDemand read
+  // this. Cleared on the Jan 1 once yearsLeft hits 0.
+  crisis: {
+    cause: string; biz: number; fac: number; rates: number; risk: number; demand: number;
+    yearsLeft: number; startYear: number;
+  } | null;
+  // v11.2 — delayed stock/deposit shocks. YearEvents with stk/dep split their
+  // hit into an instant slice (sqrt or ^0.7) and a delayed slice (the rest)
+  // that fires `daysAhead` later — simulates how real crashes unfold over
+  // weeks, not overnight. processDay drains shocks whose day has come.
+  shocks: { day: number; stk?: Record<string, number>; dep?: number; note?: string }[];
+  // v11.2 — market research. lastResearchDay is the day the player last
+  // paid for a brief; researchBrief caches the lines so the UI can show
+  // them until next research. Cleared by Jan 1 of a new year (stale).
+  lastResearchDay: number;
+  researchBrief: string[] | null;
 }
 
 // ---------- wellbeing: body & mind ----------
@@ -283,7 +301,8 @@ export function fresh(): GameState {
     level: 1, xp: 0, gigs: {}, space: {}, social: { followers: 0, posts: [] },
     health: 92, spirit: 18, karma: 0, diet: false, well: {}, cause: null,
     sleepHours: 8, timeline: [], ach: [],
-    used: [], hall: null, pastLives: [], relations: {}, pets: [], clubs: [], aiEvPending: false, shortCompleted: []
+    used: [], hall: null, pastLives: [], relations: {}, pets: [], clubs: [], aiEvPending: false, shortCompleted: [],
+    crisis: null, shocks: [], lastResearchDay: 0, researchBrief: null,
   };
   STOCKS.forEach(x => { s.prices[x.id] = x.p; s.hist[x.id] = [x.p]; });
   return s;
@@ -325,6 +344,12 @@ export function migrate(raw: unknown): GameState {
   s.clubs = Array.isArray(s.clubs) ? s.clubs : (s.club ? [s.club] : []);
   s.aiEvPending = !!s.aiEvPending;
   s.shortCompleted = Array.isArray(s.shortCompleted) ? s.shortCompleted : [];
+  // v11.2 — crisis/shocks/research fields. Old saves have no crisis; default
+  // to null. Shocks array defaults to []. lastResearchDay defaults to 0.
+  s.crisis = s.crisis && typeof s.crisis === 'object' ? s.crisis : null;
+  s.shocks = Array.isArray(s.shocks) ? s.shocks : [];
+  s.lastResearchDay = typeof s.lastResearchDay === 'number' ? s.lastResearchDay : 0;
+  s.researchBrief = Array.isArray(s.researchBrief) ? s.researchBrief : null;
   // v11.1 fix: clamp existing saves with astronomical follower counts.
   // Some saves had 10^23 followers due to the linear-growth bug; cap them
   // at MAX_FOLLOWERS (2B) so the new sqrt formulas produce sane numbers.
@@ -395,11 +420,19 @@ export const facIncome = (s: GameState) => FAC_LINES.reduce((a, l) => {
   let inc = l.inc;
   if (l.food) { if (!branchCount(s, 'farm')) return a; inc *= 1.3; }
   if (l.needs && !(s.fac[l.needs] || 0)) return a;
-  return a + n * inc * s.eraFac;
+  return a + n * inc * effEraFac(s);
 }, 0);
+// v11.2 — effective era multipliers + loan rate + closure risk. Read the
+// active crisis (set by YearEvents with `lasts > 0`) and stack it on top
+// of the per-year eraBiz/eraFac. Old saves (no crisis) just see eraBiz*1.
+export const effEraBiz = (s: GameState) => (s.eraBiz || 1) * (s.crisis ? s.crisis.biz : 1);
+export const effEraFac = (s: GameState) => (s.eraFac || 1) * (s.crisis ? s.crisis.fac : 1);
+export const effLoanRate = (s: GameState) => LOAN_RATE * (s.crisis ? s.crisis.rates : 1);
+export const effRisk = (s: GameState) => (s.crisis ? s.crisis.risk : 0);
+export const effDemand = (s: GameState) => s.crisis ? s.crisis.demand : 1;
 export const bizMultiplier = (s: GameState) => Math.min(
   BIZ_MULTIPLIER_CAP,
-  clubMult(s) * (1 + BIZ_DEGREE_BONUS * s.deg.business) * fameBonus(s) * s.eraBiz * levelMult(s) * spiritBizMult(s)
+  clubMult(s) * (1 + BIZ_DEGREE_BONUS * s.deg.business) * fameBonus(s) * effEraBiz(s) * levelMult(s) * spiritBizMult(s)
 );
 export const bizIncome = (s: GameState) => { // annual
   let ann = 0;
@@ -549,7 +582,10 @@ export function processDay(s: GameState, d: number, rng: () => number = Math.ran
   if (dt.getUTCDate() === 1) {
     const profit = bizIncome(s) / 12 + spaceIncome(s) / 12 + socialIncome(s) / 12;
     const tuition = studyTuition(s) / 12;
-    const loanInt = s.bank.loan * LOAN_RATE / 12;
+    // v11.2 — loan interest uses effLoanRate, which multiplies LOAN_RATE by
+    // crisis.rates (1.6 during 2008 etc.) so debt service balloons in a
+    // credit crunch. Mirrors real-world rate-hike dynamics.
+    const loanInt = s.bank.loan * effLoanRate(s) / 12;
     const bills = living(s.age) / 12 + upkeep(s) / 12 + tuition + s.kids * 400 + loanInt;
     const interest = s.bank.dep * SAVE_RATE / 12;
     s.bank.dep += interest; s.yIncome += Math.max(0, interest);
@@ -564,8 +600,17 @@ export function processDay(s: GameState, d: number, rng: () => number = Math.ran
     if (s.social.followers > 0) addXp(s, Math.min(12, 1 + s.social.followers / 20000), rng);
     if (bizIncome(s) > 0) addXp(s, Math.min(25, 1 + profit / 12000), rng);
     let booms = 0, busts = 0;
+    // v11.2 — branch mood drift now applies a small additive drag during a
+    // demand crisis. Multiplicative scaling was too brutal (0.7^12 ≈ 0.014
+    // → branches hit the floor in 3 months); an additive drag of
+    // (1−demand)*0.1 per month compounds to ~0.65 over a year at demand=0.7,
+    // which matches the "business climate weakens for a year" feel without
+    // instantly ruining the player's portfolio. The random walk still
+    // applies on top so individual branches still vary.
+    const demandDrag = s.crisis && s.crisis.demand < 1 ? (1 - s.crisis.demand) * 0.1 : 0;
     BIZ.forEach(b => (s.branches[b.id] || []).forEach(br => {
-      br.mood = Math.min(1.7, Math.max(.25, br.mood + (rng() - .5) * .22));
+      const noise = (rng() - .5) * .22 - demandDrag;
+      br.mood = Math.min(1.7, Math.max(.25, br.mood + noise));
       if (br.mood >= 1.4) booms++; if (br.mood <= .5) busts++;
     }));
     pushLog(s, `${MONTHS[dt.getUTCMonth()]} ${dt.getUTCFullYear()}: business ${profit >= 0 ? '+' : '\u2212'}${fmt(Math.abs(profit))}, rent & bills \u2212${fmt(bills)}.${booms ? ' Some branches are booming!' : ''}${busts ? ' Some branches are struggling!' : ''}`);
@@ -578,18 +623,95 @@ export function processDay(s: GameState, d: number, rng: () => number = Math.ran
       pushLog(s, `Tax season ${y}: income ${fmt(s.yIncome)} \u2192 tax bill ${fmt(t)}.`);
       s.yIncome = 0;
     }
+    // v11.2 — tick existing crisis first. If yearsLeft hits 0, clear it
+    // and log a normalisation message. Done BEFORE applying this year's
+    // event so a new crisis (e.g. 1931 following 1929) can replace an
+    // expiring one cleanly.
+    if (s.crisis) {
+      s.crisis.yearsLeft -= 1;
+      if (s.crisis.yearsLeft <= 0) {
+        pushLog(s, `1 Jan ${y}: The ${s.crisis.cause} has eased. Markets normalise.`);
+        s.crisis = null;
+      }
+    }
+    // v11.2 — research brief goes stale at the start of a new year.
+    if (s.researchBrief) s.researchBrief = null;
     s.eraBiz = 1; s.eraFac = 1;
     const ye = YEAR_EVENTS[y];
     if (ye) {
-      if (ye.stk) STOCKS.forEach(x => { const m = ye.stk![x.id] != null ? ye.stk![x.id] : ye.stk!['*']; if (m) s.prices[x.id] *= m; });
-      if (ye.dep) s.bank.dep *= ye.dep;
-      if (ye.biz) s.eraBiz = ye.biz;
-      if (ye.fac) s.eraFac = ye.fac;
+      // v11.2 — split stock + deposit shocks into an instant slice and a
+      // delayed slice (fires ~30 days later for stocks, ~60 for deposits).
+      // Net effect over the delay window is the original `m`; the split
+      // simulates how real crashes unfold over weeks rather than overnight.
+      // For m=0.5: instant sqrt(0.5)≈0.707, delayed 0.5/0.707≈0.707. Net
+      // 0.707 * 0.707 = 0.5. ✓
+      if (ye.stk) {
+        const instant: Record<string, number> = {};
+        const delayed: Record<string, number> = {};
+        for (const k of Object.keys(ye.stk)) {
+          const m = ye.stk[k]; if (m == null) continue;
+          const inst = Math.sqrt(m);
+          instant[k] = inst;
+          delayed[k] = m / inst;
+        }
+        STOCKS.forEach(x => {
+          const m = instant[x.id] != null ? instant[x.id] : instant['*'];
+          if (m) s.prices[x.id] *= m;
+        });
+        const hasDelayed = Object.values(delayed).some(v => Math.abs(v - 1) > 1e-9);
+        if (hasDelayed) s.shocks.push({ day: s.lastDay + 30, stk: delayed, note: 'stock shock' });
+      }
+      if (ye.dep) {
+        const m = ye.dep;
+        const inst = Math.pow(m, 0.7);
+        s.bank.dep *= inst;
+        const rest = m / inst;
+        if (Math.abs(rest - 1) > 1e-9) s.shocks.push({ day: s.lastDay + 60, dep: rest, note: 'bank-run tail' });
+      }
       if (ye.cash) s.money += ye.cash;
+      // v11.2 — start a crisis that carries the biz/fac/rates/risk/demand
+      // modifiers for `lasts` years. Trigger year: eraBiz stays 1, effEraBiz
+      // = eraBiz * crisis.biz = ye.biz. Following years: eraBiz resets to 1
+      // (no event), crisis persists, effEraBiz = crisis.biz. So `lasts: 3`
+      // applies the biz hit for the trigger year + 2 more years = 3 total.
+      // Single-year events (lasts undefined or 1) also go through crisis
+      // for consistency — they just clear on the next Jan 1.
+      if (ye.biz || ye.fac || ye.rates || ye.risk || ye.demand) {
+        s.crisis = {
+          cause: ye.msg.replace(/[!.]/g, '').slice(0, 60),
+          biz: ye.biz || 1, fac: ye.fac || 1,
+          rates: ye.rates || 1, risk: ye.risk || 0, demand: ye.demand || 1,
+          yearsLeft: ye.lasts || 1,
+          startYear: y,
+        };
+      }
       pushLog(s, `1 Jan ${y}: ${ye.msg}`);
     }
     const news = ALLNEWS[y];
     pushLog(s, `1 Jan ${y}: ${news ? news.join(' \u2022 ') : eraOf(y).name + ' continues.'}`);
+  }
+  // v11.2 — drain delayed shocks whose day has come. Each shock applies its
+  // stock/deposit multiplier and logs a note. This runs every processDay
+  // call so a shock scheduled for day X fires on the first processDay where
+  // s.lastDay >= X (i.e. on the daily tick that crosses the threshold).
+  if (s.shocks.length) {
+    const due = s.shocks.filter(sh => sh.day <= s.lastDay);
+    if (due.length) {
+      for (const sh of due) {
+        if (sh.stk) {
+          STOCKS.forEach(x => {
+            const m = sh.stk![x.id] != null ? sh.stk![x.id] : sh.stk!['*'];
+            if (m) s.prices[x.id] *= m;
+          });
+          pushLog(s, `Shock propagates — stocks slide further.`);
+        }
+        if (sh.dep) {
+          s.bank.dep *= sh.dep;
+          pushLog(s, `Bank-run tail hits — deposits drop further.`);
+        }
+      }
+      s.shocks = s.shocks.filter(sh => sh.day > s.lastDay);
+    }
   }
 }
 
@@ -708,27 +830,33 @@ export function openBranchCapital(s: GameState, id: string): string | null {
   return `Opened ${b.name} (capital path) in ${reg}!`;
 }
 // v11 — monthly closure risk per branch. Rolled in yearEnd. Based on:
-//   - market mood (eraBiz / eraFac — a down era raises closure odds)
+//   - market mood (effEraBiz — a down era raises closure odds)
 //   - headcount (more branches = more exposure)
 //   - manager quality (mood < 0.9 raises odds)
+//   - v11.2: active crisis risk modifier (2008 +10%, 1929 +10%, etc.)
 // Returns the number of branches that closed this roll.
 export function rollBranchClosures(s: GameState, rng: () => number = Math.random): number {
   let closed = 0;
+  // v11.2 — effEraBiz captures crisis.biz (vs old s.eraBiz); effRisk is the
+  // additive closure modifier the crisis carries (1929: 0.10, 2008: 0.10).
+  const eb = effEraBiz(s);
+  const crisisRisk = effRisk(s);
   for (const bizId of Object.keys(s.branches)) {
     const list = s.branches[bizId];
     const kept: Branch[] = [];
     for (const br of list) {
       // Base closure chance 4%/year, modified by:
       //   manager quality (mood < 0.9 → +6%, mood > 1.05 → −2%)
-      //   era downturn (eraBiz < 0.9 → +8%)
+      //   era downturn (effEraBiz < 0.9 → +8%)
+      //   v11.2 crisis.risk (additive, e.g. +10%)
       //   branch count > 5 (+1% each)
-      let chance = 0.04;
+      let chance = 0.04 + crisisRisk;
       if (br.mood < 0.9) chance += 0.06;
       if (br.mood > 1.05) chance -= 0.02;
-      if (s.eraBiz < 0.9) chance += 0.08;
+      if (eb < 0.9) chance += 0.08;
       const count = list.length;
       if (count > 5) chance += 0.01 * (count - 5);
-      chance = Math.max(0.01, Math.min(0.35, chance));
+      chance = Math.max(0.01, Math.min(0.5, chance));
       if (rng() < chance) {
         closed++;
         pushLog(s, `${BIZ.find(x => x.id === bizId)?.name || bizId} branch closed (market + management risk).`);
@@ -955,6 +1083,73 @@ export function bankOp(s: GameState, op: 'dep' | 'wd' | 'loan' | 'repay', amt: n
   if (a <= 0 || s.money < a) return null;
   s.money -= a; s.bank.loan = Math.max(0, s.bank.loan - a);
   return 'Repaid ' + fmt(a);
+}
+// v11.2 — market research. Player pays a fee scaled by the modern era
+// (cheaper before 1990, rises slowly after) for a brief on:
+//   1. The current crisis (cause, years left, rate/risk/demand hits)
+//   2. A noised prediction of next year's YearEvent (if any)
+// Predictions have noise:
+//   - ~15% false negative (real event missed — "no event expected")
+//   - ~10% false positive (no event but "rumours of a shock")
+//   - True positives leak partial info (the msg + whether stocks/biz move)
+// The brief is cached in s.researchBrief until the next Jan 1 (cleared by
+// processDay) so the UI can keep showing it without re-paying.
+export function researchCost(s: GameState): number {
+  const y = worldYear(s);
+  return Math.round(2000 + 500 * Math.max(0, (y - 1990) / 10));
+}
+export function researchMarket(s: GameState, rng: () => number = Math.random): { ok: boolean; lines: string[]; cost: number } {
+  if (!s.started) return { ok: false, lines: ['Not playing yet.'], cost: 0 };
+  const y = worldYear(s);
+  const cost = researchCost(s);
+  if (s.money < cost) return { ok: false, lines: [`Need ${fmt(cost)} for research.`], cost };
+  s.money -= cost;
+  s.lastResearchDay = s.lastDay;
+  const lines: string[] = [];
+  lines.push(`Market research — ${fmt(cost)} paid. Brief as of Jan ${y}:`);
+  // 1. Active crisis
+  if (s.crisis) {
+    lines.push(`Active crisis: ${s.crisis.cause}. ${s.crisis.yearsLeft} year(s) left.`);
+    if (s.crisis.rates > 1) lines.push(`  Loan rates ${((s.crisis.rates - 1) * 100).toFixed(0)}% above normal.`);
+    else if (s.crisis.rates < 1) lines.push(`  Loan rates ${((1 - s.crisis.rates) * 100).toFixed(0)}% below normal (stimulus).`);
+    if (s.crisis.risk > 0) lines.push(`  Branch closure risk +${(s.crisis.risk * 100).toFixed(0)}%.`);
+    if (s.crisis.demand < 1) lines.push(`  Consumer demand ${((1 - s.crisis.demand) * 100).toFixed(0)}% below normal.`);
+    else if (s.crisis.demand > 1) lines.push(`  Consumer demand ${((s.crisis.demand - 1) * 100).toFixed(0)}% above normal.`);
+    if (s.crisis.biz < 1) lines.push(`  Business climate ${((1 - s.crisis.biz) * 100).toFixed(0)}% depressed.`);
+    else if (s.crisis.biz > 1) lines.push(`  Business climate ${((s.crisis.biz - 1) * 100).toFixed(0)}% elevated.`);
+  } else {
+    lines.push('No active crisis. Markets are calm.');
+  }
+  // 2. Predicted next-year event (with noise)
+  const ny = y + 1;
+  const actual = YEAR_EVENTS[ny];
+  const roll = rng();
+  if (actual && roll > 0.15) {
+    // True positive (~85% of the time when there is a real event)
+    lines.push(`Outlook ${ny}: ${actual.msg}`);
+    if (actual.stk) {
+      const k = Object.keys(actual.stk)[0];
+      const m = actual.stk[k];
+      const dir = m < 1 ? 'down' : 'up';
+      lines.push(`  Stocks (incl. ${k === '*' ? 'broad market' : k}) expected ${dir} ${Math.abs((m - 1) * 100).toFixed(0)}%.`);
+    }
+    if (actual.biz && actual.biz < 1) lines.push(`  Business climate likely to worsen.`);
+    else if (actual.biz && actual.biz > 1) lines.push(`  Business climate likely to improve.`);
+    if (actual.rates && actual.rates > 1) lines.push(`  Loan rates likely to rise.`);
+    if (actual.demand && actual.demand < 1) lines.push(`  Consumer demand likely to soften.`);
+    if (actual.dep) lines.push(`  Bank-deposit risk: depositors may lose ${((1 - actual.dep) * 100).toFixed(0)}%.`);
+  } else if (!actual && roll < 0.10) {
+    // False positive (~10% when no real event)
+    lines.push(`Outlook ${ny}: rumours of a market shock — analysts split.`);
+  } else if (!actual) {
+    lines.push(`Outlook ${ny}: no major event expected.`);
+  } else {
+    // False negative (~15% missed real event)
+    lines.push(`Outlook ${ny}: no major event expected.`);
+  }
+  s.researchBrief = lines;
+  pushLog(s, `Market research: ${lines[1] || lines[0]}`);
+  return { ok: true, lines, cost };
 }
 export function donate(s: GameState, amt: number): string | null {
   if (s.money < amt) return null;

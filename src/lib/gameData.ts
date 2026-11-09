@@ -127,24 +127,45 @@ export const ERAS = [
 ];
 export const eraOf = (y: number) => ERAS.find(e => y >= e.from && y <= e.to) || ERAS[ERAS.length - 1];
 
-export interface YearEvent { msg: string; stk?: Record<string, number>; dep?: number; biz?: number; fac?: number; cash?: number }
+// v11.2 — YearEvents now carry four crisis dimensions beyond stocks/cash:
+//   rates  — loan-rate multiplier during the crisis (1.5 = +50% interest/yr)
+//   risk   — extra branch-closure probability (additive, 0.10 = +10%/yr)
+//   demand — branch-mood multiplier (0.8 = -20% customer demand)
+//   lasts  — crisis persists N years (1 = single year, default)
+// Multi-year events (lasts>1) write a `crisis` state on GameState; the eff*
+// helpers in engine.ts read it so biz/fac/loan/mood all carry the hit forward
+// until the crisis clears on Jan 1. Stock and deposit shocks are also split
+// into an instant slice and a 30/60-day delayed shock (processDay drains
+// s.shocks) so crashes unfold over weeks rather than overnight.
+export interface YearEvent {
+  msg: string;
+  stk?: Record<string, number>;
+  dep?: number;
+  biz?: number;
+  fac?: number;
+  cash?: number;
+  rates?: number;   // v11.2 — loan-rate multiplier during the crisis
+  risk?: number;     // v11.2 — extra branch-closure probability (additive)
+  demand?: number;   // v11.2 — branch-mood multiplier (0..1 = down, >1 = up)
+  lasts?: number;    // v11.2 — crisis persists N years (1 = single year)
+}
 export const YEAR_EVENTS: Record<number, YearEvent> = {
-  1929: { msg: 'Wall Street Crash! Stock prices collapse.', stk: { '*': .5 } },
-  1931: { msg: 'Banks fail across the world. Depositors lose 30% of savings.', dep: .7 },
-  1939: { msg: 'War breaks out in Europe. Trade collapses.', biz: .65 },
+  1929: { msg: 'Wall Street Crash! Stocks collapse, banks hoard cash.', stk: { '*': .5 }, biz: .7, rates: 1.6, risk: 0.10, demand: .8, lasts: 3 },
+  1931: { msg: 'Banks fail across the world. Depositors lose 30% of savings.', dep: .7, biz: .85, rates: 1.4, risk: 0.06, lasts: 2 },
+  1939: { msg: 'War breaks out in Europe. Trade collapses.', biz: .65, risk: 0.04, lasts: 2 },
   1941: { msg: 'The war economy ramps up. Factories boom!', biz: 1.3, fac: 1.5 },
   1945: { msg: 'Victory celebrations and the baby boom. Consumers spend!', biz: 1.2, cash: 1000 },
   1957: { msg: 'Sputnik launch. Science and engineering are the future.', stk: { TECH: 1.25 } },
   1969: { msg: 'Moon landing! Technology stocks surge.', stk: { TECH: 1.4 } },
-  1973: { msg: 'Oil crisis! Fuel prices quadruple.', stk: { OIL: 1.9, '*': .85 } },
-  1979: { msg: 'Second oil shock squeezes the economy.', stk: { OIL: 1.5, '*': .9 } },
-  1987: { msg: 'Black Monday: markets crash worldwide.', stk: { '*': .72 } },
+  1973: { msg: 'Oil crisis! Fuel prices quadruple, recession looms.', stk: { OIL: 1.9, '*': .85 }, biz: .85, rates: 1.4, risk: 0.06, demand: .85, lasts: 2 },
+  1979: { msg: 'Second oil shock squeezes the economy.', stk: { OIL: 1.5, '*': .9 }, biz: .9, rates: 1.3, demand: .9, lasts: 2 },
+  1987: { msg: 'Black Monday: markets crash worldwide.', stk: { '*': .72 }, biz: .9, rates: 1.2, risk: 0.03, lasts: 1 },
   1995: { msg: 'The web goes commercial. Dot-com mania begins.', stk: { TECH: 2 } },
-  2000: { msg: 'Dot-com bubble bursts.', stk: { TECH: .45, '*': .9 } },
-  2001: { msg: 'Terror attacks shake markets.', stk: { '*': .85 } },
-  2008: { msg: 'Global financial crisis! Real estate and banks tumble.', stk: { '*': .6, BANK: .5 } },
-  2020: { msg: 'COVID-19 pandemic lockdowns the world.', stk: { PHARMA: 1.6, '*': .75 }, biz: .7 },
-  2021: { msg: 'Stimulus checks arrive as vaccines roll out.', cash: 1400 },
+  2000: { msg: 'Dot-com bubble bursts.', stk: { TECH: .45, '*': .9 }, biz: .9, rates: 1.2, risk: 0.04, lasts: 2 },
+  2001: { msg: 'Terror attacks shake markets.', stk: { '*': .85 }, biz: .9, risk: 0.03, lasts: 1 },
+  2008: { msg: 'Global financial crisis! Real estate and banks tumble.', stk: { '*': .6, BANK: .5 }, biz: .8, rates: 1.6, risk: 0.10, demand: .8, lasts: 2 },
+  2020: { msg: 'COVID-19 pandemic lockdowns the world.', stk: { PHARMA: 1.6, '*': .75 }, biz: .7, rates: 0.7, risk: 0.06, demand: .7, lasts: 1 },
+  2021: { msg: 'Stimulus checks arrive as vaccines roll out.', cash: 1400, biz: 1.1 },
   2022: { msg: 'AI boom begins. NeuroAI surges.', stk: { AI: 1.8 } },
   2030: { msg: 'Fusion power milestone. Energy is cheap.', stk: { SOLAR: 1.7, OIL: .6 } },
   2040: { msg: 'First city on Mars announced. Space stocks soar.', stk: { TECH: 1.5, SKY: 1.6 } }

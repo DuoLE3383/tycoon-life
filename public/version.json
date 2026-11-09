@@ -1,13 +1,16 @@
 {
-  "version": "v11.1",
+  "version": "v11.2",
   "releasedAt": "2026-11-09",
-  "headline": "MOGUL v11.1 — follower explosion fix",
-  "summary": "Fixes the 10^23 followers / $7.5T-per-ad bug. Followers now cap at 2B and scale by sqrt() everywhere. Existing saves with astronomical follower counts are clamped on load.",
+  "headline": "MOGUL v11.2 — real events affecting market",
+  "summary": "Real crises now hit four dimensions beyond stocks: valuation, loan rates, consumer demand, branch-closure risk. Multi-year crises persist (1929 → 3-year depression, 2008 → 2-year GFC). Crashes unfold over 30-60 days via delayed shocks. Player can pay for market research — a noised brief on the current crisis + next year's outlook (false neg ~15%, false pos ~10%).",
   "features": [
-    "Fix: follower count capped at 2 billion (was unbounded → 10^23)",
-    "Fix: likes now scale by sqrt(followers) not linear (prevents exponential growth)",
-    "Fix: socialIncome / sponsored gig pay scale by sqrt(followers)",
-    "Fix: migrate() clamps existing saves with >2B followers",
-    "Version bumped to v11.1 on homepage + version.json"
+    "Real events 1929/1973/2008/2020 (and more) now modify valuation, rates, demand, closure prob — not just stock prices",
+    "Multi-year crises: 1929 lasts 3 years, 2008 lasts 2 — biz/rates/risk/demand carry forward",
+    "Stock + deposit shocks split into instant + 30/60-day delayed slices (crashes unfold over weeks)",
+    "New market-research action: pay for a brief on the current crisis + next year's outlook (with noise)",
+    "Loan interest scales with crisis.rates — debt service balloons during a credit crunch",
+    "Branch mood drift applies a demand-drag during crises (e.g. -3%/month at demand 0.7)",
+    "Markets tab shows an active-crisis banner + a research panel",
+    "Version bumped to v11.2 on homepage + version.json + 10 new engine tests"
   ]
 }

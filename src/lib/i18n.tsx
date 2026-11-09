@@ -726,7 +726,13 @@ const D: Record<string, [string, string, string]> = {
   'nat.Nigeria': ['Nigeria', 'Nigeria', '尼日利亚'],
   'nat.India': ['India', 'Ấn Độ', '印度'],
   'nat.Australia': ['Australia', 'Úc', '澳大利亚'],
-  'nat.Canada': ['Canada', 'Canada', '加拿大']
+  'nat.Canada': ['Canada', 'Canada', '加拿大'],
+  // v11.2 — real events affecting market
+  'v11.crisisActive': ['Crisis', 'Khủng hoảng', '危机'],
+  'v11.crisisYearsLeft': ['year(s) left', 'năm còn lại', '年剩余'],
+  'v11.researchTitle': ['Market research', 'Nghiên cứu thị trường', '市场调研'],
+  'v11.researchBlurb': ['Pay for a brief on the current crisis and next year\'s outlook. Predictions have noise — analysts miss ~15% of real shocks and invent ~10% false ones.', 'Trả tiền lấy bản tóm tắt về khủng hoảng hiện tại và triển vọng năm sau. Dự báo có nhiễu — chuyên gia lọt ~15% cú sốc thật và bịa ~10% cú sốc giả.', '付费获取当前危机与明年展望的简报。预测有噪音 — 分析师会漏掉约15%的真实冲击，并编造约10%的假冲击。'],
+  'v11.researchBtn': ['Research ({x})', 'Nghiên cứu ({x})', '调研 ({x})'],
 };
 
 export function makeT(lang: Lang) {

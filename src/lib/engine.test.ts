@@ -1,11 +1,14 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { ASSET_DEPRECIATION_RATE, DAY_MS, GIGS } from './gameData';
+import { ASSET_DEPRECIATION_RATE, DAY_MS, GIGS, YEAR_EVENTS } from './gameData';
 import {
   bankOp, bizMultiplier, begin, bizVal, checkAch, effYears, enrollDeg, enrollLic, fresh, gigPay,
   lotValue, migrate, processDay, sleepHealthMult, studyPace, studyWorkMult,
   SPACE_TRAVEL_COST, spaceIncome, startSpaceUpgrade, taxOf, tick, trade,
   doWell, healthWarnings, hire, jobIncome, meets, studyTuition,
+  // v11.2 — crisis + market research exports
+  effEraBiz, effEraFac, effLoanRate, effRisk, effDemand, researchCost, researchMarket,
+  dateOf, worldYear, type GameState,
 } from './engine';
 
 function seeded(seed: number): () => number {
@@ -311,4 +314,217 @@ test('v3 saves gain an empty achievement list without touching progress', () => 
   assert.equal(state.money, 5_000);
   assert.equal(state.level, 7);
   assert.equal(state.schemaVersion, 4);
+});
+
+// ================= v11.2 — real events affecting market =================
+// Tests cover: crisis lifecycle (start / persist / clear), shock delay,
+// effective helper composition (eraBiz * crisis), researchMarket noise
+// model, and migrate() backfill of the new crisis/shocks/research fields.
+//
+// Note on time math: engine DAY_MS (20000) is real-seconds-per-game-day, used
+// for tick conversion. dateOf() uses wall-clock ms (864e5) per day, so the
+// helper below converts a calendar date to a game-day number via 864e5.
+
+const MS_PER_DAY = 864e5;
+const dayOfYear = (s: GameState, y: number, m = 0, dom = 1) =>
+  Math.floor((Date.UTC(y, m, dom) - Date.UTC(s.byear + 18, 8, 1)) / MS_PER_DAY);
+
+test('v11.2: 1929 starts a 3-year crisis with biz .7, rates 1.6, risk .10', () => {
+  const state = fresh();
+  begin(state, { name: 'Tycoon', byear: 1900, nation: 'United States', ints: ['money'], tals: ['math'] });
+  // Fast-forward to Jan 1 1929: base = Date.UTC(1918, 8, 1); game-day for Jan 1 1929.
+  const jan1_1929 = dayOfYear(state, 1929);
+  state.lastDay = jan1_1929 - 1; state.day = jan1_1929;
+  processDay(state, jan1_1929, () => 0.5);
+  assert.ok(state.crisis, 'crisis should be active after 1929 fires');
+  assert.equal(state.crisis!.biz, 0.7);
+  assert.equal(state.crisis!.rates, 1.6);
+  assert.equal(state.crisis!.risk, 0.10);
+  assert.equal(state.crisis!.demand, 0.8);
+  assert.equal(state.crisis!.yearsLeft, 3);
+  assert.equal(state.crisis!.startYear, 1929);
+  // effEraBiz in the trigger year = eraBiz(1) * crisis.biz(0.7) = 0.7
+  assert.equal(effEraBiz(state), 0.7);
+  // effLoanRate = LOAN_RATE * crisis.rates
+  assert.ok(effLoanRate(state) > 0.09, `expected rate >9% during 1929, got ${effLoanRate(state)}`);
+  // effRisk returns the additive closure modifier
+  assert.equal(effRisk(state), 0.10);
+  assert.equal(effDemand(state), 0.8);
+});
+
+test('v11.2: crisis persists across Jan 1 ticks and clears after `lasts` years', () => {
+  const state = fresh();
+  begin(state, { name: 'Tycoon', byear: 1900, nation: 'United States', ints: [], tals: [] });
+  // Manually start a 3-year crisis (don't depend on RNG/timing of 1929 fire)
+  state.crisis = {
+    cause: 'Wall Street Crash', biz: 0.7, fac: 1, rates: 1.6, risk: 0.10, demand: 0.8,
+    yearsLeft: 3, startYear: 1929,
+  };
+  // Helper: simulate one Jan-1 processDay tick. base year 1918; Jan 1 of year Y.
+  const jan1 = (y: number) => dayOfYear(state, y);
+  // Year 1930: tick crisis → yearsLeft 2, still active
+  state.lastDay = jan1(1930) - 1; state.day = jan1(1930);
+  processDay(state, jan1(1930), () => 0.5);
+  assert.ok(state.crisis, 'crisis still active in 1930');
+  assert.equal(state.crisis!.yearsLeft, 2);
+  assert.equal(effEraBiz(state), 0.7);
+  // Year 1931: tick crisis → yearsLeft 1, still active; 1931 YearEvent replaces it with its own (dep .7, biz .85, lasts 2)
+  state.lastDay = jan1(1931) - 1; state.day = jan1(1931);
+  processDay(state, jan1(1931), () => 0.5);
+  assert.ok(state.crisis, 'crisis active in 1931 (1931 YearEvent replaces the 1929 one)');
+  assert.equal(state.crisis!.biz, 0.85, `1931 should override biz with 0.85, got ${state.crisis!.biz}`);
+  assert.equal(state.crisis!.yearsLeft, 2);
+  // Year 1932: tick crisis → yearsLeft 1
+  state.lastDay = jan1(1932) - 1; state.day = jan1(1932);
+  processDay(state, jan1(1932), () => 0.5);
+  assert.ok(state.crisis, 'crisis still active in 1932');
+  assert.equal(state.crisis!.yearsLeft, 1);
+  // Year 1933: tick crisis → yearsLeft 0, cleared
+  state.lastDay = jan1(1933) - 1; state.day = jan1(1933);
+  processDay(state, jan1(1933), () => 0.5);
+  assert.equal(state.crisis, null, 'crisis cleared in 1933');
+  assert.equal(effEraBiz(state), 1);
+});
+
+test('v11.2: stock shocks split into instant + 30-day delayed; net = original multiplier', () => {
+  const state = fresh();
+  begin(state, { name: 'Tycoon', byear: 1900, nation: 'United States', ints: [], tals: [] });
+  // Capture original prices
+  const orig: Record<string, number> = {};
+  for (const k of Object.keys(state.prices)) orig[k] = state.prices[k];
+  // Fire 1929 (which has stk: { '*': .5 }) by landing on Jan 1 1929
+  const jan1_1929 = dayOfYear(state, 1929);
+  state.lastDay = jan1_1929 - 1; state.day = jan1_1929;
+  processDay(state, jan1_1929, () => 0.5);
+  // After Jan 1: stocks should have dropped by sqrt(0.5) ≈ 0.7071 (instant slice)
+  for (const k of Object.keys(state.prices)) {
+    const ratio = state.prices[k] / orig[k];
+    assert.ok(Math.abs(ratio - Math.sqrt(0.5)) < 1e-6,
+      `expected instant slice sqrt(0.5) for ${k}, got ratio ${ratio}`);
+  }
+  // A delayed shock should be queued for day = lastDay + 30
+  assert.equal(state.shocks.length, 1, 'one delayed shock queued');
+  assert.equal(state.shocks[0].day, state.lastDay + 30);
+  // Fast-forward 30 days to fire the delayed shock
+  const fireDay = state.lastDay + 30;
+  state.lastDay = fireDay; state.day = fireDay;
+  processDay(state, fireDay, () => 0.5);
+  // Net should be 0.5 (instant 0.7071 * delayed 0.7071 = 0.5)
+  for (const k of Object.keys(state.prices)) {
+    const ratio = state.prices[k] / orig[k];
+    assert.ok(Math.abs(ratio - 0.5) < 1e-6,
+      `expected net 0.5 for ${k} after delayed shock, got ${ratio}`);
+  }
+  // Shock queue should be drained
+  assert.equal(state.shocks.length, 0);
+});
+
+test('v11.2: researchMarket returns current crisis + next-year outlook, applies noise', () => {
+  const state = fresh();
+  begin(state, { name: 'Tycoon', byear: 1990, nation: 'United States', ints: ['money'], tals: ['math'] });
+  state.money = 100_000;
+  // Set an active crisis so the brief has something to report
+  state.crisis = {
+    cause: 'Global financial crisis', biz: 0.8, fac: 1, rates: 1.6, risk: 0.10, demand: 0.8,
+    yearsLeft: 2, startYear: 2008,
+  };
+  // Force year 2008 so "next year" is 2009 (no event expected → false-positive or calm)
+  // We need worldYear(s) to return 2008. base = byear+18 = 2008; day 0 = Sep 1 2008. worldYear returns the year of dateOf(s.lastDay).
+  state.lastDay = 0; state.day = 0; // Sep 1 2008
+  assert.equal(worldYear(state), 2008);
+  // Use deterministic rng = 0.5 (true positive threshold for actual events is roll > 0.15;
+  // 0.5 > 0.15, so if there were a real 2009 event it would be reported. 2009 has none → fall to else branches)
+  const result = researchMarket(state, () => 0.5);
+  assert.equal(result.ok, true);
+  assert.ok(result.lines.length >= 2, 'brief should have header + crisis summary');
+  assert.ok(result.lines.some(l => l.includes('Global financial crisis')), 'crisis named in brief');
+  assert.ok(result.lines.some(l => l.includes('Loan rates 60% above normal')), 'rate hit reported');
+  assert.ok(result.lines.some(l => l.includes('Branch closure risk +10%')), 'closure risk reported');
+  assert.ok(result.lines.some(l => l.includes('Consumer demand 20% below normal')), 'demand hit reported');
+  assert.ok(result.lines.some(l => l.includes('Business climate 20% depressed')), 'biz hit reported');
+  // Money was deducted
+  assert.ok(state.money < 100_000);
+  // Brief cached
+  assert.ok(state.researchBrief);
+  assert.equal(state.researchBrief, result.lines);
+});
+
+test('v11.2: researchMarket predicts 2020 crisis when researching in 2019 (true positive)', () => {
+  const state = fresh();
+  begin(state, { name: 'Tycoon', byear: 1990, nation: 'Vietnam', ints: ['money'], tals: [] });
+  state.money = 100_000;
+  // Year 2019 → next year is 2020 (which has a YearEvent)
+  state.byear = 2001; // base = 2019 = byear + 18
+  state.lastDay = 0; state.day = 0;
+  assert.equal(worldYear(state), 2019);
+  // rng = 0.99 > 0.15 → true positive: should report the 2020 event
+  const result = researchMarket(state, () => 0.99);
+  assert.equal(result.ok, true);
+  assert.ok(result.lines.some(l => l.includes('Outlook 2020:')), 'outlook line for 2020 present');
+  assert.ok(result.lines.some(l => l.includes('COVID-19')), '2020 message leaked');
+  // But rng = 0.05 < 0.15 → false negative: should say "no major event expected"
+  const result2 = researchMarket(state, () => 0.05);
+  assert.equal(result2.ok, true);
+  assert.ok(result2.lines.some(l => l.includes('no major event expected') || l.includes('rumours of a market shock')),
+    'false negative or no event line');
+});
+
+test('v11.2: researchMarket false positive fires ~10% of the time when no real event', () => {
+  const state = fresh();
+  begin(state, { name: 'Tycoon', byear: 1990, nation: 'Vietnam', ints: ['money'], tals: [] });
+  state.money = 1_000_000;
+  // Year 2017 → next year is 2018 (no YearEvent)
+  state.byear = 1999; state.lastDay = 0; state.day = 0;
+  assert.equal(worldYear(state), 2017);
+  // rng = 0.05 < 0.10 → false positive
+  const r1 = researchMarket(state, () => 0.05);
+  assert.ok(r1.lines.some(l => l.includes('rumours of a market shock')), 'false positive reported');
+  // rng = 0.5 → no false positive, no real event → calm
+  const r2 = researchMarket(state, () => 0.5);
+  assert.ok(r2.lines.some(l => l.includes('no major event expected')), 'calm outlook reported');
+});
+
+test('v11.2: researchCost scales with the modern era (cheap before 1990, rises after)', () => {
+  const state1920 = fresh();
+  begin(state1920, { name: 'T', byear: 1900, nation: 'Vietnam', ints: [], tals: [] });
+  state1920.lastDay = 0; state1920.day = 0;
+  assert.equal(worldYear(state1920), 1918);
+  assert.equal(researchCost(state1920), 2000); // (1918 - 1990) clamped to 0
+  const state2010 = fresh();
+  begin(state2010, { name: 'T', byear: 1990, nation: 'Vietnam', ints: [], tals: [] });
+  state2010.lastDay = 0; state2010.day = 0;
+  assert.equal(worldYear(state2010), 2008);
+  // (2008 - 1990)/10 = 1.8 → 2000 + 500*1.8 = 2900
+  assert.equal(researchCost(state2010), 2900);
+});
+
+test('v11.2: migrate() backfills the new crisis/shocks/research fields on old saves', () => {
+  const state = migrate({
+    schemaVersion: 4, money: 5_000, level: 7,
+    // No crisis/shocks/lastResearchDay/researchBrief on the old save
+  });
+  assert.equal(state.crisis, null);
+  assert.deepEqual(state.shocks, []);
+  assert.equal(state.lastResearchDay, 0);
+  assert.equal(state.researchBrief, null);
+});
+
+test('v11.2: researchMarket refuses when player has insufficient funds', () => {
+  const state = fresh();
+  begin(state, { name: 'Broke', byear: 1990, nation: 'Vietnam', ints: [], tals: [] });
+  state.money = 100;
+  const result = researchMarket(state, () => 0.5);
+  assert.equal(result.ok, false);
+  assert.equal(state.researchBrief, null, 'brief not cached on failed research');
+});
+
+test('v11.2: effEraBiz/effEraFac fall back to eraBiz when no crisis (old saves)', () => {
+  const state = fresh();
+  state.eraBiz = 1.3; state.eraFac = 1.5;
+  assert.equal(effEraBiz(state), 1.3, 'no crisis → eff = eraBiz');
+  assert.equal(effEraFac(state), 1.5);
+  assert.equal(effRisk(state), 0);
+  assert.equal(effDemand(state), 1);
+  // And effLoanRate is just LOAN_RATE (no crisis multiplier)
+  assert.ok(effLoanRate(state) < 0.07, `expected LOAN_RATE ~6%, got ${effLoanRate(state)}`);
 });

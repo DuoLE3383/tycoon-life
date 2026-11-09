@@ -34,6 +34,8 @@ import {
   creativePost,
   relationState, interactNPC, proposeToNPC,
   adoptPet, careForPet, abandonPet, petFameBonus,
+  // v11.2 — real events affecting market
+  effEraBiz, effEraFac, effLoanRate, effRisk, effDemand, researchCost, researchMarket,
 } from '@/lib/engine';
 import { localTwist, pickKind } from '@/lib/story';
 import { useT, LANGS, type Lang } from '@/lib/i18n';
@@ -47,10 +49,10 @@ if (typeof window !== 'undefined') {
   };
 }
 
-// v11.1 — the bundled version. The /version.json file in /public is polled
+// v11.2 — the bundled version. The /version.json file in /public is polled
 // every 5 minutes; if its version is newer than this, a "reload to update"
 // banner appears even in a running session (no F5 needed).
-const BUNDLED_VERSION = 'v11.1';
+const BUNDLED_VERSION = 'v11.2';
 const VERSION_POLL_MS = 5 * 60 * 1000;
 const SEEN_KEY = 'tycoon_seen_' + BUNDLED_VERSION;
 
@@ -363,7 +365,7 @@ function Header({ s, eraName }: { s: GameState; eraName: (y: number) => string }
     <header className="top">
       <div className="brand">
         <Art id="s-coin" className="logo" />
-        <div><h1>MOGUL <span className="mini">v11.1</span></h1>
+        <div><h1>MOGUL <span className="mini">v11.2</span></h1>
           <div className="mini">{s.started ? `${s.nation} · ${eraName(worldYear(s))}` : t('tagline')}</div></div>
       </div>
       <div><div className="mini">{t('cash')}</div><div id="tcash" style={{ color: s.money < 0 ? 'var(--brick)' : undefined }}>{fmt(s.money)}</div>
@@ -1039,10 +1041,50 @@ function AssetsTab({ s, act, curCat, setCurCat }: { s: GameState; act: Act; curC
 }
 
 // ================= STOCKS =================
+// v11.2 — StockTab now also shows the active crisis banner (if any) and
+// the market-research panel. Research costs a fee scaled by era (cheap
+// before 1990, rises after); the brief is cached on s.researchBrief until
+// the next Jan 1. The noise model lives in researchMarket() — false
+// negatives ~15%, false positives ~10%.
 function StockTab({ s, act, qtyMap, setQtyMap }: { s: GameState; act: Act; qtyMap: Record<string, number>; setQtyMap: (m: Record<string, number>) => void }) {
   const { t } = useT();
+  const cost = researchCost(s);
   return (
     <>
+      {/* v11.2 — active crisis banner. effEraBiz / effLoanRate / effRisk /
+          effDemand surface the live crisis modifiers; the banner tells the
+          player what's currently hitting their portfolio. */}
+      {s.crisis && (
+        <Row art="s-coin">
+          <b>{t('v11.crisisActive')} <span className="down">▼</span></b>
+          <span className="sub">{s.crisis.cause} · {s.crisis.yearsLeft} {t('v11.crisisYearsLeft')}</span>
+          <span className="mini" style={{ display: 'block', marginTop: 2 }}>
+            {effEraBiz(s) < 1 && <>biz −{((1 - effEraBiz(s)) * 100).toFixed(0)}% · </>}
+            {effLoanRate(s) > 0.07 && <>loan +{((effLoanRate(s) / 0.06 - 1) * 100).toFixed(0)}% · </>}
+            {effRisk(s) > 0 && <>closure +{(effRisk(s) * 100).toFixed(0)}% · </>}
+            {effDemand(s) < 1 && <>demand −{((1 - effDemand(s)) * 100).toFixed(0)}%</>}
+          </span>
+        </Row>
+      )}
+      {/* v11.2 — research panel. Button runs researchMarket and shows the
+          returned brief; cached on s.researchBrief so it stays visible. */}
+      <Row art="s-tech">
+        <b>{t('v11.researchTitle')}</b>
+        <span className="sub">{t('v11.researchBlurb')}</span>
+        <div className="trade" style={{ marginTop: 4 }}>
+          <button className="tbuy" disabled={s.money < cost}
+            onClick={() => act(g => {
+              const r = researchMarket(g);
+              if (!r.ok && r.lines.length) return r.lines[0];
+              return null;
+            })}>{t('v11.researchBtn', '', { x: fmt(cost) })}</button>
+        </div>
+        {s.researchBrief && (
+          <div className="mini" style={{ display: 'block', marginTop: 6, padding: '6px 8px', background: 'rgba(0,0,0,0.04)', borderRadius: 4, lineHeight: 1.5 }}>
+            {s.researchBrief.map((line, i) => <div key={i}>{line}</div>)}
+          </div>
+        )}
+      </Row>
       {STOCKS.map(st => {
         const p = s.prices[st.id], h = s.hist[st.id];
         const ch = h.length > 1 ? (p / h[h.length - 2] - 1) * 100 : 0, q = s.stk[st.id] || 0;
