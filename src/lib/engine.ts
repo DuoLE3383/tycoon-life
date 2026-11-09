@@ -7,7 +7,7 @@ import {
   LEVEL_INCOME_BONUS, xpNeed, GIGS, SPACE_LINES,
   ALLNEWS, YEAR_EVENTS, eraOf, FIELDS, LICENSES, LIC_BY, LIC_FOR, STAGES,
   BIZ, FARM_LINES, FAC_LINES, ITEM_BY, STOCKS, CLUBS, JOBS, BOTS,
-  analyze, type FieldKey, type LineDef, type Req, type GigDef, type SpaceDef
+  analyze, type FieldKey, type LineDef, type Req, type GigDef, type SpaceDef, type Rarity, RARITY_MULT, itemRarity
 } from './gameData';
 
 export const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -31,7 +31,7 @@ export interface GameState {
   farm: Record<string, number>; fac: Record<string, number>; space: Record<string, number>;
   farmBought: Record<string, number>; facBought: Record<string, number>; spaceBought: Record<string, number>;
   spaceUpgrade: { startedDay: number; completesDay: number } | null; spaceTravel: boolean;
-  lots: { id: string; paid: number; day: number }[]; stk: Record<string, number>;
+  lots: { id: string; paid: number; day: number; condition?: number; condDay?: number; repaired?: number }[]; stk: Record<string, number>;
   club: string | null; ownClub: string | null; job: string | null; sideJob: string | null;
   deg: Record<FieldKey, number>; lic: Record<string, boolean>; study: Study | null; sideStudy: Study | null;
   name: string; byear: number; nation: string; religion: Religion; ints: string[]; tals: string[]; topField: FieldKey | null;
@@ -336,11 +336,21 @@ export const studyTuition = (s: GameState) => [s.study, s.sideStudy]
   .reduce((total, study) => total + (study?.kind === 'deg' ? study.tuition : 0), 0);
 export const yearIncome = (s: GameState) => bizIncome(s) + spaceIncome(s) + socialIncome(s) + jobIncome(s) + (s.age >= RETIRE ? PENSION : 0);
 export const living = (age: number) => Math.round(3000 * Math.pow(1.03, age - START));
-export const lotValue = (s: GameState, l: { id: string; paid: number; day: number }) => {
-  const itemRate = ITEM_BY[l.id].rate;
+export const lotValue = (s: GameState, l: { id: string; paid: number; day: number; condition?: number }) => {
+  const it = ITEM_BY[l.id];
+  const itemRate = it.rate;
   const rate = Math.min(itemRate, ASSET_DEPRECIATION_RATE);
   const yrs = Math.max(0, (s.day - l.day) / 365.25);
-  return l.paid * Math.pow(1 + rate, yrs);
+  const base = l.paid * Math.pow(1 + rate, yrs);
+  // v10.5: condition multiplies value (40-100% range → 0.4-1.0 of base).
+  // Rare/legendary items decay slower (condition floor higher).
+  const cond = l.condition == null ? 100 : l.condition;
+  const rarity = itemRarity(it);
+  const floor = rarity === 'legendary' ? 70 : rarity === 'rare' ? 55 : rarity === 'uncommon' ? 45 : 35;
+  const eff = Math.max(floor, cond);
+  const condFactor = 0.4 + 0.6 * (eff / 100);
+  // Rare/legendary get a rarity premium on top.
+  return base * condFactor * (rarity === 'legendary' ? 1.6 : rarity === 'rare' ? 1.2 : rarity === 'uncommon' ? 1.05 : 1);
 };
 export const upkeep = (s: GameState) => s.lots.reduce((a, l) => a + lotValue(s, l) * 0.02, 0);
 export const assetVal = (s: GameState) => s.lots.reduce((a, l) => a + lotValue(s, l), 0);
@@ -530,7 +540,7 @@ export function rollLife(s: GameState, age: number, rng: () => number = Math.ran
 export function currentEvent(s: GameState): LifeDef | null { return LIFE.find(x => x.id === s.pending) || null; }
 
 // ---------- actions (mutate state) ----------
-export function addLot(s: GameState, id: string) { const it = ITEM_BY[id]; s.lots.push({ id, paid: it.price, day: s.day }); }
+export function addLot(s: GameState, id: string) { const it = ITEM_BY[id]; s.lots.push({ id, paid: it.price, day: s.day, condition: 100, condDay: s.day, repaired: 0 }); }
 export function doWork(s: GameState) { s.money += clickVal(s); }
 export function openBranch(s: GameState, id: string): string | null {
   const b = BIZ.find(x => x.id === id); if (!b) return null;
@@ -768,6 +778,119 @@ export function postItemListing(s: GameState, kind: 'lot' | 'used', idx: number)
   s.fame = Math.min(100, s.fame + 1);
   pushLog(s, `Posted used listing for ${u.name}.`);
   return 'Posted: ' + u.name;
+}
+
+// ---------- v10.5: auction by rarity + repair/restore workshop ----------
+// Auction: list an item at a premium (rarity multiplier × 1.4) but with a
+// real chance of NO buyer — in which case the listing fee (3% of ask) is
+// lost. Rare/legendary items sell more often (collectors pay attention).
+// The buyer-side RNG is rolled at listing time so the outcome is immediate.
+export function auctionItem(s: GameState, kind: 'lot' | 'used', idx: number): string | null {
+  const compute = (ask: number, rarity: Rarity): { sold: boolean; proceeds: number; fee: number } => {
+    const fee = Math.round(ask * 0.03);
+    const sellChance = rarity === 'legendary' ? 0.85 : rarity === 'rare' ? 0.75 : rarity === 'uncommon' ? 0.55 : 0.4;
+    const sold = Math.random() < sellChance;
+    const proceeds = sold ? Math.round(ask * (1 - RESALE_FEE)) : 0;
+    return { sold, proceeds, fee };
+  };
+  if (kind === 'lot') {
+    const l = s.lots[idx]; if (!l) return null;
+    const it = ITEM_BY[l.id]; if (!it) return null;
+    const rarity = itemRarity(it);
+    const ask = lotValue(s, l) * RARITY_MULT[rarity] * 1.4;
+    if (s.money < ask * 0.03) return null;
+    const r = compute(ask, rarity);
+    s.money -= r.fee;
+    if (r.sold) {
+      s.money += r.proceeds;
+      s.lots.splice(idx, 1);
+      pushLog(s, `Auction: ${it.name} sold for ${fmt(r.proceeds)} (rarity ${rarity}, ask ${fmt(ask)}).`);
+      addPost(s, `Auction closed! ${it.name} went to a collector for ${fmt(r.proceeds)}.`, 1.8);
+      return `Sold at auction: ${fmt(r.proceeds)}`;
+    } else {
+      pushLog(s, `Auction: ${it.name} found no buyer. Listing fee ${fmt(r.fee)} lost.`);
+      addPost(s, `Auction fell through on the ${it.name}. No bids above reserve.`, 0.8);
+      return `No buyer — lost ${fmt(r.fee)} listing fee`;
+    }
+  }
+  const u = s.used[idx]; if (!u) return null;
+  const rarity = itemRarity(u);
+  const ask = usedItemValue(s, u) * RARITY_MULT[rarity] * 1.4;
+  if (s.money < ask * 0.03) return null;
+  const r = compute(ask, rarity);
+  s.money -= r.fee;
+  if (r.sold) {
+    s.money += r.proceeds;
+    s.used.splice(idx, 1);
+    pushLog(s, `Auction: ${u.name} sold for ${fmt(r.proceeds)} (rarity ${rarity}).`);
+    addPost(s, `Auction closed! ${u.name} went for ${fmt(r.proceeds)}.`, 1.8);
+    return `Sold at auction: ${fmt(r.proceeds)}`;
+  } else {
+    pushLog(s, `Auction: ${u.name} found no buyer. Fee ${fmt(r.fee)} lost.`);
+    return `No buyer — lost ${fmt(r.fee)} listing fee`;
+  }
+}
+
+// Repair/restore workshop — costs cash + skill check.
+// Player's relevant skill (engineering degree lvl × 25 + licence bonus)
+// raises the condition restored. Mistakes cost a small additional condition
+// (self-learning: 5% chance of a botched repair, loses 5 condition instead).
+// Rare/legendary items cost more to repair (specialist parts).
+export function repairSkill(s: GameState): number {
+  const deg = s.deg.engineering || 0;
+  const lic = (s.lic['pilot'] ? 1 : 0) + (s.lic['mechanic'] ? 1 : 0);
+  return deg * 25 + lic * 15 + (s.tals.includes('tinker') ? 20 : 0);
+}
+export function repairCost(s: GameState, basePrice: number, rarity: Rarity): number {
+  const mult = RARITY_MULT[rarity];
+  // ~8% of base price × rarity mult × (100 - current condition)/100
+  return Math.round(basePrice * 0.08 * mult);
+}
+export function repairLot(s: GameState, idx: number): string | null {
+  const l = s.lots[idx]; if (!l) return null;
+  const it = ITEM_BY[l.id]; if (!it) return null;
+  const cond = l.condition == null ? 100 : l.condition;
+  if (cond >= 100) return 'Already in mint condition';
+  const rarity = itemRarity(it);
+  const cost = repairCost(s, it.price, rarity);
+  if (s.money < cost) return null;
+  s.money -= cost;
+  const skill = repairSkill(s);
+  const restore = Math.min(100 - cond, 25 + Math.round(skill / 4));
+  // 5% botch chance — self-learning: failure is its own teacher
+  const botched = Math.random() < 0.05;
+  if (botched) {
+    l.condition = Math.max(0, cond - 5);
+    l.repaired = (l.repaired || 0) + 1;
+    pushLog(s, `Repair botched on ${it.name} — condition dropped to ${l.condition}. Lesson learned.`);
+    return `Botched! Condition now ${l.condition} (learned from the mistake)`;
+  }
+  l.condition = cond + restore;
+  l.condDay = s.day;
+  l.repaired = (l.repaired || 0) + 1;
+  addXp(s, 8); // every repair teaches something
+  pushLog(s, `Repaired ${it.name}: +${restore} condition → ${l.condition}/100.`);
+  return `Repaired +${restore} → ${l.condition}/100`;
+}
+export function repairUsed(s: GameState, idx: number): string | null {
+  const u = s.used[idx]; if (!u) return null;
+  if (u.condition >= 100) return 'Already in mint condition';
+  const rarity = itemRarity(u);
+  const cost = repairCost(s, u.paid, rarity);
+  if (s.money < cost) return null;
+  s.money -= cost;
+  const skill = repairSkill(s);
+  const restore = Math.min(100 - u.condition, 25 + Math.round(skill / 4));
+  const botched = Math.random() < 0.05;
+  if (botched) {
+    u.condition = Math.max(0, u.condition - 5);
+    pushLog(s, `Repair botched on ${u.name} — condition dropped to ${u.condition}.`);
+    return `Botched! Condition now ${u.condition}`;
+  }
+  u.condition = u.condition + restore;
+  addXp(s, 8);
+  pushLog(s, `Repaired ${u.name}: +${restore} condition → ${u.condition}/100.`);
+  return `Repaired +${restore} → ${u.condition}/100`;
 }
 
 // ---------- v10.4: Hall of Fame ----------

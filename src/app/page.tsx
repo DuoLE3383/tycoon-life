@@ -10,7 +10,7 @@ import {
   START, END_AGE, RETIRE, RESALE_FEE, FOUND_COST, FOUND_MIN_NW, OWN_CLUB_MULT,
   SAVE_RATE, LOAN_RATE, TAX_FREE, TAX_BRACKETS, ALLNEWS, eraOf, NATIONS, INTERESTS, TALENTS, PATHS,
   analyze, FIELDS, LICENSES, LIC_BY, LIC_FOR, STAGES, BIZ, FARM_LINES, FAC_LINES, ITEM_BY, ITEM_IMAGES, USED_IMAGES, STOCKS, ASSET_DEPRECIATION_RATE,
-  CLUBS, JOBS, GIGS, SPACE_LINES, TABS, GROUPS, xpNeed, ITEMS, USED_MARKET, HALL_OF_FAME, type FieldKey, type Req,
+  CLUBS, JOBS, GIGS, SPACE_LINES, TABS, GROUPS, xpNeed, ITEMS, USED_MARKET, HALL_OF_FAME, itemRarity, RARITY_COLOR, type Rarity, type FieldKey, type Req,
 } from '@/lib/gameData';
 import {
   fmt, taxOf, fresh, begin, tick, stageOf, worldYear, branchCount, bizCost, clubMult, branchNet, fameBonus, bizMultiplier,
@@ -29,6 +29,7 @@ import {
   TEMPLE_COST, TEMPLE_CD, RETREAT_COST, RETREAT_CD, FAITH_PRACTICE_COST, FAITH_PRACTICE_CD,
   ACHIEVEMENTS, checkAch,
   buyUsedItem, sellUsed, usedItemValue, postItemListing, playerHallEntry, recordHallOnGameOver,
+  auctionItem, repairLot, repairUsed, repairSkill, repairCost,
 } from '@/lib/engine';
 import { localTwist, pickKind } from '@/lib/story';
 import { useT, LANGS, type Lang } from '@/lib/i18n';
@@ -754,16 +755,27 @@ function AssetsTab({ s, act, curCat, setCurCat }: { s: GameState; act: Act; curC
   }, [y, s.level, s.used.length]);
   return (
     <>
-      {/* ---- pre-owned: items the player already owns (with sell + list on feed) ---- */}
+      {/* ---- pre-owned: items the player already owns (with sell + list + auction + repair) ---- */}
       {s.lots.length > 0 && (<><h3>{t('myItems')}</h3>
         {s.lots.map((l, idx) => {
           const it = ITEM_BY[l.id], v = lotValue(s, l), resale = v * (1 - RESALE_FEE);
-          return <Row key={idx} art={it.art} image={ITEM_IMAGES[l.id]} right={<div className="trade">
+          const rar = itemRarity(it);
+          const cond = l.condition == null ? 100 : l.condition;
+          const condTxt = cond >= 80 ? 'mint' : cond >= 60 ? 'good' : cond >= 40 ? 'fair' : 'rough';
+          const ask = v * 1.4;
+          const repCost = repairCost(s, it.price, rar);
+          return <Row key={idx} art={it.art} image={ITEM_IMAGES[l.id]} right={<div className="trade" style={{ flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+            {cond < 100 && <Btn ic="ic-bag" label={t('workshop.repair') + ' ' + fmt(repCost)} kind="ghost" disabled={s.money < repCost} onClick={() => act(st => repairLot(st, idx))} />}
+            <Btn ic="ic-up" label={t('auction.btn')} kind="ghost" disabled={s.money < ask * 0.03} onClick={() => act(st => auctionItem(st, 'lot', idx))} />
             <Btn ic="ic-social" label={t('used.listLot')} kind="ghost" onClick={() => act(st => postItemListing(st, 'lot', idx))} />
             <Btn ic="ic-down" label={t('sell') + ' ' + fmt(resale)} kind="ghost" onClick={() => act(st => sellLot(st, idx))} />
           </div>}>
-            <b>{it.brand ? <span className="bchip" style={{ background: it.c }}>{it.brand}</span> : null}{it.name}</b>
-            <span className="sub">{t('paid')} {fmt(l.paid)} · {t('worthNow')} {fmt(v)} · {v >= l.paid ? t('gains', '', { n: ((v / l.paid - 1) * 100).toFixed(0) }) : t('loses', '', { n: ((1 - v / l.paid) * 100).toFixed(0) })}</span>
+            <b>{it.brand ? <span className="bchip" style={{ background: it.c }}>{it.brand}</span> : null}{it.name} <span className="rarity-chip" data-rarity={rar} style={{ '--rc': RARITY_COLOR[rar] } as React.CSSProperties}>{t('rarity.' + rar)}</span></b>
+            <span className="sub">
+              <span className="cond-pill" data-cond={condTxt}>{t('used.cond')} {cond} · {condTxt}</span>
+              {' · '}{t('paid')} {fmt(l.paid)} · {t('worthNow')} {fmt(v)} · {v >= l.paid ? t('gains', '', { n: ((v / l.paid - 1) * 100).toFixed(0) }) : t('loses', '', { n: ((1 - v / l.paid) * 100).toFixed(0) })}
+            </span>
+            <span className="mini" style={{ display: 'block', marginTop: 2 }}>{t('auction.ask')} {fmt(ask)} · {t('auction.fee')} · {t('auction.sellChance', '', { n: Math.round(rar === 'legendary' ? 85 : rar === 'rare' ? 75 : rar === 'uncommon' ? 55 : 40) })}</span>
           </Row>;
         })}</>)}
       {/* ---- pre-owned: items the player bought used ---- */}
@@ -771,15 +783,21 @@ function AssetsTab({ s, act, curCat, setCurCat }: { s: GameState; act: Act; curC
         {s.used.map((u, idx) => {
           const v = usedItemValue(s, u), resale = v * (1 - RESALE_FEE);
           const condTxt = u.condition >= 80 ? 'mint' : u.condition >= 60 ? 'good' : u.condition >= 40 ? 'fair' : 'rough';
-          return <Row key={u.id} art={u.art} image={USED_IMAGES[u.id]} right={<div className="trade">
+          const rar = itemRarity(u);
+          const ask = v * 1.4;
+          const repCost = repairCost(s, u.paid, rar);
+          return <Row key={u.id} art={u.art} image={USED_IMAGES[u.id]} right={<div className="trade" style={{ flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+            {u.condition < 100 && <Btn ic="ic-bag" label={t('workshop.repair') + ' ' + fmt(repCost)} kind="ghost" disabled={s.money < repCost} onClick={() => act(st => repairUsed(st, idx))} />}
+            <Btn ic="ic-up" label={t('auction.btn')} kind="ghost" disabled={s.money < ask * 0.03} onClick={() => act(st => auctionItem(st, 'used', idx))} />
             <Btn ic="ic-social" label={t('used.list')} kind="ghost" onClick={() => act(st => postItemListing(st, 'used', idx))} />
             <Btn ic="ic-down" label={t('used.sell') + ' ' + fmt(resale)} kind="ghost" onClick={() => act(st => sellUsed(st, idx))} />
           </div>}>
-            <b>{u.brand ? <span className="bchip" style={{ background: u.c }}>{u.brand}</span> : null}{u.name}</b>
+            <b>{u.brand ? <span className="bchip" style={{ background: u.c }}>{u.brand}</span> : null}{u.name} <span className="rarity-chip" data-rarity={rar} style={{ '--rc': RARITY_COLOR[rar] } as React.CSSProperties}>{t('rarity.' + rar)}</span></b>
             <span className="sub">
               <span className="cond-pill" data-cond={condTxt}>{t('used.cond')} {u.condition} · {condTxt}</span>
               {' · '}{t('used.age', '', { n: u.ageYears })} · {t('paid')} {fmt(u.paid)} · {t('worthNow')} {fmt(v)}
             </span>
+            <span className="mini" style={{ display: 'block', marginTop: 2 }}>{t('auction.ask')} {fmt(ask)} · {t('auction.sellChance', '', { n: Math.round(rar === 'legendary' ? 85 : rar === 'rare' ? 75 : rar === 'uncommon' ? 55 : 40) })}</span>
             <span className="mini" style={{ display: 'block', marginTop: 2, fontStyle: 'italic' }}>{u.story}</span>
           </Row>;
         })}</>)}
@@ -798,7 +816,7 @@ function AssetsTab({ s, act, curCat, setCurCat }: { s: GameState; act: Act; curC
                 ? <img className="tile-photo" src={asset(USED_IMAGES[u.id])} alt={u.name} loading="lazy" />
                 : <Art id={u.art} />}
               <span>
-                <b>{u.brand ? <span className="bchip" style={{ background: u.c }}>{u.brand}</span> : null}{u.name}</b>
+                <b>{u.brand ? <span className="bchip" style={{ background: u.c }}>{u.brand}</span> : null}{u.name} <span className="rarity-chip" data-rarity={itemRarity(u)} style={{ '--rc': RARITY_COLOR[itemRarity(u)] } as React.CSSProperties}>{t('rarity.' + itemRarity(u))}</span></b>
                 <span className="sub" style={{ display: 'block' }}>
                   <span className="cond-pill" data-cond={condTxt}>{t('used.cond')} {u.condition}</span>
                   {' · '}{t('used.age', '', { n: u.ageYears })}
@@ -829,8 +847,9 @@ function AssetsTab({ s, act, curCat, setCurCat }: { s: GameState; act: Act; curC
             <div className="sub" style={{ marginBottom: 8 }}>{ITEMS.filter(i => i.cat === curCat).length} {t('items')}{LIC_FOR[curCat] ? ` · ${t('lic.' + LIC_FOR[curCat], LIC_BY[LIC_FOR[curCat]].name)}${s.lic[LIC_FOR[curCat]] ? ' ✓' : ''}` : ''}</div>
             {ITEMS.filter(i => i.cat === curCat).map(i => {
               const need = LIC_FOR[curCat], locked = need && !s.lic[need];
+              const irar = itemRarity(i);
               return <Row key={i.id} art={i.art} image={ITEM_IMAGES[i.id]} right={<Btn ic={locked ? 'ic-lock' : 'ic-bag'} label={locked ? t('needLicence') : fmt(i.price)} disabled={!!locked || s.money < i.price} onClick={() => act(st => buyItem(st, i.id))} />}>
-                <b>{i.brand ? <span className="bchip" style={{ background: i.c }}>{i.brand}</span> : null}{i.name}</b>
+                <b>{i.brand ? <span className="bchip" style={{ background: i.c }}>{i.brand}</span> : null}{i.name} <span className="rarity-chip" data-rarity={irar} style={{ '--rc': RARITY_COLOR[irar] } as React.CSSProperties}>{t('rarity.' + irar)}</span></b>
                 <span className="sub">+{i.lux} {t('status')} · {t('loses', '', { n: (Math.abs(Math.min(i.rate, ASSET_DEPRECIATION_RATE)) * 100).toFixed(0) })} · {t('upkeep')} {fmt(i.price * 0.02)}{t('perYear')}</span>
               </Row>;
             })}

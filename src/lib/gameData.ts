@@ -157,7 +157,8 @@ export const LICENSES = [
   { id: 'moto', name: 'Motorcycle licence', cost: 350, days: 30, art: 'i-bike' },
   { id: 'car', name: "Driver's licence (car)", cost: 600, days: 60, art: 'i-lambo' },
   { id: 'boat', name: 'Boating licence', cost: 1500, days: 90, art: 'i-yacht' },
-  { id: 'pilot', name: 'Private pilot licence', cost: 20000, days: 365, art: 'i-jet' }
+  { id: 'pilot', name: 'Private pilot licence', cost: 20000, days: 365, art: 'i-jet' },
+  { id: 'mechanic', name: 'Mechanic certification', cost: 2500, days: 120, art: 'i-bag' }
 ];
 export const LIC_BY = Object.fromEntries(LICENSES.map(l => [l.id, l]));
 export const LIC_FOR: Record<string, string> = { 'Sport bike': 'moto', 'Car': 'car', 'Yacht': 'boat', 'Private jet': 'pilot' };
@@ -199,7 +200,10 @@ export const FAC_LINES: LineDef[] = [
   { id: 'ev', name: 'EV assembly plant', since: 2010, cost: 5000000, inc: 6500000, needs: 'assembly', fac: true },
   { id: 'chip', name: 'Semiconductor fab', since: 2020, cost: 20000000, inc: 30000000, fac: true }
 ];
-export interface ItemDef { id: string; cat: string; brand?: string; name: string; c: string; price: number; lux: number; rate: number; art: string }
+export type Rarity = 'common' | 'uncommon' | 'rare' | 'legendary';
+export const RARITY_MULT: Record<Rarity, number> = { common: 1, uncommon: 1.4, rare: 2.2, legendary: 4 };
+export const RARITY_COLOR: Record<Rarity, string> = { common: '#78725f', uncommon: '#3a5a99', rare: '#5b3da3', legendary: '#a16207' };
+export interface ItemDef { id: string; cat: string; brand?: string; name: string; c: string; price: number; lux: number; rate: number; art: string; rarity?: Rarity }
 export const ITEMS: ItemDef[] = [
   { id: 'bike-ktm', cat: 'Sport bike', brand: 'KTM', name: 'RC 390', c: '#f97316', price: 6000, lux: 6, rate: -.15, art: 'i-bike' },
   { id: 'bike-ninja', cat: 'Sport bike', brand: 'Kawasaki', name: 'Ninja ZX-10R', c: '#16a34a', price: 16000, lux: 20, rate: -.12, art: 'i-bike' },
@@ -243,6 +247,16 @@ export const ITEMS: ItemDef[] = [
   { id: 'a-contemp', cat: 'Art', name: 'Contemporary canvas', c: '#db2777', price: 50000, lux: 150, rate: .06, art: 'i-art' },
   { id: 'a-impress', cat: 'Art', name: 'Impressionist original', c: '#a16207', price: 40000000, lux: 9000, rate: .07, art: 'i-art' }
 ];
+// v10.5 — derive rarity from luxury tier if not set explicitly.
+// 0-9 common · 10-49 uncommon · 50-299 rare · 300+ legendary.
+export function itemRarity(it: { rarity?: Rarity; lux: number }): Rarity {
+  if (it.rarity) return it.rarity;
+  const l = it.lux || 0;
+  if (l >= 300) return 'legendary';
+  if (l >= 50) return 'rare';
+  if (l >= 10) return 'uncommon';
+  return 'common';
+}
 export const ITEM_BY = Object.fromEntries(ITEMS.map(i => [i.id, i]));
 
 // v10.5 — real-world item photos. Mapped by item id; falls back to the SVG

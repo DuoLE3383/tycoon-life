@@ -195,10 +195,13 @@ test('short sleep speeds study but increases health decline and appears in daily
 test('personal, business, and space assets share annual market depreciation', () => {
   const state = fresh();
   state.day = 365.25;
-  state.lots.push({ id: 'w-tag', paid: 1_000, day: 0 });
-  state.lots.push({ id: 'ph-iphone', paid: 1_000, day: 0 });
+  state.lots.push({ id: 'w-tag', paid: 1_000, day: 0, condition: 100 });
+  state.lots.push({ id: 'ph-iphone', paid: 1_000, day: 0, condition: 100 });
   state.branches.cafe = [{ r: 0, mood: 1, paid: 1_000, day: 0 }];
-  assert.equal(lotValue(state, state.lots[0]), 900);
+  // v10.5: lotValue now applies a rarity premium. w-tag (lux 25 → uncommon)
+  // gets a 1.05 multiplier on top of the depreciation → 945.
+  assert.equal(lotValue(state, state.lots[0]), 945);
+  // ph-iphone (lux 4 → common) gets no rarity premium → 650.
   assert.equal(lotValue(state, state.lots[1]), 650);
   assert.equal(bizVal(state), 900);
   assert.equal(ASSET_DEPRECIATION_RATE, -0.1);
