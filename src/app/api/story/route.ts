@@ -23,6 +23,38 @@ const DIRECTIONS = [
 interface Choice { l: string; cost?: number; money?: number; fame?: number; out?: string }
 interface StoryEv { title: string; text: string; choices: Choice[] }
 
+const RATE_WINDOW_MS = 60_000;
+const RATE_LIMIT = 10;
+const requestsByIp = new Map<string, { count: number; resetAt: number }>();
+let zaiClient: ReturnType<typeof ZAI.create> | null = null;
+
+function isRateLimited(ip: string, now = Date.now()): boolean {
+  for (const [key, value] of requestsByIp) {
+    if (value.resetAt <= now) requestsByIp.delete(key);
+  }
+  const entry = requestsByIp.get(ip);
+  if (!entry || entry.resetAt <= now) {
+    if (requestsByIp.size >= 10_000) {
+      const oldest = requestsByIp.keys().next().value;
+      if (oldest) requestsByIp.delete(oldest);
+    }
+    requestsByIp.set(ip, { count: 1, resetAt: now + RATE_WINDOW_MS });
+    return false;
+  }
+  entry.count++;
+  return entry.count > RATE_LIMIT;
+}
+
+async function getZaiClient(): Promise<ZAI> {
+  if (!zaiClient) zaiClient = ZAI.create();
+  try {
+    return await zaiClient;
+  } catch (error) {
+    zaiClient = null;
+    throw error;
+  }
+}
+
 function clampEv(ev: StoryEv, netWorth: number): StoryEv {
   const cap = Math.max(5000, Math.round(Math.max(0, netWorth) * .4));
   const choices = (Array.isArray(ev.choices) ? ev.choices : []).slice(0, 3).map(c => ({
@@ -54,6 +86,15 @@ function localTwist(state: { era?: string; netWorth?: number; businesses?: strin
 }
 
 export async function POST(req: NextRequest) {
+  const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim()
+    || req.headers.get('x-real-ip')?.trim()
+    || 'unknown';
+  if (isRateLimited(ip)) {
+    return NextResponse.json(
+      { error: 'Too many story requests. Try again shortly.' },
+      { status: 429, headers: { 'Retry-After': '60' } }
+    );
+  }
   let body: { state?: Record<string, unknown>; used?: string[] } = {};
   try { body = await req.json(); } catch { /* ignore */ }
   const state = body.state || {};
@@ -72,10 +113,10 @@ export async function POST(req: NextRequest) {
   const user = JSON.stringify({ player: state, avoidThesePremises: used, direction });
 
   try {
-    const zai = await ZAI.create();
+    const zai = await getZaiClient();
     const completion = await zai.chat.completions.create({
       messages: [
-        { role: 'assistant', content: sys },
+        { role: 'system', content: sys },
         { role: 'user', content: user }
       ],
       thinking: { type: 'disabled' }

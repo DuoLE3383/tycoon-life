@@ -102,8 +102,9 @@ const D: Record<string, [string, string, string]> = {
   'ln.f.eduJob': ['Degrees unlock jobs, licences unlock careers', 'Bằng cấp mở việc làm, chứng chỉ mở ngành nghề', '学位解锁工作，执照解锁行业'],
   'ln.f.eduBiz': ['Business degree: ×(1 + 0.15 × tier)', 'Bằng Business: ×(1 + 0.15 × cấp)', '商科学位：×(1 + 0.15 × 级)'],
   'ln.f.jobInc': ['Salary paid every 2 weeks', 'Lương trả mỗi 2 tuần', '每两周发薪一次'],
-  'ln.f.bizInc': ['Branch profits × club × degree × fame × era × level × spirit', 'Lợi nhuận chi nhánh × CLB × bằng × fame × thời đại × cấp × tâm linh', '分店利润 × 会所 × 学位 × 名气 × 时代 × 等级 × 心灵'],
-  'ln.f.spaceInc': ['Venture income ×(spirit ≥ 80 → ×1.25)', 'Doanh thu dự án ×(tâm linh ≥ 80 → ×1.25)', '太空收入 ×(心灵 ≥ 80 → ×1.25)'],
+  'ln.f.bizInc': ['Branch profits × club × degree × fame × era × level × spirit, capped at ×3', 'Lợi nhuận chi nhánh × CLB × bằng × danh tiếng × thời đại × cấp × tâm linh, tối đa ×3', '分店利润 × 会所 × 学位 × 名气 × 时代 × 等级 × 心灵，最高 ×3'],
+  'ln.f.bizCap': ['Total business multiplier (cap ×3)', 'Tổng hệ số kinh doanh (trần ×3)', '生意总倍率（上限 ×3）'],
+  'ln.f.spaceInc': ['Venture income ×(spirit ≥ 80 → ×1.25; space travel → ×1.20)', 'Doanh thu dự án ×(tâm linh ≥ 80 → ×1.25; du hành vũ trụ → ×1.20)', '太空收入 ×（心灵 ≥ 80 → ×1.25；太空旅行 → ×1.20）'],
   'ln.f.socInc': ['Followers × $0.06 × level (from 500 followers)', 'Người theo dõi × $0.06 × cấp (từ 500 người)', '粉丝 × $0.06 × 等级（≥500 粉起）'],
   'ln.f.bankInt': ['Savings +2%/yr · loans cost 6%/yr', 'Gửi tiết kiệm +2%/năm · vay 6%/năm', '存款 +2%/年 · 贷款 6%/年'],
   'ln.f.levelInc': ['×(1 + 2% × (level − 1)) on biz, social & gigs', '×(1 + 2% × (cấp − 1)) lên kinh doanh, MXH & gig', '×(1 + 2% × (等级 − 1))，作用于生意、社媒与零工'],
@@ -193,7 +194,16 @@ const D: Record<string, [string, string, string]> = {
   'dayCourse': ['{n}-day course', 'khóa {n} ngày', '{n} 天课程'],
   'neededFor': ['needed for', 'cần cho', '用于'],
   'eduNote': ['Want better pay? Open the Education tab — degrees and licences unlock the best careers.', 'Muốn lương cao hơn? Mở tab Học vấn — bằng cấp và khoá học mở ra sự nghiệp tốt nhất.', '想要更高收入？打开「学业」页 — 学位与证书解锁最好的职业。'],
-  'eduTip': ['Full-time degrees need you to quit your job first. Licences are short courses you can take while employed.', 'Bằng toàn thời gian cần nghỉ việc trước. Bằng lái là khoá ngắn, học khi đang đi làm được.', '全日制学位需先辞职。执照为短期课程，可在职学习。'],
+  'eduTip': ['You can keep a job while studying; full-time pay is reduced to 60%. Take one short licence course alongside a degree. Unrelated degrees take 25% longer.', 'Có thể vừa làm vừa học; lương công việc toàn thời gian còn 60%. Có thể học thêm một chứng chỉ ngắn song song với bằng chính. Bằng trái ngành mất thêm 25% thời gian.', '可边工作边学习；全职薪资降至 60%。可在主修期间加修一门短期执照课程。跨专业学位耗时增加 25%。'],
+  'eveningCourseNote': ['Can be taken as an evening course alongside your degree.', 'Có thể học ngoài giờ song song với bằng chính.', '可作为夜间课程与主修同时进行。'],
+  'sleepSchedule': ['Daily sleep schedule', 'Lịch ngủ mỗi ngày', '每日睡眠安排'],
+  'sleepHourUnit': ['hours', 'giờ', '小时'],
+  'sleepSet': ['Sleep set to {n} hours per day', 'Đã đặt ngủ {n} giờ mỗi ngày', '已设为每天睡眠 {n} 小时'],
+  'sleepEffects': ['Study pace +{p}% · daily health-loss change {h}', 'Tốc độ học +{p}% · thay đổi mức giảm sức khoẻ mỗi ngày {h}', '学习速度 +{p}% · 每日健康损耗变化 {h}'],
+  'dailyTimeline': ['Daily timeline', 'Dòng thời gian mỗi ngày', '每日时间线'],
+  'timelineNote': ['Shows the last 45 in-game days, including routine and player actions.', 'Hiển thị 45 ngày gần nhất trong game, gồm sinh hoạt và hành động của bạn.', '显示最近 45 个游戏日的日常安排与玩家行动。'],
+  'studyExtraTime': ['25% longer outside your focus field', 'Học lâu hơn 25% nếu ngoài ngành sở trường', '非主修专业学习时间增加 25%'],
+  'studyWorkNote': ['studying alongside work: 60% salary', 'vừa học vừa làm: nhận 60% lương', '边工作边学习：领取 60% 薪资'],
   // ---- business
   'open': ['Open', 'Mở', '开设'],
   'openBranch': ['Open branch', 'Mở chi nhánh', '开分店'],
@@ -224,6 +234,13 @@ const D: Record<string, [string, string, string]> = {
   'founded': ['Founded', 'Đã thành lập', '已成立'],
   'lvlReq': ['Level {n}', 'Cấp {n}', '{n} 级'],
   'spaceNote': ['Space ventures need both a player level and the right historical era — humanity has to catch up with you.', 'Dự án vũ trụ cần cả cấp độ lẫn thời đại phù hợp — nhân loại phải theo kịp bạn.', '太空项目需要等级与时代双重条件 — 人类得跟上你的脚步。'],
+  'spaceTravelTitle': ['Deep-space navigation program', 'Chương trình dẫn đường liên sao', '深空导航计划'],
+  'spaceTravelStart': ['Start · $10M', 'Bắt đầu · $10M', '启动 · $10M'],
+  'spaceTravelWaiting': ['In progress · {n} days left', 'Đang thực hiện · còn {n} ngày', '进行中 · 剩余 {n} 天'],
+  'spaceTravelReady': ['Certified · +20%', 'Đã hoàn thành · +20%', '已认证 · +20%'],
+  'spaceTravelBonus': ['Certified navigation boosts all space income by 20%.', 'Dẫn đường đạt chuẩn tăng 20% thu nhập vũ trụ.', '导航认证使所有太空收入提升 20%。'],
+  'spaceTravelRequirement': ['Requires orbital tourism, level 12 and year 2025+. Wait one game year for certification.', 'Cần du lịch quỹ đạo, cấp 12 và năm 2025 trở đi. Chờ một năm trong game để được chứng nhận.', '需要轨道旅游、12 级及 2025 年以后。等待游戏内一年完成认证。'],
+  'spaceDays': ['days', 'ngày', '天'],
   // ---- shop
   'myItems': ['My items', 'Đồ của tôi', '我的物品'],
   'catalogue': ['Catalogue', 'Danh mục', '商品目录'],
@@ -472,10 +489,12 @@ const Ctx = createContext<{ lang: Lang; setLang: (l: Lang) => void; t: ReturnTyp
 export function LangProvider({ children }: { children: ReactNode }) {
   const [lang, setLang] = useState<Lang>('en');
   useEffect(() => {
+    let timer: ReturnType<typeof setTimeout> | undefined;
     try {
       const v = localStorage.getItem('tycoon_lang') as Lang | null;
-      if (v === 'en' || v === 'vi' || v === 'zh') setLang(v);
+      if (v === 'en' || v === 'vi' || v === 'zh') timer = setTimeout(() => setLang(v), 0);
     } catch { /* ignore */ }
+    return () => { if (timer) clearTimeout(timer); };
   }, []);
   const set = (l: Lang) => {
     setLang(l);

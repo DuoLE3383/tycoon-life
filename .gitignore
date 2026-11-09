@@ -1,7 +1,6 @@
 node_modules/
 .next/
 out/
-.next-api-stash/
 *.tsbuildinfo
 *.log
 next-env.d.ts

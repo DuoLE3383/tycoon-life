@@ -28,6 +28,19 @@
 11. [Lưu trữ & kiểm thử](#lưu-trữ--kiểm-thử)
 12. [Lịch sử phiên bản](#lịch-sử-phiên-bản)
 
+## Cập nhật tính năng và cân bằng
+
+- Vừa học vừa làm được; lương công việc toàn thời gian còn 60% khi đang học.
+  Có thể học thêm một khóa giấy phép ngắn song song với bằng chính.
+- Chọn ngủ 4–10 giờ mỗi ngày: ngủ ít giúp học nhanh hơn nhưng làm sức khỏe
+  suy giảm nhanh hơn; ngủ trên 8 giờ giúp bảo vệ sức khỏe. Timeline ở Home ghi
+  lại nếp sinh hoạt và hành động trong 45 ngày game gần nhất.
+- Thu nhập gig tăng theo căn bậc hai của thu nhập năm; tổng hệ số thu nhập
+  kinh doanh có trần ×3. Tài sản kinh doanh, nông trại, nhà máy và vũ trụ đều
+  được khấu hao theo năm game.
+- Dữ liệu lưu có `schemaVersion` để migrate; API truyện dùng system role,
+  tái sử dụng client và giới hạn 10 request/phút/IP.
+
 ---
 
 ## Bắt đầu trong 2 phút
@@ -77,9 +90,10 @@ Thanh điều hướng 2 cấp sắp xếp như một **làn đời**: Đời s�
 | 📣 Bài đăng tài trợ | ~$80 **+ $0.02/follower** | 4 ngày | 1,000 followers |
 | ☎ Tư vấn | ~$550 | 6 ngày | BBA |
 
-  Thu nhập thật = gốc + 0.4% thu nhập năm, nhân thêm level × danh tiếng × sức khoẻ (×1.15 nếu thích thể thao hoặc tài năng cơ khí). Mỗi việc (trừ xem quảng cáo) có 4% cơ hội +1 fame.
+  Thu nhập thật = `(gốc + 0.05 × √thu nhập năm)` nhân level × danh tiếng × sức khoẻ (×1.15 nếu thích thể thao hoặc tài năng cơ khí); bài đăng tài trợ còn cộng tiền theo follower. Mỗi việc (trừ xem quảng cáo) có 4% cơ hội +1 fame.
 - **Nút 🤖 AI tiên tri** — bấm để AI viết một bước ngoặt mới cho cuộc đời bạn (chi tiết ở [mục AI](#-ai--những-gì-khác-biệt-nhờ-bổ-sung-ai)).
 - **Nhật ký** 80 dòng gần nhất + các thanh wellbeing (sức khoẻ, tâm linh, karma, fame, level).
+- **Giờ ngủ & timeline** — chọn ngủ 4–10 giờ/ngày; Home hiển thị nếp sinh hoạt và hành động trong tối đa 45 ngày game gần nhất.
 
 #### ❤️ Health — sức khoẻ là tài sản
 Bắt đầu 92/100. Suy giảm mỗi ngày theo tuổi (±25% random): **<30 tuổi: 0.015/ngày · 30–44: 0.04 · 45–59: 0.08 · 60–74: 0.13 · 75+: 0.18** — tức ~5.5 → 66 điểm/năm nếu không làm gì.
@@ -122,6 +136,8 @@ Bắt đầu 18/100. Ba hành động:
 | Arts | B.A → M.A | 4n / 2n | $4,000 / $8,000 | 30 / 36 |
 
 - Ngành **sở trường** (từ sở thích + tài năng): học phí **−20%**; tài năng *focus*: thời gian **−10%**.
+- Có thể vừa học vừa làm (lương toàn thời gian còn 60%) và học thêm một giấy phép ngắn song song với bằng chính. Ngành không phải sở trường mất thêm 25% thời gian.
+- Ngủ ít hơn 8 giờ giúp tiến độ học nhanh hơn nhưng làm sức khỏe suy giảm nhanh hơn; ngủ trên 8 giờ giúp bảo vệ sức khỏe.
 - Giấy phép lái xe: mô tô $350 (30 ngày) · ô tô $600 (60) · thuyền $1,500 (90) · **phi công tư nhân $20,000 (365 ngày)** — khoá mở nghề phi công thương mại $200k/năm.
 - Bằng Business còn cho **+15% thu nhập kinh doanh mỗi cấp** (MBA = +30%).
 
@@ -406,8 +422,8 @@ Nguồn XP đáng kể: tốt nghiệp đại học +150 · dự án vũ trụ +
 | Đại lượng | Công thức |
 |---|---|
 | Thu nhập/năm | kinh doanh + vũ trụ + mạng xã hội + lương (+$18k hưu) |
-| Kinh doanh/năm | `Σ(doanh thu × vùng × mood − giá/24) + farm + factory`, × CLB × (1+15%×bằngBiz) × (1+0.2%×fame) × era × level × (tâm linh≥70 ? 1.10) |
-| Việc nhanh | `(gốc + 0.4% thu nhập năm) × level × (1+0.4%×fame) × (0.7+0.3×HP/100)` |
+| Kinh doanh/năm | `Σ(doanh thu × vùng × mood − giá/24) + farm + factory`, nhân các bonus CLB/bằng/fame/era/level/tâm linh; tổng hệ số bonus tối đa ×3 |
+| Việc nhanh | `(gốc + 0.05 × √thu nhập năm) × level × (1+0.4%×fame) × (0.7+0.3×HP/100)` |
 | Work click | `max($25, $30 + 1% thu nhập năm)` (thể thao/cơ khí ×1.25) |
 | Chi phí sống/năm | `$3,000 × 1.03^(tuổi−18)` + 2% giá trị tài sản + $400×12/con |
 | Thuế | lũy tiến 0% (≤$20k) / 15% / 25% / 35%, tính 1/1 |
@@ -416,7 +432,7 @@ Nguồn XP đáng kể: tốt nghiệp đại học +150 · dự án vũ trụ +
 | Follower/tháng | `(fame×14 + 8×√followers) × (0.4–1.6)`, trần 200M |
 | Quảng cáo xã hội/năm | `6% × followers` (≥500) |
 | Likes bài đăng | `(5%×followers + 3×fame + 5) × (0.4–1.6) × boost` |
-| Giá trị tài sản cũ | `giá mua × (1+tỷ lệ tăng)^(số năm)` — bán lại trừ 3% |
+| Giá trị tài sản | Đồ cá nhân theo tỷ lệ thị trường (khấu hao tối thiểu 10%/năm); kinh doanh, nông trại, nhà máy, vũ trụ khấu hao 10%/năm |
 | Tài sản ròng | tiền mặt + cổ phiếu + tài sản + giá trị biz + tiền gửi − nợ |
 
 ---
@@ -443,7 +459,19 @@ npm run build:static # xuất ra ./out
 
 ## Triển khai lên GitHub Pages
 
-`.github/workflows/deploy.yml`: mỗi push lên `main` → `npm ci` → `npm run build:static` → đưa `out/` lên Pages (concurrency chống dồn deploy). Static build đặt `NEXT_PUBLIC_HAS_BACKEND=0` để nút AI tiên tri biết đường dùng engine cục bộ ngay lập tức.
+`.github/workflows/deploy.yml`: mỗi push lên `main` chạy lint, typecheck, test,
+sau đó build tĩnh bằng npm và deploy thư mục `out/` lên GitHub Pages
+(concurrency chống dồn deploy). Static build đặt `NEXT_PUBLIC_HAS_BACKEND=0`
+để AI tiên tri dùng engine cục bộ. Trong **Settings → Pages**, chọn nguồn
+deploy **GitHub Actions**.
+
+Run checks locally:
+
+```bash
+npm run lint
+npm run typecheck
+npm test
+```
 
 ## Kiến trúc mã nguồn
 
@@ -462,7 +490,7 @@ scripts/static-build.mjs  cấu hình build tĩnh cho Pages
 
 ## Lưu trữ & kiểm thử
 
-- Save game: `localStorage["tycoon_life_react_v1"]` — tự lưu mỗi nhịp 250ms; nút reset nằm trên header.
+- Save game: `localStorage["tycoon_life_react_v1"]` — dữ liệu có `schemaVersion` và được tự migrate; lưu định kỳ mỗi 3 giây, lưu ngay sau hành động và trước khi đóng trang. Nút reset nằm trên header.
 - Hook kiểm thử: `window.__tycoon` (getState / persist / bump / processDay / yearEnd / tick) — dùng cho automation và các bạn thích nghịch console.
 
 ## Lịch sử phiên bản

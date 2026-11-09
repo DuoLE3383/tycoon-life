@@ -7,17 +7,19 @@ import { useGame, getState, persist, bump, resetState } from '@/lib/store';
 import {
   START, END_AGE, RETIRE, RESALE_FEE, FOUND_COST, FOUND_MIN_NW, OWN_CLUB_MULT,
   SAVE_RATE, LOAN_RATE, TAX_FREE, TAX_BRACKETS, ALLNEWS, eraOf, NATIONS, INTERESTS, TALENTS, PATHS,
-  analyze, FIELDS, LICENSES, LIC_BY, LIC_FOR, STAGES, BIZ, FARM_LINES, FAC_LINES, ITEM_BY, STOCKS,
+  analyze, FIELDS, LICENSES, LIC_BY, LIC_FOR, STAGES, BIZ, FARM_LINES, FAC_LINES, ITEM_BY, STOCKS, ASSET_DEPRECIATION_RATE,
   CLUBS, JOBS, GIGS, SPACE_LINES, TABS, GROUPS, xpNeed, ITEMS, type FieldKey, type Req,
 } from '@/lib/gameData';
 import {
-  fmt, taxOf, fresh, begin, tick, stageOf, worldYear, branchCount, bizCost, clubMult, branchNet, fameBonus,
+  fmt, taxOf, fresh, begin, tick, stageOf, worldYear, branchCount, bizCost, clubMult, branchNet, fameBonus, bizMultiplier,
   bizIncome, jobOf, yearIncome, living, lotValue, upkeep, assetVal, bizVal, stockVal, netWorth,
-  effYears, tuitionOf, meets, reqText, knowledgeText, snapshot,
+  effYears, tuitionOf, meets, reqText, knowledgeText, snapshot, dateOf,
   processDay, yearEnd,
   doGig, gigReady, gigLock, gigPay, addPost, buySpace, spaceIncome, socialIncome, levelMult,
   openBranch, buyFarmLine, buyFacLine, buyItem, sellLot, trade, joinClub, foundClub,
-  hire, enrollDeg, enrollLic, bankOp, donate, applyEventChoice, applyAIChoice, currentEvent,
+  hire, enrollDeg, enrollLic, bankOp, donate, applyEventChoice, applyAIChoice, currentEvent, studyWorkMult,
+  spaceUpgradeReady, startSpaceUpgrade, spaceUpgradeDays, spaceMultiplier, SPACE_TRAVEL_COST,
+  recordActivity, studyPace, sleepHealthMult, sleepHoursOptions,
   gameOverTier, botRows, type AIEvent, type GameState,
   doWell, toggleDiet, wellReady, wellLeft, healthMult, healthState, spiritState, decayPerYear,
   spiritBizMult, cosmicMult, GYM_COST, GYM_CD, CHECKUP_COST, CHECKUP_CD, DIET_COST,
@@ -46,11 +48,9 @@ export default function Page() {
   const [curCat, setCurCat] = useState<string | null>(null);
   const [toast, setToast] = useState<{ id: number; msg: string } | null>(null);
   const [aiBusy, setAiBusy] = useState(false);
-  const [aiNote, setAiNote] = useState('');
+  const [aiNoteKey, setAiNoteKey] = useState('oracle.note');
   const [qtyMap, setQtyMap] = useState<Record<string, number>>({});
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  useEffect(() => { setAiNote(t('oracle.note')); }, [t]);
 
   const showToast = useCallback((msg: string) => {
     setToast({ id: Date.now(), msg });
@@ -61,13 +61,17 @@ export default function Page() {
   const act = useCallback((fn: (st: GameState) => string | null | void) => {
     const st = getState();
     const msg = fn(st);
-    if (typeof msg === 'string' && msg) showToast(msg);
+    if (typeof msg === 'string' && msg) {
+      showToast(msg);
+      recordActivity(st, msg);
+    }
     persist(); bump();
   }, [showToast]);
 
   // game clock
   useEffect(() => {
     let last = Date.now();
+    let lastPersist = last;
     const iv = setInterval(() => {
       const st = getState();
       if (document.hidden) { last = Date.now(); return; }
@@ -76,15 +80,26 @@ export default function Page() {
       last = now;
       if (res.yearToast) showToast(res.yearToast);
       if (res.gameJustOver) showToast(t('livedToast'));
-      persist(); bump();
+      if (now - lastPersist >= 3000) {
+        persist();
+        lastPersist = now;
+      }
+      bump();
     }, 250);
     const onVis = () => { last = Date.now(); };
+    const onUnload = () => persist();
     document.addEventListener('visibilitychange', onVis);
-    return () => { clearInterval(iv); document.removeEventListener('visibilitychange', onVis); };
+    window.addEventListener('beforeunload', onUnload);
+    return () => {
+      persist();
+      clearInterval(iv);
+      document.removeEventListener('visibilitychange', onVis);
+      window.removeEventListener('beforeunload', onUnload);
+    };
   }, [showToast, t]);
 
   const askAI = useCallback(async () => {
-    setAiBusy(true); setAiNote(t('oracle.thinking'));
+    setAiBusy(true); setAiNoteKey('oracle.thinking');
     const st = getState();
     let ev: AIEvent | null = null;
     // Static GitHub Pages build ships NEXT_PUBLIC_HAS_BACKEND=0 → the built-in
@@ -106,9 +121,9 @@ export default function Page() {
     if (!ev) { try { ev = localTwist(snapshot(st), st.story.used); } catch { ev = null; } }
     if (ev) {
       st.aiEv = ev;
-      setAiNote(ev.source === 'backend' ? t('oracle.backend') : t('oracle.local'));
+      setAiNoteKey(ev.source === 'backend' ? 'oracle.backend' : 'oracle.local');
       bump(); persist();
-    } else setAiNote(t('oracle.fail'));
+    } else setAiNoteKey('oracle.fail');
     setAiBusy(false);
   }, [t]);
 
@@ -138,7 +153,7 @@ export default function Page() {
           ))}
         </nav>
         <main id="tview" key={tab} className="enter">
-          {tab === 'home' && <HomeTab s={s} act={act} askAI={askAI} aiBusy={aiBusy} aiNote={aiNote} eraName={eraName} />}
+          {tab === 'home' && <HomeTab s={s} act={act} askAI={askAI} aiBusy={aiBusy} aiNote={t(aiNoteKey)} eraName={eraName} />}
           {tab === 'career' && <CareerTab s={s} act={act} />}
           {tab === 'edu' && <EduTab s={s} act={act} />}
           {tab === 'biz' && <BizTab s={s} act={act} />}
@@ -191,7 +206,10 @@ function Header({ s, onReset, eraName }: { s: GameState; onReset: () => void; er
   const [theme, setTheme] = useState<'dark' | 'light'>('dark');
   useEffect(() => {
     const cur = document.documentElement.getAttribute('data-theme');
-    if (cur === 'light' || cur === 'dark') setTheme(cur);
+    if (cur === 'light' || cur === 'dark') {
+      const timer = window.setTimeout(() => setTheme(cur), 0);
+      return () => window.clearTimeout(timer);
+    }
   }, []);
   const flipTheme = () => {
     const next = theme === 'dark' ? 'light' : 'dark';
@@ -248,13 +266,19 @@ function AgeBox({ s, t }: { s: GameState; t: TFn }) {
 
 // ================= HOME =================
 function HomeTab({ s, act, askAI, aiBusy, aiNote, eraName }: { s: GameState; act: Act; askAI: () => void; aiBusy: boolean; aiNote: string; eraName: (y: number) => string }) {
-  const { t } = useT();
+  const { t, lang } = useT();
   const y = worldYear(s), era = eraOf(y), news = ALLNEWS[y] || [];
   const j = jobOf(s);
-  const studyTxt = s.study ? `${s.study.name} · ${Math.max(0, (s.study.end - s.day) / 365.25).toFixed(1)} ${t('years')}` : t('notStudying');
+  const activeStudies = [s.study, s.sideStudy].filter((study): study is NonNullable<typeof study> => !!study);
+  const studyTxt = activeStudies.length
+    ? activeStudies.map(study => `${study.name} · ${Math.max(0, (study.end - s.day) / 365.25).toFixed(1)} ${t('years')}`).join(' · ')
+    : t('notStudying');
   const xpPct = Math.min(100, Math.round(s.xp / xpNeed(s.level) * 100));
+  const healthChange = Math.round((sleepHealthMult(s.sleepHours) - 1) * 100);
+  const healthChangeText = `${healthChange > 0 ? '+' : ''}${healthChange}%`;
+  const timelineLocale = { en: 'en-US', vi: 'vi-VN', zh: 'zh-CN' }[lang];
   const incRows: [string, number][] = [
-    [t('inc.salary'), j ? j.salary : 0],
+    [t('inc.salary'), j ? j.salary * studyWorkMult(s) : 0],
     [t('inc.biz'), bizIncome(s)],
     [t('inc.social'), socialIncome(s)],
     [t('inc.space'), spaceIncome(s)],
@@ -277,7 +301,7 @@ function HomeTab({ s, act, askAI, aiBusy, aiNote, eraName }: { s: GameState; act
             <Art id={stageOf(s.age).art} />
             <div>
               <b className="big">{s.name}, {t('stage.' + STAGES.indexOf(stageOf(s.age)), stageOf(s.age).name)}</b>
-              <div className="sub">{j ? t('workingAs', '', { j: t('job.' + j.id, j.name), s: fmt(j.salary) }) : t('notEmployed')}</div>
+              <div className="sub">{j ? t('workingAs', '', { j: t('job.' + j.id, j.name), s: fmt(j.salary * studyWorkMult(s)) }) : t('notEmployed')}</div>
               <div className="sub">{t('knowledge')}: {knowledgeText(s)}</div>
               <div className="sub">{t('study')}: {studyTxt}</div>
               <div className="sub">{t('rentBills')}: {fmt((living(Math.floor(s.age)) + upkeep(s) + (s.study && s.study.kind === 'deg' ? s.study.tuition : 0)) / 12)}{t('perMonth')}</div>
@@ -290,6 +314,22 @@ function HomeTab({ s, act, askAI, aiBusy, aiNote, eraName }: { s: GameState; act
             <div className="wrow"><span className="mini wl">{t('spirit')}</span><div className="wbar"><i style={{ width: s.spirit + '%', background: 'var(--slate)' }} /></div><span className="mini">{Math.round(s.spirit)}/100</span></div>
           </div>
         </div>
+      </div>
+
+      <div className="card" style={{ marginBottom: 10 }}>
+        <div className="field" style={{ marginBottom: 4 }}>
+          <label htmlFor="sleep-hours">{t('sleepSchedule')}</label>
+          <select id="sleep-hours" value={s.sleepHours} onChange={e => act(st => {
+            st.sleepHours = Number(e.target.value);
+            return t('sleepSet', '', { n: st.sleepHours });
+          })}>
+            {sleepHoursOptions.map(hours => <option key={hours} value={hours}>{hours} {t('sleepHourUnit')}</option>)}
+          </select>
+        </div>
+        <span className="mini">{t('sleepEffects', '', {
+          p: Math.round((studyPace(s.sleepHours) - 1) * 100),
+          h: healthChangeText
+        })}</span>
       </div>
 
       <div className="card" style={{ marginBottom: 10 }}>
@@ -346,6 +386,20 @@ function HomeTab({ s, act, askAI, aiBusy, aiNote, eraName }: { s: GameState; act
         </div>
       </details>
       <details className="fold">
+        <summary>{t('dailyTimeline')}</summary>
+        <div className="foldbody">
+          <div className="feed">
+            {[...s.timeline].reverse().slice(0, 45).map(({ day, entries }) => (
+              <div key={day}>
+                <b>{dateOf(s, day).toLocaleDateString(timelineLocale, { year: 'numeric', month: 'short', day: 'numeric', timeZone: 'UTC' })}</b>
+                {entries.map((entry, index) => <div key={index} style={{ padding: '4px 0 0 10px', border: 0 }}>{entry}</div>)}
+              </div>
+            ))}
+          </div>
+          <p className="mini">{t('timelineNote')}</p>
+        </div>
+      </details>
+      <details className="fold">
         <summary>{t('lifeLog')}</summary>
         <div className="foldbody"><div className="feed">{s.log.slice(-16).reverse().map((x, i) => <div key={i}>{x}</div>)}</div></div>
       </details>
@@ -362,11 +416,12 @@ function CareerTab({ s, act }: { s: GameState; act: Act }) {
       <h3>{t('jobs')}</h3>
       {JOBS.map(jb => {
         const mine = s.job === jb.id;
-        const lock = !mine && !meets(s, jb.req) ? t('requires') + ' ' + reqLabel(jb.req) : (jb.ft && s.study) ? t('inProgress') : s.age >= RETIRE ? t('stage.3') : '';
+        const studyingFullTime = jb.ft && (s.study || s.sideStudy);
+        const lock = !mine && !meets(s, jb.req) ? t('requires') + ' ' + reqLabel(jb.req) : s.age >= RETIRE ? t('stage.3') : '';
         return <Row key={jb.id} art={jb.art} right={<Btn ic={mine ? 'ic-x' : 'ic-plus'} label={mine ? t('quit') : (lock || t('apply'))} kind={mine ? 'ghost' : ''} disabled={!mine && !!lock}
           onClick={() => act(st => hire(st, jb.id))} />}>
           <b>{t('job.' + jb.id, jb.name)}{mine && ' · ' + t('current')}</b>
-          <span className="sub">{fmt(jb.salary)}{t('perYear')} · {t('requires')} {reqLabel(jb.req)}</span>
+          <span className="sub">{fmt(jb.salary * (studyWorkMult(s) < 1 && mine ? studyWorkMult(s) : 1))}{t('perYear')} · {t('requires')} {reqLabel(jb.req)}{studyingFullTime && mine ? ` · ${t('studyWorkNote')}` : ''}</span>
         </Row>;
       })}
       <p className="sub">{t('eduNote')}</p>
@@ -385,19 +440,24 @@ function EduTab({ s, act }: { s: GameState; act: Act }) {
         const F = FIELDS[f], cur = s.deg[f], max = F.names.length;
         if (cur >= max) return <Row key={f} art={F.art} right={<Btn ic="ic-check" label={t('done')} disabled />}><b>{t('field.' + f, F.name)}: {F.names[cur - 1]}</b><span className="sub">{t('highest')}</span></Row>;
         const L = cur + 1;
-        const reason = s.study ? (s.study.kind === 'deg' && s.study.field === f ? t('inProgress') : t('busy')) : s.age > F.maxAge[L - 1] ? t('tooOld') : (jobOf(s) && jobOf(s)!.ft) ? t('quitFirst') : '';
+        const reason = s.study ? (s.study.kind === 'deg' && s.study.field === f ? t('inProgress') : t('busy')) : s.age > F.maxAge[L - 1] ? t('tooOld') : '';
+        const years = effYears(s, f, L);
         return <Row key={f} art={F.art} right={<Btn ic="ic-cap" label={reason || t('enroll')} disabled={!!reason} onClick={() => act(st => enrollDeg(st, f))} />}>
           <b>{t('field.' + f, F.name)}: {F.names[L - 1]}</b>
-          <span className="sub">{effYears(s, f, L).toFixed(1)} {t('years')} · {F.tuition[L - 1] ? fmt(tuitionOf(s, f, L)) + t('perYear') + ' ' + t('tuition') + (s.topField === f ? ' (−20%)' : '') : t('funded')}{cur ? ' · ' + t('buildsOn') + ' ' + F.names[cur - 1] : ''}</span>
+          <span className="sub">{years.toFixed(1)} {t('years')}{s.topField && s.topField !== f ? ` · ${t('studyExtraTime')}` : ''} · {F.tuition[L - 1] ? fmt(tuitionOf(s, f, L)) + t('perYear') + ' ' + t('tuition') + (s.topField === f ? ' (−20%)' : '') : t('funded')}{cur ? ' · ' + t('buildsOn') + ' ' + F.names[cur - 1] : ''}</span>
         </Row>;
       })}
       <h3>{t('licences')}</h3>
       {LICENSES.map(l => {
-        const owned = !!s.lic[l.id], studying = s.study && s.study.kind === 'lic' && s.study.id === l.id;
-        const label = owned ? t('done') : studying ? t('inProgress') : s.study ? t('busy') : s.money < l.cost ? t('needLicence') : t('enroll');
-        return <Row key={l.id} art={l.art} right={<Btn ic={owned ? 'ic-check' : 'ic-cap'} label={owned ? t('done') : label} disabled={owned || !!studying || !!s.study || s.money < l.cost}
+        const owned = !!s.lic[l.id];
+        const studying = [s.study, s.sideStudy].some(course => course?.kind === 'lic' && course.id === l.id);
+        const canTakeEveningCourse = s.study?.kind === 'deg' && !s.sideStudy;
+        const busy = !!s.sideStudy || s.study?.kind === 'lic' || (!!s.study && !canTakeEveningCourse);
+        const label = owned ? t('done') : studying ? t('inProgress') : busy ? t('busy') : s.money < l.cost ? t('needLicence') : t('enroll');
+        return <Row key={l.id} art={l.art} right={<Btn ic={owned ? 'ic-check' : 'ic-cap'} label={owned ? t('done') : label} disabled={owned || !!studying || busy || s.money < l.cost}
           onClick={() => act(st => enrollLic(st, l.id))} />}>
           <b>{t('lic.' + l.id, l.name)}</b><span className="sub">{fmt(l.cost)} {t('fee')} · {t('dayCourse', '', { n: l.days })} · {t('neededFor')} {Object.keys(LIC_FOR).filter(k => LIC_FOR[k] === l.id).join(', ')}</span>
+          {canTakeEveningCourse && <span className="sub" style={{ display: 'block' }}>{t('eveningCourseNote')}</span>}
         </Row>;
       })}
       <p className="sub">{t('eduTip')}</p>
@@ -409,7 +469,7 @@ function EduTab({ s, act }: { s: GameState; act: Act }) {
 function BizTab({ s, act }: { s: GameState; act: Act }) {
   const { t } = useT();
   const reqLabel = useReqLabel();
-  const mult = clubMult(s) * (1 + .15 * s.deg.business) * (1 + s.fame * .002) * s.eraBiz * levelMult(s) * spiritBizMult(s);
+  const mult = bizMultiplier(s);
   return (
     <>
       {BIZ.map(b => {
@@ -427,7 +487,7 @@ function BizTab({ s, act }: { s: GameState; act: Act }) {
       {FARM_LINES.map(l => {
         const owned = s.farm[l.id];
         const why = !branchCount(s, 'farm') ? t('farmFirst') : worldYear(s) < l.since ? t('unlocksIn', '', { y: l.since }) : s.money < l.cost ? t('needLicence') : '';
-        return <Row key={l.id} art="b-farm" right={<Btn ic={owned ? 'ic-check' : 'ic-up'} label={owned ? t('active') : why || t('expand')} disabled={owned || !!why} onClick={() => act(st => buyFarmLine(st, l.id))} />}>
+        return <Row key={l.id} art="b-farm" right={<Btn ic={owned ? 'ic-check' : 'ic-up'} label={owned ? t('active') : why || t('expand')} disabled={!!owned || !!why} onClick={() => act(st => buyFarmLine(st, l.id))} />}>
           <b>{t('farm.' + l.id, l.name)}{owned ? ' · ' + t('active') : ''}</b><span className="sub">+{fmt(l.inc)}{t('perYear')} · {t('setup')} {fmt(l.cost)} · {t('since')} {l.since}</span>
         </Row>;
       })}
@@ -436,7 +496,7 @@ function BizTab({ s, act }: { s: GameState; act: Act }) {
         const owned = s.fac[l.id];
         const why = !branchCount(s, 'fac') ? t('facFirst') : worldYear(s) < l.since ? t('unlocksIn', '', { y: l.since }) :
           (l.food && !branchCount(s, 'farm')) ? t('farmFirst') : (l.needs && !s.fac[l.needs]) ? t('needsUpstream', '', { x: t('fac.' + l.needs, FAC_LINES.find(x => x.id === l.needs)!.name) }) : s.money < l.cost ? t('needLicence') : '';
-        return <Row key={l.id} art="b-fac" right={<Btn ic={owned ? 'ic-check' : 'ic-up'} label={owned ? t('active') : why || t('build')} disabled={owned || !!why} onClick={() => act(st => buyFacLine(st, l.id))} />}>
+        return <Row key={l.id} art="b-fac" right={<Btn ic={owned ? 'ic-check' : 'ic-up'} label={owned ? t('active') : why || t('build')} disabled={!!owned || !!why} onClick={() => act(st => buyFacLine(st, l.id))} />}>
           <b>{t('fac.' + l.id, l.name)}{owned ? ' · ' + t('active') : ''}</b>
           <span className="sub">+{fmt(l.inc * (l.food && branchCount(s, 'farm') ? 1.3 : 1))}{t('perYear')}{l.food ? ' · ' + t('farmSupply') : ''}{l.needs ? ' · ' + t('needsUpstream', '', { x: t('fac.' + l.needs, FAC_LINES.find(x => x.id === l.needs)!.name) }) : ''} · {t('setup')} {fmt(l.cost)} · {t('since')} {l.since}</span>
         </Row>;
@@ -460,11 +520,19 @@ function SpaceTab({ s, act }: { s: GameState; act: Act }) {
           <div className="sub" style={{ marginTop: 6 }}>{t('lvl')} {s.level} · {s.xp}/{xpNeed(s.level)} XP{spaceIncome(s) > 0 ? ` · ${t('inc.space')} +${fmt(spaceIncome(s))}${t('perYear')}` : ''}</div>
         </div>
       </div>
+      <Row art="s-orb" right={<Btn ic={s.spaceTravel ? 'ic-check' : 'ic-up'}
+        label={s.spaceTravel ? t('spaceTravelReady') : s.spaceUpgrade ? t('spaceTravelWaiting', '', { n: Math.max(0, Math.ceil(s.spaceUpgrade.completesDay - s.day)) }) : t('spaceTravelStart')}
+        disabled={s.spaceTravel || !!s.spaceUpgrade || !spaceUpgradeReady(s)}
+        onClick={() => act(st => startSpaceUpgrade(st))} />}>
+        <b>{t('spaceTravelTitle')}</b>
+        <span className="sub">{s.spaceTravel ? t('spaceTravelBonus') : `${t('setup')} ${fmt(SPACE_TRAVEL_COST)} · ${spaceUpgradeDays} ${t('spaceDays')}`}</span>
+        {!s.spaceTravel && !s.spaceUpgrade && <span className="sub" style={{ display: 'block' }}>{t('spaceTravelRequirement')}</span>}
+      </Row>
       {SPACE_LINES.map(l => {
         const owned = s.space[l.id];
         const lvlOk = s.level >= l.lvl, yrOk = y >= l.since, moneyOk = s.money >= l.cost;
         const why = !lvlOk ? t('lvlReq', '', { n: l.lvl }) : !yrOk ? t('unlocksIn', '', { y: l.since }) : !moneyOk ? t('needLicence') : '';
-        return <Row key={l.id} art={l.art} right={<Btn ic={owned ? 'ic-check' : 'ic-up'} label={owned ? t('founded') : why || t('found')} disabled={owned || !!why} onClick={() => act(st => buySpace(st, l.id))} />}>
+        return <Row key={l.id} art={l.art} right={<Btn ic={owned ? 'ic-check' : 'ic-up'} label={owned ? t('founded') : why || t('found')} disabled={!!owned || !!why} onClick={() => act(st => buySpace(st, l.id))} />}>
           <b>{t('space.' + l.id, l.name)} <span className="tag">{t('lvlReq', '', { n: l.lvl })}</span> <span className="tag">{t('since')} {l.since}</span></b>
           <span className="sub">+{fmt(l.inc)}{t('perYear')} · {t('setup')} {fmt(l.cost)}</span>
           <span className="sub" style={{ display: 'block' }}>{l.desc}</span>
@@ -587,7 +655,7 @@ function ShopTab({ s, act, curCat, setCurCat }: { s: GameState; act: Act; curCat
               const need = LIC_FOR[curCat], locked = need && !s.lic[need];
               return <Row key={i.id} art={i.art} right={<Btn ic={locked ? 'ic-lock' : 'ic-bag'} label={locked ? t('needLicence') : fmt(i.price)} disabled={!!locked || s.money < i.price} onClick={() => act(st => buyItem(st, i.id))} />}>
                 <b>{i.brand ? <span className="bchip" style={{ background: i.c }}>{i.brand}</span> : null}{i.name}</b>
-                <span className="sub">+{i.lux} {t('status')} · {i.rate >= 0 ? t('gains', '', { n: (i.rate * 100).toFixed(0) }) : t('loses', '', { n: (Math.abs(i.rate) * 100).toFixed(0) })} · {t('upkeep')} {fmt(i.price * 0.02)}{t('perYear')}</span>
+                <span className="sub">+{i.lux} {t('status')} · {t('loses', '', { n: (Math.abs(Math.min(i.rate, ASSET_DEPRECIATION_RATE)) * 100).toFixed(0) })} · {t('upkeep')} {fmt(i.price * 0.02)}{t('perYear')}</span>
               </Row>;
             })}
           </div>
@@ -851,7 +919,7 @@ function LinksTab({ s }: { s: GameState }) {
     ['ln.f.eduBiz', '×' + (1 + .15 * s.deg.business).toFixed(2)],
     ['ln.f.jobInc', jobOf(s) ? '+' + fmt(jobOf(s)!.salary) + t('perYear') : '—'],
     ['ln.f.bizInc', '+' + fmt(bizIncome(s)) + t('perYear')],
-    ['ln.f.spaceInc', '×' + cosmicMult(s).toFixed(2)],
+    ['ln.f.spaceInc', '×' + spaceMultiplier(s).toFixed(2)],
     ['ln.f.socInc', '+' + fmt(socialIncome(s)) + t('perYear')],
     ['ln.f.bankInt', '+' + fmt(s.bank.dep * SAVE_RATE) + t('perYear')],
     ['ln.f.levelInc', '×' + levelMult(s).toFixed(2)],
@@ -862,6 +930,7 @@ function LinksTab({ s }: { s: GameState }) {
     ['ln.f.fameBiz', '×' + fameBonus(s).toFixed(3)],
     ['ln.f.fameSoc', s.fame > 0 ? '✓' : '—'],
     ['ln.f.clubBiz', '×' + clubMult(s).toFixed(2)],
+    ['ln.f.bizCap', '×' + bizMultiplier(s).toFixed(2)],
     ['ln.f.charity', fmt(s.donated) + ' · karma ' + s.karma],
     ['ln.f.farm', branchCount(s, 'farm') ? '+30%' : '—'],
     ['ln.f.tax', fmt(taxOf(s.yIncome))],

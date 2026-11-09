@@ -1,11 +1,12 @@
 // ================= GAME DATA (ported from the static game) =================
 export type FieldKey = 'business' | 'engineering' | 'medicine' | 'science' | 'arts';
 
-export const DAY_MS = 20000; // 20 real seconds = 1 game day (speed feels right; matches the classic edition)
+export const DAY_MS = 20000; // 20 real seconds per game day.
 export const START = 18, END_AGE = 90, RETIRE = 65, PENSION = 18000;
 export const RESALE_FEE = .03, BIZ_DEGREE_BONUS = .15;
 export const FOUND_COST = 250000, FOUND_MIN_NW = 1000000, OWN_CLUB_MULT = 1.2, OWN_CLUB_MAX_MEMBERS = 200;
 export const SAVE_RATE = .02, LOAN_RATE = .06;
+export const ASSET_DEPRECIATION_RATE = -.1, BIZ_MULTIPLIER_CAP = 3;
 export const TAX_FREE = 20000;
 export const TAX_BRACKETS: [number, number][] = [[20000, 0], [60000, .15], [150000, .25], [1e15, .35]];
 export const BRANCH_GROWTH = 1.35;
