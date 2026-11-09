@@ -7,6 +7,7 @@ import {
   LEVEL_INCOME_BONUS, xpNeed, GIGS, SPACE_LINES,
   ALLNEWS, YEAR_EVENTS, eraOf, FIELDS, LICENSES, LIC_BY, LIC_FOR, STAGES,
   BIZ, FARM_LINES, FAC_LINES, ITEM_BY, STOCKS, CLUBS, JOBS, BOTS,
+  NPC_BY,
   analyze, type FieldKey, type LineDef, type Req, type GigDef, type SpaceDef, type Rarity, RARITY_MULT, itemRarity, POST_TEMPLATES
 } from './gameData';
 
@@ -55,6 +56,10 @@ export interface GameState {
   // moment of reincarnation (not at game over — game over only writes s.hall).
   // Lives across reincarnations so the player can look back at the chain.
   pastLives: { name: string; nation: string; era: string; industry: string; peakNetWorth: string; note: string; livedTo: number; tier: string; cause: 'age' | 'health' | 'reincarnated' }[];
+  // v10.5 — relationships: per-NPC friendship/romance + interaction log.
+  // Keyed by NPC id. friendship is -100..100 (hostile to best friend);
+  // romance is 0..100 (only meaningful for one NPC at a time).
+  relations: Record<string, { friendship: number; romance: number; lastInteract: number; interactions: number }>;
 }
 
 // ---------- wellbeing: body & mind ----------
@@ -252,7 +257,7 @@ export function fresh(): GameState {
     level: 1, xp: 0, gigs: {}, space: {}, social: { followers: 0, posts: [] },
     health: 92, spirit: 18, karma: 0, diet: false, well: {}, cause: null,
     sleepHours: 8, timeline: [], ach: [],
-    used: [], hall: null, pastLives: []
+    used: [], hall: null, pastLives: [], relations: {}
   };
   STOCKS.forEach(x => { s.prices[x.id] = x.p; s.hist[x.id] = [x.p]; });
   return s;
@@ -289,6 +294,7 @@ export function migrate(raw: unknown): GameState {
   s.used = Array.isArray(s.used) ? s.used : [];
   s.hall = s.hall || null;
   s.pastLives = Array.isArray(s.pastLives) ? s.pastLives : [];
+  s.relations = s.relations && typeof s.relations === 'object' ? s.relations : {};
   s.branches = s.branches || {};
   s.farm = s.farm || {}; s.fac = s.fac || {}; s.space = s.space || {};
   s.farmBought = s.farmBought || {}; s.facBought = s.facBought || {}; s.spaceBought = s.spaceBought || {};
@@ -1088,6 +1094,113 @@ export function reincarnate(s: GameState): GameState {
   // 7. Copy over to s (mutate in place so the store's reference stays valid).
   Object.assign(s, next);
   return s;
+}
+
+// ---------- v10.5: relationships ----------
+// Compute base friendship from shared interests between player and an NPC.
+// Each shared interest = +5; each NPC interest the player DOESN'T share =
+// -2 (clashing vibe). Range: roughly -6..+15 base, before interactions.
+export function baseFriendship(s: GameState, npcId: string): number {
+  const npc = NPC_BY[npcId]; if (!npc) return 0;
+  const playerInts = new Set(s.ints);
+  let base = 0;
+  for (const i of npc.interests) {
+    if (playerInts.has(i)) base += 5;
+    else base -= 2;
+  }
+  // Same nation bonus
+  if (s.nation === npc.nation) base += 3;
+  return base;
+}
+export function relationState(s: GameState, npcId: string): { friendship: number; romance: number; lastInteract: number; interactions: number } {
+  if (!s.relations[npcId]) {
+    const base = baseFriendship(s, npcId);
+    s.relations[npcId] = { friendship: base, romance: 0, lastInteract: 0, interactions: 0 };
+  }
+  return s.relations[npcId];
+}
+export function interactNPC(s: GameState, npcId: string, action: 'talk' | 'gift' | 'help' | 'argue'): string | null {
+  const npc = NPC_BY[npcId]; if (!npc) return null;
+  const r = relationState(s, npcId);
+  // Cooldown: at least 1 game day between interactions with the same NPC.
+  if (s.lastDay - r.lastInteract < 1 && action !== 'argue') return 'Give them a day.';
+  r.lastInteract = s.lastDay;
+  r.interactions++;
+  switch (action) {
+    case 'talk': {
+      // Free small talk — small friendship swing, no romance impact.
+      const swing = Math.random() < 0.7 ? 2 : -1;
+      r.friendship = Math.max(-100, Math.min(100, r.friendship + swing));
+      pushLog(s, `Talked with ${npc.name}: ${swing > 0 ? 'warmed up a little.' : 'a slightly awkward exchange.'}`);
+      return swing > 0 ? `${npc.name} warmed up a little.` : `Slightly awkward exchange with ${npc.name}.`;
+    }
+    case 'gift': {
+      // Cost money; bigger friendship + small romance; amount scales with fame.
+      const cost = Math.max(500, Math.round(200 * Math.sqrt(Math.max(1, s.fame + 1))));
+      if (s.money < cost) return null;
+      s.money -= cost;
+      const fSwing = 4 + Math.round(Math.random() * 3);
+      const rSwing = 2 + Math.round(Math.random() * 2);
+      r.friendship = Math.min(100, r.friendship + fSwing);
+      r.romance = Math.min(100, r.romance + rSwing);
+      pushLog(s, `Gifted ${npc.name} (${fmt(cost)}): friendship +${fSwing}, romance +${rSwing}.`);
+      return `Gift to ${npc.name}: +${fSwing} friendship, +${rSwing} romance.`;
+    }
+    case 'help': {
+      // Do them a favor — costs time/effort (small cash + spirit), big friendship,
+      // karma bonus. No romance unless already dating.
+      const cost = 1000;
+      if (s.money < cost) return null;
+      s.money -= cost;
+      s.spirit = Math.max(0, s.spirit - 2);
+      s.karma += 3;
+      const fSwing = 6 + Math.round(Math.random() * 4);
+      r.friendship = Math.min(100, r.friendship + fSwing);
+      if (r.romance > 0) r.romance = Math.min(100, r.romance + 3);
+      pushLog(s, `Helped ${npc.name} out: friendship +${fSwing}, karma +3.`);
+      return `Helped ${npc.name}: +${fSwing} friendship.`;
+    }
+    case 'argue': {
+      // Pick a fight — big friendship loss, spirit hit, but clears the air
+      // (small chance of grudging respect: friendship +1).
+      const respect = Math.random() < 0.15;
+      if (respect) {
+        r.friendship = Math.min(100, r.friendship + 1);
+        pushLog(s, `Argued with ${npc.name} — earned grudging respect.`);
+        return `${npc.name} respects the honesty. +1 friendship.`;
+      }
+      const fLoss = 6 + Math.round(Math.random() * 5);
+      r.friendship = Math.max(-100, r.friendship - fLoss);
+      s.spirit = Math.max(0, s.spirit - 4);
+      pushLog(s, `Argued with ${npc.name}: friendship −${fLoss}.`);
+      return `Argument with ${npc.name}: −${fLoss} friendship.`;
+    }
+  }
+}
+// Propose partnership / marriage. Requires friendship ≥ 70 AND romance ≥ 60.
+// Sets s.partner (dating) or s.married (marriage).
+export function proposeToNPC(s: GameState, npcId: string): string | null {
+  const npc = NPC_BY[npcId]; if (!npc) return null;
+  const r = relationState(s, npcId);
+  if (r.friendship < 70) return `Friendship with ${npc.name} is only ${r.friendship}/100 — not enough yet.`;
+  if (r.romance < 60) return `Romance with ${npc.name} is only ${r.romance}/100 — keep courting.`;
+  if (s.married) return `You are already married.`;
+  if (s.partner && !s.married) {
+    // Already dating someone — make it official with this NPC instead.
+    s.married = true;
+    pushLog(s, `Married ${npc.name}.`);
+    addPost(s, `Married ${npc.name} today. The best decision of this life.`, 2);
+    s.fame = s.fame + 10;
+    s.spirit = Math.min(100, s.spirit + 15);
+    addXp(s, 100);
+    return `Married ${npc.name}! 🎉`;
+  }
+  s.partner = true;
+  pushLog(s, `Started dating ${npc.name}.`);
+  addPost(s, `Some news: ${npc.name} and I are officially together.`, 1.6);
+  s.fame = s.fame + 3;
+  addXp(s, 40);
+  return `Now dating ${npc.name}.`;
 }
 function finishStudy(s: GameState, study: Study, rng: () => number): void {
   if (study.kind === 'deg' && study.field) s.deg[study.field] = study.lvl!;

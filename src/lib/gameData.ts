@@ -173,6 +173,35 @@ export const TALENTS = [
   { id: 'caring', label: 'Patience & caring', art: 'j-nurse', w: { medicine: 3 } },
   { id: 'focus', label: 'Discipline & focus', art: 'u-univ', w: { science: 2, medicine: 1 } }
 ];
+
+// v10.5 — Relationships NPCs. Each character has their own interests,
+// nation, career arc, and personality. The player's friendship score with
+// each is computed from shared interests (each shared interest = +5 base)
+// minus clashing vibes (each interest the player DOESN'T share = -2 base),
+// plus the history of interactions recorded in state.relations[id].
+export interface NPCDef {
+  id: string;
+  name: string;
+  gender: 'm' | 'f';
+  nation: string;
+  age: number;
+  career: string;
+  interests: string[];
+  vibe: 'calm' | 'ambitious' | 'artistic' | 'analytical' | 'warm' | 'irreverent';
+  blurb: string; // one-line intro shown in the relations tab
+  art: string;
+}
+export const NPCS: NPCDef[] = [
+  { id: 'minh', name: 'Minh Trần', gender: 'm', nation: 'Vietnam', age: 28, career: 'Software engineer', interests: ['tech', 'science', 'sports'], vibe: 'analytical', blurb: 'Builds things late at night, runs at dawn. Will debate architecture for hours.', art: 'j-eng' },
+  { id: 'linh', name: 'Linh Nguyễn', gender: 'f', nation: 'Vietnam', age: 31, career: 'Fashion designer', interests: ['fashion', 'art', 'travel'], vibe: 'artistic', blurb: 'Cut her first pattern at 14. Now shows in Paris and Hanoi. Hates small talk.', art: 'i-suit' },
+  { id: 'alex', name: 'Alex Reyes', gender: 'm', nation: 'United States', age: 35, career: 'Venture capitalist', interests: ['money', 'tech', 'food'], vibe: 'ambitious', blurb: 'Says no to ninety-nine ideas to find the hundredth. The yes is legendary.', art: 'j-mgr' },
+  { id: 'sofia', name: 'Sofía Marín', gender: 'f', nation: 'Spain', age: 27, career: 'Chef & restaurateur', interests: ['food', 'travel', 'helping'], vibe: 'warm', blurb: 'Trained in her grandmother\'s kitchen. Now three Michelin stars and a soup kitchen.', art: 'b-cafe' },
+  { id: 'ravi', name: 'Ravi Krishnan', gender: 'm', nation: 'India', age: 40, career: 'Cardiac surgeon', interests: ['science', 'helping', 'sports'], vibe: 'calm', blurb: 'Quiet hands, loud results. Saved two thousand hearts and counting.', art: 'j-surg' },
+  { id: 'yuki', name: 'Yuki Sato', gender: 'f', nation: 'Japan', age: 24, career: 'Indie game developer', interests: ['art', 'tech', 'teaching'], vibe: 'irreverent', blurb: 'Shipped her first game from a dorm room. Refuses to grow up; grows anyway.', art: 'j-eng' },
+  { id: 'omar', name: 'Omar Haddad', gender: 'm', nation: 'Morocco', age: 45, career: 'Architecture professor', interests: ['art', 'science', 'teaching'], vibe: 'calm', blurb: 'Designs buildings that breathe. His students become the next generation\'s designers.', art: 'u-univ' },
+  { id: 'priya', name: 'Priya Sharma', gender: 'f', nation: 'India', age: 33, career: 'Biotech founder', interests: ['science', 'money', 'helping'], vibe: 'ambitious', blurb: 'Wants to cure a disease before 40. Already has two patents and a series B.', art: 'j-mgr' },
+];
+export const NPC_BY: Record<string, NPCDef> = Object.fromEntries(NPCS.map(n => [n.id, n]));
 export const PATHS: Record<FieldKey, { jobs: string; biz: string }> = {
   business: { jobs: 'Accountant, Project manager, Marketing director, Executive director', biz: 'Convenience store, Boutique hotel, Private bank, Conglomerate' },
   engineering: { jobs: 'Software engineer, Lead engineer', biz: 'Factory, Software studio' },
