@@ -30,6 +30,7 @@ import {
   ACHIEVEMENTS, checkAch,
   buyUsedItem, sellUsed, usedItemValue, postItemListing, playerHallEntry, recordHallOnGameOver,
   auctionItem, repairLot, repairUsed, repairSkill, repairCost,
+  choiceRisk, type ChoiceRisk,
 } from '@/lib/engine';
 import { localTwist, pickKind } from '@/lib/story';
 import { useT, LANGS, type Lang } from '@/lib/i18n';
@@ -1368,6 +1369,7 @@ function EventModal({ s, act }: { s: GameState; act: Act }) {
   const isAI = !life;
   const kind: AIEventKind | undefined = isAI ? s.aiEv?.kind : undefined;
   const kindBadge = kind ? t('ev.kind.' + kind) : null;
+  const nwHint = Math.max(100000, netWorth(s));
   return (
     <div className="modal on"><div className="mcard" style={{ textAlign: 'center' }}>
       <div className="mini">{isAI ? (kindBadge ? `${t('aiTwist')} · ${kindBadge}` : t('aiTwist')) : t('lifeEvent')}</div>
@@ -1386,13 +1388,25 @@ function EventModal({ s, act }: { s: GameState; act: Act }) {
             if (cc.decline) extra.push(`-${cc.decline}hp`);
             if (cc.dropout) extra.push('dropout');
             if (cc.liquidate) extra.push('liquidate');
-            return <Btn key={i} ic={['ic-plus', 'ic-check', 'ic-up'][i % 3]}
-              label={c.l + (cost ? ' · ' + fmt(cost) : '') + (extra.length ? ` (${extra.join(' · ')})` : '')}
+            // v10.5 — colour the button by risk: green = safe 80/20, orange = medium 50/50, red = high 20/80
+            const risk: ChoiceRisk = isAI
+              ? choiceRisk(cc as Parameters<typeof choiceRisk>[0], nwHint)
+              : 'medium';
+            const riskLabel = risk === 'safe' ? t('risk.safe') : risk === 'medium' ? t('risk.medium') : t('risk.high');
+            return <Btn key={i} ic={['ic-check', 'ic-up', 'ic-plus'][risk === 'safe' ? 0 : risk === 'medium' ? 2 : 1]}
+              kind={risk === 'safe' ? 'sageb' : risk === 'high' ? 'danger' : ''}
+              dp={{ 'data-risk': risk } as Record<string, string>}
+              label={c.l + (cost ? ' · ' + fmt(cost) : '') + (extra.length ? ` (${extra.join(' · ')})` : '') + ` · ${riskLabel}`}
               disabled={cost > s.money && anyOk}
               onClick={() => act(st => isAI ? applyAIChoice(st, i) : applyEventChoice(st, i))} />;
           });
         })()}
       </div>
+      <p className="mini" style={{ marginTop: 12 }}>
+        <span className="risk-dot" data-risk="safe" />{t('risk.safe')} ·
+        <span className="risk-dot" data-risk="medium" />{t('risk.medium')} ·
+        <span className="risk-dot" data-risk="high" />{t('risk.high')}
+      </p>
     </div></div>
   );
 }

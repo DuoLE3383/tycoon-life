@@ -15,7 +15,7 @@ export const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', '
 export interface Branch { r: number; mood: number; paid: number; day: number }
 export interface Study { kind: 'deg' | 'lic'; field?: FieldKey; lvl?: number; id?: string; name: string; end: number; tuition: number }
 export interface DayTimeline { day: number; entries: string[] }
-export interface AIChoice { l: string; cost?: number; money?: number; fame?: number; out?: string; kind?: AIEventKind; decline?: number; dropout?: { slot: 'study' | 'sideStudy' }; liquidate?: { biz: string; n: number }; }
+export interface AIChoice { l: string; cost?: number; money?: number; fame?: number; out?: string; kind?: AIEventKind; decline?: number; dropout?: { slot: 'study' | 'sideStudy' }; liquidate?: { biz: string; n: number }; risk?: 'safe' | 'medium' | 'high' }
 // v10.4 — AI events are now categorised. 'story' = open-ended life twist (the
 // classic oracle), 'luck' = windfall, 'badluck' = loss/damage, 'lifestage' =
 // a meaningful life-stage pivot (close shop, drop out, wrong turn).
@@ -682,17 +682,20 @@ export function applyEventChoice(s: GameState, idx: number, rng: () => number = 
 export function applyAIChoice(s: GameState, idx: number): string {
   const ev = s.aiEv; if (!ev) return '';
   const c = ev.choices[idx]; if (!c) return '';
+  // v10.5: risk-weighted outcome. The choice's static money/fame/decline are
+  // the UPSIDE; rollRiskOutcome applies a commensurate DOWNSIDE when the dice
+  // roll against the player. Cost is always paid (the player committed to it).
   if (c.cost) s.money -= c.cost;
-  if (c.money) s.money += c.money;
-  if (c.fame) s.fame = Math.min(100, Math.max(0, s.fame + c.fame));
-  // v10.4: life-stage outcomes.
-  // - decline: long-term health/spirit hit (a "wrong choice" with lasting cost)
-  // - dropout: abandon the named study slot mid-way (era demands a pivot)
-  // - liquidate: close N branches of a business line (cut losses / fire-sale)
-  if (c.decline) {
-    s.health = Math.max(0, s.health - c.decline);
-    s.spirit = Math.max(0, s.spirit - Math.round(c.decline * 0.6));
+  const risk = choiceRisk(c, Math.max(100000, netWorth(s)));
+  const roll = rollRiskOutcome(c, risk);
+  s.money += roll.money;
+  if (roll.fame) s.fame = Math.max(0, s.fame + roll.fame);
+  if (roll.decline) {
+    s.health = Math.max(0, s.health - roll.decline);
+    s.spirit = Math.max(0, s.spirit - Math.round(roll.decline * 0.6));
   }
+  // v10.4: life-stage outcomes (always applied regardless of risk roll —
+  // these are the choice's structural consequence, not a gamble).
   if (c.dropout && s[c.dropout.slot]) {
     const study = s[c.dropout.slot]!;
     pushLog(s, `Dropped out: ${study.name}.`);
@@ -703,7 +706,6 @@ export function applyAIChoice(s: GameState, idx: number): string {
     const list = s.branches[c.liquidate.biz] || [];
     const n = Math.min(c.liquidate.n, list.length);
     if (n > 0) {
-      // fire-sale recovery: 35% of the branch's last paid income per closed branch
       const def = BIZ.find(b => b.id === c.liquidate!.biz);
       const per = def ? Math.max(2000, def.base * 0.35) : 5000;
       const recovered = per * n;
@@ -717,12 +719,79 @@ export function applyAIChoice(s: GameState, idx: number): string {
       addPost(s, `Hard day. Closed ${n} branch(es) to stop the bleeding. Onwards.`, 1);
     }
   }
-  const msg = c.out || 'Time will tell.';
-  pushLog(s, `AI twist \u2014 ${ev.title}: ${msg}`);
-  addPost(s, `${ev.title} \u2014 you read it here first.`, 1);
+  // Outcome text: annotate with the roll result so the player sees the dice.
+  const baseMsg = c.out || 'Time will tell.';
+  const msg = risk === 'safe'
+    ? (roll.success ? baseMsg : `${baseMsg} (The safe bet still paid a little.)`)
+    : risk === 'medium'
+      ? (roll.success ? baseMsg : `${baseMsg} (It could have gone either way — this time, it didn't.)`)
+      : (roll.success ? `${baseMsg} (The bold call paid off.)` : `${baseMsg} (The bold call cost you. As advertised.)`);
+  pushLog(s, `AI twist — ${ev.title}: ${msg}`);
+  addPost(s, `${ev.title} — you read it here first.`, 1);
   s.story.used.push(ev.title); if (s.story.used.length > 24) s.story.used.shift();
   s.aiEv = null;
   return msg;
+}
+
+// v10.5 — derive risk classification from a choice's effects.
+//   safe   = green button — 80% odds of the upside, small magnitude
+//   medium = orange button — 50/50, moderate magnitude either way
+//   high   = red button — 20% odds of the upside, large magnitude both ways
+// Outcomes MUST be commensurate with risk: a high-risk choice that pays off
+// should pay big; a safe choice should never offer a windfall.
+export type ChoiceRisk = 'safe' | 'medium' | 'high';
+export function choiceRisk(c: { cost?: number; money?: number; fame?: number; decline?: number; dropout?: unknown; liquidate?: unknown; risk?: ChoiceRisk }, netWorthHint?: number): ChoiceRisk {
+  if (c.risk) return c.risk;
+  // Hard modifiers that immediately push to 'high':
+  //   - dropout (life pivot, costs time)
+  //   - liquidate (selling branches = irreversible business loss)
+  //   - decline >= 5 (lasting health/spirit hit)
+  //   - money is negative (immediate cash loss)
+  if (c.dropout || c.liquidate) return 'high';
+  if ((c.decline || 0) >= 5) return 'high';
+  if ((c.money || 0) < 0) return 'high';
+  // Cost > 5% of typical net worth → high commitment
+  const nw = netWorthHint || 100000;
+  if (c.cost && c.cost > nw * 0.05) return 'high';
+  // Cost > 1% of typical net worth AND money upside → medium (calculated bet)
+  if (c.cost && c.cost > nw * 0.01 && c.money) return 'medium';
+  // Free upside with small magnitude → safe
+  if (!c.cost && (c.money || 0) > 0 && (c.money || 0) <= nw * 0.05 && (c.fame || 0) <= 3) return 'safe';
+  // Free upside with large magnitude → medium (still a gamble, no cost but big swing)
+  if (!c.cost && (c.money || 0) > nw * 0.05) return 'medium';
+  // Default: anything with a cost or a fame swing is medium
+  if (c.cost || c.fame) return 'medium';
+  return 'safe';
+}
+
+// v10.5 — apply the risk-weighted outcome. The choice's static money/fame/etc
+// values represent the UPSIDE; when the risk dice roll against the player, a
+// scaled-down or negative outcome is applied instead. This makes the risk
+// colours honest: green = nearly always pays as advertised, red = usually pays
+// less (or costs more) than advertised.
+export function rollRiskOutcome(c: { cost?: number; money?: number; fame?: number; decline?: number }, risk: ChoiceRisk, rng: () => number = Math.random): { money: number; fame: number; decline: number; success: boolean } {
+  const winChance = risk === 'safe' ? 0.8 : risk === 'medium' ? 0.5 : 0.2;
+  const success = rng() < winChance;
+  if (success) {
+    // upside as advertised
+    return { money: c.money || 0, fame: c.fame || 0, decline: 0, success: true };
+  }
+  // failure — commensurate downside (scales with risk)
+  if (risk === 'safe') {
+    // safe failure: small partial upside (80/20 means even the 20% case isn't terrible)
+    return { money: Math.round((c.money || 0) * 0.3), fame: 0, decline: 0, success: false };
+  }
+  if (risk === 'medium') {
+    // medium failure: zero upside, small decline
+    return { money: 0, fame: c.fame ? -Math.abs(c.fame) : 0, decline: 2, success: false };
+  }
+  // high failure: negative money (lost the cost AND a bit more), decline, fame drop
+  return {
+    money: c.money ? -Math.round(Math.abs(c.money) * 0.5) : (c.cost ? -Math.round(c.cost * 0.2) : 0),
+    fame: c.fame ? -Math.abs(c.fame) : 0,
+    decline: c.decline ? Math.max(c.decline, 5) : 5,
+    success: false
+  };
 }
 
 // ---------- v10.4: used market + social listing ----------

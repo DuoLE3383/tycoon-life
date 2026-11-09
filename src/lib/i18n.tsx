@@ -183,6 +183,10 @@ const D: Record<string, [string, string, string]> = {
   'ev.kind.badluck': ['Setback', 'Xui xẻo', '逆境'],
   'ev.kind.lifestage': ['Life-stage choice', 'Lựa chọn đời', '人生抉择'],
   'ev.kindLabel': ['Kind', 'Loại', '类型'],
+  // v10.5 — choice risk labels (green/orange/red)
+  'risk.safe': ['Safe 80/20', 'An toàn 80/20', '稳健 80/20'],
+  'risk.medium': ['Balanced 50/50', 'Cân bằng 50/50', '平衡 50/50'],
+  'risk.high': ['Bold 20/80', 'Liều mạng 20/80', '冒险 20/80'],
   // v10.4 — used market
   'used.title': ['Pre-owned market', 'Chợ đồ cũ', '二手市场'],
   'used.sub': ['Buy pre-owned cars, watches and art at a discount — each listing carries an age and condition rating that drives its resale value.', 'Mua ô tô, đồng hồ, nghệ thuật cũ với giá hời — mỗi mặt hàng có tuổi và tình trạng quyết định giá bán lại.', '以折扣价购买二手车、表、艺术品 — 每件物品都有年龄和成色评分，决定转售价值。'],
