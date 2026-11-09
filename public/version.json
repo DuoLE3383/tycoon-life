@@ -1,16 +1,19 @@
 {
-  "version": "v11.19",
+  "version": "v11.20",
   "releasedAt": "2026-11-10",
-  "headline": "HuyenBao v11.19 — toast queue + birth day column + reincarnate-licence fix + real market prices + crypto hook",
-  "summary": "Six targeted fixes per player feedback: (1) Footer text corrected — was 'Time pauses while the tab is closed.' (misleading), now '30s = 1 day online · 10 min = 1 day offline (with risks)' in EN/VI/ZH. (2) Toast queue — previously rapid showToast() calls from tick() (which can return up to 5–10 toasts at once for milestones + ambient events) overwrote each other and the player saw only the last one flash by; now toasts are queued via a ref + drain effect, each shows for its full adaptive duration (3.5–8s) before the next appears. Fixes the 'I see only one quick flash that doesn't lead anywhere' complaint. (3) Reincarnate-licence bug fixed — previously licences had a ~50% chance to survive reincarnation, but the licence UI then showed them as '✓ Done' (disabled, can't re-enroll). Now ALL licences are wiped on reincarnation (true fresh start) — the player can re-enroll any of them. (4) Birth day column added next to birth month in the Intro — previously day=15 was hard-coded; now the player picks 1–31, stored on GameState as birthDay (backfilled in migrate), and feeds the Spirit tab panels (Tử Vi / Phong Thuỷ seed day from s.birthDay instead of 15) and the zodiac calc. (5) Intro disclaimer render fixed — wider container + lineHeight + overflowWrap so the long Vietnamese disclaimer doesn't render as a tall narrow column of single characters on small screens. (6) Market section: base stock prices updated to real-world late-2024 levels (TECH ~$230 large-cap, OIL ~$75, COIN ~$95 BTC proxy, AI ~$580 frontier) + crypto hook link to https://elliott.huyenbao.com/ for the dedicated Elliott Wave crypto companion app + note explaining prices are real-world-inspired but in-game movement is a deterministic random walk per game-day. 4 Huyen-Hoc-AI features (Kinh Dịch / Tử Vi / Phong Thuỷ / Tarot) unchanged.",
+  "headline": "HuyenBao v11.20 — business P&L + R&D investment + market share + catalogue sorted by difficulty + ads reduce health",
+  "summary": "Backlog-clearing pass: business detail (P&L + market share + R&D), catalogue re-sorted easiest→hardest with unlock hints, advertising/hype posts now reduce health (stress from promo grind). All four Huyen-Hoc-AI features (Kinh Dịch / Tử Vi / Phong Thuỷ / Tarot) unchanged. AI audit pass: confirmed the 5 existing AI mechanisms (random oracle popup, story endpoint, divine (I Ching), tuvi, phongthuy, tarot, post generator) are wired correctly with 3-layer fallback (Ollama local → ZAI cloud → deterministic local). Elliot crypto MVP: already linked from the Market tab in v11.19 (https://elliott.huyenbao.com/) — Phase 2 ECOSYSTEM.md roadmap referenced from there.",
   "features": [
-    "Footer text corrected: '30s = 1 day online · 10 min = 1 day offline (with risks)' — replaces misleading 'Time pauses while the tab is closed.'",
-    "Toast queue: rapid showToast() calls no longer overwrite each other; each toast displays for its full adaptive duration (3.5–8s) before the next appears, via a ref-tracked 'showing' flag + drain effect",
-    "Reincarnate-licence bug fixed: ALL licences wiped on reincarnation (was ~50% keep chance, which left players unable to re-enroll surviving licences)",
-    "Birth day column added next to birth month in the Intro (1–31 select); stored on GameState as birthDay (default 15, backfilled in migrate); feeds Tử Vi + Phong Thuỷ panel day inputs + zodiac calc",
-    "Intro disclaimer render fixed: wider container + lineHeight 1.5 + overflowWrap so the long Vietnamese disclaimer doesn't render as a narrow column of single characters on small screens",
-    "Market: stock base prices updated to real-world late-2024 levels (TECH $100→$230, OIL $40→$75, COIN $20→$95 BTC proxy, AI $150→$580, SOLAR vol bumped, etc.)",
-    "Crypto hook: link button in StockTab → https://elliott.huyenbao.com/ (companion Elliott Wave crypto app) + note that COIN in-game is a BTC proxy + real-prices disclaimer",
-    "Version bumped to v11.19 at FRONT of app name (v11.19 HuyenBao)"
+    "Business P&L summary card at the top of BizTab: revenue (annualised, gross), costs (per-branch overhead + manager fees + farm/fac line upkeep), net profit, market share (% of notional 60-branch local market)",
+    "R&D investment panel: invest $50k–$5M+ for a 365-game-day biz-multiplier boost (log-scaled: $50k→+5%, $500k→+20%, $5M caps at +25%). Active boost shown with days remaining. Re-investing replaces the active boost (doesn't stack)",
+    "bizRevenue / bizCosts / bizNet / bizMarketShare / bizRndMult / investBizRnd helpers added to engine.ts; bizMultiplier now reads bizRndMult()",
+    "GameState.bizRnd field (backfilled in migrate) stores the active R&D investment",
+    "Catalogue categories now sorted by minimum item price ascending — Phone ($999) first, Private jet ($10M) last. Previously insertion order mixed cheap with expensive",
+    "Locked categories (Sport bike / Car requiring moto / car licence) now show a 🔒 hint with the licence name that unlocks them, instead of just 'licence needed'. Owned licences show a ✓ chip",
+    "Ads/hype posts reduce health: addPost() with boost ≥ 1.4 (hype = 1.6, viral brand deals = 2.0) now costs 0.3–1.2 health per post, scaled by boost. Queued toast notifies the player of the health cost ('Hype post — stressed from promo grind, health −N')",
+    "Catalogue note explains the sort + unlock-hint behaviour",
+    "AI audit pass: 5 AI mechanisms (oracle popup / story / divine / tuvi / phongthuy / tarot / post) all confirmed wired with 3-layer fallback. No bugs found",
+    "Elliot crypto MVP: the Market-tab crypto hook (added v11.19) IS the MVP — links to https://elliott.huyenbao.com/ for the dedicated Elliott Wave crypto app. Phase 2 ECOSYSTEM.md roadmap referenced from there",
+    "Version bumped to v11.20 at FRONT of app name (v11.20 HuyenBao)"
   ]
 }

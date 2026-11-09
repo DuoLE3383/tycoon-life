@@ -1,5 +1,5 @@
 'use client';
-// HuyenBao v11.19 — React edition. Two-level grouped nav, a systems links map,
+// HuyenBao v11.20 — React edition. Two-level grouped nav, a systems links map,
 // gigs, levels, social, the cosmic frontier, EN/VI/中文, LLM oracle with
 // random kind dispatch (luck / setback / life-stage / story), pre-owned
 // market + social listings, and a Hall of Fame tab.
@@ -15,6 +15,7 @@ import {
 import {
   fmt, taxOf, fresh, begin, tick, applyOffline, stageOf, worldYear, branchCount, bizCost, clubMult, branchNet, fameBonus, bizMultiplier,
   bizIncome, yearIncome, living, lotValue, upkeep, assetVal, bizVal, stockVal, netWorth,
+  bizRevenue, bizCosts, bizNet, bizMarketShare, bizRndMult, investBizRnd,
   effYears, tuitionOf, meets, reqText, knowledgeText, snapshot, dateOf,
   processDay, yearEnd,
   doGig, gigReady, gigLock, gigPay, addPost, buySpace, spaceIncome, socialIncome, levelMult, canPost, postCooldownLeft,
@@ -71,7 +72,7 @@ if (typeof window !== 'undefined') {
 // v11.8 — the bundled version. The /version.json file in /public is polled
 // every 5 minutes; if its version is newer than this, a "reload to update"
 // banner appears even in a running session (no F5 needed).
-const BUNDLED_VERSION = 'v11.19';
+const BUNDLED_VERSION = 'v11.20';
 const VERSION_POLL_MS = 5 * 60 * 1000;
 const SEEN_KEY = 'tycoon_seen_' + BUNDLED_VERSION;
 
@@ -489,7 +490,7 @@ function Header({ s, eraName }: { s: GameState; eraName: (y: number) => string }
     <header className="top">
       <div className="brand">
         <Art id="s-coin" className="logo" />
-        <div><h1><span className="mini">v11.19</span> HuyenBao</h1>
+        <div><h1><span className="mini">v11.20</span> HuyenBao</h1>
           <div className="mini">{s.started ? `${s.nation} · ${eraName(worldYear(s))}` : t('tagline')}</div></div>
       </div>
       <div><div className="mini">{t('cash')}</div><div id="tcash" style={{ color: s.money < 0 ? 'var(--brick)' : undefined }}>{fmt(s.money)}</div>
@@ -871,8 +872,60 @@ function BizTab({ s, act }: { s: GameState; act: Act }) {
   const { t } = useT();
   const reqLabel = useReqLabel();
   const mult = bizMultiplier(s);
+  // v11.20 — P&L summary (annualised).
+  const revenue = bizRevenue(s);
+  const costs = bizCosts(s);
+  const net = bizNet(s);
+  const share = bizMarketShare(s);
+  const hasBranches = BIZ.some(b => branchCount(s, b.id) > 0);
+  // v11.20 — R&D investment state. Local input for the amount; the actual
+  // investment runs through investBizRnd() in the engine.
+  const [rndAmount, setRndAmount] = useState(50000);
+  const rndActive = s.bizRnd && s.day <= s.bizRnd.untilDay ? s.bizRnd : null;
+  const rndLeftDays = rndActive ? Math.max(0, Math.round(rndActive.untilDay - s.day)) : 0;
+  const rndPct = rndActive ? Math.round((rndActive.boostMult - 1) * 100) : 0;
   return (
     <>
+      {/* v11.20 — P&L summary card (annualised). Shows revenue, costs, net,
+          market share, and the R&D investment panel. Previously the player
+          only saw per-branch chips; now they get a top-level financial view. */}
+      <div className="card" style={{ marginBottom: 10 }}>
+        <div className="mini" style={{ textTransform: 'uppercase', letterSpacing: '.4px' }}>{t('biz.pnlTitle')}</div>
+        {!hasBranches ? (
+          <p className="sub" style={{ margin: '4px 0 0' }}>{t('biz.noBranches')}</p>
+        ) : (
+          <>
+            <div className="lb"><span>{t('biz.revenue')}</span><b className="up">{fmt(revenue)}</b></div>
+            <div className="lb"><span>{t('biz.costs')}</span><b className="down">−{fmt(costs)}</b></div>
+            <div className="lb"><span>{t('biz.net')}</span><b className={net >= 0 ? 'up' : 'down'}>{net >= 0 ? '+' : '−'}{fmt(Math.abs(net))}</b></div>
+            <div className="lb"><span>{t('biz.marketShare')}</span><b>{t('biz.marketShareVal', '', { n: (share * 100).toFixed(1) })}</b></div>
+          </>
+        )}
+        {/* R&D investment panel */}
+        <div className="mini" style={{ textTransform: 'uppercase', letterSpacing: '.4px', marginTop: 8 }}>{t('biz.rndTitle')}</div>
+        <p className="sub" style={{ margin: '4px 0 0' }}>{t('biz.rndBlurb')}</p>
+        {rndActive && (
+          <div className="mini" style={{ marginTop: 4, padding: '5px 8px', border: '1px solid var(--line)', borderRadius: 4, background: 'rgba(0,0,0,0.02)', color: 'var(--sage)' }}>
+            {t('biz.rndActive', '', { n: rndPct, d: Math.round(rndActive.untilDay), left: rndLeftDays })}
+          </div>
+        )}
+        <div className="trade" style={{ marginTop: 6, gap: 8, alignItems: 'flex-end' }}>
+          <label className="mini" style={{ display: 'flex', flexDirection: 'column', gap: 2, flex: 1 }}>
+            <span>{t('biz.rndAmount')}</span>
+            <input type="number" min={50000} step={10000} value={rndAmount}
+              onChange={e => setRndAmount(Math.max(50000, +e.target.value || 50000))}
+              style={{ padding: '4px 6px', border: '1px solid var(--line2)', borderRadius: 4, background: 'transparent', color: 'inherit', fontFamily: 'inherit' }} />
+          </label>
+          <button className="tbuy" disabled={s.money < rndAmount || rndAmount < 50000}
+            onClick={() => act(st => {
+              if (rndAmount < 50000) return t('biz.rndErrMin');
+              if (st.money < rndAmount) return t('biz.rndErrCash');
+              const r = investBizRnd(st, rndAmount);
+              if (!r) return t('biz.rndErrCash');
+              return t('biz.rndResult', '', { amt: fmt(rndAmount), n: r.pct.toFixed(1) });
+            })}>{t('biz.rndInvest')}</button>
+        </div>
+      </div>
       {/* v11 — two-path explainer */}
       <div className="card" style={{ marginBottom: 10 }}>
         <div className="mini" style={{ textTransform: 'uppercase', letterSpacing: '.4px' }}>{t('v11.twoPaths')}</div>
@@ -1701,7 +1754,16 @@ const CATART: Record<string, string> = { 'Sport bike': 'i-bike', 'Phone': 'i-pho
 
 function AssetsTab({ s, act, curCat, setCurCat }: { s: GameState; act: Act; curCat: string | null; setCurCat: (c: string | null) => void }) {
   const { t } = useT();
-  const cats = [...new Set(ITEMS.map(i => i.cat))];
+  // v11.20 — sort categories by minimum item price ascending (easiest → hardest).
+  // Previously the order was insertion order from ITEMS[], which mixed cheap
+  // (Phone $999) with expensive (Property $300k) randomly. Now the player
+  // sees the cheapest categories first, with locked ones showing what
+  // licence unlocks them.
+  const cats = [...new Set(ITEMS.map(i => i.cat))].sort((a, b) => {
+    const loA = Math.min(...ITEMS.filter(i => i.cat === a).map(i => i.price));
+    const loB = Math.min(...ITEMS.filter(i => i.cat === b).map(i => i.price));
+    return loA - loB;
+  });
   // v11.18 — pending purchase confirmation. Clicking "buy" on a new or used
   // item no longer fires buyItem/buyUsedItem directly; instead it opens this
   // modal so the player can review price + cash-after + upkeep + rarity and
@@ -1798,15 +1860,28 @@ function AssetsTab({ s, act, curCat, setCurCat }: { s: GameState; act: Act; curC
       </div>
       {/* ---- new-item catalogue (the original shop) ---- */}
       <h3>{t('catalogue')}</h3>
+      <p className="mini" style={{ opacity: .65, marginBottom: 6 }}>{t('cat.sortedNote')}</p>
       <div className="grid">
         {cats.map(c => {
           const list = ITEMS.filter(i => i.cat === c);
           const lo = Math.min(...list.map(i => i.price)), hi = Math.max(...list.map(i => i.price));
           const need = LIC_FOR[c], have = !need || s.lic[need];
           const crewCat = CREW_COST[c] || 0;
-          return <button key={c} className="tile" onClick={() => setCurCat(c)}>
+          // v11.20 — locked categories show the licence name as a hint.
+          const lockedHint = need && !have ? t('cat.lockedHint', '', { req: t('lic.' + need, LIC_BY[need]?.name || need) }) : '';
+          return <button key={c} className="tile" onClick={() => setCurCat(c)} disabled={!!lockedHint}>
             <Art id={CATART[c] || 'ic-bag'} />
-            <span><b>{t('cat.' + c, c)}</b><span className="sub" style={{ display: 'block' }}>{list.length} {t('items')} · {fmt(lo)} – {fmt(hi)}{need && !have ? ' · ' + t('licenceNeeded') : crewCat ? ' · ' + t('v11.crewOptional') : ''}</span></span>
+            <span>
+              <b>{t('cat.' + c, c)}</b>
+              <span className="sub" style={{ display: 'block' }}>{list.length} {t('items')} · {fmt(lo)} – {fmt(hi)}{crewCat ? ' · ' + t('v11.crewOptional') : ''}</span>
+              {lockedHint ? (
+                <span className="mini" style={{ display: 'block', marginTop: 2, color: 'var(--brick)' }}>
+                  <Ic id="ic-lock" className="bsi" /> {lockedHint}
+                </span>
+              ) : need && have ? (
+                <span className="mini" style={{ display: 'block', marginTop: 2, color: 'var(--sage)' }}>✓ {t('lic.' + need, LIC_BY[need]?.name || need)}</span>
+              ) : null}
+            </span>
           </button>;
         })}
       </div>

@@ -778,6 +778,27 @@ const D: Record<string, [string, string, string]> = {
   'mk.cryptoHookBlurb': ['The COIN ticker here is a BTC proxy in the game economy. For real-time crypto charts + Elliott Wave analysis, visit the dedicated crypto companion app.', 'COIN trong game là proxy BTC. Để xem biểu đồ crypto thời gian thực + phân tích Elliott Wave, mở app crypto đồng hành.', '游戏中的 COIN 是 BTC 代理。如需实时加密货币图表 + 艾略特波浪分析，请打开配套的加密货币应用。'],
   'mk.cryptoHookBtn': ['Open elliott.huyenbao.com', 'Mở elliott.huyenbao.com', '打开 elliott.huyenbao.com'],
   'mk.realPricesNote': ['Base prices reflect real-world late-2024 levels; in-game movement is a deterministic random walk per game-day.', 'Giá cơ sở theo giá thật cuối 2024; biến động trong game là bước ngẫu nhiên mỗi ngày-game.', '基准价格反映 2024 年末真实水平；游戏内走势为每个游戏日的确定性随机游走。'],
+  // ---- v11.20 — business P&L summary + R&D investment + market share
+  'biz.pnlTitle': ['Business P&L (annualised)', 'Báo cáo P&L kinh doanh (theo năm)', '经营损益（年化）'],
+  'biz.revenue': ['Revenue', 'Doanh thu', '营收'],
+  'biz.costs': ['Costs', 'Chi phí', '成本'],
+  'biz.net': ['Net profit', 'Lợi nhuận ròng', '净利润'],
+  'biz.marketShare': ['Market share', 'Thị phần', '市场份额'],
+  'biz.marketShareVal': ['{n}% of local market', '{n}% thị phần nội địa', '本地市场 {n}%'],
+  'biz.noBranches': ['No branches yet — open one below.', 'Chưa có chi nhánh — mở bên dưới.', '尚未开设分店 — 在下方开设。'],
+  'biz.rndTitle': ['R&D investment', 'Đầu tư R&D', '研发投入'],
+  'biz.rndBlurb': ['Invest cash into R&D for a temporary biz-multiplier boost (5–25% for 365 game-days). Log-scaled: $50k → +5%, $500k → +20%, $5M caps at +25%. Re-investing replaces the active boost.', 'Đầu tư tiền vào R&D để nhận boost tạm thời cho biz-multiplier (5–25% trong 365 ngày-game). Log-scaled: $50k → +5%, $500k → +20%, $5M chạm trần +25%. Đầu tư lại sẽ thay thế boost đang hoạt động.', '投入研发资金以获得临时的业务倍率加成（365 游戏日，5–25%）。对数缩放：$5万→+5%，$50万→+20%，$500万封顶 +25%。重复投入会替换当前加成。'],
+  'biz.rndAmount': ['Amount ($)', 'Số tiền ($)', '金额（$）'],
+  'biz.rndInvest': ['Invest', 'Đầu tư', '投入'],
+  'biz.rndActive': ['Active: +{n}% until day {d} ({left} days left)', 'Đang hoạt động: +{n}% đến ngày {d} (còn {left} ngày)', '生效中：+{n}% 至第 {d} 日（剩 {left} 日）'],
+  'biz.rndResult': ['R&D invested {amt} → biz +{n}% for 365 days', 'R&D đầu tư {amt} → biz +{n}% trong 365 ngày', '研发投入 {amt} → 业务 +{n}% 持续 365 天'],
+  'biz.rndErrMin': ['Minimum R&D investment is $50,000.', 'Đầu tư R&D tối thiểu $50,000.', '研发投入最低 $50,000。'],
+  'biz.rndErrCash': ['Not enough cash for R&D investment.', 'Không đủ tiền đầu tư R&D.', '现金不足以投入研发。'],
+  // ---- v11.20 — ads/hype reduce health
+  'social.hypeHealthCost': ['Hype post — stressed from promo grind, health −{n}.', 'Bài hype — căng thẳng vì quảng cáo, sức khoẻ −{n}.', '炒作推文 — 营销压力大，健康 −{n}。'],
+  // ---- v11.20 — catalogue sorted by difficulty + unlock hints
+  'cat.sortedNote': ['Categories sorted easiest → hardest. Locked categories show what unlocks them.', 'Danh mục sắp xếp dễ → khó. Danh mục khoá sẽ hiện điều kiện mở khoá.', '类别按难易度排序。已锁类别会显示解锁条件。'],
+  'cat.lockedHint': ['Unlocks with: {req}', 'Mở khoá khi: {req}', '解锁条件：{req}'],
   // ---- stages
   'stage.0': ['Student', 'Học sinh/sinh viên', '学生'],
   'stage.1': ['Young worker', 'Người đi làm mới', '职场新人'],

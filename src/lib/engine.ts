@@ -169,6 +169,11 @@ export interface GameState {
   // that fires `daysAhead` later — simulates how real crashes unfold over
   // weeks, not overnight. processDay drains shocks whose day has come.
   shocks: { day: number; stk?: Record<string, number>; dep?: number; note?: string }[];
+  // v11.20 — business R&D investment. A one-time purchase that grants a
+  // temporary bizMultiplier boost for `durationDays` game-days. Higher
+  // `amount` → higher boost (capped). The multiplier reads this via
+  // bizRndMult(); when s.day passes untilDay, the boost expires.
+  bizRnd?: { amount: number; investedDay: number; untilDay: number; boostMult: number } | null;
   // v11.2 — market research. lastResearchDay is the day the player last
   // paid for a brief; researchBrief caches the lines so the UI can show
   // them until next research. Cleared by Jan 1 of a new year (stale).
@@ -336,6 +341,15 @@ export function addPost(s: GameState, t: string, boost = 1, rng: () => number = 
   // Keeps the console hook (__tycoon) and any future callers from bypassing
   // the one-post-per-day limit.
   if (!canPost(s)) return;
+  // v11.20 — advertising/hype posts reduce health. Posts with boost ≥ 1.4
+  // (hype = 1.6, viral brand deals = 2.0, etc.) are 'ad-flavoured' and the
+  // promo grind wears the player down: 0.5-2 health per hype post, scaled
+  // by boost. The toast is queued so the player sees the cost.
+  if (boost >= 1.4) {
+    const healthCost = Math.round((boost - 1.2) * 1.5 * 10) / 10; // boost 1.4 → 0.3, 1.6 → 0.6, 2.0 → 1.2
+    s.health = Math.max(0, s.health - healthCost);
+    queueToast(s, `💢 ${'Hype post — stressed from promo grind, health −' + healthCost}`);
+  }
   // v11.1 fix: scale likes by sqrt(followers) not linear. Before:
   //   likes = followers * 0.05 → followers += likes * 0.3 = followers * 0.015
   //   each post multiplied followers by ~1.015, compounding to 10^23 over time.
@@ -415,6 +429,7 @@ export function fresh(): GameState {
     used: [], hall: null, pastLives: [], relations: {}, pets: [], clubs: [], aiEvPending: false, shortCompleted: [],
     pendingToasts: [],
     crisis: null, shocks: [], lastResearchDay: 0, researchBrief: null,
+    bizRnd: null,
     power: freshPower(),
     entity: freshEntity(),
   };
@@ -464,6 +479,8 @@ export function migrate(raw: unknown): GameState {
   // to null. Shocks array defaults to []. lastResearchDay defaults to 0.
   s.crisis = s.crisis && typeof s.crisis === 'object' ? s.crisis : null;
   s.shocks = Array.isArray(s.shocks) ? s.shocks : [];
+  // v11.20 — bizRnd backfill for old saves.
+  s.bizRnd = s.bizRnd && typeof s.bizRnd === 'object' ? s.bizRnd : null;
   s.lastResearchDay = typeof s.lastResearchDay === 'number' ? s.lastResearchDay : 0;
   s.researchBrief = Array.isArray(s.researchBrief) ? s.researchBrief : null;
   // v11.3 — power state. Old saves have no power; fresh-start it. If the
@@ -576,12 +593,21 @@ export const effEraFac = (s: GameState) => (s.eraFac || 1) * (s.crisis ? s.crisi
 export const effLoanRate = (s: GameState) => LOAN_RATE * (s.crisis ? s.crisis.rates : 1);
 export const effRisk = (s: GameState) => (s.crisis ? s.crisis.risk : 0);
 export const effDemand = (s: GameState) => s.crisis ? s.crisis.demand : 1;
+// v11.20 — R&D boost factor (1.0 if no active R&D or expired). Boost scales
+// with amount invested: $50k → +5%, $500k → +20%, capped at +25%. Duration
+// is 365 game-days (one year) regardless of amount.
+export const bizRndMult = (s: GameState): number => {
+  if (!s.bizRnd) return 1;
+  if (s.day > s.bizRnd.untilDay) return 1;
+  return s.bizRnd.boostMult;
+};
 export const bizMultiplier = (s: GameState) => Math.min(
   BIZ_MULTIPLIER_CAP,
   clubMult(s) * (1 + BIZ_DEGREE_BONUS * s.deg.business) * fameBonus(s) * effEraBiz(s) * levelMult(s) * spiritBizMult(s)
     * (s.power?.boardNomineeBiz || 1) // v11.3 — advocacy 'boardNominee' grants +10%
     * (constitutionById(s.entity?.constitution || 'democratic' as Constitution).bizMult) // v11.5 — constitution bizMult
     * zodiacAffinityMult(s, 'business') // v11.6 — zodiac industry affinity (+5% if zodiac = business)
+    * bizRndMult(s) // v11.20 — R&D investment temporary boost
 );
 export const bizIncome = (s: GameState) => { // annual
   let ann = 0;
@@ -641,6 +667,55 @@ export const crewCostFor = (s: GameState, l: { id: string }): number => {
   return hasLic ? Math.round(base / 2) : base;
 };
 export const upkeep = (s: GameState) => s.lots.reduce((a, l) => a + lotValue(s, l) * 0.02 + crewCostFor(s, l), 0);
+// v11.20 — business P&L helpers. bizRevenue = gross annual revenue from all
+// branches + farm + fac lines (before bizMultiplier, before costs).
+// bizCosts = sum of per-branch overhead (base/24 per branch per year, the
+// same formula bizIncome subtracts) + manager fees (MANAGER_MONTHLY × 12 per
+// capital-path branch) + farm/fac line upkeep (1% of cost per year).
+// bizNet = (revenue × bizMultiplier) - costs. This is what bizIncome approximates
+// but split out so the UI can show a P&L breakdown.
+export const bizRevenue = (s: GameState): number => {
+  let rev = 0;
+  BIZ.forEach(b => (s.branches[b.id] || []).forEach(br => { rev += b.inc * REG_MULT[br.r % REG_MULT.length] * br.mood; }));
+  rev += farmIncome(s) + facIncome(s);
+  return Math.max(0, rev);
+};
+export const bizCosts = (s: GameState): number => {
+  let costs = 0;
+  BIZ.forEach(b => (s.branches[b.id] || []).forEach(br => {
+    costs += b.base / 24; // per-branch overhead (matches bizIncome subtraction)
+    // Capital-path branches pay a manager — MANAGER_MONTHLY × 12 per year.
+    const c = bizCost(s, b);
+    if (br.paid > c * 1.5) costs += MANAGER_MONTHLY(b.base) * 12;
+  }));
+  // Farm + fac line upkeep: 1% of cost per year (light upkeep on infrastructure).
+  FARM_LINES.forEach(l => { if (s.farm[l.id]) costs += l.cost * 0.01; });
+  FAC_LINES.forEach(l => { if (s.fac[l.id]) costs += l.cost * 0.01; });
+  return costs;
+};
+export const bizNet = (s: GameState): number => Math.max(0, bizRevenue(s) * bizMultiplier(s)) - bizCosts(s);
+// Market share: player's branch count vs a notional "full market" of 60
+// branches (6 BIZ types × 10 branches each as a soft cap). Returns 0..1.
+export const bizMarketShare = (s: GameState): number => {
+  const total = BIZ.reduce((n, b) => n + branchCount(s, b.id), 0);
+  return Math.min(1, total / 60);
+};
+// v11.20 — R&D investment action. `amount` is the cash spent; returns the
+// boost % granted (5-25%). Boost lasts 365 game-days. Re-investing while
+// active replaces the previous boost (doesn't stack). Throws nothing —
+// returns null on insufficient funds.
+export function investBizRnd(s: GameState, amount: number): { pct: number; untilDay: number } | null {
+  if (!Number.isFinite(amount) || amount < 50_000) return null;
+  if (s.money < amount) return null;
+  // Boost: log-capped. $50k → 5%, $500k → ~20%, $5M → cap 25%.
+  // Formula: 5 + 8 * log10(amount / 50000), clamped to [5, 25].
+  const pct = Math.max(5, Math.min(25, 5 + 8 * Math.log10(amount / 50_000)));
+  const boostMult = 1 + pct / 100;
+  s.money -= amount;
+  s.bizRnd = { amount, investedDay: s.day, untilDay: s.day + 365, boostMult };
+  pushLog(s, `R&D invested ${fmt(amount)} → biz +${pct.toFixed(1)}% for 365 days.`);
+  return { pct, untilDay: s.day + 365 };
+}
 export const assetVal = (s: GameState) => s.lots.reduce((a, l) => a + lotValue(s, l), 0);
 export const bizVal = (s: GameState) => {
   const valueAt = (paid: number, boughtDay: number) =>
