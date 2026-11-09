@@ -1,7 +1,13 @@
 // ================= GAME DATA (ported from the static game) =================
 export type FieldKey = 'business' | 'engineering' | 'medicine' | 'science' | 'arts';
 
-export const DAY_MS = 20000; // 20 real seconds per game day.
+// v11.12 — online time runs at 30 real-seconds per game day (was 20s). When the
+// player is offline, time advances much slower — 10 real-minutes per game day —
+// and unmonitored businesses face extra risk (see engine.applyOffline). The two
+// rates decouple "playing actively" from "away": a closed tab no longer pauses
+// the world entirely, but neither does it let weeks pass in minutes.
+export const DAY_MS = 30000;       // 30 real seconds per game day (online)
+export const OFFLINE_DAY_MS = 600000; // 10 real minutes per game day (offline)
 export const START = 18, END_AGE = 90, RETIRE = 65, PENSION = 18000;
 export const RESALE_FEE = .03, BIZ_DEGREE_BONUS = .15;
 export const FOUND_COST = 250000, FOUND_MIN_NW = 1000000, OWN_CLUB_MULT = 1.2, OWN_CLUB_MAX_MEMBERS = 200;

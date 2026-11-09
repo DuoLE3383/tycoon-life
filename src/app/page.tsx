@@ -1,5 +1,5 @@
 'use client';
-// HuyenBao v11.11 — React edition. Two-level grouped nav, a systems links map,
+// HuyenBao v11.12 — React edition. Two-level grouped nav, a systems links map,
 // gigs, levels, social, the cosmic frontier, EN/VI/中文, LLM oracle with
 // random kind dispatch (luck / setback / life-stage / story), pre-owned
 // market + social listings, and a Hall of Fame tab.
@@ -13,7 +13,7 @@ import {
   CLUBS, JOBS, GIGS, SPACE_LINES, TABS, GROUPS, xpNeed, ITEMS, USED_MARKET, HALL_OF_FAME, itemRarity, RARITY_COLOR, NPCS, NPC_BY, PETS, PET_BY, MAX_PETS, CREW_COST, SHORT_COURSES, SHORT_BY, BOTS, type Rarity, type FieldKey, type Req,
 } from '@/lib/gameData';
 import {
-  fmt, taxOf, fresh, begin, tick, stageOf, worldYear, branchCount, bizCost, clubMult, branchNet, fameBonus, bizMultiplier,
+  fmt, taxOf, fresh, begin, tick, applyOffline, stageOf, worldYear, branchCount, bizCost, clubMult, branchNet, fameBonus, bizMultiplier,
   bizIncome, yearIncome, living, lotValue, upkeep, assetVal, bizVal, stockVal, netWorth,
   effYears, tuitionOf, meets, reqText, knowledgeText, snapshot, dateOf,
   processDay, yearEnd,
@@ -68,7 +68,7 @@ if (typeof window !== 'undefined') {
 // v11.8 — the bundled version. The /version.json file in /public is polled
 // every 5 minutes; if its version is newer than this, a "reload to update"
 // banner appears even in a running session (no F5 needed).
-const BUNDLED_VERSION = 'v11.11';
+const BUNDLED_VERSION = 'v11.12';
 const VERSION_POLL_MS = 5 * 60 * 1000;
 const SEEN_KEY = 'tycoon_seen_' + BUNDLED_VERSION;
 
@@ -126,7 +126,10 @@ export default function Page() {
   const showToast = useCallback((msg: string) => {
     setToast({ id: Date.now(), msg });
     if (toastTimer.current) clearTimeout(toastTimer.current);
-    toastTimer.current = setTimeout(() => setToast(null), 2600);
+    // v11.12 — adaptive duration: longer messages stay visible longer so the
+    // player has time to read them. Min 3.5s, max 8s, ~55ms per character.
+    const dur = Math.min(8000, Math.max(3500, msg.length * 55));
+    toastTimer.current = setTimeout(() => setToast(null), dur);
   }, []);
 
   const achToast = useCallback((got: string[]) => {
@@ -148,14 +151,32 @@ export default function Page() {
 
   // game clock
   useEffect(() => {
+    // v11.12 — on mount, apply offline catch-up from s.lastSeen (covers the
+    // tab being closed since the last session). Time advances at the slower
+    // OFFLINE_DAY_MS rate (10 min/day) and unmonitored businesses face extra
+    // risk. The summary is toasted so the player sees what happened while away.
+    const st0 = getState();
+    if (st0.started && !st0.over) {
+      const off = applyOffline(st0, Math.random);
+      if (off?.summary) showToast(off.summary);
+      if (off?.gameJustOver) showToast(t('livedToast'));
+      st0.lastSeen = Date.now();
+      persist();
+    }
     let last = Date.now();
     let lastPersist = last;
     const iv = setInterval(() => {
       const st = getState();
-      if (document.hidden) { last = Date.now(); return; }
+      // v11.12 — when the tab is hidden we DO NOT reset `last`; the visibility
+      // handler below stamps lastSeen so the offline catch-up can compute the
+      // real away-duration on return. Previously hidden time was simply paused.
+      if (document.hidden) { return; }
       const now = Date.now();
       const res = tick(st, now - last);
       last = now;
+      // Refresh lastSeen while actively playing so offline only counts real
+      // away time (not the gap between 250ms ticks).
+      st.lastSeen = now;
       if (res.yearToast) showToast(res.yearToast);
       if (res.gameJustOver) showToast(t('livedToast'));
       const got = checkAch(st);
@@ -166,11 +187,38 @@ export default function Page() {
       }
       bump();
     }, 250);
-    const onVis = () => { last = Date.now(); };
-    const onUnload = () => persist();
+    // v11.12 — visibility handler now distinguishes hidden vs visible:
+    //   hidden  → stamp lastSeen + persist (so the away-duration is recorded)
+    //   visible → run offline catch-up for the away period, toast the summary,
+    //             then reset the visible clock `last`.
+    const onVis = () => {
+      if (document.hidden) {
+        const st = getState();
+        st.lastSeen = Date.now();
+        persist();
+      } else {
+        const st = getState();
+        if (st.started && !st.over) {
+          const off = applyOffline(st, Math.random);
+          if (off?.summary) showToast(off.summary);
+          if (off?.gameJustOver) showToast(t('livedToast'));
+          st.lastSeen = Date.now();
+          persist();
+        }
+        last = Date.now();
+      }
+    };
+    const onUnload = () => {
+      // v11.12 — stamp lastSeen on close so the next session catches up.
+      const st = getState();
+      st.lastSeen = Date.now();
+      persist();
+    };
     document.addEventListener('visibilitychange', onVis);
     window.addEventListener('beforeunload', onUnload);
     return () => {
+      const st = getState();
+      st.lastSeen = Date.now();
       persist();
       clearInterval(iv);
       document.removeEventListener('visibilitychange', onVis);
@@ -385,7 +433,7 @@ function Header({ s, eraName }: { s: GameState; eraName: (y: number) => string }
     <header className="top">
       <div className="brand">
         <Art id="s-coin" className="logo" />
-        <div><h1>HuyenBao <span className="mini">v11.11</span></h1>
+        <div><h1>HuyenBao <span className="mini">v11.12</span></h1>
           <div className="mini">{s.started ? `${s.nation} · ${eraName(worldYear(s))}` : t('tagline')}</div></div>
       </div>
       <div><div className="mini">{t('cash')}</div><div id="tcash" style={{ color: s.money < 0 ? 'var(--brick)' : undefined }}>{fmt(s.money)}</div>
@@ -587,6 +635,7 @@ function HomeTab({ s, act, askAI, aiBusy, aiNote, eraName }: { s: GameState; act
           <p className="sub">{t('guide.4')}</p>
           <p className="sub">{t('guide.5')}</p>
           <p className="sub">{t('guide.6')}</p>
+          <p className="sub">{t('guide.7')}</p>
         </div>
       </details>
       <details className="fold" id="ach">

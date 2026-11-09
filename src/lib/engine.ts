@@ -1,6 +1,6 @@
 // ================= GAME ENGINE (ported from the static game, TS) =================
 import {
-  DAY_MS, START, END_AGE, RETIRE, PENSION, RESALE_FEE, BIZ_DEGREE_BONUS,
+  DAY_MS, OFFLINE_DAY_MS, START, END_AGE, RETIRE, PENSION, RESALE_FEE, BIZ_DEGREE_BONUS,
   ASSET_DEPRECIATION_RATE, BIZ_MULTIPLIER_CAP,
   FOUND_COST, FOUND_MIN_NW, OWN_CLUB_MULT, OWN_CLUB_MAX_MEMBERS,
   SAVE_RATE, LOAN_RATE, TAX_FREE, TAX_BRACKETS, BRANCH_GROWTH, REG_MULT,
@@ -88,6 +88,11 @@ export const RELIGIONS: Religion[] = ['none', 'buddhism', 'christianity', 'islam
 export interface GameState {
   schemaVersion: number;
   money: number; age: number; day: number; lastDay: number; lastYr: number;
+  // v11.12 — epoch-ms of the last moment the player was actively playing.
+  // Used by applyOffline() to advance time at the slower OFFLINE_DAY_MS rate
+  // (10 min/day) while the tab is closed, with extra risk for unmonitored
+  // businesses. null on fresh games / pre-v11.12 saves (no-op).
+  lastSeen: number | null;
   biz: Record<string, number>; branches: Record<string, Branch[]>;
   farm: Record<string, number>; fac: Record<string, number>; space: Record<string, number>;
   farmBought: Record<string, number>; facBought: Record<string, number>; spaceBought: Record<string, number>;
@@ -383,7 +388,7 @@ export function buySpace(s: GameState, id: string): string | null {
 export function fresh(): GameState {
   const s: GameState = {
     schemaVersion: 4,
-    money: 0, age: START, day: 0, lastDay: 0, lastYr: START, biz: {}, branches: {}, farm: {}, fac: {},
+    money: 0, age: START, day: 0, lastDay: 0, lastYr: START, lastSeen: null, biz: {}, branches: {}, farm: {}, fac: {},
     farmBought: {}, facBought: {}, spaceBought: {}, spaceUpgrade: null, spaceTravel: false,
     lots: [], stk: {},     club: null, ownClub: null, job: null, sideJob: null,
     deg: { business: 0, engineering: 0, medicine: 0, science: 0, arts: 0 }, lic: {}, study: null, sideStudy: null,
@@ -706,7 +711,9 @@ export function processDay(s: GameState, d: number, rng: () => number = Math.ran
   // game-day (was 1%) and lowered the play-time threshold from 180 days
   // to 30 days (~10 minutes of real time, was ~60 min). The original
   // numbers made popups too rare to ever see in a typical session.
-  if (!s.aiEvPending && !s.pending && !s.aiEv && s.started && s.day > 30 && rng() < 0.03) {
+  // v11.12: bumped to ~4%/day so career/business situations (good and bad)
+  // fire more often, per the player's request for more in-work events.
+  if (!s.aiEvPending && !s.pending && !s.aiEv && s.started && s.day > 30 && rng() < 0.04) {
     s.aiEvPending = true;
   }
   // Sleep trades study time for health recovery; other wellbeing modifiers still apply.
@@ -1990,6 +1997,71 @@ export function tick(s: GameState, dtMs: number, rng: () => number = Math.random
   if (s.age >= END_AGE && !s.over) { s.age = END_AGE; s.over = true; s.cause = 'age'; out.gameJustOver = true; }
   if (!s.over && s.health <= 0) { s.over = true; s.cause = 'health'; out.gameJustOver = true; }
   return out;
+}
+
+// v11.12 — offline catch-up. Called on mount and when the tab becomes visible
+// again. Advances time at the slower OFFLINE_DAY_MS rate (10 real-minutes per
+// game day) for the wall-clock elapsed since s.lastSeen, capped at 30 game days
+// so an arbitrarily long absence can't jump the player years ahead. Each
+// unmonitored business then faces an extra closure roll + operational loss,
+// because nobody was minding the shop. Returns a human summary for the toast,
+// or null if no catch-up applied.
+export function applyOffline(s: GameState, rng: () => number = Math.random): { summary: string; days: number; closures: number; losses: number; gameJustOver?: boolean } | null {
+  if (!s.started || s.over || s.lastSeen == null) {
+    s.lastSeen = Date.now();
+    return null;
+  }
+  const now = Date.now();
+  const elapsed = now - s.lastSeen;
+  if (elapsed < 60_000) {            // < 1 min away — ignore, just refresh
+    s.lastSeen = now;
+    return null;
+  }
+  const days = Math.min(Math.floor(elapsed / OFFLINE_DAY_MS), 30);
+  if (days < 1) {                    // away < 10 min — not a full offline day
+    s.lastSeen = now;
+    return null;
+  }
+  // Advance the calendar (processDay runs for each elapsed day, same as the
+  // online clock). tick() guards against pending events / game over itself.
+  const res = tick(s, days * DAY_MS, rng);
+  // Elevated unsupervised-business risk: per offline day, each branch faces an
+  // extra ~2% closure chance (capped) on top of the normal roll inside
+  // processDay, plus a lump operational loss proportional to the portfolio.
+  let closures = 0;
+  const bizIds = Object.keys(s.branches);
+  for (const bizId of bizIds) {
+    const list = s.branches[bizId];
+    if (!list || !list.length) continue;
+    const kept: Branch[] = [];
+    for (const br of list) {
+      const ch = Math.min(0.5, 0.02 * days + (br.mood < 0.9 ? 0.05 : 0));
+      if (rng() < ch) {
+        closures++;
+        pushLog(s, `${BIZ.find(x => x.id === bizId)?.name || bizId} branch closed while you were away (unsupervised).`);
+      } else {
+        kept.push(br);
+      }
+    }
+    s.branches[bizId] = kept;
+    s.biz[bizId] = kept.length;
+    if (kept.length === 0) { delete s.branches[bizId]; delete s.biz[bizId]; }
+  }
+  const branchTotal = bizIds.reduce((n, id) => n + (s.branches[id]?.length || 0), 0) + closures; // pre-closure count
+  const losses = Math.round(branchTotal * 200 * days * (0.5 + rng()));
+  if (losses > 0) s.money -= losses;
+  s.lastSeen = now;
+  // Build a localised-ish summary (the toast layer localises nothing; this is
+  // short and the numbers carry the meaning. A future pass can route through t().)
+  const parts: string[] = [];
+  parts.push(`${days}d away`);
+  if (closures > 0) parts.push(`${closures} branch closure(s)`);
+  if (losses > 0) parts.push(`−${fmt(losses)} unsupervised`);
+  if (closures === 0 && losses === 0) parts.push('ventures ran smoothly');
+  if (res.gameJustOver) parts.push('life ended');
+  const summary = 'While you were away: ' + parts.join(' · ') + '.';
+  pushLog(s, summary);
+  return { summary, days, closures, losses, gameJustOver: res.gameJustOver };
 }
 
 // ---------- ranking ----------

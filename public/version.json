@@ -1,14 +1,15 @@
 {
-  "version": "v11.11",
+  "version": "v11.12",
   "releasedAt": "2026-11-10",
-  "headline": "HuyenBao v11.11 — Kinh Dịch (I Ching) integrated from Huyen-Hoc-AI",
-  "summary": "First Huyen-Hoc-AI feature brought into the main app: a full Kinh Dịch (I Ching) oracle in the Spirit tab. The deterministic coin-cast (3 coins × 6 lines → King Wen hexagram → moving lines → transformed hexagram) is ported from the Huyen-Hoc-AI FastAPI backend to TypeScript and runs client-side. A new /api/divine endpoint interprets the cast through the app's existing local LLM (Ollama, same client as /api/story) with a Kinh Dịch-specific prompt, falling back to ZAI cloud then to a deterministic local reading — so the oracle always returns a result. The interpretation is written in the player's UI language (EN/VI/中文). All 64 hexagram names use the canonical Sino-Vietnamese / Wilhelm-English / original-Chinese set. The feature needs no save-state change and has no runtime dependency on the FastAPI service, so it works the moment the app is deployed.",
+  "headline": "HuyenBao v11.12 — bigger toasts, fixed VI guide, online/offline time overhaul",
+  "summary": "Four player-facing fixes: (1) Notification toasts are bigger (larger padding, font, radius, scrollable) and stay visible longer — duration is now adaptive (3.5s min, 8s max, ~55ms per character) so long messages don't vanish before you finish reading. (2) The Vietnamese how-to-play guide had broken phrasing ('bằng lái' for licence, 'tâm thế' for mood, 'VŨ TRỤ' for space) — all fixed, and a new guide.7 line explains that random good/bad events fire during your career and business. (3) Online time now runs at 30 real-seconds per game day (was 20s). (4) Offline time is no longer paused: closing the tab advances the world at 10 real-minutes per game day (capped at 30 days), and each unmonitored business faces extra closure risk + operational losses while you're away — a summary toast tells you what happened. The AI-oracle event rate is also bumped from 3% to 4% per game-day so in-work situations fire more often.",
   "features": [
-    "New Kinh Dịch panel in the Spirit tab: question input + cast button → primary hexagram, hào lines (yang/yin, moving highlighted), moving-lines list, changed hexagram (quẻ biến) when there are moving lines, verdict badge (Cát/Hung/Tĩnh), LLM interpretation + reflection",
-    "src/lib/iching.ts: full deterministic engine — 8 trigrams, King Wen 8×8 table, 64 hexagrams (VI/EN/ZH names + themes), crypto-fair 3-coin cast, hào động detection, quẻ biến computation",
-    "POST /api/divine: LLM interpretation via the existing Ollama connection (LLM_BASE_URL), ZAI cloud fallback, deterministic local-reading fallback — always returns a valid reading in the player's language",
-    "Client-side 8s throttle prevents spam-casting (no save-state change, no engine change)",
-    "Disclaimer note (disc.aiNote) shown under every reading: AI prophecies & events are fictional — entertainment only",
-    "Version bumped to v11.11 on homepage header + version.json"
+    "Toasts: adaptive duration (3.5–8s by message length) + bigger box (padding 14×22, font 1.02rem, radius 14, max-height 60vh scroll)",
+    "Guide VI fixes: 'bằng lái' → 'chứng chỉ chuyên ngành', 'tâm thế' → 'tình hình', 'VŨ TRỤ' → 'vũ trụ'; guide.1 updated to 30s + offline mention (EN/VI/ZH); new guide.7 about random career/business events (EN/VI/ZH)",
+    "Time: DAY_MS 20000 → 30000 (online 30s/day); new OFFLINE_DAY_MS = 600000 (offline 10min/day)",
+    "Offline catch-up: new engine.applyOffline() — on mount + on tab-visible, advances time at OFFLINE_DAY_MS for elapsed since s.lastSeen (capped 30 days), applies extra unsupervised-business closure roll (~2%/day) + operational losses, returns a summary toast; GameState gains lastSeen field (null-safe for old saves)",
+    "Game clock rewrite: visible ticks refresh lastSeen; hidden stamps lastSeen + persists; beforeunload stamps lastSeen; mount runs applyOffline + toast",
+    "AI oracle event rate bumped 3% → 4% per game-day (more in-work situations, good and bad)",
+    "Version bumped to v11.12 on homepage header + version.json"
   ]
 }

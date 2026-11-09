@@ -116,7 +116,8 @@ html[data-theme="light"] body{background:#e9e6df}
 .tgame .fold .foldbody{padding:0 14px 12px}
 .tgame .enter>*{animation:trise .35s both}
 @keyframes trise{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
-.tgame #ttoast{position:fixed;left:50%;bottom:calc(18px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--paper);font-weight:650;padding:10px 16px;border-radius:12px;max-width:92vw;text-align:center;z-index:80;box-shadow:0 8px 24px rgba(40,35,25,.25);animation:trise .3s both}
+.tgame #ttoast{position:fixed;left:50%;bottom:calc(22px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--paper);font-weight:650;font-size:1.02rem;line-height:1.45;padding:14px 22px;border-radius:14px;max-width:94vw;max-height:60vh;overflow:auto;text-align:center;z-index:80;box-shadow:0 10px 30px rgba(40,35,25,.3);animation:trise .3s both}
+.tgame #ttoast.long{font-size:1.02rem;white-space:pre-wrap}
 .tgame .lb{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 13px;border-radius:12px;margin-bottom:6px;background:var(--card);border:1px solid var(--line);font-variant-numeric:tabular-nums}
 .tgame .lb.me{background:var(--paper2);border-color:var(--line2);font-weight:750}
 .tgame .modal{position:fixed;inset:0;background:rgba(51,48,42,.45);display:grid;place-items:center;z-index:50;padding:16px;animation:tfade .25s both}
