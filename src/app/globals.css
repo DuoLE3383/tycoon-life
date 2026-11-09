@@ -116,6 +116,62 @@ html[data-theme="light"] body{background:#e9e6df}
 .tgame .fold .foldbody{padding:0 14px 12px}
 .tgame .enter>*{animation:trise .35s both}
 @keyframes trise{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+/* v11.23 — CSS-only tooltip for Level-2 nav icons.
+   Uses ::after + attr(data-tip) so no JS state needed. Falls back
+   gracefully to native title attr if data-tip is empty.
+   Shows below the button (subnav is in upper area), fade-in on hover. */
+.tgame .subnav button[data-tip]{position:relative}
+.tgame .subnav button[data-tip]::after{
+  content:attr(data-tip);
+  position:absolute;top:calc(100% + 6px);left:50%;
+  transform:translateX(-50%) translateY(-2px);
+  background:var(--ink);color:var(--paper);
+  padding:6px 11px;border-radius:8px;
+  font-size:.74rem;font-weight:600;line-height:1.4;
+  white-space:nowrap;max-width:280px;
+  pointer-events:none;opacity:0;
+  transition:opacity .18s ease,transform .18s ease;
+  z-index:300;box-shadow:0 4px 14px rgba(40,35,25,.3);
+  border:1px solid var(--accent)
+}
+.tgame .subnav button[data-tip]:hover::after,
+.tgame .subnav button[data-tip]:focus-visible::after{
+  opacity:1;transform:translateX(-50%) translateY(0)
+}
+/* small caret pointing up at the button */
+.tgame .subnav button[data-tip]::before{
+  content:"";position:absolute;
+  top:calc(100% + 2px);left:50%;
+  transform:translateX(-50%);
+  border:5px solid transparent;
+  border-bottom-color:var(--ink);
+  opacity:0;transition:opacity .18s ease;
+  pointer-events:none;z-index:301
+}
+.tgame .subnav button[data-tip]:hover::before,
+.tgame .subnav button[data-tip]:focus-visible::before{opacity:1}
+
+/* v11.23 — XP progress bar: lvlchip bar made taller + wider so the
+   progress is clearly visible at a glance (was 6px×74px, far too tiny).
+   Also adds a thin "next level" hint marker at the right end. */
+.tgame .lvlchip .bar{width:96px;height:9px;border-radius:999px;background:var(--paper2);overflow:hidden;position:relative;box-shadow:inset 0 1px 2px rgba(60,55,40,.1)}
+.tgame .lvlchip .bar i{display:block;height:100%;background:linear-gradient(90deg,var(--accent),#a4916f);border-radius:999px;transition:width .5s ease}
+.tgame .lvlchip .bar::after{content:"";position:absolute;top:0;right:0;bottom:0;width:2px;background:var(--accent2);opacity:.5}
+
+/* v11.23 — bullet list for Power/Empire tier explanations.
+   Replaces dense prose paragraph with scannable icon bullets. */
+.tgame .explain-bullets{list-style:none;margin:6px 0 0;padding:0}
+.tgame .explain-bullets li{
+  display:flex;align-items:flex-start;gap:7px;
+  padding:3px 0;font-size:.78rem;line-height:1.45;
+  color:var(--mute)
+}
+.tgame .explain-bullets li b{color:var(--ink);font-weight:650}
+.tgame .explain-bullets li .bul-ic{
+  flex:none;width:14px;height:14px;margin-top:2px;
+  color:var(--accent);stroke-width:2.4
+}
+
 /* v11.22 — toast made more prominent: bigger text, top-center position
    (more visible than bottom), higher z-index, accent border, slide-in
    from top. Previously bottom-center + small font = easy to miss. */

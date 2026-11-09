@@ -1,5 +1,5 @@
 'use client';
-// HuyenBao v11.22 — React edition. Two-level grouped nav, a systems links map,
+// HuyenBao v11.23 — React edition. Two-level grouped nav, a systems links map,
 // gigs, levels, social, the cosmic frontier, EN/VI/中文, LLM oracle with
 // random kind dispatch (luck / setback / life-stage / story), pre-owned
 // market + social listings, and a Hall of Fame tab.
@@ -73,7 +73,7 @@ if (typeof window !== 'undefined') {
 // v11.8 — the bundled version. The /version.json file in /public is polled
 // every 5 minutes; if its version is newer than this, a "reload to update"
 // banner appears even in a running session (no F5 needed).
-const BUNDLED_VERSION = 'v11.22';
+const BUNDLED_VERSION = 'v11.23';
 const VERSION_POLL_MS = 5 * 60 * 1000;
 const SEEN_KEY = 'tycoon_seen_' + BUNDLED_VERSION;
 
@@ -355,6 +355,7 @@ export default function Page() {
         <nav role="tablist" className="tnav subnav" aria-label="Sub-sections">
           {curSubs.map(([k, n, ic]) => (
             <button key={k} role="tab" aria-selected={tab === k} data-t={k}
+              data-tip={t('ttab.' + k, '')}
               onClick={() => { setTab(k); setLastTab(lt => ({ ...lt, [activeGroup]: k })); }}>
               {Ic({ id: ic, className: 'si navsi' })}{t('tab.' + k, n)}
             </button>
@@ -491,13 +492,13 @@ function Header({ s, eraName }: { s: GameState; eraName: (y: number) => string }
     <header className="top">
       <div className="brand">
         <Art id="s-coin" className="logo" />
-        <div><h1><span className="mini">v11.22</span> HuyenBao</h1>
+        <div><h1><span className="mini">v11.23</span> HuyenBao</h1>
           <div className="mini">{s.started ? `${s.nation} · ${eraName(worldYear(s))}` : t('tagline')}</div></div>
       </div>
       <div><div className="mini">{t('cash')}</div><div id="tcash" style={{ color: s.money < 0 ? 'var(--brick)' : undefined }}>{fmt(s.money)}</div>
         <div className="mini">{t('netWorth')} {fmt(netWorth(s))} · {yearIncome(s) >= 0 ? '+' : ''}{fmt(yearIncome(s))}{t('perYear')}</div></div>
       <div className="hstack">
-        <span className="lvlchip" title={t('level')}><Ic id="ic-xp" className="bsi" />{t('lvl')} {s.level}
+        <span className="lvlchip" data-tip={`Lv ${s.level} · ${s.xp}/${xpNeed(s.level)} XP (${xpPct}%) · next in ${Math.max(0, xpNeed(s.level) - s.xp)} XP`}><Ic id="ic-xp" className="bsi" />{t('lvl')} {s.level}
           <span className="bar"><i style={{ width: xpPct + '%' }} /></span></span>
         <span className="lang" role="group" aria-label="Language">
           {LANGS.map(l => <button key={l.id} aria-pressed={lang === l.id} data-lang={l.id} onClick={() => setLang(l.id as Lang)}>{l.label}</button>)}
@@ -2333,8 +2334,8 @@ function RelationsTab({ s, act }: { s: GameState; act: Act }) {
               {clash.length > 0 && <>  ·  {t('relations.clash')}: {clash.map(i => <span key={i} className="tag" style={{ background: '#faeae9', color: '#9c4a42', marginLeft: 3 }}>−{i}</span>)}</>}
             </div>
             <div className="trade" style={{ marginTop: 8, flexWrap: 'wrap' }}>
-              <Btn ic="ic-heart" label={t('relations.talk')} kind="ghost" onClick={() => act(st => interactNPC(st, npc.id, 'talk'))} />
-              <Btn ic="ic-bag" label={t('relations.gift') + ' ' + fmt(Math.max(500, Math.round(200 * Math.sqrt(Math.max(1, s.fame + 1)))))} kind="ghost" disabled={s.money < Math.max(500, Math.round(200 * Math.sqrt(Math.max(1, s.fame + 1))))} onClick={() => act(st => interactNPC(st, npc.id, 'gift'))} />
+              <Btn ic="ic-heart" label={t('relations.talk')} onClick={() => act(st => interactNPC(st, npc.id, 'talk'))} />
+              <Btn ic="ic-bag" label={t('relations.gift') + ' ' + fmt(Math.max(500, Math.round(200 * Math.sqrt(Math.max(1, s.fame + 1)))))} disabled={s.money < Math.max(500, Math.round(200 * Math.sqrt(Math.max(1, s.fame + 1))))} onClick={() => act(st => interactNPC(st, npc.id, 'gift'))} />
               <Btn ic="ic-check" label={t('relations.help') + ' $1K'} kind="ghost" disabled={s.money < 1000} onClick={() => act(st => interactNPC(st, npc.id, 'help'))} />
               <Btn ic="ic-x" label={t('relations.argue')} kind="ghost" onClick={() => act(st => interactNPC(st, npc.id, 'argue'))} />
               {canPropose && <Btn ic="ic-star" label={s.partner ? t('relations.marry') : t('relations.date')} kind="sageb" onClick={() => act(st => proposeToNPC(st, npc.id))} />}
@@ -2481,11 +2482,15 @@ function PowerTab({ s, act }: { s: GameState; act: Act }) {
           ? t('v11.powerNextTier', '', { tier: next.label, v: fmt(next.min) })
           : t('v11.powerTopTier')}
       </span>
-      {/* v11.18 — explanation: what this tier actually means */}
-      <span className="mini" style={{ display: 'block', marginTop: 6, padding: '6px 8px', border: '1px solid var(--line)', borderRadius: 4, background: 'rgba(0,0,0,0.02)' }}>
-        <b style={{ opacity: .8 }}>{t('pw.explainTitle')}</b>
-        <span style={{ display: 'block', marginTop: 2 }}>{t(tierExplainKey[tier] || 'pw.explainMogul')}</span>
-      </span>
+      {/* v11.23 — explanation: bullet list with icons (was dense prose) */}
+      <div className="mini" style={{ display: 'block', marginTop: 6, padding: '8px 10px', border: '1px solid var(--line)', borderRadius: 8, background: 'rgba(0,0,0,0.02)' }}>
+        <b style={{ opacity: .85, fontSize: '.78rem' }}>{t('pw.explainTitle')}</b>
+        <ul className="explain-bullets">
+          {t((tierExplainKey[tier] || 'pw.explainMogul') + '.bullets').split('||').map((b, i) => (
+            <li key={i}><Ic id={i === 0 ? 'ic-check' : i === 1 ? 'ic-xp' : 'ic-x'} className="si bul-ic" /><span>{b}</span></li>
+          ))}
+        </ul>
+      </div>
       <span className="mini" style={{ display: 'block', marginTop: 4, opacity: .65 }}>{t('pw.hardening')}</span>
     </Row>
 
@@ -2669,11 +2674,15 @@ function EntityTab({ s, act }: { s: GameState; act: Act }) {
           ? t('v11.entityNextTier', '', { tier: next.tier, v: fmt(next.min), x: next.minInfluence })
           : t('v11.entityTopTier')}
       </span>
-      {/* v11.18 — explanation: what this entity tier means */}
-      <span className="mini" style={{ display: 'block', marginTop: 6, padding: '6px 8px', border: '1px solid var(--line)', borderRadius: 4, background: 'rgba(0,0,0,0.02)' }}>
-        <b style={{ opacity: .8 }}>{t('emp.explainTitle')}</b>
-        <span style={{ display: 'block', marginTop: 2 }}>{t(entityExplainKey[tier] || 'emp.explainConglomerate')}</span>
-      </span>
+      {/* v11.23 — explanation: bullet list with icons (was dense prose) */}
+      <div className="mini" style={{ display: 'block', marginTop: 6, padding: '8px 10px', border: '1px solid var(--line)', borderRadius: 8, background: 'rgba(0,0,0,0.02)' }}>
+        <b style={{ opacity: .85, fontSize: '.78rem' }}>{t('emp.explainTitle')}</b>
+        <ul className="explain-bullets">
+          {t((entityExplainKey[tier] || 'emp.explainConglomerate') + '.bullets').split('||').map((b, i) => (
+            <li key={i}><Ic id={i === 0 ? 'ic-check' : i === 1 ? 'ic-xp' : 'ic-star'} className="si bul-ic" /><span>{b}</span></li>
+          ))}
+        </ul>
+      </div>
       {s.entity?.originNation && (
         <span className="mini" style={{ display: 'block', marginTop: 2 }}>
           {t('v11.entityOrigin', '', { nation: s.entity.originNation })}

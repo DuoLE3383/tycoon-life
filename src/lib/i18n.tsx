@@ -503,6 +503,75 @@ const D: Record<string, [string, string, string]> = {
   'emp.explainNation': ['A recognised micro-nation. Requires $500M net worth, 200+ influence, and recognition by ≥3 other nations (diplomacy via alliances). Nations can issue their own currency + set policy.', 'Quốc gia vi mô được công nhận. Cần $500M tài sản, 200+ influence, và công nhận từ ≥3 quốc gia khác (ngoại giao qua liên minh). Quốc gia có thể phát hành tiền tệ + đặt chính sách.', '受承认的微型国家。需 5 亿美元净资产、200+ 影响力及至少 3 个其他国家的承认（通过联盟外交）。国家可发行货币并制定政策。'],
   'emp.explainEmpire': ['Interstellar empire — stub for the cosmic expansion (v11.7+ star systems). Requires $5B net worth, 500+ influence, and control of 5 star systems.', 'Đế quốc liên sao — stub cho mở rộng vũ trụ (hệ sao v11.7+). Cần $5B tài sản, 500+ influence, và kiểm soát 5 hệ sao.', '星际帝国——宇宙扩展（v11.7+ 星系）的占位。需 50 亿美元净资产、500+ 影响力及控制 5 个星系。'],
   'emp.explainFederation': ['Galactic federation — the endgame tier. Requires $50B net worth, 2000+ influence, and unification of 50% of known space.', 'Liên bang thiên hà — cấp cuối game. Cần $50B tài sản, 2000+ influence, và thống nhất 50% không gian đã biết.', '银河联邦——终局等级。需 500 亿美元净资产、2000+ 影响力及统一 50% 已知太空。'],
+  // v11.23 — bullet-list variants of tier explanations (|| separates bullets).
+  // Rendered as <ul class="explain-bullets"> with a small icon per bullet.
+  // Each tier has 3 bullets: role / source-or-requirement / catch or note.
+  'pw.explainMogul.bullets': [
+    'Sit on corporate boards + sway industry policy||Influence from: board seats + club chairmanship + media ownership||Cannot run for election yet — need national_power tier',
+    'Ngồi HĐQT các tập đoàn + vận động chính sách ngành||Influence từ: ghế board + chức chủ tịch club + sở hữu truyền thông||Chưa ứng cử được — cần cấp national_power',
+    '担任企业董事 + 影响产业政策||影响力来自：董事席位 + 俱乐部主席 + 媒体所有权||暂不能参选 — 需达到 national_power 级'
+  ],
+  'pw.explainInfluencer.bullets': [
+    'Large public platform — social posts sway opinion||Fame boost from clubs + verified account||Foundation endowment unlocks here (passive influence)',
+    'Nền tảng công chúng lớn — bài đăng xã hội lung lay dư luận||Fame tăng từ club + tài khoản xác thực||Quỹ từ thiện mở khoá ở đây (influence thụ động)',
+    '拥有大型公共平台 — 社交帖子可左右舆论||俱乐部 + 认证账号提升名气||此处解锁慈善基金会（被动影响力）'
+  ],
+  'pw.explainNational.bullets': [
+    'Can run for office in your country||Election needs 80+ influence and scrutiny < 95||Winning doubles foundation influence + opens state-leader path',
+    'Có thể ứng cử chức vụ trong nước||Bầu cử cần 80+ influence và scrutiny < 95||Đắc cử nhân đôi influence từ quỹ + mở đường state_leader',
+    '可参选本国公职||选举需 80+ 影响力且审查 < 95||当选后基金会影响力翻倍 + 开启 state_leader 路径'
+  ],
+  'pw.explainState.bullets': [
+    'Head of state — the late-game stretch goal||Only the very richest runs ever reach here||Scandal risk highest — manage scrutiny actively',
+    'Nguyên thủ — mục tiêu cuối game||Chỉ những kiếp giàu nhất mới đạt tới||Rủi ro scandal cao nhất — phải quản scrutiny chủ động',
+    '国家元首 — 终局远期目标||只有最富有的玩家才能达到||丑闻风险最高 — 需主动管控审查度'
+  ],
+  'emp.explainConglomerate.bullets': [
+    'Default tier — private holding for your businesses||Unlocks at $1M net worth||No extra requirements',
+    'Cấp mặc định — công ty cổ phần riêng cho doanh nghiệp||Mở khoá ở $1M tài sản||Không yêu cầu thêm',
+    '默认等级 — 你名下企业的私人控股公司||净资产达 $1M 解锁||无额外要求'
+  ],
+  'emp.explainAutonomous.bullets': [
+    'Self-governing territory outside home-nation tax||Requires $50M net worth + 50 influence||Income shielded from home-nation tax shocks',
+    'Lãnh thổ tự quản ngoài thuế nước gốc||Cần $50M tài sản + 50 influence||Thu nhập miễn sốc thuế nước nhà',
+    '自治领土，独立于母国税收||需 $50M 净资产 + 50 影响力||收入不受母国税收冲击'
+  ],
+  'emp.explainNation.bullets': [
+    'Recognised micro-nation||Requires $500M + 200 influence + recognition by 3+ nations||Can issue own currency + set policy',
+    'Quốc gia vi mô được công nhận||Cần $500M + 200 influence + công nhận từ 3+ quốc gia||Có thể phát hành tiền tệ + đặt chính sách',
+    '受承认的微型国家||需 $500M + 200 影响力 + 3+ 国承认||可发行货币 + 制定政策'
+  ],
+  'emp.explainEmpire.bullets': [
+    'Interstellar empire (cosmic expansion stub)||Requires $5B + 500 influence + 5 star systems||Locked until v11.7+ star-system update',
+    'Đế quốc liên sao (stub mở rộng vũ trụ)||Cần $5B + 500 influence + 5 hệ sao||Khoá đến khi có cập nhật hệ sao v11.7+',
+    '星际帝国（宇宙扩展占位）||需 $5B + 500 影响力 + 5 个星系||v11.7+ 星系更新前锁定'
+  ],
+  'emp.explainFederation.bullets': [
+    'Galactic federation — the endgame tier||Requires $50B + 2000 influence + 50% of known space||The final form',
+    'Liên bang thiên hà — cấp cuối game||Cần $50B + 2000 influence + 50% không gian đã biết||Hình thái cuối cùng',
+    '银河联邦 — 终局等级||需 $50B + 2000 影响力 + 50% 已知太空||最终形态'
+  ],
+  // v11.23 — Level-2 nav tab tooltips (data-tip attr, shown on hover).
+  // Concise one-liners describing what each sub-tab actually contains.
+  'ttab.home': ['Daily timeline, world news, XP, income & asset breakdown', 'Timeline hằng ngày, tin thế giới, XP, thu nhập & tài sản', '每日时间线、世界新闻、经验、收入与资产'],
+  'ttab.health': ['Health, sleep schedule, doctor visits, recovery', 'Sức khoẻ, lịch ngủ, khám bệnh, phục hồi', '健康、睡眠安排、就医、康复'],
+  'ttab.spirit': ['Spirit, meditation, hobbies, mental wellbeing', 'Tâm linh, thiền, sở thích, tinh thần', '心灵、冥想、爱好、精神状态'],
+  'ttab.pets': ['Adopt & care for animal companions', 'Nhận nuôi & chăm sóc thú cưng', '领养与照料动物伙伴'],
+  'ttab.edu': ['Enrol in degrees, short courses, pivot interests', 'Đăng ký bằng, khoá cấp tốc, đổi sở thích', '注册学位、短期课程、转换兴趣'],
+  'ttab.career': ['Jobs, gigs, promotions, career path', 'Việc làm, gig, thăng tiến, sự nghiệp', '工作、零工、晋升、职业路径'],
+  'ttab.assets': ['Buy/sell luxury items, vehicles, art, real estate', 'Mua/bán đồ xa xỉ, xe, nghệ thuật, bất động sản', '买卖奢侈品、车辆、艺术品、地产'],
+  'ttab.markets': ['Trade stocks with market mood + risk', 'Giao dịch cổ phiếu theo tâm trạng thị trường', '按市场情绪交易股票'],
+  'ttab.bank': ['Savings, loans, taxes, money management', 'Tiết kiệm, vay, thuế, quản lý tiền', '储蓄、贷款、税务、资金管理'],
+  'ttab.biz': ['Open & run businesses, hire managers, branches', 'Mở & vận hành doanh nghiệp, thuê quản lý, chi nhánh', '开办与经营企业、雇经理、分店'],
+  'ttab.space': ['Space lines, colonies, cosmic expansion', 'Đường vũ trụ, thuộc địa, mở rộng cosmos', '太空航线、殖民、宇宙扩张'],
+  'ttab.social': ['Posts, followers, social media presence', 'Bài đăng, followers, mạng xã hội', '发帖、粉丝、社交媒体'],
+  'ttab.relations': ['Build friendships, romance, marriage with NPCs', 'Xây tình bạn, tình cảm, kết hôn với NPC', '与 NPC 建立友谊、恋爱、婚姻'],
+  'ttab.club': ['Join clubs for fame, networking, perks', 'Gia nhập club để fame, networking, perk', '加入俱乐部获取名气、人脉、特权'],
+  'ttab.power': ['Influence, elections, state-leader path', 'Influence, bầu cử, đường state-leader', '影响力、选举、国家领导人路线'],
+  'ttab.entity': ['Empire tiers — conglomerate → federation', 'Cấp đế chế — conglomerate → federation', '帝国等级 — 集团 → 联邦'],
+  'ttab.rank': ['Live ranking vs AI tycoons', 'Xếp hạng trực tiếp vs AI trùm', '与 AI 大亨实时排名'],
+  'ttab.fame': ['Hall of Fame — legendary real-world runs', 'Hall of Fame — các kiếp huyền thoại thật', '名人堂 — 传奇真实人生'],
+  'ttab.links': ['Systems map — how everything connects', 'Sơ đồ hệ thống — mọi thứ liên kết', '系统图 — 万物互联'],
   'lifeLog': ['Life log', 'Nhật ký cuộc đời', '人生日志'],
   // ---- achievements
   'achTitle': ['Achievements', 'Thành tựu', '成就'],
