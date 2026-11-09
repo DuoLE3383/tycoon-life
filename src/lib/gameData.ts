@@ -265,13 +265,28 @@ export function analyze(ints: string[], tals: string[]) {
   return { sc, top, second, perks };
 }
 
-export const FIELDS: Record<FieldKey, { name: string; names: string[]; years: number[]; tuition: number[]; maxAge: number[]; art: string; schools: string[] }> = {
-  business: { name: 'Business', names: ['BBA', 'MBA'], years: [4, 2], tuition: [5000, 10000], maxAge: [30, 36], art: 'b-corp', schools: ['Wharton (Penn)', 'Harvard Business School', 'Stanford GSB', 'INSEAD', 'London Business School', 'CEIBS Shanghai'] },
-  engineering: { name: 'Engineering', names: ['B.Eng', 'M.Eng'], years: [4, 2], tuition: [6000, 12000], maxAge: [30, 36], art: 'j-eng', schools: ['MIT', 'Stanford', 'ETH Zürich', 'IIT Bombay', 'Tsinghua', 'Tokyo Tech'] },
-  medicine: { name: 'Medicine', names: ['Pre-med B.Sc.', 'MD'], years: [4, 4], tuition: [5000, 30000], maxAge: [30, 36], art: 'j-surg', schools: ['Johns Hopkins', 'Harvard Medical', 'Oxford Medical', 'Karolinska', 'AIIMS Delhi', 'University of Tokyo Medical'] },
-  science: { name: 'Science', names: ['B.Sc.', 'M.Sc.', 'PhD'], years: [4, 2, 4], tuition: [5000, 10000, 0], maxAge: [30, 36, 40], art: 'u-book', schools: ['Caltech', 'Cambridge', 'Max Planck', 'ENS Paris', 'Peking University', 'Seoul National University'] },
-  arts: { name: 'Arts', names: ['B.A.', 'M.A.'], years: [4, 2], tuition: [4000, 8000], maxAge: [30, 36], art: 'u-univ', schools: ['RISD', 'Central Saint Martins', 'École des Beaux-Arts', 'Pratt', 'Tokyo Geidai', 'Yale School of Art'] }
-};
+export const FIELDS: Record<FieldKey, { name: string; names: string[]; years: number[]; tuition: number[]; maxAge: number[]; art: string; schools: string[]; roadmap: { goal: string; strengths: string; careers: string } }> = {
+  business: { name: 'Business', names: ['BBA', 'MBA'], years: [4, 2], tuition: [5000, 10000], maxAge: [30, 36], art: 'b-corp', schools: ['Wharton (Penn)', 'Harvard Business School', 'Stanford GSB', 'INSEAD', 'London Business School', 'CEIBS Shanghai'], roadmap: { goal: 'Run and grow companies; raise capital; eventually IPO.', strengths: 'Income multiplies with every branch + business degree level. MBA unlocks the Executive director role and the found-your-own-club path.', careers: 'Accountant → Marketing director → Executive director → Conglomerate founder.' } },
+  engineering: { name: 'Engineering', names: ['B.Eng', 'M.Eng'], years: [4, 2], tuition: [6000, 12000], maxAge: [30, 36], art: 'j-eng', schools: ['MIT', 'Stanford', 'ETH Zürich', 'IIT Bombay', 'Tsinghua', 'Tokyo Tech'], roadmap: { goal: 'Build products, factories, and tech ventures.', strengths: 'Engineering degree unlocks the Factory and Software studio — the highest-margin businesses. M.Eng lifts you to Lead engineer ($135K).', careers: 'Software engineer → Lead engineer → Factory owner → Tech studio founder.' } },
+  medicine: { name: 'Medicine', names: ['Pre-med B.Sc.', 'MD'], years: [4, 4], tuition: [5000, 30000], maxAge: [30, 36], art: 'j-surg', schools: ['Johns Hopkins', 'Harvard Medical', 'Oxford Medical', 'Karolinska', 'AIIMS Delhi', 'University of Tokyo Medical'], roadmap: { goal: 'Cure people, then build a healthcare empire.', strengths: 'MD unlocks Surgeon ($280K/yr — the highest single-job income). Long road (8 years total) but the payoff is unmatched.', careers: 'Pre-med → MD → Surgeon → Healthcare administrator → Biotech founder.' } },
+  science: { name: 'Science', names: ['B.Sc.', 'M.Sc.', 'PhD'], years: [4, 2, 4], tuition: [5000, 10000, 0], maxAge: [30, 36, 40], art: 'u-book', schools: ['Caltech', 'Cambridge', 'Max Planck', 'ENS Paris', 'Peking University', 'Seoul National University'], roadmap: { goal: 'Discover, publish, and commercialise research.', strengths: 'PhD is FUNDED (zero tuition) and unlocks Research scientist ($140K). The cleanest path for players who want to avoid debt.', careers: 'Lab researcher → Research scientist → Biotech founder → Conglomerate R&D division.' } },
+  arts: { name: 'Arts', names: ['B.A.', 'M.A.'], years: [4, 2], tuition: [4000, 8000], maxAge: [30, 36], art: 'u-univ', schools: ['RISD', 'Central Saint Martins', 'École des Beaux-Arts', 'Pratt', 'Tokyo Geidai', 'Yale School of Art'], roadmap: { goal: 'Create, perform, and build a media empire.', strengths: 'Arts degree + Engineering minor unlocks Product designer. Arts + Business unlocks Film studio — the biggest single-business income.', careers: 'Product designer → Film studio founder → Streaming-city mogul → Cultural conglomerate.' }
+} };
+
+// v11 — short / accelerated courses. Cheaper and faster than a full degree
+// but only grant a partial skill boost (counted as degree level 0.5 — they
+// don't unlock degree-gated jobs on their own, but they DO reduce tuition
+// of the matching full degree by 10% and add a small income bonus).
+export interface ShortCourseDef { id: string; name: string; field: FieldKey; days: number; cost: number; art: string; blurb: string }
+export const SHORT_COURSES: ShortCourseDef[] = [
+  { id: 'bootcamp', name: 'Coding bootcamp (90 days)', field: 'engineering', days: 90, cost: 8000, art: 'j-eng', blurb: 'Intensive. Halves the time to a B.Eng later. +5% to engineering gig pay.' },
+  { id: 'mba-fast', name: 'Executive MBA fast-track (1 year)', field: 'business', days: 365, cost: 25000, art: 'b-corp', blurb: 'For professionals who already work. Counts as half an MBA; unlocks Accounting gig.' },
+  { id: 'first-aid', name: 'First-responder first aid (30 days)', field: 'medicine', days: 30, cost: 1200, art: 'j-nurse', blurb: 'Quick medical literacy. +3% to medical gig pay; small spirit boost.' },
+  { id: 'stats', name: 'Statistics intensive (60 days)', field: 'science', days: 60, cost: 4000, art: 'u-book', blurb: 'Data literacy. Halves M.Sc. time later; +5% to research gig pay.' },
+  { id: 'design', name: 'Design fundamentals (45 days)', field: 'arts', days: 45, cost: 3000, art: 'i-art', blurb: 'Visual thinking. Halves B.A. time later; +5% to social-post likes.' },
+  { id: 'real-estate', name: 'Real-estate licence prep (60 days)', field: 'business', days: 60, cost: 3500, art: 'i-house', blurb: 'Property literacy. +10% to property resale value; counts toward BBA.' },
+];
+export const SHORT_BY: Record<string, ShortCourseDef> = Object.fromEntries(SHORT_COURSES.map(c => [c.id, c]));
 export const LICENSES = [
   { id: 'moto', name: 'Motorcycle licence', cost: 350, days: 30, art: 'i-bike' },
   { id: 'car', name: "Driver's licence (car)", cost: 600, days: 60, art: 'i-lambo' },

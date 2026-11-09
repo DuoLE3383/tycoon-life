@@ -10,7 +10,7 @@ import {
   START, END_AGE, RETIRE, RESALE_FEE, FOUND_COST, FOUND_MIN_NW, OWN_CLUB_MULT,
   SAVE_RATE, LOAN_RATE, TAX_FREE, TAX_BRACKETS, ALLNEWS, eraOf, NATIONS, NAME_POOLS, INTERESTS, TALENTS, PATHS,
   analyze, FIELDS, LICENSES, LIC_BY, LIC_FOR, STAGES, BIZ, FARM_LINES, FAC_LINES, ITEM_BY, ITEM_IMAGES, USED_IMAGES, STOCKS, ASSET_DEPRECIATION_RATE,
-  CLUBS, JOBS, GIGS, SPACE_LINES, TABS, GROUPS, xpNeed, ITEMS, USED_MARKET, HALL_OF_FAME, itemRarity, RARITY_COLOR, NPCS, NPC_BY, PETS, PET_BY, MAX_PETS, CREW_COST, type Rarity, type FieldKey, type Req,
+  CLUBS, JOBS, GIGS, SPACE_LINES, TABS, GROUPS, xpNeed, ITEMS, USED_MARKET, HALL_OF_FAME, itemRarity, RARITY_COLOR, NPCS, NPC_BY, PETS, PET_BY, MAX_PETS, CREW_COST, SHORT_COURSES, SHORT_BY, type Rarity, type FieldKey, type Req,
 } from '@/lib/gameData';
 import {
   fmt, taxOf, fresh, begin, tick, stageOf, worldYear, branchCount, bizCost, clubMult, branchNet, fameBonus, bizMultiplier,
@@ -19,7 +19,7 @@ import {
   processDay, yearEnd,
   doGig, gigReady, gigLock, gigPay, addPost, buySpace, spaceIncome, socialIncome, levelMult,
   openBranch, buyFarmLine, buyFacLine, buyItem, sellLot, trade, joinClub, leaveClub, foundClub,
-  hire, enrollDeg, enrollLic, bankOp, donate, applyEventChoice, applyAIChoice, currentEvent, studyWorkMult,
+  hire, enrollDeg, enrollLic, enrollShortCourse, dropStudySlot, changeInterest, bankOp, donate, applyEventChoice, applyAIChoice, currentEvent, studyWorkMult,
   spaceUpgradeReady, startSpaceUpgrade, spaceUpgradeDays, spaceMultiplier, SPACE_TRAVEL_COST,
   recordActivity, studyPace, sleepHealthMult, sleepHoursOptions,
   gameOverTier, botRows, type AIEvent, type AIEventKind, type GameState,
@@ -647,10 +647,57 @@ function EduTab({ s, act }: { s: GameState; act: Act }) {
         const ongoing = studies.some(study => study.kind === 'deg' && study.field === f);
         const reason = ongoing ? t('inProgress') : slotsFull ? t('busy') : s.age > F.maxAge[L - 1] ? t('tooOld') : '';
         const years = effYears(s, f, L);
+        const hasShort = s.shortCompleted?.some(id => SHORT_BY[id]?.field === f);
         return <Row key={f} art={F.art} right={<Btn ic="ic-cap" label={reason || t('enroll')} disabled={!!reason} onClick={() => act(st => enrollDeg(st, f))} />}>
           <b>{t('field.' + f, F.name)}: {F.names[L - 1]}</b>
-          <span className="sub">{years.toFixed(1)} {t('years')}{s.topField && s.topField !== f ? ` · ${t('studyExtraTime')}` : ''} · {F.tuition[L - 1] ? fmt(tuitionOf(s, f, L)) + t('perYear') + ' ' + t('tuition') + (s.topField === f ? ' (−20%)' : '') : t('funded')}{cur ? ' · ' + t('buildsOn') + ' ' + F.names[cur - 1] : ''}</span>
+          <span className="sub">{years.toFixed(1)} {t('years')}{s.topField && s.topField !== f ? ` · ${t('studyExtraTime')}` : ''} · {F.tuition[L - 1] ? fmt(tuitionOf(s, f, L)) + t('perYear') + ' ' + t('tuition') + (s.topField === f ? ' (−20%)' : '') : t('funded')}{hasShort ? ' (−10% short)' : ''}{cur ? ' · ' + t('buildsOn') + ' ' + F.names[cur - 1] : ''}</span>
           <span className="mini" style={{ display: 'block', marginTop: 2 }}>{t('schools')}: {F.schools.join(' · ')}</span>
+          {/* v11 — per-degree roadmap (goal / strengths / careers) */}
+          <span className="mini" style={{ display: 'block', marginTop: 2 }}><b>{t('v11.roadmap.goal')}</b>: {F.roadmap.goal}</span>
+          <span className="mini" style={{ display: 'block' }}><b>{t('v11.roadmap.strengths')}</b>: {F.roadmap.strengths}</span>
+          <span className="mini" style={{ display: 'block' }}><b>{t('v11.roadmap.careers')}</b>: {F.roadmap.careers}</span>
+        </Row>;
+      })}
+      {/* v11 — drop-out buttons for ongoing studies */}
+      {studies.length > 0 && (
+        <>
+          <h3>{t('v11.dropTitle')}</h3>
+          {studies.map(study => {
+            const slot = study === s.study ? 'study' : 'sideStudy';
+            return <Row key={slot} art="ic-x" right={<Btn ic="ic-x" label={t('v11.drop')} kind="ghost" onClick={() => act(st => dropStudySlot(st, slot))} />}>
+              <b>{study.name}</b>
+              <span className="sub">{Math.max(0, (study.end - s.day) / 365.25).toFixed(1)} {t('years')} {t('remaining')}</span>
+            </Row>;
+          })}
+        </>
+      )}
+      {/* v11 — short / accelerated courses */}
+      <h3>{t('v11.shortCourses')}</h3>
+      <p className="sub">{t('v11.shortNote')}</p>
+      {SHORT_COURSES.map(c => {
+        const done = s.shortCompleted?.includes(c.id);
+        const studying = studies.some(course => course.kind === 'lic' && course.id === c.id);
+        const busy = slotsFull;
+        return <Row key={c.id} art={c.art} right={<Btn ic={done ? 'ic-check' : 'ic-cap'} label={done ? t('done') : studying ? t('inProgress') : busy ? t('busy') : s.money < c.cost ? t('needLicence') : t('enroll')} disabled={done || !!studying || busy || s.money < c.cost} onClick={() => act(st => enrollShortCourse(st, c.id))} />}>
+          <b>{c.name}</b>
+          <span className="sub">{fmt(c.cost)} {t('fee')} · {t('dayCourse', '', { n: c.days })} · {t('field.' + c.field, FIELDS[c.field].name)}</span>
+          <span className="mini" style={{ display: 'block', marginTop: 2 }}>{c.blurb}</span>
+        </Row>;
+      })}
+      {/* v11 — change interests mid-life */}
+      <h3>{t('v11.pivotTitle')}</h3>
+      <p className="sub">{t('v11.pivotNote')}</p>
+      {s.ints.length === 0 && <p className="sub">{t('v11.noInterests')}</p>}
+      {s.ints.map(id => {
+        const cur = INTERESTS.find(i => i.id === id);
+        return <Row key={id} art={cur?.art || 'ic-bag'} right={
+          <select className="qty" style={{ width: 'auto', minWidth: 140 }} onChange={e => { if (e.target.value) act(st => changeInterest(st, id, e.target.value)); e.target.value = ''; }} disabled={s.money < 5000}>
+            <option value="">{t('v11.swapTo')}…</option>
+            {INTERESTS.filter(i => !s.ints.includes(i.id)).map(i => <option key={i.id} value={i.id}>{t('int.' + i.id, i.label)}</option>)}
+          </select>
+        }>
+          <b>{t('int.' + id, cur?.label || id)}</b>
+          <span className="sub">{t('v11.pivotCost')}: $5,000</span>
         </Row>;
       })}
       <h3>{t('licences')}</h3>

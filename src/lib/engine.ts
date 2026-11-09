@@ -7,7 +7,7 @@ import {
   LEVEL_INCOME_BONUS, xpNeed, GIGS, SPACE_LINES,
   ALLNEWS, YEAR_EVENTS, eraOf, FIELDS, LICENSES, LIC_BY, LIC_FOR, STAGES,
   BIZ, FARM_LINES, FAC_LINES, ITEM_BY, STOCKS, CLUBS, JOBS, BOTS,
-  NPC_BY, PET_BY, MAX_PETS, CREW_COST,
+  NPC_BY, PET_BY, MAX_PETS, CREW_COST, SHORT_BY,
   analyze, type FieldKey, type LineDef, type Req, type GigDef, type SpaceDef, type Rarity, RARITY_MULT, itemRarity, POST_TEMPLATES
 } from './gameData';
 
@@ -68,6 +68,10 @@ export interface GameState {
   // v11 — flag set by processDay when a random AI oracle popup should fire.
   // The React layer watches this and calls askAI() (async) when it flips true.
   aiEvPending: boolean;
+  // v11 — short courses the player has completed (ids from SHORT_COURSES).
+  // Each completion grants a 10% tuition reduction on the matching full
+  // degree field, read by tuitionOf.
+  shortCompleted: string[];
 }
 
 // ---------- wellbeing: body & mind ----------
@@ -265,7 +269,7 @@ export function fresh(): GameState {
     level: 1, xp: 0, gigs: {}, space: {}, social: { followers: 0, posts: [] },
     health: 92, spirit: 18, karma: 0, diet: false, well: {}, cause: null,
     sleepHours: 8, timeline: [], ach: [],
-    used: [], hall: null, pastLives: [], relations: {}, pets: [], clubs: [], aiEvPending: false
+    used: [], hall: null, pastLives: [], relations: {}, pets: [], clubs: [], aiEvPending: false, shortCompleted: []
   };
   STOCKS.forEach(x => { s.prices[x.id] = x.p; s.hist[x.id] = [x.p]; });
   return s;
@@ -306,6 +310,7 @@ export function migrate(raw: unknown): GameState {
   s.pets = Array.isArray(s.pets) ? s.pets : [];
   s.clubs = Array.isArray(s.clubs) ? s.clubs : (s.club ? [s.club] : []);
   s.aiEvPending = !!s.aiEvPending;
+  s.shortCompleted = Array.isArray(s.shortCompleted) ? s.shortCompleted : [];
   s.branches = s.branches || {};
   s.farm = s.farm || {}; s.fac = s.fac || {}; s.space = s.space || {};
   s.farmBought = s.farmBought || {}; s.facBought = s.facBought || {}; s.spaceBought = s.spaceBought || {};
@@ -439,7 +444,14 @@ export const taxOf = (inc: number) => {
   for (const [hi, rate] of TAX_BRACKETS) { if (inc > lo) { t += (Math.min(inc, hi) - lo) * rate; lo = hi; } else break; }
   return Math.round(t);
 };
-export const tuitionOf = (s: GameState, f: FieldKey, l: number) => Math.round(FIELDS[f].tuition[l - 1] * (s.topField === f ? .8 : 1));
+export const tuitionOf = (s: GameState, f: FieldKey, l: number) => {
+  let base = FIELDS[f].tuition[l - 1];
+  if (s.topField === f) base *= .8;
+  // v11 — short course in the same field grants 10% tuition reduction.
+  const hasShort = s.shortCompleted?.some(id => SHORT_BY[id]?.field === f);
+  if (hasShort) base *= .9;
+  return Math.round(base);
+};
 export const effYears = (s: GameState, f: FieldKey, l: number) =>
   FIELDS[f].years[l - 1] * (s.topField && s.topField !== f ? 1.25 : 1) * (s.tals.includes('focus') ? .9 : 1);
 export const studyWorkMult = (s: GameState) => (s.study || s.sideStudy) && jobsOf(s).some(job => job.ft) ? .6 : 1;
@@ -795,6 +807,50 @@ export function enrollLic(s: GameState, id: string): string | null {
   const parallel = s.sideStudy === course;
   pushLog(s, `Enrolled: ${l.name}${parallel ? ' as a parallel course' : ''}.`);
   return `Enrolled: ${l.name}${parallel ? ' (parallel course)' : ''}`;
+}
+
+// v11 — short / accelerated courses. Uses the same Study slot mechanism
+// as licences but completes faster and costs less. On completion, grants
+// a small XP boost + 10% tuition reduction for the matching full degree
+// (handled via a 'shortCompleted' record read by tuitionOf).
+export function enrollShortCourse(s: GameState, id: string): string | null {
+  const c = SHORT_BY[id]; if (!c) return null;
+  if (s.money < c.cost) return null;
+  if ([s.study, s.sideStudy].filter(Boolean).length >= 2) return null;
+  if (s.shortCompleted?.includes(id)) return `Already completed ${c.name}.`;
+  s.money -= c.cost;
+  const course: Study = { kind: 'lic', id: c.id, name: c.name, end: s.day + c.days, tuition: 0 };
+  if (s.study) s.sideStudy = course;
+  else s.study = course;
+  pushLog(s, `Enrolled: ${c.name}.`);
+  return `Enrolled: ${c.name}`;
+}
+// v11 — player-initiated drop-out. Frees a study slot immediately; the
+// study's progress is lost. Costs a small spirit hit (the guilt).
+export function dropStudySlot(s: GameState, slot: 'study' | 'sideStudy'): string | null {
+  const study = s[slot]; if (!study) return null;
+  pushLog(s, `Dropped ${study.name} (player-initiated).`);
+  s[slot] = null;
+  s.spirit = Math.max(0, s.spirit - 3);
+  return `Dropped ${study.name}`;
+}
+// v11 — change an interest mid-life. Costs cash + a small spirit hit
+// (life pivot). The new interest must not already be in s.ints; the old
+// one is removed. Useful when the era shifts and the player wants to
+// re-skill into a different field.
+export function changeInterest(s: GameState, oldId: string, newId: string): string | null {
+  if (!s.ints.includes(oldId)) return null;
+  if (s.ints.includes(newId)) return null;
+  if (s.money < 5000) return null;
+  s.money -= 5000;
+  s.spirit = Math.max(0, s.spirit - 5);
+  s.ints = s.ints.filter(i => i !== oldId);
+  s.ints.push(newId);
+  // Re-analyse top field since interests changed.
+  const a = analyze(s.ints, s.tals);
+  s.topField = a.top;
+  pushLog(s, `Pivoted interest: ${oldId} → ${newId}. Re-evaluated strongest field.`);
+  return `Pivoted: ${oldId} → ${newId}`;
 }
 export function bankOp(s: GameState, op: 'dep' | 'wd' | 'loan' | 'repay', amt: number | 'all'): string | null {
   const maxLoan = Math.max(0, Math.floor(netWorth(s) * .5 - s.bank.loan));
@@ -1393,7 +1449,14 @@ export function petFameBonus(s: GameState): number {
 }
 function finishStudy(s: GameState, study: Study, rng: () => number): void {
   if (study.kind === 'deg' && study.field) s.deg[study.field] = study.lvl!;
-  else if (study.id) s.lic[study.id] = true;
+  else if (study.id) {
+    s.lic[study.id] = true;
+    // v11 — if this was a short course, record it in shortCompleted so
+    // the matching full degree gets a 10% tuition reduction later.
+    if (SHORT_BY[study.id] && !s.shortCompleted.includes(study.id)) {
+      s.shortCompleted.push(study.id);
+    }
+  }
   addXp(s, study.kind === 'deg' ? 150 : 40, rng);
   pushLog(s, `Graduated: ${study.name}.`);
   addPost(s, study.kind === 'deg' ? `Officially graduated — ${study.name}!` : `Picked up a new licence: ${study.name}.`, 1.2, rng);
