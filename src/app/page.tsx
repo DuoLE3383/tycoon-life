@@ -12,7 +12,7 @@ import {
 } from '@/lib/gameData';
 import {
   fmt, taxOf, fresh, begin, tick, stageOf, worldYear, branchCount, bizCost, clubMult, branchNet, fameBonus, bizMultiplier,
-  bizIncome, jobOf, yearIncome, living, lotValue, upkeep, assetVal, bizVal, stockVal, netWorth,
+  bizIncome, yearIncome, living, lotValue, upkeep, assetVal, bizVal, stockVal, netWorth,
   effYears, tuitionOf, meets, reqText, knowledgeText, snapshot, dateOf,
   processDay, yearEnd,
   doGig, gigReady, gigLock, gigPay, addPost, buySpace, spaceIncome, socialIncome, levelMult,
@@ -21,9 +21,10 @@ import {
   spaceUpgradeReady, startSpaceUpgrade, spaceUpgradeDays, spaceMultiplier, SPACE_TRAVEL_COST,
   recordActivity, studyPace, sleepHealthMult, sleepHoursOptions,
   gameOverTier, botRows, type AIEvent, type GameState,
-  doWell, toggleDiet, wellReady, wellLeft, healthMult, healthState, spiritState, decayPerYear,
+  doWell, toggleDiet, wellReady, wellLeft, healthMult, healthState, healthWarnings, spiritState, decayPerYear,
+  jobsOf, jobIncome, studyTuition, type Religion, RELIGIONS,
   spiritBizMult, cosmicMult, GYM_COST, GYM_CD, CHECKUP_COST, CHECKUP_CD, DIET_COST,
-  TEMPLE_COST, TEMPLE_CD, RETREAT_COST, RETREAT_CD,
+  TEMPLE_COST, TEMPLE_CD, RETREAT_COST, RETREAT_CD, FAITH_PRACTICE_COST, FAITH_PRACTICE_CD,
 } from '@/lib/engine';
 import { localTwist } from '@/lib/story';
 import { useT, LANGS, type Lang } from '@/lib/i18n';
@@ -268,7 +269,7 @@ function AgeBox({ s, t }: { s: GameState; t: TFn }) {
 function HomeTab({ s, act, askAI, aiBusy, aiNote, eraName }: { s: GameState; act: Act; askAI: () => void; aiBusy: boolean; aiNote: string; eraName: (y: number) => string }) {
   const { t, lang } = useT();
   const y = worldYear(s), era = eraOf(y), news = ALLNEWS[y] || [];
-  const j = jobOf(s);
+  const activeJobs = jobsOf(s);
   const activeStudies = [s.study, s.sideStudy].filter((study): study is NonNullable<typeof study> => !!study);
   const studyTxt = activeStudies.length
     ? activeStudies.map(study => `${study.name} · ${Math.max(0, (study.end - s.day) / 365.25).toFixed(1)} ${t('years')}`).join(' · ')
@@ -278,7 +279,7 @@ function HomeTab({ s, act, askAI, aiBusy, aiNote, eraName }: { s: GameState; act
   const healthChangeText = `${healthChange > 0 ? '+' : ''}${healthChange}%`;
   const timelineLocale = { en: 'en-US', vi: 'vi-VN', zh: 'zh-CN' }[lang];
   const incRows: [string, number][] = [
-    [t('inc.salary'), j ? j.salary * studyWorkMult(s) : 0],
+    [t('inc.salary'), jobIncome(s)],
     [t('inc.biz'), bizIncome(s)],
     [t('inc.social'), socialIncome(s)],
     [t('inc.space'), spaceIncome(s)],
@@ -301,10 +302,13 @@ function HomeTab({ s, act, askAI, aiBusy, aiNote, eraName }: { s: GameState; act
             <Art id={stageOf(s.age).art} />
             <div>
               <b className="big">{s.name}, {t('stage.' + STAGES.indexOf(stageOf(s.age)), stageOf(s.age).name)}</b>
-              <div className="sub">{j ? t('workingAs', '', { j: t('job.' + j.id, j.name), s: fmt(j.salary * studyWorkMult(s)) }) : t('notEmployed')}</div>
+              <div className="sub">{activeJobs.length ? t('workingAs', '', {
+                j: activeJobs.map(job => t('job.' + job.id, job.name)).join(' · '),
+                s: fmt(jobIncome(s))
+              }) : t('notEmployed')}</div>
               <div className="sub">{t('knowledge')}: {knowledgeText(s)}</div>
               <div className="sub">{t('study')}: {studyTxt}</div>
-              <div className="sub">{t('rentBills')}: {fmt((living(Math.floor(s.age)) + upkeep(s) + (s.study && s.study.kind === 'deg' ? s.study.tuition : 0)) / 12)}{t('perMonth')}</div>
+              <div className="sub">{t('rentBills')}: {fmt((living(Math.floor(s.age)) + upkeep(s) + studyTuition(s)) / 12)}{t('perMonth')}</div>
             </div>
           </div>
           <div className="mini" style={{ marginTop: 10 }}>{t('level')} {s.level} · {s.xp}/{xpNeed(s.level)} XP · +{((s.level - 1) * 2).toFixed(0)}% {t('inc.total').toLowerCase()}</div>
@@ -315,6 +319,8 @@ function HomeTab({ s, act, askAI, aiBusy, aiNote, eraName }: { s: GameState; act
           </div>
         </div>
       </div>
+
+      <HealthAlerts s={s} />
 
       <div className="card" style={{ marginBottom: 10 }}>
         <div className="field" style={{ marginBottom: 4 }}>
@@ -411,19 +417,24 @@ function HomeTab({ s, act, askAI, aiBusy, aiNote, eraName }: { s: GameState; act
 function CareerTab({ s, act }: { s: GameState; act: Act }) {
   const { t } = useT();
   const reqLabel = useReqLabel();
+  const activeJobs = jobsOf(s);
   return (
     <>
       <h3>{t('jobs')}</h3>
       {JOBS.map(jb => {
-        const mine = s.job === jb.id;
+        const mine = activeJobs.some(job => job.id === jb.id);
         const studyingFullTime = jb.ft && (s.study || s.sideStudy);
-        const lock = !mine && !meets(s, jb.req) ? t('requires') + ' ' + reqLabel(jb.req) : s.age >= RETIRE ? t('stage.3') : '';
+        const sameSlot = activeJobs.find(job => job.ft === jb.ft);
+        const lock = mine ? '' : !meets(s, jb.req) ? t('requires') + ' ' + reqLabel(jb.req)
+          : s.age >= RETIRE ? t('stage.3')
+            : sameSlot ? t('jobSlotOccupied', '', { j: t('job.' + sameSlot.id, sameSlot.name) }) : '';
         return <Row key={jb.id} art={jb.art} right={<Btn ic={mine ? 'ic-x' : 'ic-plus'} label={mine ? t('quit') : (lock || t('apply'))} kind={mine ? 'ghost' : ''} disabled={!mine && !!lock}
           onClick={() => act(st => hire(st, jb.id))} />}>
           <b>{t('job.' + jb.id, jb.name)}{mine && ' · ' + t('current')}</b>
-          <span className="sub">{fmt(jb.salary * (studyWorkMult(s) < 1 && mine ? studyWorkMult(s) : 1))}{t('perYear')} · {t('requires')} {reqLabel(jb.req)}{studyingFullTime && mine ? ` · ${t('studyWorkNote')}` : ''}</span>
+          <span className="sub">{fmt(jb.salary * (studyWorkMult(s) < 1 && jb.ft && mine ? studyWorkMult(s) : 1))}{t('perYear')} · {t('requires')} {reqLabel(jb.req)}{studyingFullTime && mine ? ` · ${t('studyWorkNote')}` : ''}</span>
         </Row>;
       })}
+      <p className="sub">{t('multiJobNote')}</p>
       <p className="sub">{t('eduNote')}</p>
     </>
   );
@@ -432,15 +443,18 @@ function CareerTab({ s, act }: { s: GameState; act: Act }) {
 // ================= EDUCATION =================
 function EduTab({ s, act }: { s: GameState; act: Act }) {
   const { t } = useT();
-  const reqLabel = useReqLabel();
+  const studies = [s.study, s.sideStudy].filter((study): study is NonNullable<typeof study> => !!study);
+  const slotsFull = studies.length >= 2;
   return (
     <>
       <h3>{t('degrees')}</h3>
+      <p className="sub">{t('multiStudyNote')}</p>
       {(Object.keys(FIELDS) as FieldKey[]).map(f => {
         const F = FIELDS[f], cur = s.deg[f], max = F.names.length;
         if (cur >= max) return <Row key={f} art={F.art} right={<Btn ic="ic-check" label={t('done')} disabled />}><b>{t('field.' + f, F.name)}: {F.names[cur - 1]}</b><span className="sub">{t('highest')}</span></Row>;
         const L = cur + 1;
-        const reason = s.study ? (s.study.kind === 'deg' && s.study.field === f ? t('inProgress') : t('busy')) : s.age > F.maxAge[L - 1] ? t('tooOld') : '';
+        const ongoing = studies.some(study => study.kind === 'deg' && study.field === f);
+        const reason = ongoing ? t('inProgress') : slotsFull ? t('busy') : s.age > F.maxAge[L - 1] ? t('tooOld') : '';
         const years = effYears(s, f, L);
         return <Row key={f} art={F.art} right={<Btn ic="ic-cap" label={reason || t('enroll')} disabled={!!reason} onClick={() => act(st => enrollDeg(st, f))} />}>
           <b>{t('field.' + f, F.name)}: {F.names[L - 1]}</b>
@@ -450,14 +464,13 @@ function EduTab({ s, act }: { s: GameState; act: Act }) {
       <h3>{t('licences')}</h3>
       {LICENSES.map(l => {
         const owned = !!s.lic[l.id];
-        const studying = [s.study, s.sideStudy].some(course => course?.kind === 'lic' && course.id === l.id);
-        const canTakeEveningCourse = s.study?.kind === 'deg' && !s.sideStudy;
-        const busy = !!s.sideStudy || s.study?.kind === 'lic' || (!!s.study && !canTakeEveningCourse);
+        const studying = studies.some(course => course.kind === 'lic' && course.id === l.id);
+        const busy = slotsFull;
         const label = owned ? t('done') : studying ? t('inProgress') : busy ? t('busy') : s.money < l.cost ? t('needLicence') : t('enroll');
         return <Row key={l.id} art={l.art} right={<Btn ic={owned ? 'ic-check' : 'ic-cap'} label={owned ? t('done') : label} disabled={owned || !!studying || busy || s.money < l.cost}
           onClick={() => act(st => enrollLic(st, l.id))} />}>
           <b>{t('lic.' + l.id, l.name)}</b><span className="sub">{fmt(l.cost)} {t('fee')} · {t('dayCourse', '', { n: l.days })} · {t('neededFor')} {Object.keys(LIC_FOR).filter(k => LIC_FOR[k] === l.id).join(', ')}</span>
-          {canTakeEveningCourse && <span className="sub" style={{ display: 'block' }}>{t('eveningCourseNote')}</span>}
+          {studies.length === 1 && <span className="sub" style={{ display: 'block' }}>{t('parallelStudyNote')}</span>}
         </Row>;
       })}
       <p className="sub">{t('eduTip')}</p>
@@ -553,6 +566,7 @@ function HealthTab({ s, act }: { s: GameState; act: Act }) {
   ];
   return (
     <>
+      <HealthAlerts s={s} />
       <div className="card" style={{ marginBottom: 10 }}>
         <b style={{ fontSize: '1.05rem' }}>{t('healthTitle')}</b>
         <p className="sub" style={{ marginTop: 4 }}>{t('healthSub')}</p>
@@ -577,6 +591,18 @@ function HealthTab({ s, act }: { s: GameState; act: Act }) {
   );
 }
 
+function HealthAlerts({ s }: { s: GameState }) {
+  const { t } = useT();
+  const warnings = healthWarnings(s);
+  if (!warnings.length) return null;
+  return (
+    <div className="card" role="status" style={{ marginBottom: 10, borderColor: s.health < 40 ? 'var(--brick)' : 'var(--gold)' }}>
+      <b>{t('hp.adviceTitle')}</b>
+      {warnings.map(warning => <p key={warning} className="sub" style={{ margin: '5px 0 0' }}>• {t('hp.advice.' + warning)}</p>)}
+    </div>
+  );
+}
+
 // ================= MIND & SPIRIT =================
 function SpiritTab({ s, act }: { s: GameState; act: Act }) {
   const { t } = useT();
@@ -591,21 +617,26 @@ function SpiritTab({ s, act }: { s: GameState; act: Act }) {
     { on: s.spirit >= 70, label: t('sp.aging'), need: 70 },
     { on: s.spirit >= 80, label: t('sp.cosmic'), need: 80 },
   ];
+  const rowsWithFaith = [
+    ...rows,
+    { id: 'faithPractice', art: 'w-lotus', name: t('faith.action.' + s.religion), cost: FAITH_PRACTICE_COST, cd: FAITH_PRACTICE_CD, gain: 3 }
+  ];
   return (
     <>
       <div className="card" style={{ marginBottom: 10 }}>
         <b style={{ fontSize: '1.05rem' }}>{t('spiritTitle')}</b>
         <p className="sub" style={{ marginTop: 4 }}>{t('spiritSub')}</p>
+        <p className="sub"><b>{t('religion')}:</b> {t('religion.' + s.religion)} · {t('faith.guidance.' + s.religion)}</p>
         <div className="famewrap"><span className="mini">{t('spirit')}</span><div className="famebar"><i style={{ width: sp + '%', background: 'var(--slate)' }} /></div><b>{sp}</b></div>
         <div className="mini">{t('sp.state.' + stIdx)} · {t('karma')}: {s.karma}</div>
       </div>
-      {rows.map(r => {
+      {rowsWithFaith.map(r => {
         const left = wellLeft(s, r.id), ready = wellReady(s, r.id);
         return <Row key={r.id} art={r.art} right={<Btn ic="ic-plus" dp={{ 'data-well': r.id }}
           label={!ready && left > 0 ? t('gig.cooldown', '', { n: left }) : r.cost ? `${r.name} · ${fmt(r.cost)}` : r.name}
           disabled={!ready} onClick={() => act(st => doWell(st, r.id, t))} />}>
           <b>{r.name}</b>
-          <span className="sub">+{r.gain} {t('spirit').toLowerCase()} · {t('gig.cooldown', '', { n: r.cd })}{r.cost ? ` · ${fmt(r.cost)}` : ''}</span>
+          <span className="sub">{r.id === 'faithPractice' ? t('faith.practiceInfo') : `+${r.gain} ${t('spirit').toLowerCase()} · ${t('gig.cooldown', '', { n: r.cd })}${r.cost ? ` · ${fmt(r.cost)}` : ''}`}</span>
         </Row>;
       })}
       <h3>{t('sp.perks')}</h3>
@@ -899,7 +930,7 @@ function LinksTab({ s }: { s: GameState }) {
   const val = (id: string): string => {
     switch (id) {
       case 'edu': { const ds = (Object.keys(FIELDS) as FieldKey[]).filter(f => s.deg[f]).map(f => FIELDS[f].names[s.deg[f] - 1]); return cut(ds.length ? ds[ds.length - 1] : t('ln.edu.none')); }
-      case 'job': { const j = jobOf(s); return cut(j ? t('job.' + j.id, j.name) : t('ln.job.none')); }
+      case 'job': { const current = jobsOf(s); return cut(current.length ? current.map(j => t('job.' + j.id, j.name)).join(' + ') : t('ln.job.none')); }
       case 'biz': return '+' + fmt(bizIncome(s)) + t('perYear');
       case 'space': return spaceIncome(s) > 0 ? '+' + fmt(spaceIncome(s)) + t('perYear') : '—';
       case 'health': return Math.round(s.health) + '/100';
@@ -917,7 +948,7 @@ function LinksTab({ s }: { s: GameState }) {
   const rows: [string, string][] = [
     ['ln.f.eduJob', (() => { const k = knowledgeText(s); return k === 'None yet' ? '—' : cut(k, 26); })()],
     ['ln.f.eduBiz', '×' + (1 + .15 * s.deg.business).toFixed(2)],
-    ['ln.f.jobInc', jobOf(s) ? '+' + fmt(jobOf(s)!.salary) + t('perYear') : '—'],
+    ['ln.f.jobInc', jobIncome(s) ? '+' + fmt(jobIncome(s)) + t('perYear') : '—'],
     ['ln.f.bizInc', '+' + fmt(bizIncome(s)) + t('perYear')],
     ['ln.f.spaceInc', '×' + spaceMultiplier(s).toFixed(2)],
     ['ln.f.socInc', '+' + fmt(socialIncome(s)) + t('perYear')],
@@ -969,11 +1000,12 @@ function LinksTab({ s }: { s: GameState }) {
 }
 
 // ================= INTRO =================
-function Intro({ onBegin }: { onBegin: (o: { name: string; byear: number; nation: string; ints: string[]; tals: string[] }) => void }) {
+function Intro({ onBegin }: { onBegin: (o: { name: string; byear: number; nation: string; religion: Religion; ints: string[]; tals: string[] }) => void }) {
   const { t, lang, setLang } = useT();
   const [name, setName] = useState('');
   const [byear, setByear] = useState(1992);
   const [nation, setNation] = useState('Vietnam');
+  const [religion, setReligion] = useState<Religion>('none');
   const [ints, setInts] = useState<string[]>([]);
   const [tals, setTals] = useState<string[]>([]);
   const years: number[] = [];
@@ -999,6 +1031,11 @@ function Intro({ onBegin }: { onBegin: (o: { name: string; byear: number; nation
         <select value={byear} onChange={e => setByear(+e.target.value)}>{years.map(y => <option key={y} value={y}>{y}</option>)}</select></div>
       <div className="field"><label>{t('country')}</label>
         <select value={nation} onChange={e => setNation(e.target.value)}>{NATIONS.map(n => <option key={n} value={n}>{t('nat.' + n, n)}</option>)}</select></div>
+      <div className="field"><label>{t('religion')}</label>
+        <select value={religion} onChange={e => setReligion(e.target.value as Religion)}>
+          {RELIGIONS.map(option => <option key={option} value={option}>{t('religion.' + option)}</option>)}
+        </select>
+      </div>
       <div className="field"><label>{t('interests')}</label>
         <div className="chips">{INTERESTS.map(i => (
           <button key={i.id} className={'chip' + (ints.includes(i.id) ? ' on' : '')} onClick={() => toggle(ints, setInts, i.id, 3)}><Art id={i.art} className="ca" />{t('int.' + i.id, i.label)}</button>
@@ -1015,7 +1052,7 @@ function Intro({ onBegin }: { onBegin: (o: { name: string; byear: number; nation
             <div>{a.perks.map(p => <span key={p} className="perk">{p}</span>)}</div></>
           : <p className="mini">{t('pickHint')}</p>}
       </div>
-      <button className="ibtn" style={{ width: '100%' }} onClick={() => onBegin({ name: name || 'Alex', byear, nation, ints, tals })}>
+      <button className="ibtn" style={{ width: '100%' }} onClick={() => onBegin({ name: name || 'Alex', byear, nation, religion, ints, tals })}>
         <Ic id="ic-plus" className="bsi" /><span>{t('begin')}</span>
       </button>
     </div></div>

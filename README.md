@@ -31,10 +31,17 @@
 ## Cập nhật tính năng và cân bằng
 
 - Vừa học vừa làm được; lương công việc toàn thời gian còn 60% khi đang học.
-  Có thể học thêm một khóa giấy phép ngắn song song với bằng chính.
+  Có thể học đồng thời hai chương trình ở các ngành khác nhau. Mỗi bằng hoặc
+  chứng chỉ có tiến độ và học phí riêng; một số nghề mới cần kết hợp bằng cấp
+  liên ngành. Có thể làm một công việc toàn thời gian cùng một việc bán thời gian.
 - Chọn ngủ 4–10 giờ mỗi ngày: ngủ ít giúp học nhanh hơn nhưng làm sức khỏe
   suy giảm nhanh hơn; ngủ trên 8 giờ giúp bảo vệ sức khỏe. Timeline ở Home ghi
   lại nếp sinh hoạt và hành động trong 45 ngày game gần nhất.
+- Chọn tôn giáo hoặc thế giới quan lúc tạo nhân vật; tab Tâm linh hiển thị
+  gợi ý phù hợp và một hoạt động nhỏ. Có thể quyên góp từ thiện ở Ngân hàng;
+  hoạt động Phật giáo về động vật hướng tới cứu hộ an toàn, không thả loài ngoại lai.
+- Home và tab Sức khoẻ cảnh báo khi sức khoẻ thấp, ngủ thiếu hoặc cần chú ý
+  chế độ ăn; gợi ý nghỉ ngơi, ăn lành mạnh, tập luyện và khám sức khoẻ.
 - Thu nhập gig tăng theo căn bậc hai của thu nhập năm; tổng hệ số thu nhập
   kinh doanh có trần ×3. Tài sản kinh doanh, nông trại, nhà máy và vũ trụ đều
   được khấu hao theo năm game.
@@ -105,6 +112,9 @@ Bắt đầu 92/100. Suy giảm mỗi ngày theo tuổi (±25% random): **<30 tu
 | 🥗 Chế độ ăn lành mạnh | $6/ngày (~$2,190/năm) | bật/tắt | suy giảm sức khoẻ **×0.55** |
 
 - **Sức khoẻ thấp = nghèo hơn**: thu nhập từ việc nhanh nhân `0.7 + 0.3×HP/100` (HP 20 → chỉ nhận 76% tiền).
+- Home và tab Sức khoẻ sẽ nhắc khi sức khoẻ xuống thấp, lịch ngủ dưới 7 giờ
+  hoặc cần chú ý chế độ ăn; gợi ý nghỉ ngơi, ăn lành mạnh, tập luyện và khám
+  sức khoẻ.
 - Tâm linh ≥70 còn **chậm lão hoá thêm 15%**.
 - HP về 0 → **kết thúc run ngay lập tức**. Dưới 15 HP, game nhắc bạn mỗi tháng.
 - Sự kiện *Bệnh hiểm nghèo* (10%/năm): mổ tư $30,000 (+20 HP) · bệnh viện công −$5,000 (+5 HP, chờ hàng tháng trời) · nghỉ nhà (−10 HP, mất lương).
@@ -121,6 +131,10 @@ Bắt đầu 18/100. Ba hành động:
 - **Tâm linh ≥70**: thu nhập kinh doanh **×1.10** và lão hoá chậm 15%.
 - **Tâm linh ≥80**: thu nhập vũ trụ **×1.25** (cosmic alignment).
 - **Karma** tăng từ thiện, đám cưới, lễ chùa; giảm khi ly hôn, tang gia. Đời sống tinh thần bị sự kiện thật tác động: đám cưới +4/+5, sinh con +3, ly hôn −5..−8, tang cha/mẹ −10..−12, burnout −6.
+- Chọn tôn giáo hoặc thế giới quan ngay khi tạo nhân vật; tab này đưa ra gợi ý
+  tương ứng. Có hoạt động nhỏ mỗi 7 ngày; gợi ý phóng sinh được thể hiện bằng
+  hỗ trợ cứu hộ động vật an toàn, không thả loài ngoại lai. Quyên góp từ thiện
+  luôn có ở tab Ngân hàng.
 
 ### 📚 Nhóm TRI THỨC
 
@@ -136,13 +150,16 @@ Bắt đầu 18/100. Ba hành động:
 | Arts | B.A → M.A | 4n / 2n | $4,000 / $8,000 | 30 / 36 |
 
 - Ngành **sở trường** (từ sở thích + tài năng): học phí **−20%**; tài năng *focus*: thời gian **−10%**.
-- Có thể vừa học vừa làm (lương toàn thời gian còn 60%) và học thêm một giấy phép ngắn song song với bằng chính. Ngành không phải sở trường mất thêm 25% thời gian.
+- Có thể học đồng thời hai chương trình ở các ngành khác nhau; mỗi chương trình
+  có học phí và tiến độ riêng. Có thể vừa học vừa làm (lương toàn thời gian còn
+  60%). Ngành không phải sở trường mất thêm 25% thời gian.
 - Ngủ ít hơn 8 giờ giúp tiến độ học nhanh hơn nhưng làm sức khỏe suy giảm nhanh hơn; ngủ trên 8 giờ giúp bảo vệ sức khỏe.
 - Giấy phép lái xe: mô tô $350 (30 ngày) · ô tô $600 (60) · thuyền $1,500 (90) · **phi công tư nhân $20,000 (365 ngày)** — khoá mở nghề phi công thương mại $200k/năm.
 - Bằng Business còn cho **+15% thu nhập kinh doanh mỗi cấp** (MBA = +30%).
 
 #### 💼 Jobs — nghề nghiệp
-15 nghề, lương/năm, trả mỗi 14 ngày (≈ lương/26 kỳ):
+18 nghề, lương/năm, trả mỗi 14 ngày (≈ lương/26 kỳ). Có thể giữ một nghề toàn
+thời gian cùng một nghề bán thời gian:
 
 | Nghề | Lương/năm | Yêu cầu |
 |---|---|---|
@@ -161,6 +178,9 @@ Bắt đầu 18/100. Ba hành động:
 | Giám đốc điều hành | $220,000 | MBA, 30+ |
 | Phi công thương mại | $200,000 | bằng phi công, 21+ |
 | Bác sĩ phẫu thuật | $280,000 | MD |
+| Thiết kế sản phẩm | $96,000 | Kỹ thuật + Nghệ thuật |
+| Quản lý y tế | $135,000 | Kinh doanh + Y khoa |
+| Nghiên cứu công nghệ sinh học | $170,000 | Khoa học cấp 2 + Y khoa |
 
 - Nghỉ hưu ở 65 — sau đó kế sinh nhai là lương hưu + doanh nghiệp + đầu tư.
 - Event *Sa thải* (chỉ nghề full-time): nhận trợ cấp 3 tháng lương, hoặc chống lại 50/50.
@@ -479,7 +499,7 @@ npm test
 src/app/page.tsx        toàn bộ UI game (nav 2 cấp 6 nhóm, 14 tab, bản đồ Links, popup sự kiện & AI)
 src/app/api/story/      endpoint LLM "life director" (chỉ dùng khi tự host)
 src/lib/engine.ts       engine: thời gian, kinh tế, thuế, gigs, level, social, sức khoẻ & tâm linh, ranking
-src/lib/gameData.ts     dữ liệu: nav, 10 biz, farm/factory/space lines, 41 món shop, 9 cổ phiếu, 15 nghề, 26 đối thủ, lịch sử & thời đại
+src/lib/gameData.ts     dữ liệu: nav, 10 biz, farm/factory/space lines, 41 món shop, 9 cổ phiếu, 18 nghề, 26 đối thủ, lịch sử & thời đại
 src/lib/story.ts        bộ máy truyện cục bộ (16 template, chống lặp, co giãn theo tài sản)
 src/lib/store.ts        state ngoài React + tự lưu localStorage
 src/lib/i18n.tsx        từ điển EN / VI / 中文 + bộ chuyển đổi

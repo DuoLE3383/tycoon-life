@@ -270,7 +270,7 @@ export const JOBS: JobDef[] = [
   { id: 'clerk', name: 'Office clerk', salary: 32000, req: { any: 1 }, ft: true, art: 'j-clerk' },
   { id: 'teacher', name: 'High school teacher', salary: 48000, req: { any: 1 }, ft: true, art: 'j-teach' },
   { id: 'accountant', name: 'Accountant', salary: 70000, req: { deg: { business: 1 } }, ft: true, art: 'j-clerk' },
-  { id: 'nurse', name: 'Registered nurse', salary: 62000, req: { deg: { science: 1 } }, ft: true, art: 'j-nurse' },
+  { id: 'nurse', name: 'Registered nurse', salary: 62000, req: { deg: { medicine: 1 } }, ft: true, art: 'j-nurse' },
   { id: 'mgr', name: 'Project manager', salary: 95000, req: { deg: { business: 1 }, age: 26 }, ft: true, art: 'j-mgr' },
   { id: 'eng', name: 'Software engineer', salary: 110000, req: { deg: { engineering: 1 }, age: 22 }, ft: true, art: 'j-eng' },
   { id: 'lead', name: 'Lead engineer', salary: 135000, req: { deg: { engineering: 2 }, age: 26 }, ft: true, art: 'j-eng' },
@@ -279,7 +279,10 @@ export const JOBS: JobDef[] = [
   { id: 'mkt', name: 'Marketing director', salary: 150000, req: { deg: { business: 2 }, age: 28 }, ft: true, art: 'b-corp' },
   { id: 'exec', name: 'Executive director', salary: 220000, req: { deg: { business: 2 }, age: 30 }, ft: true, art: 'b-corp' },
   { id: 'pilot', name: 'Commercial pilot', salary: 200000, req: { lic: ['pilot'], age: 21 }, ft: true, art: 'i-jet' },
-  { id: 'surg', name: 'Surgeon', salary: 280000, req: { deg: { medicine: 2 } }, ft: true, art: 'j-surg' }
+  { id: 'surg', name: 'Surgeon', salary: 280000, req: { deg: { medicine: 2 } }, ft: true, art: 'j-surg' },
+  { id: 'product', name: 'Product designer', salary: 96000, req: { deg: { engineering: 1, arts: 1 } }, ft: true, art: 'j-eng' },
+  { id: 'healthadmin', name: 'Healthcare administrator', salary: 135000, req: { deg: { business: 1, medicine: 1 } }, ft: true, art: 'j-mgr' },
+  { id: 'biotech', name: 'Biotech researcher', salary: 170000, req: { deg: { science: 2, medicine: 1 } }, ft: true, art: 'u-book' }
 ];
 // Rivals: [name, age, nation, industry, base net worth]
 export const BOTS: [string, number, string, string, number][] = [

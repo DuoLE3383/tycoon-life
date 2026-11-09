@@ -18,6 +18,8 @@ export interface DayTimeline { day: number; entries: string[] }
 export interface AIChoice { l: string; cost?: number; money?: number; fame?: number; out?: string }
 export interface AIEvent { title: string; text: string; choices: AIChoice[]; source?: 'backend' | 'local' }
 export interface Post { d: number; t: string; likes: number }
+export type Religion = 'none' | 'buddhism' | 'christianity' | 'islam' | 'hinduism' | 'folk';
+export const RELIGIONS: Religion[] = ['none', 'buddhism', 'christianity', 'islam', 'hinduism', 'folk'];
 export interface GameState {
   schemaVersion: number;
   money: number; age: number; day: number; lastDay: number; lastYr: number;
@@ -26,9 +28,9 @@ export interface GameState {
   farmBought: Record<string, number>; facBought: Record<string, number>; spaceBought: Record<string, number>;
   spaceUpgrade: { startedDay: number; completesDay: number } | null; spaceTravel: boolean;
   lots: { id: string; paid: number; day: number }[]; stk: Record<string, number>;
-  club: string | null; ownClub: string | null; job: string | null;
+  club: string | null; ownClub: string | null; job: string | null; sideJob: string | null;
   deg: Record<FieldKey, number>; lic: Record<string, boolean>; study: Study | null; sideStudy: Study | null;
-  name: string; byear: number; nation: string; ints: string[]; tals: string[]; topField: FieldKey | null;
+  name: string; byear: number; nation: string; religion: Religion; ints: string[]; tals: string[]; topField: FieldKey | null;
   started: boolean;
   bank: { dep: number; loan: number }; fame: number; donated: number; yIncome: number; yTax: number;
   prices: Record<string, number>; hist: Record<string, number[]>;
@@ -50,12 +52,14 @@ export const DIET_COST = 6;
 export const TEMPLE_COST = 500, TEMPLE_CD = 3;
 export const RETREAT_COST = 8000, RETREAT_CD = 60;
 export interface WellDef { id: string; cost: number; cd: number }
+export const FAITH_PRACTICE_COST = 250, FAITH_PRACTICE_CD = 7;
 export const WELL: WellDef[] = [
   { id: 'gym', cost: GYM_COST, cd: GYM_CD },
   { id: 'checkup', cost: CHECKUP_COST, cd: CHECKUP_CD },
   { id: 'meditate', cost: 0, cd: 1 },
   { id: 'temple', cost: TEMPLE_COST, cd: TEMPLE_CD },
   { id: 'retreat', cost: RETREAT_COST, cd: RETREAT_CD },
+  { id: 'faithPractice', cost: FAITH_PRACTICE_COST, cd: FAITH_PRACTICE_CD },
 ];
 export const wellDef = (id: string) => WELL.find(w => w.id === id);
 export const wellReady = (s: GameState, id: string) => {
@@ -78,6 +82,16 @@ export const decayPerYear = (s: GameState) => Math.round(ageDecayPerDay(s.age) *
 export const spiritBizMult = (s: GameState) => (s.spirit >= 70 ? 1.1 : 1);
 export const cosmicMult = (s: GameState) => (s.spirit >= 80 ? 1.25 : 1);
 export const healthState = (h: number) => h >= 80 ? 0 : h >= 60 ? 1 : h >= 40 ? 2 : h >= 20 ? 3 : 4;
+export type HealthWarning = 'critical' | 'low' | 'recover' | 'sleep' | 'diet';
+export function healthWarnings(s: GameState): HealthWarning[] {
+  const warnings: HealthWarning[] = [];
+  if (s.health < 20) warnings.push('critical');
+  else if (s.health < 40) warnings.push('low');
+  else if (s.health < 60) warnings.push('recover');
+  if (s.sleepHours < 7) warnings.push('sleep');
+  if (!s.diet && s.health < 70) warnings.push('diet');
+  return warnings;
+}
 export const spiritState = (v: number) => v >= 80 ? 3 : v >= 55 ? 2 : v >= 30 ? 1 : 0;
 export function doWell(s: GameState, id: string, t: T): string | null {
   const w = wellDef(id); if (!w) return null;
@@ -92,6 +106,7 @@ export function doWell(s: GameState, id: string, t: T): string | null {
   if (id === 'meditate') { s.spirit = Math.min(100, s.spirit + 4); s.karma += 1; addXp(s, 3); return t('sp.medDone', '', { n: 4 }); }
   if (id === 'temple') { s.spirit = Math.min(100, s.spirit + 6); s.karma += 5; addXp(s, 5); return t('sp.templeDone', '', { n: 6, k: 5 }); }
   if (id === 'retreat') { s.spirit = Math.min(100, s.spirit + 25); s.karma += 15; s.health = Math.min(100, s.health + 5); addXp(s, 30); pushLog(s, 'Silent retreat — ten days of stillness.'); return t('sp.retreatDone'); }
+  if (id === 'faithPractice') { s.spirit = Math.min(100, s.spirit + 3); s.karma += 2; addXp(s, 3); return t('sp.faithDone'); }
   return null;
 }
 export function toggleDiet(s: GameState, t: T): string {
@@ -177,12 +192,12 @@ export function buySpace(s: GameState, id: string): string | null {
 
 export function fresh(): GameState {
   const s: GameState = {
-    schemaVersion: 2,
+    schemaVersion: 3,
     money: 0, age: START, day: 0, lastDay: 0, lastYr: START, biz: {}, branches: {}, farm: {}, fac: {},
     farmBought: {}, facBought: {}, spaceBought: {}, spaceUpgrade: null, spaceTravel: false,
-    lots: [], stk: {}, club: null, ownClub: null, job: null,
+    lots: [], stk: {},     club: null, ownClub: null, job: null, sideJob: null,
     deg: { business: 0, engineering: 0, medicine: 0, science: 0, arts: 0 }, lic: {}, study: null, sideStudy: null,
-    name: 'Alex', byear: 1992, nation: 'Vietnam', ints: [], tals: [], topField: null, started: false,
+    name: 'Alex', byear: 1992, nation: 'Vietnam', religion: 'none', ints: [], tals: [], topField: null, started: false,
     bank: { dep: 0, loan: 0 }, fame: 0, donated: 0, yIncome: 0, yTax: 0,
     prices: {}, hist: {}, eraBiz: 1, eraFac: 1,
     log: [], over: false, pending: null, aiEv: null,
@@ -198,7 +213,7 @@ export function migrate(raw: unknown): GameState {
   const source = raw && typeof raw === 'object' ? raw as Partial<GameState> : {};
   const s = Object.assign(fresh(), source);
   let version = Number.isInteger(source.schemaVersion) && source.schemaVersion! >= 0 ? source.schemaVersion! : 0;
-  while (version < 2) {
+  while (version < 3) {
     if (version === 0) {
       s.schemaVersion = 1;
       version = 1;
@@ -208,9 +223,14 @@ export function migrate(raw: unknown): GameState {
       s.timeline = [];
       s.schemaVersion = 2;
       version = 2;
+    } else if (version === 2) {
+      s.sideJob = null;
+      s.religion = 'none';
+      s.schemaVersion = 3;
+      version = 3;
     }
   }
-  s.schemaVersion = Math.max(s.schemaVersion || 0, 2);
+  s.schemaVersion = Math.max(s.schemaVersion || 0, 3);
   s.bank = s.bank || { dep: 0, loan: 0 };
   s.story = s.story || { used: [] };
   s.branches = s.branches || {};
@@ -218,6 +238,13 @@ export function migrate(raw: unknown): GameState {
   s.farmBought = s.farmBought || {}; s.facBought = s.facBought || {}; s.spaceBought = s.spaceBought || {};
   s.spaceUpgrade = s.spaceUpgrade || null; s.spaceTravel = !!s.spaceTravel;
   s.sideStudy = s.sideStudy || null;
+  s.sideJob = s.sideJob || null;
+  const savedPrimaryJob = JOBS.find(job => job.id === s.job);
+  if (savedPrimaryJob && !savedPrimaryJob.ft && !s.sideJob) {
+    s.sideJob = savedPrimaryJob.id;
+    s.job = null;
+  }
+  if (!RELIGIONS.includes(s.religion)) s.religion = 'none';
   s.sleepHours = typeof s.sleepHours === 'number' ? Math.min(10, Math.max(4, s.sleepHours)) : 8;
   s.timeline = Array.isArray(s.timeline) ? s.timeline.slice(-45) : [];
   BIZ.forEach(b => (s.branches[b.id] || []).forEach((br, i) => {
@@ -240,11 +267,11 @@ export function migrate(raw: unknown): GameState {
   STOCKS.forEach(x => { if (s.prices[x.id] == null) { s.prices[x.id] = x.p; s.hist[x.id] = [x.p]; } });
   return s;
 }
-export function begin(s: GameState, opts: { name: string; byear: number; nation: string; ints: string[]; tals: string[] }) {
+export function begin(s: GameState, opts: { name: string; byear: number; nation: string; religion?: Religion; ints: string[]; tals: string[] }) {
   const a = analyze(opts.ints, opts.tals);
   Object.assign(s, fresh(), { started: true });
   s.name = opts.name.slice(0, 24) || 'Alex';
-  s.byear = opts.byear; s.nation = opts.nation;
+  s.byear = opts.byear; s.nation = opts.nation; s.religion = opts.religion || 'none';
   s.ints = [...opts.ints]; s.tals = [...opts.tals]; s.topField = a.top;
   if (opts.ints.includes('money')) s.money = 5000;
   s.log.push(`1 Sep ${s.byear + 18}: ${s.name} turns 18 in the ${eraOf(s.byear + 18).name}. Find a job, or study for a degree or licence.`);
@@ -282,8 +309,15 @@ export const bizIncome = (s: GameState) => { // annual
   ann += farmIncome(s) + facIncome(s);
   return Math.max(0, ann) * bizMultiplier(s);
 };
-export const jobOf = (s: GameState) => JOBS.find(j => j.id === s.job);
-export const yearIncome = (s: GameState) => bizIncome(s) + spaceIncome(s) + socialIncome(s) + (jobOf(s) ? jobOf(s)!.salary * studyWorkMult(s) : 0) + (s.age >= RETIRE ? PENSION : 0);
+export const jobsOf = (s: GameState) => [s.job, s.sideJob]
+  .filter((id, index, all): id is string => !!id && all.indexOf(id) === index)
+  .map(id => JOBS.find(j => j.id === id))
+  .filter((job): job is (typeof JOBS)[number] => !!job);
+export const jobOf = (s: GameState) => jobsOf(s)[0];
+export const jobIncome = (s: GameState) => jobsOf(s).reduce((total, job) => total + job.salary * (job.ft ? studyWorkMult(s) : 1), 0);
+export const studyTuition = (s: GameState) => [s.study, s.sideStudy]
+  .reduce((total, study) => total + (study?.kind === 'deg' ? study.tuition : 0), 0);
+export const yearIncome = (s: GameState) => bizIncome(s) + spaceIncome(s) + socialIncome(s) + jobIncome(s) + (s.age >= RETIRE ? PENSION : 0);
 export const living = (age: number) => Math.round(3000 * Math.pow(1.03, age - START));
 export const lotValue = (s: GameState, l: { id: string; paid: number; day: number }) => {
   const itemRate = ITEM_BY[l.id].rate;
@@ -314,7 +348,7 @@ export const taxOf = (inc: number) => {
 export const tuitionOf = (s: GameState, f: FieldKey, l: number) => Math.round(FIELDS[f].tuition[l - 1] * (s.topField === f ? .8 : 1));
 export const effYears = (s: GameState, f: FieldKey, l: number) =>
   FIELDS[f].years[l - 1] * (s.topField && s.topField !== f ? 1.25 : 1) * (s.tals.includes('focus') ? .9 : 1);
-export const studyWorkMult = (s: GameState) => (s.study || s.sideStudy) && jobOf(s)?.ft ? .6 : 1;
+export const studyWorkMult = (s: GameState) => (s.study || s.sideStudy) && jobsOf(s).some(job => job.ft) ? .6 : 1;
 export const spaceUpgradeDays = 365;
 export const SPACE_TRAVEL_COST = 10000000;
 export const sleepHoursOptions = [4, 5, 6, 7, 8, 9, 10] as const;
@@ -361,7 +395,8 @@ export function reqText(r?: Req): string {
 export function processDay(s: GameState, d: number, rng: () => number = Math.random): void {
   const dt = dateOf(s, d);
   const routine = [`${s.sleepHours}h sleep`];
-  if (jobOf(s)) routine.push(`Work: ${jobOf(s)!.name}${studyWorkMult(s) < 1 ? ' (reduced hours for study)' : ''}`);
+  const jobs = jobsOf(s);
+  if (jobs.length) routine.push(`Work: ${jobs.map(job => `${job.name}${job.ft && studyWorkMult(s) < 1 ? ' (reduced hours for study)' : ''}`).join(' + ')}`);
   const studies = [s.study, s.sideStudy].filter((study): study is Study => !!study);
   if (studies.length) routine.push(`Study: ${studies.map(study => study.name).join(' + ')}`);
   recordActivity(s, routine.join(' · '), d);
@@ -373,12 +408,12 @@ export function processDay(s: GameState, d: number, rng: () => number = Math.ran
   if (s.diet) s.money -= DIET_COST;
   if (s.health <= 15 && d % 30 === 0) pushLog(s, 'Your health is fragile — eat well, rest, see a doctor.');
   if (d % 14 === 0) {
-    const j = jobOf(s), net = (j ? j.salary * studyWorkMult(s) / 26 : 0) + (s.age >= RETIRE ? PENSION / 26 : 0);
+    const net = jobIncome(s) / 26 + (s.age >= RETIRE ? PENSION / 26 : 0);
     if (net > 0) { s.money += net; s.yIncome += net; pushLog(s, `Payday: +${fmt(net)}.`); }
   }
   if (dt.getUTCDate() === 1) {
     const profit = bizIncome(s) / 12 + spaceIncome(s) / 12 + socialIncome(s) / 12;
-    const tuition = s.study && s.study.kind === 'deg' ? s.study.tuition / 12 : 0;
+    const tuition = studyTuition(s) / 12;
     const loanInt = s.bank.loan * LOAN_RATE / 12;
     const bills = living(s.age) / 12 + upkeep(s) / 12 + tuition + s.kids * 400 + loanInt;
     const interest = s.bank.dep * SAVE_RATE / 12;
@@ -456,7 +491,7 @@ const EVENTS: ((s: GameState, rng: () => number) => { msg: string; cash: number;
 ];
 export function yearEnd(s: GameState, age: number, rng: () => number = Math.random): void {
   pushLog(s, `Happy birthday. You are now ${age}.`);
-  if (age === RETIRE) { s.job = null; pushLog(s, 'You retired. Your pension starts.'); }
+  if (age === RETIRE) { s.job = null; s.sideJob = null; pushLog(s, 'You retired. Your pension starts.'); }
   if (s.fame > 0) s.fame = Math.max(0, Math.round(s.fame * .92));
   if (rng() < .6) {
     const ev = EVENTS[Math.floor(rng() * EVENTS.length)](s, rng);
@@ -555,27 +590,36 @@ export function foundClub(s: GameState, name: string): string | null {
 export function hire(s: GameState, id: string): string | null {
   const j = JOBS.find(q => q.id === id); if (!j) return null;
   if (s.job === j.id) { s.job = null; pushLog(s, `Quit ${j.name}.`); return 'You quit ' + j.name; }
-  s.job = j.id; pushLog(s, `Started work as ${j.name}.`);
+  if (s.sideJob === j.id) { s.sideJob = null; pushLog(s, `Quit ${j.name}.`); return 'You quit ' + j.name; }
+  const current = jobsOf(s).find(job => job.ft === j.ft);
+  if (current) return `Quit ${current.name} first to change this work slot.`;
+  const key = j.ft ? 'job' : 'sideJob';
+  s[key] = j.id; pushLog(s, `Started work as ${j.name}.`);
   return 'Hired as ' + j.name + '!';
 }
 export function enrollDeg(s: GameState, f: FieldKey): string | null {
   const field = FIELDS[f];
-  if (!field || s.study) return null;
+  if (!field || [s.study, s.sideStudy].filter(Boolean).length >= 2 ||
+    [s.study, s.sideStudy].some(study => study?.kind === 'deg' && study.field === f)) return null;
   const F = FIELDS[f], L = (s.deg[f] || 0) + 1;
   if (!F.names[L - 1] || s.age > F.maxAge[L - 1]) return null;
-  s.study = { kind: 'deg', field: f, lvl: L, name: F.names[L - 1] + ' (' + F.name + ')', end: s.day + effYears(s, f, L) * 365.25, tuition: tuitionOf(s, f, L) };
-  pushLog(s, `Enrolled: ${s.study.name}.`);
-  return 'Enrolled: ' + s.study.name;
+  const study: Study = { kind: 'deg', field: f, lvl: L, name: F.names[L - 1] + ' (' + F.name + ')', end: s.day + effYears(s, f, L) * 365.25, tuition: tuitionOf(s, f, L) };
+  if (s.study) s.sideStudy = study;
+  else s.study = study;
+  pushLog(s, `Enrolled: ${study.name}${s.sideStudy === study ? ' as a second major' : ''}.`);
+  return 'Enrolled: ' + study.name;
 }
 export function enrollLic(s: GameState, id: string): string | null {
   const l = LIC_BY[id];
-  if (!l || s.money < l.cost || s.sideStudy || s.study?.kind === 'lic') return null;
+  if (!l || s.money < l.cost || [s.study, s.sideStudy].filter(Boolean).length >= 2 ||
+    s.lic[id] || [s.study, s.sideStudy].some(study => study?.kind === 'lic' && study.id === id)) return null;
   const course: Study = { kind: 'lic', id: l.id, name: l.name, end: s.day + l.days, tuition: 0 };
   s.money -= l.cost;
   if (s.study) s.sideStudy = course;
   else s.study = course;
-  pushLog(s, `Enrolled: ${l.name}${s.sideStudy === course ? ' as an evening course' : ''}.`);
-  return `Enrolled: ${l.name}${s.sideStudy === course ? ' (evening course)' : ''}`;
+  const parallel = s.sideStudy === course;
+  pushLog(s, `Enrolled: ${l.name}${parallel ? ' as a parallel course' : ''}.`);
+  return `Enrolled: ${l.name}${parallel ? ' (parallel course)' : ''}`;
 }
 export function bankOp(s: GameState, op: 'dep' | 'wd' | 'loan' | 'repay', amt: number | 'all'): string | null {
   const maxLoan = Math.max(0, Math.floor(netWorth(s) * .5 - s.bank.loan));
@@ -690,14 +734,15 @@ export function snapshot(s: GameState) {
   return {
     name: s.name, age: Math.floor(s.age), year: y, era: eraOf(y).name, nation: s.nation,
     money: Math.round(s.money), netWorth: Math.round(netWorth(s)),
-    job: jobOf(s) ? jobOf(s)!.name : null,
+    job: jobsOf(s).map(job => job.name).join(' + ') || null,
     degrees: Object.keys(FIELDS).filter(f => s.deg[f as FieldKey]).map(f => FIELDS[f as FieldKey].names[s.deg[f as FieldKey] - 1]),
     businesses: BIZ.filter(b => branchCount(s, b.id)).map(b => `${b.name} \u00d7${branchCount(s, b.id)}`),
     farm: FARM_LINES.filter(l => s.farm[l.id]).map(l => l.name),
     factory: FAC_LINES.filter(l => s.fac[l.id]).map(l => l.name),
     space: SPACE_LINES.filter(l => s.space[l.id]).map(l => l.name),
     family: (s.married ? 'married' : s.partner ? 'dating' : 'single') + (s.kids ? `, ${s.kids} kid${s.kids > 1 ? 's' : ''}` : ''),
-    fame: s.fame, level: s.level, followers: s.social.followers, studying: s.study ? s.study.name : null,
+    religion: s.religion, fame: s.fame, level: s.level, followers: s.social.followers,
+    studying: [s.study, s.sideStudy].filter((study): study is Study => !!study).map(study => study.name),
     health: Math.round(s.health), spirit: Math.round(s.spirit), karma: s.karma, recent: s.log.slice(-6)
   };
 }
