@@ -31,6 +31,7 @@ import {
   buyUsedItem, sellUsed, usedItemValue, postItemListing, playerHallEntry, recordHallOnGameOver,
   auctionItem, repairLot, repairUsed, repairSkill, repairCost,
   choiceRisk, type ChoiceRisk,
+  creativePost,
 } from '@/lib/engine';
 import { localTwist, pickKind } from '@/lib/story';
 import { useT, LANGS, type Lang } from '@/lib/i18n';
@@ -894,6 +895,31 @@ function SocialTab({ s, act }: { s: GameState; act: Act }) {
   const ann = socialIncome(s);
   const canHype = BIZ.some(b => branchCount(s, b.id) > 0);
   const canCharity = s.donated > 0;
+  const [aiBusy, setAiBusy] = useState(false);
+  // v10.5 — generate a post from the local LLM at 0.0.0.0:8888. Falls back
+  // to creativePost() if the LLM is unreachable. Mirrors the /api/story
+  // pattern: backend local → local template fallback.
+  const aiPost = async () => {
+    setAiBusy(true);
+    let text: string | null = null;
+    const hasBackend = process.env.NEXT_PUBLIC_HAS_BACKEND !== '0';
+    if (hasBackend) {
+      try {
+        const snap = snapshot(getState());
+        const res = await fetch(asset('/api/post'), {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ state: snap })
+        });
+        if (res.ok) {
+          const j = await res.json() as { text?: string; source?: string };
+          if (j && typeof j.text === 'string' && j.text.trim()) text = j.text.slice(0, 240);
+        }
+      } catch { /* fall through to local */ }
+    }
+    if (!text) text = creativePost(getState(), canHype ? 'hype' : 'update');
+    act(st => { addPost(st, text!, 1.4); return t('posted', '', { n: st.social.followers.toLocaleString() }); });
+    setAiBusy(false);
+  };
   return (
     <>
       <div className="card sprof">
@@ -910,10 +936,12 @@ function SocialTab({ s, act }: { s: GameState; act: Act }) {
         </div>
       </div>
       <h3>{t('posts')}</h3>
-      <div className="trade" style={{ justifyContent: 'flex-start', marginBottom: 8 }}>
-        <Btn ic="ic-plus" label={t('postUpdate')} onClick={() => act(st => { addPost(st, 'Just a life update from my little corner of the world.', 1); const n = st.social.followers.toLocaleString(); return t('posted', '', { n }); })} />
-        <Btn ic="ic-up" label={t('postHype')} disabled={!canHype} onClick={() => act(st => { addPost(st, 'Behind the scenes at my company today. We are just getting started.', 1.6); const n = st.social.followers.toLocaleString(); return t('posted', '', { n }); })} />
-        <Btn ic="ic-heart" label={t('postCharity')} disabled={!canCharity} onClick={() => act(st => { addPost(st, 'Proud to support causes bigger than any of us. Join me?', 1.4); const n = st.social.followers.toLocaleString(); return t('posted', '', { n }); })} />
+      <div className="trade" style={{ justifyContent: 'flex-start', marginBottom: 8, flexWrap: 'wrap' }}>
+        <Btn ic="ic-ai" label={aiBusy ? t('divine.thinking') : t('postAi')} disabled={aiBusy} onClick={aiPost} />
+        <Btn ic="ic-plus" label={t('postUpdate')} onClick={() => act(st => { addPost(st, creativePost(st, 'update'), 1); const n = st.social.followers.toLocaleString(); return t('posted', '', { n }); })} />
+        <Btn ic="ic-up" label={t('postHype')} disabled={!canHype} onClick={() => act(st => { addPost(st, creativePost(st, 'hype'), 1.6); const n = st.social.followers.toLocaleString(); return t('posted', '', { n }); })} />
+        <Btn ic="ic-heart" label={t('postCharity')} disabled={!canCharity} onClick={() => act(st => { addPost(st, creativePost(st, 'charity'), 1.4); const n = st.social.followers.toLocaleString(); return t('posted', '', { n }); })} />
+        <Btn ic="ic-star" label={t('postMilestone')} onClick={() => act(st => { addPost(st, creativePost(st, 'milestone'), 1.5); const n = st.social.followers.toLocaleString(); return t('posted', '', { n }); })} />
       </div>
       <div className="card">
         {s.social.posts.length ? s.social.posts.map((p, i) => (
@@ -929,6 +957,7 @@ function SocialTab({ s, act }: { s: GameState; act: Act }) {
         )) : <div className="sub">{t('noPosts')}</div>}
       </div>
       <p className="sub" style={{ marginTop: 8 }}>{t('socialNote')}</p>
+      <p className="sub">{t('socialDynamics')}</p>
       {canHype ? null : <p className="sub">{t('needBiz')}</p>}
       {canCharity ? null : <p className="sub">{t('needDonated')}</p>}
     </>

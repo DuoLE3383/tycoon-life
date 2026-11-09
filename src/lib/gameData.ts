@@ -6,6 +6,54 @@ export const START = 18, END_AGE = 90, RETIRE = 65, PENSION = 18000;
 export const RESALE_FEE = .03, BIZ_DEGREE_BONUS = .15;
 export const FOUND_COST = 250000, FOUND_MIN_NW = 1000000, OWN_CLUB_MULT = 1.2, OWN_CLUB_MAX_MEMBERS = 200;
 export const SAVE_RATE = .02, LOAN_RATE = .06;
+
+// v10.5 — varied post templates so the feed doesn't read like a bot.
+// Templates interpolate {year} {era} {nation} {biz} {name} at post time.
+export const POST_TEMPLATES: { update: string[]; hype: string[]; charity: string[]; milestone: string[] } = {
+  update: [
+    'Quiet morning in {nation}. Reading the paper. The {era} moves fast.',
+    'Walked past my first office today. Different city, same lesson: keep showing up.',
+    'Coffee with an old friend from before any of this. He still calls me by my childhood nickname.',
+    'A {year} kind of day. The kind that asks hard questions in a soft voice.',
+    'Someone asked what I would tell my 18-year-old self. Same thing I tell myself now: stop rehearsing, start doing.',
+    'The {era} rewards motion. So I move. Tomorrow I will move again.',
+    'Took the long way home. The city looks different at walking speed.',
+    'I am not the smartest person in any room. I am usually the most stubborn. That has been enough.',
+    'Spent an hour today just watching people. The {era} is loud; people are quieter than you think.',
+    'A reporter asked my secret. There is no secret. There is only the next decision.',
+  ],
+  hype: [
+    'Behind the scenes at {biz} today. The team is sharper than the press gives them credit for.',
+    'We just shipped something I have wanted since {year}. The {era} finally caught up.',
+    'Expansion day. {biz} opens its doors in a new region tomorrow. The signs are already up.',
+    'Hiring 40 people this quarter. The {era} does not wait. Neither do we.',
+    'Proud of {biz} today. The numbers are good. The team is better.',
+    'A mentor once told me: hire people who scare you a little. We just hired three. The office is electric.',
+    'The factory floor at {biz} is humming. I do not have a corner office. I have a corner of the factory floor.',
+    'Big quarter. Bigger plans. The {era} belongs to people who keep building.',
+    'Three new {biz} branches this month. Two in cities I had never visited before last year.',
+    'Today we promoted someone I hired five years ago. Watching people grow is the real compounding.',
+  ],
+  charity: [
+    'Proud to support causes bigger than any of us. Join me?',
+    'Cut a cheque today for a school that needs a roof before the rainy season. Small act. Real roof.',
+    'Donated to a {nation} literacy program. Reading is the first freedom.',
+    'The {era} gave me a lot. Today I gave some of it back. The cheque cleared; the gratitude stays.',
+    'Funded ten scholarships this year. The names on the list are the future of {nation}.',
+    'Walked through the hospital wing my donation helped build. The nurse who recognised me would not take a tip.',
+    'Spent the morning at the shelter. The {era} is hard. Show up anyway.',
+    'A reader asked why I give so publicly. So others will too. That is the whole reason.',
+    'Matched every employee donation this quarter. {biz} people are generous. I just opened the door.',
+    'Donated art to the city museum. The {era} produced it; the {era} deserves to see it.',
+  ],
+  milestone: [
+    'Another year. The {era} keeps turning. I am still here, still building.',
+    'They asked me to give the commencement speech this year. I said yes. The students deserve an honest talk.',
+    'Number one on the list this quarter. The list is fun; the work is the point.',
+    'A magazine put me on the cover. I look tired in the photo. That is honest.',
+    'Twenty years since I started {biz}. I remember the first sale like it was yesterday.',
+  ],
+};
 export const ASSET_DEPRECIATION_RATE = -.1, BIZ_MULTIPLIER_CAP = 3;
 export const TAX_FREE = 20000;
 export const TAX_BRACKETS: [number, number][] = [[20000, 0], [60000, .15], [150000, .25], [1e15, .35]];

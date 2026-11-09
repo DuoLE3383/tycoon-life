@@ -7,7 +7,7 @@ import {
   LEVEL_INCOME_BONUS, xpNeed, GIGS, SPACE_LINES,
   ALLNEWS, YEAR_EVENTS, eraOf, FIELDS, LICENSES, LIC_BY, LIC_FOR, STAGES,
   BIZ, FARM_LINES, FAC_LINES, ITEM_BY, STOCKS, CLUBS, JOBS, BOTS,
-  analyze, type FieldKey, type LineDef, type Req, type GigDef, type SpaceDef, type Rarity, RARITY_MULT, itemRarity
+  analyze, type FieldKey, type LineDef, type Req, type GigDef, type SpaceDef, type Rarity, RARITY_MULT, itemRarity, POST_TEMPLATES
 } from './gameData';
 
 export const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -185,15 +185,46 @@ export function addPost(s: GameState, t: string, boost = 1, rng: () => number = 
   // v10.5: fame is now unbounded — scale likes by sqrt(fame) so a fame of
   // 10k doesn't blow up the like count linearly.
   const fameLikes = Math.sqrt(Math.max(0, s.fame)) * 30;
-  const likes = Math.round((s.social.followers * 0.05 + fameLikes + 5) * (0.4 + rng() * 1.2) * boost);
+  let likes = Math.round((s.social.followers * 0.05 + fameLikes + 5) * (0.4 + rng() * 1.2) * boost);
+  // v10.5 — follower dynamics:
+  //   5% chance of a viral spike (2-3× normal followers gained)
+  //   3% chance of a backlash (lose followers + this post gets fewer likes)
+  const spike = rng() < 0.05;
+  const backlash = rng() < 0.03;
+  if (backlash) {
+    // The post underperforms and loses some followers
+    likes = Math.max(0, Math.round(likes * 0.3));
+    const lost = Math.round(s.social.followers * (0.01 + rng() * 0.04));
+    s.social.followers = Math.max(0, s.social.followers - lost);
+    pushLog(s, `Backlash on a post — lost ${lost.toLocaleString()} followers.`);
+  }
   s.social.posts.unshift({ d: s.lastDay, t, likes });
   if (s.social.posts.length > 12) s.social.posts.pop();
-  s.social.followers += Math.round(likes * 0.3 * boost) + (s.fame > 0 ? 2 : 0);
+  const gainMult = spike ? 2 + rng() : 1;
+  s.social.followers += Math.round(likes * 0.3 * boost * gainMult) + (s.fame > 0 ? 2 : 0);
+  if (spike) pushLog(s, `A post went viral — followers surged.`);
   if (s.social.followers >= 100000 && !s.social.verified) {
     s.social.verified = true;
     pushLog(s, 'Your account got the blue check. Verified!');
     addXp(s, 40);
   }
+}
+
+// v10.5 — pick a varied post template by category and interpolate context.
+// Avoids the "Just a life update from my little corner of the world." repeat.
+// Categories: update / hype / charity / milestone. 'hype' needs a biz;
+// if the player has no business yet, falls back to 'update'.
+export function creativePost(s: GameState, kind: 'update' | 'hype' | 'charity' | 'milestone'): string {
+  const y = worldYear(s);
+  const era = eraOf(y).name;
+  const biz = BIZ.find(b => branchCount(s, b.id) > 0);
+  const bizName = biz ? biz.name : 'the company';
+  const ctx: Record<string, string> = {
+    year: String(y), era, nation: s.nation, biz: bizName, name: s.name
+  };
+  const pool = (kind === 'hype' && !biz) ? POST_TEMPLATES.update : POST_TEMPLATES[kind];
+  const tpl = pool[Math.floor(Math.random() * pool.length)];
+  return tpl.replace(/\{(\w+)\}/g, (_m, key: string) => ctx[key] || '');
 }
 export function buySpace(s: GameState, id: string): string | null {
   const l = SPACE_LINES.find(x => x.id === id); if (!l || s.space[id]) return null;
