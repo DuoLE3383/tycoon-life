@@ -42,6 +42,7 @@ export interface GameState {
   sleepHours: number; timeline: DayTimeline[];
   cause: 'age' | 'health' | null;
   social: { followers: number; posts: Post[]; verified?: boolean };
+  ach: string[];
 }
 
 // ---------- wellbeing: body & mind ----------
@@ -192,7 +193,7 @@ export function buySpace(s: GameState, id: string): string | null {
 
 export function fresh(): GameState {
   const s: GameState = {
-    schemaVersion: 3,
+    schemaVersion: 4,
     money: 0, age: START, day: 0, lastDay: 0, lastYr: START, biz: {}, branches: {}, farm: {}, fac: {},
     farmBought: {}, facBought: {}, spaceBought: {}, spaceUpgrade: null, spaceTravel: false,
     lots: [], stk: {},     club: null, ownClub: null, job: null, sideJob: null,
@@ -204,7 +205,7 @@ export function fresh(): GameState {
     partner: false, married: false, kids: 0, m1: false, story: { used: [] },
     level: 1, xp: 0, gigs: {}, space: {}, social: { followers: 0, posts: [] },
     health: 92, spirit: 18, karma: 0, diet: false, well: {}, cause: null,
-    sleepHours: 8, timeline: []
+    sleepHours: 8, timeline: [], ach: []
   };
   STOCKS.forEach(x => { s.prices[x.id] = x.p; s.hist[x.id] = [x.p]; });
   return s;
@@ -213,7 +214,7 @@ export function migrate(raw: unknown): GameState {
   const source = raw && typeof raw === 'object' ? raw as Partial<GameState> : {};
   const s = Object.assign(fresh(), source);
   let version = Number.isInteger(source.schemaVersion) && source.schemaVersion! >= 0 ? source.schemaVersion! : 0;
-  while (version < 3) {
+  while (version < 4) {
     if (version === 0) {
       s.schemaVersion = 1;
       version = 1;
@@ -228,9 +229,14 @@ export function migrate(raw: unknown): GameState {
       s.religion = 'none';
       s.schemaVersion = 3;
       version = 3;
+    } else if (version === 3) {
+      s.ach = [];
+      s.schemaVersion = 4;
+      version = 4;
     }
   }
-  s.schemaVersion = Math.max(s.schemaVersion || 0, 3);
+  s.schemaVersion = Math.max(s.schemaVersion || 0, 4);
+  s.ach = Array.isArray(s.ach) ? s.ach : [];
   s.bank = s.bank || { dep: 0, loan: 0 };
   s.story = s.story || { used: [] };
   s.branches = s.branches || {};
@@ -745,6 +751,41 @@ export function snapshot(s: GameState) {
     studying: [s.study, s.sideStudy].filter((study): study is Study => !!study).map(study => study.name),
     health: Math.round(s.health), spirit: Math.round(s.spirit), karma: s.karma, recent: s.log.slice(-6)
   };
+}
+
+// ---------- achievements ----------
+export interface AchDef { id: string; cond: (s: GameState) => boolean }
+export const ACHIEVEMENTS: AchDef[] = [
+  { id: 'firstJob', cond: s => !!s.job },
+  { id: 'firstBiz', cond: s => Object.keys(s.biz).length > 0 },
+  { id: 'chain5', cond: s => BIZ.reduce((a, b) => a + branchCount(s, b.id), 0) >= 5 },
+  { id: 'grad', cond: s => Object.values(s.deg).some(v => v > 0) },
+  { id: 'pilot', cond: s => !!s.lic['pilot'] },
+  { id: 'level10', cond: s => s.level >= 10 },
+  { id: 'mill', cond: s => netWorth(s) >= 1e6 },
+  { id: 'decamill', cond: s => netWorth(s) >= 1e7 },
+  { id: 'tycoon', cond: s => netWorth(s) >= 1e8 },
+  { id: 'stockMill', cond: s => stockVal(s) >= 1e6 },
+  { id: 'clubOwner', cond: s => !!s.ownClub },
+  { id: 'married', cond: s => s.married },
+  { id: 'kids3', cond: s => s.kids >= 3 },
+  { id: 'fame50', cond: s => s.fame >= 50 },
+  { id: 'verified', cond: s => !!s.social.verified },
+  { id: 'millionFans', cond: s => s.social.followers >= 1e6 },
+  { id: 'philanthropist', cond: s => s.donated >= 1e6 },
+  { id: 'karma50', cond: s => s.karma >= 50 },
+  { id: 'spirit80', cond: s => s.spirit >= 80 },
+  { id: 'space1', cond: s => Object.keys(s.space).length > 0 },
+  { id: 'travel', cond: s => s.spaceTravel },
+  { id: 'nonagenarian', cond: s => s.over && s.cause === 'age' && Math.floor(s.age) >= END_AGE },
+];
+export function checkAch(s: GameState): string[] {
+  if (!s.started || s.ach == null) return [];
+  const got: string[] = [];
+  for (const a of ACHIEVEMENTS) {
+    if (!s.ach.includes(a.id) && a.cond(s)) { s.ach.push(a.id); got.push(a.id); }
+  }
+  return got;
 }
 
 // ---------- formatting ----------

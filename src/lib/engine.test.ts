@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { ASSET_DEPRECIATION_RATE, DAY_MS, GIGS } from './gameData';
 import {
-  bankOp, bizMultiplier, begin, bizVal, effYears, enrollDeg, enrollLic, fresh, gigPay,
+  bankOp, bizMultiplier, begin, bizVal, checkAch, effYears, enrollDeg, enrollLic, fresh, gigPay,
   lotValue, migrate, processDay, sleepHealthMult, studyPace, studyWorkMult,
   SPACE_TRAVEL_COST, spaceIncome, startSpaceUpgrade, taxOf, tick, trade,
   doWell, healthWarnings, hire, jobIncome, meets, studyTuition,
@@ -210,7 +210,8 @@ test('legacy saves migrate to the current schema and backfill asset purchase dat
     branches: { cafe: [{ r: 0, mood: 1 }] },
     farm: { crop: 1 },
   });
-  assert.equal(state.schemaVersion, 3);
+  assert.equal(state.schemaVersion, 4);
+  assert.deepEqual(state.ach, []);
   assert.equal(state.branches.cafe[0].day, 100);
   assert.equal(state.farmBought.crop, 100);
 });
@@ -220,7 +221,7 @@ test('version two saves gain religion defaults and preserve part-time employment
   assert.equal(state.religion, 'none');
   assert.equal(state.job, null);
   assert.equal(state.sideJob, 'part');
-  assert.equal(state.schemaVersion, 3);
+  assert.equal(state.schemaVersion, 4);
 });
 
 test('space travel certification completes after its waiting period', () => {
@@ -249,4 +250,59 @@ test('tick produces repeatable state changes with the same seed', () => {
     tick(stateB, 20_000, rngB);
   }
   assert.deepEqual(stateA, stateB);
+});
+
+test('achievements unlock exactly once as conditions are met', () => {
+  const state = fresh();
+  begin(state, { name: 'Test', byear: 2007, nation: 'Vietnam', ints: [], tals: [] });
+  // nothing unlocked yet
+  assert.deepEqual(checkAch(state), []);
+  assert.equal(state.ach.length, 0);
+  // first job contract
+  state.job = 'barista';
+  assert.deepEqual(checkAch(state), ['firstJob']);
+  // first business — job achievement must not repeat
+  state.biz.cafe = 1;
+  assert.deepEqual(checkAch(state), ['firstBiz']);
+  // net worth thresholds unlock in cascade
+  state.money = 1_100_000;
+  assert.deepEqual(checkAch(state), ['mill']);
+  // already unlocked stays unlocked and stable
+  assert.deepEqual(checkAch(state), []);
+  assert.equal(state.ach.length, 3);
+});
+
+test('mid-life milestones map to the right achievement ids', () => {
+  const state = fresh();
+  begin(state, { name: 'Test', byear: 2007, nation: 'Vietnam', ints: [], tals: [] });
+  state.ownClub = 'own';
+  state.married = true;
+  state.karma = 55;
+  state.social.followers = 1_500_000;
+  state.social.verified = true;
+  const got = checkAch(state);
+  assert.ok(got.includes('clubOwner'));
+  assert.ok(got.includes('married'));
+  assert.ok(got.includes('karma50'));
+  assert.ok(got.includes('millionFans'));
+  assert.ok(got.includes('verified'));
+  assert.equal(got.length, 5);
+  // space venture + certification — the venture also counts toward net worth,
+  // so the $1M/$10M net-worth achievements unlock in the same pass
+  state.space.orbital = 1;
+  state.spaceTravel = true;
+  const more = checkAch(state);
+  assert.ok(more.includes('space1'));
+  assert.ok(more.includes('travel'));
+  assert.ok(more.includes('mill'));
+  assert.ok(more.includes('decamill'));
+  assert.equal(state.ach.length, 9);
+});
+
+test('v3 saves gain an empty achievement list without touching progress', () => {
+  const state = migrate({ schemaVersion: 3, money: 5_000, level: 7 });
+  assert.deepEqual(state.ach, []);
+  assert.equal(state.money, 5_000);
+  assert.equal(state.level, 7);
+  assert.equal(state.schemaVersion, 4);
 });

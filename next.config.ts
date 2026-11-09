@@ -1,10 +1,11 @@
 import type { NextConfig } from "next";
 
 // STATIC_EXPORT=1 → fully static build into ./out (used by GitHub Pages).
-// NEXT_PUBLIC_BASE_PATH is the Pages sub-path (/tycoon-life) — set for both
-// builds so client code can build correct absolute URLs.
+// The site is deployed at the root of the custom domain https://huyenbao.com —
+// assets must use "/" paths. NEXT_PUBLIC_BASE_PATH can still override the
+// base for special builds (e.g. serving under a sub-path).
 const isStatic = process.env.STATIC_EXPORT === "1";
-const BASE = process.env.NEXT_PUBLIC_BASE_PATH ?? (isStatic ? "/tycoon-life" : "");
+const BASE = process.env.NEXT_PUBLIC_BASE_PATH ?? "";
 
 const nextConfig: NextConfig = {
   output: isStatic ? "export" : undefined,

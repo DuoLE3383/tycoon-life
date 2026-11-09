@@ -19,6 +19,7 @@ export const ART_DEFS = `<svg width="0" height="0" style="position:absolute" ari
 <symbol id="ic-cap" viewBox="0 0 24 24"><path d="M12 6L3 10.5 12 15l9-4.5z"/><path d="M7 12.5V17c0 1.5 2.2 3 5 3s5-1.5 5-3v-4.5"/></symbol>
 <symbol id="ic-coins" viewBox="0 0 24 24"><circle cx="9" cy="10" r="5"/><path d="M14 8.5a5 5 0 1 1-2.2 8.2"/></symbol>
 <symbol id="ic-lock" viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></symbol>
+<symbol id="ic-trophy" viewBox="0 0 24 24"><path d="M7 4h10v5a5 5 0 0 1-10 0z"/><path d="M7 5H4a3 3 0 0 0 3 4M17 5h3a3 3 0 0 1-3 4M12 14v4M8 20h8M9 20a3 3 0 0 0 6 0"/></symbol>
 <symbol id="t-bank" viewBox="0 0 24 24"><path d="M12 3L3 8h18zM4 8v10M9 8v10M15 8v10M20 8v10M2 20h20"/></symbol>
 <symbol id="ic-heart" viewBox="0 0 24 24"><path d="M12 20s-7-4.6-9-9a5 5 0 0 1 9-3 5 5 0 0 1 9 3c-2 4.4-9 9-9 9z"/></symbol>
 <symbol id="ic-star" viewBox="0 0 24 24"><path d="M12 3l2.7 5.7 6.3.9-4.5 4.4 1 6.2-5.5-3-5.5 3 1-6.2L3 9.6l6.3-.9z"/></symbol>

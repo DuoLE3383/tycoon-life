@@ -1,5 +1,5 @@
 'use client';
-// MOGUL v9 — React edition. Two-level grouped nav, a systems links map,
+// MOGUL v10 — React edition. Two-level grouped nav, a systems links map,
 // gigs, levels, social, the cosmic frontier, EN/VI/中文, LLM oracle.
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Art, Ic, ART_DEFS } from '@/lib/art';
@@ -25,6 +25,7 @@ import {
   jobsOf, jobIncome, studyTuition, type Religion, RELIGIONS,
   spiritBizMult, cosmicMult, GYM_COST, GYM_CD, CHECKUP_COST, CHECKUP_CD, DIET_COST,
   TEMPLE_COST, TEMPLE_CD, RETREAT_COST, RETREAT_CD, FAITH_PRACTICE_COST, FAITH_PRACTICE_CD,
+  ACHIEVEMENTS, checkAch,
 } from '@/lib/engine';
 import { localTwist } from '@/lib/story';
 import { useT, LANGS, type Lang } from '@/lib/i18n';
@@ -59,6 +60,11 @@ export default function Page() {
     toastTimer.current = setTimeout(() => setToast(null), 2600);
   }, []);
 
+  const achToast = useCallback((got: string[]) => {
+    const names = got.map(id => t('ach.' + id));
+    showToast(names.length === 1 ? t('ach.unlocked', '', { n: names[0] }) : names.join(' · '));
+  }, [showToast, t]);
+
   const act = useCallback((fn: (st: GameState) => string | null | void) => {
     const st = getState();
     const msg = fn(st);
@@ -66,8 +72,10 @@ export default function Page() {
       showToast(msg);
       recordActivity(st, msg);
     }
+    const got = checkAch(st);
+    if (got.length) achToast(got);
     persist(); bump();
-  }, [showToast]);
+  }, [showToast, achToast]);
 
   // game clock
   useEffect(() => {
@@ -81,6 +89,8 @@ export default function Page() {
       last = now;
       if (res.yearToast) showToast(res.yearToast);
       if (res.gameJustOver) showToast(t('livedToast'));
+      const got = checkAch(st);
+      if (got.length) achToast(got);
       if (now - lastPersist >= 3000) {
         persist();
         lastPersist = now;
@@ -97,7 +107,7 @@ export default function Page() {
       document.removeEventListener('visibilitychange', onVis);
       window.removeEventListener('beforeunload', onUnload);
     };
-  }, [showToast, t]);
+  }, [showToast, achToast, t]);
 
   const askAI = useCallback(async () => {
     setAiBusy(true); setAiNoteKey('oracle.thinking');
@@ -222,7 +232,7 @@ function Header({ s, onReset, eraName }: { s: GameState; onReset: () => void; er
     <header className="top">
       <div className="brand">
         <Art id="s-coin" className="logo" />
-        <div><h1>MOGUL <span className="mini">v9</span></h1>
+        <div><h1>MOGUL <span className="mini">v10</span></h1>
           <div className="mini">{s.started ? `${s.nation} · ${eraName(worldYear(s))}` : t('tagline')}</div></div>
       </div>
       <div><div className="mini">{t('cash')}</div><div id="tcash" style={{ color: s.money < 0 ? 'var(--brick)' : undefined }}>{fmt(s.money)}</div>
@@ -389,6 +399,23 @@ function HomeTab({ s, act, askAI, aiBusy, aiNote, eraName }: { s: GameState; act
           <p className="sub">{t('guide.4')}</p>
           <p className="sub">{t('guide.5')}</p>
           <p className="sub">{t('guide.6')}</p>
+        </div>
+      </details>
+      <details className="fold" id="ach">
+        <summary>{t('achTitle')} · {s.ach.length}/{ACHIEVEMENTS.length}</summary>
+        <div className="foldbody">
+          <p className="mini" style={{ marginBottom: 8 }}>{t('achNote')}</p>
+          <div className="achgrid">
+            {ACHIEVEMENTS.map(a => {
+              const on = s.ach.includes(a.id);
+              return (
+                <div key={a.id} className={'ach' + (on ? ' on' : '')}>
+                  {Ic({ id: on ? 'ic-trophy' : 'ic-lock', className: 'si' })}
+                  <span><b>{t('ach.' + a.id)}</b><span className="sub" style={{ display: 'block' }}>{t('achd.' + a.id)}</span></span>
+                </div>
+              );
+            })}
+          </div>
         </div>
       </details>
       <details className="fold">
@@ -976,7 +1003,8 @@ function LinksTab({ s }: { s: GameState }) {
         <span className="mini"><span className="sw" />{t('ln.direct')}</span>
         <span className="mini"><span className="sw ind" />{t('ln.indirect')}</span>
       </div>
-      <svg className="lnmap" viewBox="0 0 830 570" role="img" aria-label={t('tab.links')}>
+      <div className="lnwrap">
+        <svg className="lnmap" viewBox="0 0 830 570" role="img" aria-label={t('tab.links')}>
         <defs>
           <marker id="lnA" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto"><path d="M0 0L7 3.5L0 7z" fill="#8a7a5f" /></marker>
           <marker id="lnB" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto"><path d="M0 0L7 3.5L0 7z" fill="#8ba2b8" /></marker>
@@ -990,6 +1018,7 @@ function LinksTab({ s }: { s: GameState }) {
           </g>
         ))}
       </svg>
+      </div>
       <h3>{t('ln.formulas')}</h3>
       <div className="card">
         {rows.map(([k, v]) => <div key={k} className="lb"><span className="sub">{t(k)}</span><b>{v}</b></div>)}

@@ -2,7 +2,9 @@
 
 **MOGUL** (trước đây là *Tycoon Life*) — game mô phỏng cuộc đời: bắt đầu ở tuổi 18 trong **chính thời đại lịch sử của bạn** (năm sinh + 18), đi làm, học hành, xây chuỗi kinh doanh khắp các vùng, cho nhà máy ăn từ trang trại của chính mình, lướt sóng chứng khoán, nổi tiếng trên mạng xã hội, nộp thuế, làm từ thiện — và cuối đời, đưa đế chế của bạn **lên vũ trụ** 🚀.
 
-▶ **Chơi ngay:** <https://duole3383.github.io/tycoon-life/>
+▶ **Chơi ngay:** <https://huyenbao.com/> *(miền chính thức)* · <https://duole3383.github.io/tycoon-life/> *(phương án dự phòng — tự chuyển hướng)*
+
+📱 **Cài lên điện thoại:** mở huyenbao.com trên Chrome/Safari → “Thêm vào Màn hình chính” — MOGUL chạy như một ứng dụng riêng (PWA), không cần cửa hàng ứng dụng.
 
 | | |
 |---|---|
@@ -21,12 +23,13 @@
 4. [Sự kiện đời người & dòng thời gian lịch sử](#sự-kiện-đời-người--dòng-thời-gian-lịch-sử)
 5. [✨ AI — những gì khác biệt nhờ bổ sung AI](#-ai--những-gì-khác-biệt-nhờ-bổ-sung-ai)
 6. [XP & Level](#xp--level)
-7. [Chiến lược theo giai đoạn](#chiến-lược-theo-giai-đoạn)
-8. [Bảng công thức nhanh](#bảng-công-thức-nhanh)
-9. [Chạy & triển khai bằng npm](#chạy--triển-khai-bằng-npm)
-10. [Kiến trúc mã nguồn](#kiến-trúc-mã-nguồn)
-11. [Lưu trữ & kiểm thử](#lưu-trữ--kiểm-thử)
-12. [Lịch sử phiên bản](#lịch-sử-phiên-bản)
+7. [🏆 Thành tựu](#-thành-tựu)
+8. [Chiến lược theo giai đoạn](#chiến-lược-theo-giai-đoạn)
+9. [Bảng công thức nhanh](#bảng-công-thức-nhanh)
+10. [Chạy & triển khai bằng npm](#chạy--triển-khai-bằng-npm)
+11. [Kiến trúc mã nguồn](#kiến-trúc-mã-nguồn)
+12. [Lưu trữ & kiểm thử](#lưu-trữ--kiểm-thử)
+13. [Lịch sử phiên bản](#lịch-sử-phiên-bản)
 
 ## Cập nhật tính năng và cân bằng
 
@@ -86,6 +89,7 @@ Thanh điều hướng 2 cấp sắp xếp như một **làn đời**: Đời s�
 
 #### 🏠 Home — trung tâm hành động
 - **Nút "Work" (click kiếm tiền)**: mỗi click = `max($25, $30 + 1% thu nhập năm)`. Hữu ích năm 18, vô dụng năm 40 — đúng đời.
+- **🏆 Thành tựu**: mục gập cuối Home ghi nhận 22 cột mốc của một kiếp (xem bảng ở mục Thành tựu dưới đây). Mở khoá thì có thông báo riêng.
 - **6 việc nhanh (gigs)** — nguồn tiền sớm, mỗi việc có hồi chiêu riêng (đơn vị: ngày game):
 
 | Việc | Thu nhập gốc | Hồi chiêu | Điều kiện |
@@ -417,6 +421,19 @@ Nguồn XP đáng kể: tốt nghiệp đại học +150 · dự án vũ trụ +
 
 ---
 
+## 🏆 Thành tựu
+
+22 cột mốc được theo dõi tự động suốt một kiếp — mở khoá thì hiện thông báo 🏆, xem lại cả bộ trong mục **Achievements** ở Home (đã mở khoá sáng rõ, chưa mở khoá mờ + mô tả gợi ý cách đạt):
+
+| Nhóm | Thành tựu |
+|---|---|
+| Sự nghiệp | Khoản lương đầu tiên · Doanh nhân sơ khai · Chuỗi vùng miền (5 chi nhánh) · Tốt nghiệp · Đôi cánh (bằng phi công) · Cha đẻ câu lạc bộ |
+| Tài chính | Triệu phú đầu tiên ($1M) · Cao thủ tài chính ($10M) · Đế chế thực thụ ($100M) · Cá mập chứng khoán ($1M cổ phiếu) · Cấp 10 |
+| Gia đình & danh tiếng | Về chung một nhà · Con đông đứa (3 con) · Mặt nổi khắp nơi (fame 50) · Dấu tick xanh · Triệu người hâm mộ · Nhà hảo tâm (từ thiện $1M) |
+| Tinh thần & vũ trụ | Karma sáng (50) · Đồng điệu vũ trụ (80) · Vươn khỏi Trái Đất · Du khách quỹ đạo · Trăm tuổi tròn 90 |
+
+---
+
 ## Chiến lược theo giai đoạn
 
 **18–25 (gốc rễ)**
@@ -515,6 +532,7 @@ scripts/static-build.mjs  cấu hình build tĩnh cho Pages
 
 ## Lịch sử phiên bản
 
+- **v10** — **tên miền riêng huyenbao.com** (bản cũ github.io tự chuyển hướng), hệ **Thành tựu** 22 cột mốc + thông báo, **PWA** (cài lên màn hình chính, icon riêng, chế độ standalone), **tối ưu điện thoại** (nav bọc dòng, hero dọc, nút cỡ chạm, bản đồ Links cuộn ngang), schema save v4.
 - **v9.1** — README mở rộng: hướng dẫn chơi chi tiết toàn hệ thống + mục riêng "AI — những gì khác biệt nhờ bổ sung AI".
 - **v9** — đổi tên thành **MOGUL**, **điều hướng 2 cấp** (6 nhóm × 14 tab con xếp theo làn đời, mỗi nhóm nhớ tab cuối), tab mới **Links**: bản đồ SVG hệ thống 13 nút & 16 mũi tên trực tiếp/gián tiếp + bảng công thức thời gian thực; sửa nhãn thời gian bị trùng.
 - **v8.1** — **dark theme** (mặc định) + nút ☀/☾, **chọn ngôn ngữ ngay trong popup chào mừng**, **tách Jobs & Education thành 2 tab**, hệ **Health** (gym/khám/diet, lão hoá theo tuổi, chết vì sức khoẻ) và **Mind & spirit** (thiền/chùa/retreat, karma, thưởng tâm linh: biz ×1.10, chậm lão, vũ trụ ×1.25), sự kiện burnout & tu viện, thanh wellbeing.
