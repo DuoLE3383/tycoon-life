@@ -5,7 +5,7 @@
 // market + social listings, and a Hall of Fame tab.
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Art, Ic, ART_DEFS } from '@/lib/art';
-import { useGame, getState, persist, bump, resetState } from '@/lib/store';
+import { useGame, getState, persist, bump, resetState, reincarnateState } from '@/lib/store';
 import {
   START, END_AGE, RETIRE, RESALE_FEE, FOUND_COST, FOUND_MIN_NW, OWN_CLUB_MULT,
   SAVE_RATE, LOAN_RATE, TAX_FREE, TAX_BRACKETS, ALLNEWS, eraOf, NATIONS, INTERESTS, TALENTS, PATHS,
@@ -200,7 +200,7 @@ export default function Page() {
         <footer className="mini tfoot">
           <span>{t('footer')}</span>
           <button className="newlife-btn" type="button"
-            onClick={() => { if (typeof window !== 'undefined' && window.confirm(t('newLife') + '?')) resetState(); }}>
+            onClick={() => { if (typeof window !== 'undefined' && window.confirm(t('reincarnate.confirm'))) { reincarnateState(); showToast(t('reincarnate.toast')); } }}>
             {t('newLife')}
           </button>
         </footer>
@@ -210,7 +210,7 @@ export default function Page() {
 
       {!s.started && <Intro onBegin={opts => act(st => { begin(st, opts); showToast(`${t('begin')}: ${opts.name} 🎉`); })} />}
       {(s.pending || s.aiEv) && <EventModal s={s} act={act} />}
-      {s.over && <GameOver s={s} onAgain={resetState} />}
+      {s.over && <GameOver s={s} onAgain={() => { reincarnateState(); showToast(t('reincarnate.toast')); }} />}
     </div>
   );
 }
@@ -1093,15 +1093,14 @@ function RankTab({ s, board, setBoard }: { s: GameState; board: string; setBoard
 // "in progress" until the game over modal writes the final entry.
 function FameTab({ s }: { s: GameState }) {
   const { t } = useT();
-  // Build the "your past lives" list. Currently the engine records only the
-  // most recent run in s.hall, so we synthesise a couple of legacy entries
-  // from the same state for flavour — once multiple lives are persisted
-  // across runs (a future migration), this becomes a real history list.
+  // Player's past lives — recorded at each reincarnation in s.pastLives.
+  // Most-recent first so the chain reads top-down.
   const playerEntries = useMemo(() => {
     const out: { name: string; nation: string; era: string; industry: string; peakNetWorth: string; note: string; livedTo: number; tier: string; kind: 'player' }[] = [];
     if (s.hall) out.push({ ...s.hall, kind: 'player' });
     return out;
   }, [s.hall]);
+  const pastLifeEntries = useMemo(() => (s.pastLives || []).slice().reverse().map(e => ({ ...e, kind: 'player' as const })), [s.pastLives]);
   // A handful of "rivals" — fictional note snippets drawn from BOTS so the
   // wall feels alive. Marked kind 'rival' so the chip distinguishes them.
   const rivalEntries = useMemo(() => {
@@ -1158,7 +1157,26 @@ function FameTab({ s }: { s: GameState }) {
           ))}
         </>
       )}
-      {playerEntries.length === 0 && !currentLife && <p className="sub">{t('fame.empty')}</p>}
+      {playerEntries.length === 0 && !currentLife && pastLifeEntries.length === 0 && <p className="sub">{t('fame.empty')}</p>}
+
+      {pastLifeEntries.length > 0 && (
+        <>
+          <h3>{t('fame.pastLives')}</h3>
+          <p className="sub">{t('fame.pastLivesNote')}</p>
+          {pastLifeEntries.map((e, i) => (
+            <div key={'pl' + i} className="hof-card">
+              <div className="hof-head">
+                <span className="hof-kind" data-kind="player">#{pastLifeEntries.length - i}</span>
+                <b>{e.name}</b>
+                <span className="tag">{e.nation}</span>
+                {e.cause && <span className="tag dark" style={{ fontSize: '.66rem' }}>{e.cause === 'reincarnated' ? '↻' : e.cause === 'health' ? '†' : '⌂'}</span>}
+              </div>
+              <div className="sub">{t('fame.era')}: {e.era} · {t('fame.industry')}: {e.industry} · {t('fame.peak')}: {e.peakNetWorth} · {e.tier}</div>
+              <p className="mini" style={{ marginTop: 6 }}>{e.note}</p>
+            </div>
+          ))}
+        </>
+      )}
 
       <h3>{t('fame.real')}</h3>
       {HALL_OF_FAME.map(h => (

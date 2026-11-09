@@ -51,6 +51,10 @@ export interface GameState {
   // game over. Kept on the same GameState shape so save migration is trivial.
   used: { id: string; baseId: string; name: string; brand?: string; cat: string; c: string; art: string; ageYears: number; condition: number; paid: number; day: number; lux: number; rate: number; story: string }[];
   hall: { name: string; nation: string; era: string; industry: string; peakNetWorth: string; note: string; livedTo: number; tier: string } | null;
+  // v10.5 — reincarnation ledger. Each entry is a past life recorded at the
+  // moment of reincarnation (not at game over — game over only writes s.hall).
+  // Lives across reincarnations so the player can look back at the chain.
+  pastLives: { name: string; nation: string; era: string; industry: string; peakNetWorth: string; note: string; livedTo: number; tier: string; cause: 'age' | 'health' | 'reincarnated' }[];
 }
 
 // ---------- wellbeing: body & mind ----------
@@ -217,7 +221,7 @@ export function fresh(): GameState {
     level: 1, xp: 0, gigs: {}, space: {}, social: { followers: 0, posts: [] },
     health: 92, spirit: 18, karma: 0, diet: false, well: {}, cause: null,
     sleepHours: 8, timeline: [], ach: [],
-    used: [], hall: null
+    used: [], hall: null, pastLives: []
   };
   STOCKS.forEach(x => { s.prices[x.id] = x.p; s.hist[x.id] = [x.p]; });
   return s;
@@ -253,6 +257,7 @@ export function migrate(raw: unknown): GameState {
   s.story = s.story || { used: [] };
   s.used = Array.isArray(s.used) ? s.used : [];
   s.hall = s.hall || null;
+  s.pastLives = Array.isArray(s.pastLives) ? s.pastLives : [];
   s.branches = s.branches || {};
   s.farm = s.farm || {}; s.fac = s.fac || {}; s.space = s.space || {};
   s.farmBought = s.farmBought || {}; s.facBought = s.facBought || {}; s.spaceBought = s.spaceBought || {};
@@ -985,6 +990,73 @@ export function playerHallEntry(s: GameState) {
 export function recordHallOnGameOver(s: GameState): void {
   if (!s.over) return;
   s.hall = playerHallEntry(s);
+}
+
+// v10.5 — reincarnation. The player keeps their identity (name, birth year,
+// nation, religion, interests, talents — "memory of who they were") but
+// their knowledge fades: each degree field is reduced by a random 30-80%,
+// ~50% of licences are forgotten, level/xp reset, all assets go back to
+// the age-18 starting position. The past life is recorded in s.pastLives
+// so the player can look back at the chain of lives they have lived.
+//
+// Returns the new GameState (mutates s in place then returns it).
+export function reincarnate(s: GameState): GameState {
+  // 1. Record the past life into the ledger (only if the player actually
+  //    started this life — not on a fresh game).
+  if (s.started) {
+    const entry = playerHallEntry(s);
+    s.pastLives.push({
+      ...entry,
+      cause: s.over ? (s.cause || 'age') : 'reincarnated'
+    });
+    if (s.pastLives.length > 12) s.pastLives.shift();
+  }
+  // 2. Snapshot the identity fields before wiping.
+  const identity = {
+    name: s.name,
+    byear: s.byear,
+    nation: s.nation,
+    religion: s.religion,
+    ints: [...s.ints],
+    tals: [...s.tals],
+    pastLives: [...s.pastLives],
+  };
+  // 3. Reset to a fresh state, then re-apply the identity.
+  const next = fresh();
+  next.name = identity.name;
+  next.byear = identity.byear;
+  next.nation = identity.nation;
+  next.religion = identity.religion;
+  next.ints = identity.ints;
+  next.tals = identity.tals;
+  next.pastLives = identity.pastLives;
+  // 4. Knowledge fade: each degree level drops by a random 30-80%. If a
+  //    field had level 0, it stays 0. The fade roll is independent per field
+  //    so a reincarnated surgeon might retain most of their medicine but
+  //    forget their business degree entirely.
+  for (const f of Object.keys(next.deg) as FieldKey[]) {
+    const prev = s.deg[f] || 0;
+    if (prev > 0) {
+      const fadePct = 0.3 + Math.random() * 0.5; // 0.3..0.8
+      const kept = Math.floor(prev * (1 - fadePct));
+      next.deg[f] = kept;
+    }
+  }
+  // 5. Licences: ~50% chance to forget each one.
+  for (const licId of Object.keys(s.lic)) {
+    if (s.lic[licId] && Math.random() < 0.5) {
+      // forgotten
+    } else {
+      next.lic[licId] = true;
+    }
+  }
+  // 6. Past-life memory note in the log so the player sees the chain.
+  if (next.pastLives.length > 0) {
+    next.log.push(`Past life: ${next.pastLives[next.pastLives.length - 1].note}`);
+  }
+  // 7. Copy over to s (mutate in place so the store's reference stays valid).
+  Object.assign(s, next);
+  return s;
 }
 function finishStudy(s: GameState, study: Study, rng: () => number): void {
   if (study.kind === 'deg' && study.field) s.deg[study.field] = study.lvl!;

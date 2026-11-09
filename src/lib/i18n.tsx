@@ -18,7 +18,9 @@ const D: Record<string, [string, string, string]> = {
   'netWorth': ['Net worth', 'Tổng tài sản', '净资产'],
   'perYear': ['/yr', '/năm', '/年'],
   'level': ['Level', 'Cấp', '等级'],
-  'newLife': ['New life', 'Kiếp mới', '新人生'],
+  'newLife': ['Reincarnate', 'Trùng sinh', '转生'],
+  'reincarnate.confirm': ['Reincarnate? Knowledge fades 30-80% at random. Assets reset to age 18. Your name, nation and talents carry over.', 'Trùng sinh? Kiến thức mờ đi 30-80% ngẫu nhiên. Tài sản về lại tuổi 18. Tên, quốc tịch và năng khiếu được giữ lại.', '转生？知识随机消退 30-80%。资产回到 18 岁。姓名、国籍与天赋保留。'],
+  'reincarnate.toast': ['Reincarnated — past-life memory lingers.', 'Trùng sinh — ký ức kiếp trước còn phai mờ.', '转生 — 前世记忆尚存。'],
   'lvl': ['Lv', 'Cấp', '级'],
   // ---- age box
   'age': ['Age', 'Tuổi', '年龄'],
@@ -206,6 +208,8 @@ const D: Record<string, [string, string, string]> = {
   'fame.sub': ['Real-world tycoons, visionaries and your own past lives — a wall of notes from people who built something.', 'Những ông vua kinh doanh đời thực và các kiếp trước của bạn — bức tường ghi chú từ những người đã kiến tạo.', '现实世界的大亨与你的前世人生 — 一面由建设者留下的笔记墙。'],
   'fame.real': ['Real-world icons', 'Huyền thoại đời thực', '现实传奇'],
   'fame.player': ['Your past lives', 'Các kiếp trước của bạn', '你的前世'],
+  'fame.pastLives': ['Past lives', 'Kiếp trước', '前世'],
+  'fame.pastLivesNote': ['Each reincarnation pushes a new entry here. Knowledge fades 30-80% at random, but the chain of lives persists.', 'Mỗi lần trùng sinh thêm một mục ở đây. Kiến thức mờ đi 30-80% ngẫu nhiên, nhưng chuỗi kiếp trước còn nguyên.', '每次转生都在此留下一笔。知识随机消退 30-80%，但前世链不灭。'],
   'fame.rivals': ['Rivals', 'Đối thủ', '竞争对手'],
   'fame.note': ['Note', 'Ghi chú', '备注'],
   'fame.peak': ['Peak net worth', 'Tài sản đỉnh', '巅峰净资产'],
@@ -489,7 +493,7 @@ const D: Record<string, [string, string, string]> = {
   'aiTwist': ['AI life twist — written for this exact moment', 'Bước ngoặt AI — viết riêng cho khoảnh khắc này', 'AI人生转折 — 专为此刻撰写'],
   // ---- game over
   'livedTo': ['You lived to 90 with a net worth of', 'Bạn sống đến 90 tuổi với tổng tài sản', '你活到90岁，净资产为'],
-  'liveAgain': ['Live again', 'Sống lại kiếp mới', '再来一世'],
+  'liveAgain': ['Reincarnate', 'Trùng sinh', '转生'],
   'tier.humble': ['Humble beginnings', 'Khởi nghiệp khiêm tốn', '白手起家'],
   'tier.comfortable': ['Comfortable life', 'Đời sống sung túc', '安逸人生'],
   'tier.tycoon': ['Tycoon', 'Ông trùm', '大亨'],
