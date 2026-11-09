@@ -481,7 +481,12 @@ const D: Record<string, [string, string, string]> = {
   'found': ['Found', 'Thành lập', '创立'],
   'foundOwn': ['Found your own club', 'Thành lập CLB riêng', '创立自己的会所'],
   'minNw': ['Min net worth', 'Tổng tài sản tối thiểu', '净资产门槛'],
-  'oneClub': ['One club at a time. Founding needs {x} net worth and lifts business income ×1.2.', 'Mỗi lúc chỉ một CLB. Thành lập cần {x} tổng tài sản và tăng thu nhập kinh doanh ×1.2.', '同时只能加入一个会所。创立需 {x} 净资产，并使生意收入 ×1.2。'],
+  'oneClub': ['Join as many clubs as you can afford — their multipliers stack via the active (highest) one. Founding your own needs {x} net worth and lifts business income ×1.2.', 'Tham gia nhiều CLB đủ khả năng — hệ số nhân theo CLB đang hoạt động (cao nhất). Thành lập CLB riêng cần {x} tổng tài sản và tăng thu nhập kinh doanh ×1.2.', '可同时加入多个会所 — 倍率以最高者为准。创立自己的会所需 {x} 净资产，并使生意收入 ×1.2。'],
+  'clubs.active': ['Active multiplier', 'Hệ số đang dùng', '当前倍率'],
+  'clubs.joined': ['Joined ({n})', 'Đã tham gia ({n})', '已加入 ({n})'],
+  'clubs.monthlyDues': ['Monthly dues (amortised)', 'Hội phí hàng tháng (phân bổ)', '月度会费（分摊）'],
+  'clubs.opportunityNote': ['Each year, every club rolls a 40% chance to bring a networking opportunity — a deal or press. Two+ clubs get a 15% synergy windfall.', 'Mỗi năm, mỗi CLB có 40% cơ hội mang tới một cơ hội — thương vụ hoặc báo chí. Hai CLB trở lên có 15% thưởng cộng hưởng.', '每年每个会所有 40% 概率带来一次机会 — 交易或曝光。两个以上有 15% 协同奖励。'],
+  'clubs.leave': ['Leave', 'Rời CLB', '退出'],
   'yourOwn': ['Your own club', 'CLB của bạn', '你的会所'],
   // ---- bank
   'savings': ['Savings', 'Tiết kiệm', '储蓄'],

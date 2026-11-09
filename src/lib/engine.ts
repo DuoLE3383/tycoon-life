@@ -34,6 +34,7 @@ export interface GameState {
   spaceUpgrade: { startedDay: number; completesDay: number } | null; spaceTravel: boolean;
   lots: { id: string; paid: number; day: number; condition?: number; condDay?: number; repaired?: number }[]; stk: Record<string, number>;
   club: string | null; ownClub: string | null; job: string | null; sideJob: string | null;
+  clubs: string[]; // v10.5 — multiple-club membership (s.club stays as the 'active' / highest-mult one)
   deg: Record<FieldKey, number>; lic: Record<string, boolean>; study: Study | null; sideStudy: Study | null;
   name: string; byear: number; nation: string; religion: Religion; ints: string[]; tals: string[]; topField: FieldKey | null;
   started: boolean;
@@ -261,7 +262,7 @@ export function fresh(): GameState {
     level: 1, xp: 0, gigs: {}, space: {}, social: { followers: 0, posts: [] },
     health: 92, spirit: 18, karma: 0, diet: false, well: {}, cause: null,
     sleepHours: 8, timeline: [], ach: [],
-    used: [], hall: null, pastLives: [], relations: {}, pets: []
+    used: [], hall: null, pastLives: [], relations: {}, pets: [], clubs: []
   };
   STOCKS.forEach(x => { s.prices[x.id] = x.p; s.hist[x.id] = [x.p]; });
   return s;
@@ -300,6 +301,7 @@ export function migrate(raw: unknown): GameState {
   s.pastLives = Array.isArray(s.pastLives) ? s.pastLives : [];
   s.relations = s.relations && typeof s.relations === 'object' ? s.relations : {};
   s.pets = Array.isArray(s.pets) ? s.pets : [];
+  s.clubs = Array.isArray(s.clubs) ? s.clubs : (s.club ? [s.club] : []);
   s.branches = s.branches || {};
   s.farm = s.farm || {}; s.fac = s.fac || {}; s.space = s.space || {};
   s.farmBought = s.farmBought || {}; s.facBought = s.facBought || {}; s.spaceBought = s.spaceBought || {};
@@ -575,6 +577,11 @@ export function yearEnd(s: GameState, age: number, rng: () => number = Math.rand
   // v10.5 — pets grant passive fame per year (only happy pets).
   const petFame = petFameBonus(s);
   if (petFame > 0) s.fame = s.fame + petFame;
+  // v10.5 — club opportunities. Each joined club rolls for a cash or fame
+  // opportunity; 2+ clubs get a synergy bonus chance. Member dues have
+  // already been paid upfront at join time.
+  const clubOps = rollClubOpportunities(s, rng);
+  if (clubOps) pushLog(s, `Club network: ${clubOps}`);
   if (rng() < .6) {
     const ev = EVENTS[Math.floor(rng() * EVENTS.length)](s, rng);
     s.money += ev.cash;
@@ -656,10 +663,74 @@ export function trade(s: GameState, id: string, action: 'buy' | 'sell', qty: num
 }
 export function joinClub(s: GameState, id: string): string | null {
   const z = CLUBS.find(q => q.id === id); if (!z) return null;
+  if (s.clubs.includes(id)) return `Already a member of ${z.name}.`;
   if (netWorth(s) < z.min || s.money < z.fee) return null;
-  s.money -= z.fee; s.club = z.id;
+  s.money -= z.fee;
+  s.clubs.push(id);
+  // Active club = highest multiplier among joined (or 'own' if founded).
+  recomputeActiveClub(s);
   addXp(s, 30);
+  pushLog(s, `Joined ${z.name}.`);
   return 'Welcome to the ' + z.name + '!';
+}
+// v10.5 — leave a club. No refund. Recomputes active.
+export function leaveClub(s: GameState, id: string): string | null {
+  const z = CLUBS.find(q => q.id === id); if (!z) return null;
+  if (!s.clubs.includes(id)) return null;
+  s.clubs = s.clubs.filter(c => c !== id);
+  recomputeActiveClub(s);
+  pushLog(s, `Left ${z.name}.`);
+  return 'Left ' + z.name;
+}
+// Active club = the joined club with the highest mult. If the player owns
+// a club, that wins (1.2×). If no clubs joined, s.club = null.
+function recomputeActiveClub(s: GameState) {
+  if (s.ownClub) { s.club = 'own'; return; }
+  if (s.clubs.length === 0) { s.club = null; return; }
+  let best: { id: string; mult: number } | null = null;
+  for (const id of s.clubs) {
+    const z = CLUBS.find(c => c.id === id);
+    if (z && (!best || z.mult > best.mult)) best = { id: z.id, mult: z.mult };
+  }
+  s.club = best ? best.id : null;
+}
+// v10.5 — club opportunities. Called from yearEnd. Each club the player is
+// a member of rolls a chance to bring a networking opportunity: a small
+// cash boost, a fame bump, or a synergy bonus when two+ clubs pair up.
+// Returns a human-readable summary appended to the year-end log.
+export function rollClubOpportunities(s: GameState, rng: () => number = Math.random): string | null {
+  if (s.clubs.length === 0 && !s.ownClub) return null;
+  const events: string[] = [];
+  let cashGain = 0;
+  let fameGain = 0;
+  // Per-club roll: 40% chance of a small opportunity.
+  for (const id of s.clubs) {
+    const z = CLUBS.find(c => c.id === id); if (!z) continue;
+    if (rng() < 0.4) {
+      // Scale by club mult — pricier clubs bring bigger opportunities.
+      const scale = (z.mult - 1) * 5;
+      if (rng() < 0.6) {
+        // cash opportunity
+        const gain = Math.round(z.fee * (0.2 + rng() * 0.4) * scale);
+        cashGain += gain;
+        events.push(`${z.name} introduced a deal (+${fmt(gain)}).`);
+      } else {
+        // fame opportunity
+        const gain = Math.max(1, Math.round(scale * (0.5 + rng())));
+        fameGain += gain;
+        events.push(`${z.name} brought press (+${gain} fame).`);
+      }
+    }
+  }
+  // Synergy bonus: 2+ clubs = 15% chance of a synergy windfall.
+  if (s.clubs.length >= 2 && rng() < 0.15) {
+    const syn = Math.round(cashGain * 0.5 + s.clubs.length * 10000);
+    cashGain += syn;
+    events.push(`${s.clubs.length}-club network synergy (+${fmt(syn)}).`);
+  }
+  if (cashGain > 0) s.money += cashGain;
+  if (fameGain > 0) s.fame = s.fame + fameGain;
+  return events.length ? events.join(' ') : null;
 }
 export function foundClub(s: GameState, name: string): string | null {
   if (netWorth(s) < FOUND_MIN_NW || s.money < FOUND_COST) return null;
