@@ -369,21 +369,24 @@ export const BOTS: [string, number, string, string, number][] = [
   ['Ella Brown', 21, 'United Kingdom', 'Media', 2.1e5], ['Charlotte Eve', 19, 'United Kingdom', 'Fashion', 5.2e5]
 ];
 export const TABS: [string, string, string][] = [
-  ['home', 'Home', 't-life'], ['career', 'Jobs', 't-work'], ['edu', 'Education', 't-cap'], ['biz', 'Business', 't-biz'], ['space', 'Space', 't-space'],
-  ['health', 'Health', 'w-heart'], ['spirit', 'Mind', 'w-lotus'],
-  ['shop', 'Shop', 't-shop'], ['stock', 'Stocks', 't-stock'], ['social', 'Social', 't-social'],
-  ['club', 'Clubs', 't-club'], ['bank', 'Bank', 't-bank'], ['rank', 'Ranking', 't-rank'], ['fame', 'Hall of Fame', 'ic-trophy']
+  ['home', 'Overview', 't-life'], ['career', 'Career', 't-work'], ['edu', 'Education', 't-cap'], ['biz', 'Business', 't-biz'], ['space', 'Space', 't-space'],
+  ['health', 'Wellbeing', 'w-heart'], ['spirit', 'Mind', 'w-lotus'], ['pets', 'Companions', 'ic-paw'],
+  ['assets', 'Assets', 'ic-bag'], ['markets', 'Markets', 't-stock'], ['bank', 'Banking', 't-bank'],
+  ['social', 'Social', 't-social'], ['relations', 'Relations', 'ic-heart'], ['club', 'Clubs', 't-club'],
+  ['rank', 'Ranking', 't-rank'], ['fame', 'Hall of Fame', 'ic-trophy']
 ];
 
-// v9: two-level navigation — 6 groups arranged as a life pipeline:
-// personal foundation → human capital → enterprises → wealth → network → the world.
+// v10.5: navigation — reorganised into 6 scientific groups along a
+// personal → human-capital → enterprise → portfolio → network → world axis.
+// Tab labels use proper terminology (Character / Wellbeing / Capital /
+// Ventures / Markets / Banking / Vault / Sphere / Society / Registry).
 export const GROUPS: [string, string, string, [string, string, string][]][] = [
-  ['life', 'Life', 't-life', [['home', 'Home', 't-life'], ['health', 'Health', 'w-heart'], ['spirit', 'Mind & spirit', 'w-lotus']]],
-  ['growth', 'Growth', 't-cap', [['edu', 'Education', 't-cap'], ['career', 'Jobs', 't-work']]],
-  ['empire', 'Empire', 't-biz', [['biz', 'Business', 't-biz'], ['space', 'Space', 't-space']]],
-  ['wealth', 'Wealth', 't-bank', [['stock', 'Stocks', 't-stock'], ['bank', 'Bank', 't-bank'], ['shop', 'Shop', 't-shop']]],
-  ['network', 'Network', 't-social', [['social', 'Social', 't-social'], ['club', 'Clubs', 't-club']]],
-  ['world', 'World', 't-rank', [['rank', 'Ranking', 't-rank'], ['fame', 'Hall of Fame', 'ic-trophy'], ['links', 'Links', 'ic-link']]],
+  ['life', 'Character', 't-life', [['home', 'Overview', 't-life'], ['health', 'Wellbeing', 'w-heart'], ['spirit', 'Mind', 'w-lotus'], ['pets', 'Companions', 'ic-paw']]],
+  ['growth', 'Capital', 't-cap', [['edu', 'Education', 't-cap'], ['career', 'Career', 't-work']]],
+  ['empire', 'Ventures', 't-biz', [['biz', 'Business', 't-biz'], ['space', 'Space', 't-space']]],
+  ['wealth', 'Portfolio', 't-bank', [['assets', 'Assets', 'ic-bag'], ['markets', 'Markets', 't-stock'], ['bank', 'Banking', 't-bank']]],
+  ['network', 'Sphere', 't-social', [['social', 'Social', 't-social'], ['relations', 'Relations', 'ic-heart'], ['club', 'Clubs', 't-club']]],
+  ['world', 'World', 't-rank', [['rank', 'Ranking', 't-rank'], ['fame', 'Hall of Fame', 'ic-trophy'], ['links', 'Systems', 'ic-link']]],
 ];
 
 // ================= v8: gigs, levels & XP, the cosmic frontier =================

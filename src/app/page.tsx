@@ -184,9 +184,11 @@ export default function Page() {
           {tab === 'space' && <SpaceTab s={s} act={act} />}
           {tab === 'health' && <HealthTab s={s} act={act} />}
           {tab === 'spirit' && <SpiritTab s={s} act={act} />}
-          {tab === 'shop' && <ShopTab s={s} act={act} curCat={curCat} setCurCat={setCurCat} />}
-          {tab === 'stock' && <StockTab s={s} act={act} qtyMap={qtyMap} setQtyMap={setQtyMap} />}
+          {tab === 'pets' && <PetsTab s={s} act={act} />}
+          {tab === 'assets' && <AssetsTab s={s} act={act} curCat={curCat} setCurCat={setCurCat} />}
+          {tab === 'markets' && <StockTab s={s} act={act} qtyMap={qtyMap} setQtyMap={setQtyMap} />}
           {tab === 'social' && <SocialTab s={s} act={act} />}
+          {tab === 'relations' && <RelationsTab s={s} act={act} />}
           {tab === 'club' && <ClubTab s={s} act={act} />}
           {tab === 'bank' && <BankTab s={s} act={act} />}
           {tab === 'rank' && <RankTab s={s} board={rankBoard} setBoard={setRankBoard} />}
@@ -252,7 +254,7 @@ function Header({ s, eraName }: { s: GameState; eraName: (y: number) => string }
     <header className="top">
       <div className="brand">
         <Art id="s-coin" className="logo" />
-        <div><h1>MOGUL <span className="mini">v10.4</span></h1>
+        <div><h1>MOGUL <span className="mini">v10.5</span></h1>
           <div className="mini">{s.started ? `${s.nation} · ${eraName(worldYear(s))}` : t('tagline')}</div></div>
       </div>
       <div><div className="mini">{t('cash')}</div><div id="tcash" style={{ color: s.money < 0 ? 'var(--brick)' : undefined }}>{fmt(s.money)}</div>
@@ -694,10 +696,13 @@ function SpiritTab({ s, act }: { s: GameState; act: Act }) {
   );
 }
 
-// ================= SHOP =================
+// ================= ASSETS (was ShopTab) =================
+// v10.5: renamed from ShopTab. The "buy/sell" of physical items now lives
+// under the Portfolio → Assets tab, alongside the player's owned items +
+// pre-owned market + social listings + (new) repair/restore workshop.
 const CATART: Record<string, string> = { 'Sport bike': 'i-bike', 'Phone': 'i-phone', 'Watch': 'i-watch', 'Jewelry': 'i-ring', 'Suit': 'i-suit', 'Car': 'i-lambo', 'Property': 'i-house', 'Yacht': 'i-yacht', 'Private jet': 'i-jet', 'Art': 'i-art' };
 
-function ShopTab({ s, act, curCat, setCurCat }: { s: GameState; act: Act; curCat: string | null; setCurCat: (c: string | null) => void }) {
+function AssetsTab({ s, act, curCat, setCurCat }: { s: GameState; act: Act; curCat: string | null; setCurCat: (c: string | null) => void }) {
   const { t } = useT();
   const cats = [...new Set(ITEMS.map(i => i.cat))];
   // Surface 6 used listings, shuffled deterministically by the current
@@ -896,6 +901,37 @@ function ClubTab({ s, act }: { s: GameState; act: Act }) {
           </Row>
         )}
       <p className="sub">{t('oneClub', '', { x: fmt(FOUND_MIN_NW) })}</p>
+    </>
+  );
+}
+
+// ================= PETS / COMPANIONS (v10.5 placeholder) =================
+// Pet raising system — to be wired up in a follow-up task: pet types,
+// feeding cost, happiness/bond, benefits (passive fame, spirit, health).
+function PetsTab({ s, act }: { s: GameState; act: Act }) {
+  const { t } = useT();
+  return (
+    <>
+      <h3>{t('tab.pets')}</h3>
+      <div className="card">
+        <p className="sub" style={{ margin: 0 }}>Companion system arriving in the next update. Pets will bring passive fame, spirit and health bonuses, and a small monthly upkeep. Bond grows from walks and play; neglect costs happiness.</p>
+      </div>
+    </>
+  );
+}
+
+// ================= RELATIONS (v10.5 placeholder) =================
+// Male/female NPCs with personality + interests; friendship / hostility
+// computed from shared interests + interactions. To be wired up in a
+// follow-up task with a relationship engine + romance / rivalry arc.
+function RelationsTab({ s, act }: { s: GameState; act: Act }) {
+  const { t } = useT();
+  return (
+    <>
+      <h3>{t('tab.relations')}</h3>
+      <div className="card">
+        <p className="sub" style={{ margin: 0 }}>Relations engine arriving in the next update. NPCs will have their own interests, careers and life arcs; shared interests raise friendship, clashing values raise rivalry. Romance, partnership and mentorship arcs will follow.</p>
+      </div>
     </>
   );
 }

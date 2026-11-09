@@ -22,6 +22,7 @@ export const ART_DEFS = `<svg width="0" height="0" style="position:absolute" ari
 <symbol id="ic-trophy" viewBox="0 0 24 24"><path d="M7 4h10v5a5 5 0 0 1-10 0z"/><path d="M7 5H4a3 3 0 0 0 3 4M17 5h3a3 3 0 0 1-3 4M12 14v4M8 20h8M9 20a3 3 0 0 0 6 0"/></symbol>
 <symbol id="t-bank" viewBox="0 0 24 24"><path d="M12 3L3 8h18zM4 8v10M9 8v10M15 8v10M20 8v10M2 20h20"/></symbol>
 <symbol id="ic-heart" viewBox="0 0 24 24"><path d="M12 20s-7-4.6-9-9a5 5 0 0 1 9-3 5 5 0 0 1 9 3c-2 4.4-9 9-9 9z"/></symbol>
+<symbol id="ic-paw" viewBox="0 0 24 24"><circle cx="7" cy="9" r="2"/><circle cx="12" cy="7" r="2"/><circle cx="17" cy="9" r="2"/><circle cx="9.5" cy="13" r="2"/><circle cx="14.5" cy="13" r="2"/><path d="M7 17c0-2 2-3 5-3s5 1 5 3c0 2-3 3-5 3s-5-1-5-3z"/></symbol>
 <symbol id="ic-star" viewBox="0 0 24 24"><path d="M12 3l2.7 5.7 6.3.9-4.5 4.4 1 6.2-5.5-3-5.5 3 1-6.2L3 9.6l6.3-.9z"/></symbol>
 <symbol id="ic-ai" viewBox="0 0 24 24"><rect x="6" y="7" width="12" height="11" rx="3"/><path d="M12 3v4M9 12h.01M15 12h.01M9.5 15.5c1.5 1 3.5 1 5 0"/></symbol>
 <symbol id="b-cafe" viewBox="0 0 48 48"><path d="M9 18h24v10a9 9 0 0 1-9 9h-6a9 9 0 0 1-9-9z" fill="#a98a68"/><path d="M33 21h2a4 4 0 0 1 0 8h-2" fill="none" stroke="#a98a68" stroke-width="3"/><path d="M16 6c-2 4 2 5 0 9M24 6c-2 4 2 5 0 9" fill="none" stroke="#b06a5b" stroke-width="2.5" stroke-linecap="round"/></symbol>
