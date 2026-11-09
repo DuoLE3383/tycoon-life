@@ -174,6 +174,12 @@ export interface GameState {
   // `amount` → higher boost (capped). The multiplier reads this via
   // bizRndMult(); when s.day passes untilDay, the boost expires.
   bizRnd?: { amount: number; investedDay: number; untilDay: number; boostMult: number } | null;
+  // v11.21 — Spirit-tab activity log for daily spirit-gain cap. Each
+  // Spirit panel (Kinh Dịch / Tử Vi / Phong Thuỷ / Tarot nâng cao) calls
+  // grantSpirit() which adds to s.spirit but is capped per game-day so the
+  // player can't farm spirit by spamming casts. { day, gained } where day
+  // is the game-day and gained is the total spirit added that day.
+  spiritGainToday?: { day: number; gained: number } | null;
   // v11.2 — market research. lastResearchDay is the day the player last
   // paid for a brief; researchBrief caches the lines so the UI can show
   // them until next research. Cleared by Jan 1 of a new year (stale).
@@ -429,7 +435,7 @@ export function fresh(): GameState {
     used: [], hall: null, pastLives: [], relations: {}, pets: [], clubs: [], aiEvPending: false, shortCompleted: [],
     pendingToasts: [],
     crisis: null, shocks: [], lastResearchDay: 0, researchBrief: null,
-    bizRnd: null,
+    bizRnd: null, spiritGainToday: null,
     power: freshPower(),
     entity: freshEntity(),
   };
@@ -481,6 +487,8 @@ export function migrate(raw: unknown): GameState {
   s.shocks = Array.isArray(s.shocks) ? s.shocks : [];
   // v11.20 — bizRnd backfill for old saves.
   s.bizRnd = s.bizRnd && typeof s.bizRnd === 'object' ? s.bizRnd : null;
+  // v11.21 — spiritGainToday backfill for old saves.
+  s.spiritGainToday = s.spiritGainToday && typeof s.spiritGainToday === 'object' ? s.spiritGainToday : null;
   s.lastResearchDay = typeof s.lastResearchDay === 'number' ? s.lastResearchDay : 0;
   s.researchBrief = Array.isArray(s.researchBrief) ? s.researchBrief : null;
   // v11.3 — power state. Old saves have no power; fresh-start it. If the
@@ -767,6 +775,30 @@ export function queueToast(s: GameState, msg: string): void {
   s.pendingToasts.push(msg);
   if (s.pendingToasts.length > 20) s.pendingToasts.shift();
 }
+// v11.21 — grant spirit points from a Spirit-tab activity (Kinh Dịch /
+// Tử Vi / Phong Thuỷ / Tarot). Capped at SPIRIT_DAILY_CAP per game-day so
+// the player can't farm spirit by spamming casts. Resets the cap when the
+// game-day rolls over. Returns the amount actually granted (may be less
+// than requested if the cap is hit, or 0 if the cap is already reached).
+export const SPIRIT_DAILY_CAP = 8;
+export function grantSpirit(s: GameState, amount: number, source: string): number {
+  if (amount <= 0) return 0;
+  const today = Math.floor(s.day);
+  if (!s.spiritGainToday || s.spiritGainToday.day !== today) {
+    s.spiritGainToday = { day: today, gained: 0 };
+  }
+  const remaining = SPIRIT_DAILY_CAP - s.spiritGainToday.gained;
+  if (remaining <= 0) return 0;
+  const granted = Math.min(amount, remaining);
+  s.spirit = Math.min(100, s.spirit + granted);
+  s.spiritGainToday.gained += granted;
+  pushLog(s, `${source} — spirit +${granted} (today ${s.spiritGainToday.gained}/${SPIRIT_DAILY_CAP}).`);
+  return granted;
+}
+export const spiritGainTodayLeft = (s: GameState): number => {
+  if (!s.spiritGainToday || s.spiritGainToday.day !== Math.floor(s.day)) return SPIRIT_DAILY_CAP;
+  return Math.max(0, SPIRIT_DAILY_CAP - s.spiritGainToday.gained);
+};
 export function recordActivity(s: GameState, entry: string, day = s.lastDay): void {
   let date = s.timeline.find(x => x.day === day);
   if (!date) {

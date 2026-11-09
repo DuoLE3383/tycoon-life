@@ -116,6 +116,12 @@ const D: Record<string, [string, string, string]> = {
   'sp.templeDone': ['Blessed. Spirit +{n}, karma +{k}', 'Được phúc lành. Tâm linh +{n}, karma +{k}', '得福报。心灵 +{n}，因果 +{k}'],
   'sp.retreatDone': ['Ten days of silence — spirit +25, karma +15, health +5', 'Mười ngày tĩnh lặng — tâm linh +25, karma +15, sức khoẻ +5', '静修十日 — 心灵 +25，因果 +15，健康 +5'],
   'sp.faithDone': ['A meaningful act. Spirit +3, karma +2.', 'Một việc làm ý nghĩa. Tâm linh +3, karma +2.', '一次有意义的善行。心灵 +3，因果 +2。'],
+  // v11.21 — Spirit-tab activities (Kinh Dịch / Tử Vi / Phong Thuỷ / Tarot)
+  // now grant spirit points. Toast shown when a Spirit panel completes a
+  // reading and the daily cap hasn't been hit.
+  'sp.spiritGain': ['{src} — spirit +{n}', '{src} — tâm linh +{n}', '{src} — 心灵 +{n}'],
+  'sp.spiritCapHit': ['Daily contemplation cap reached ({cap}/day).', 'Đã chạm trần chiêm nghiệm hàng ngày ({cap}/ngày).', '已达到每日观想上限（{cap}/日）。'],
+  'sp.spiritPanelNote': ['Each Spirit activity grants +1–3 spirit (capped {cap}/day).', 'Mỗi hoạt động Tâm linh cho +1–3 tâm linh (trần {cap}/ngày).', '每个心灵活动给予 +1–3 心灵（每日上限 {cap}）。'],
   'religion': ['Faith or worldview', 'Tôn giáo hoặc thế giới quan', '宗教或人生观'],
   'religion.none': ['No religion / secular', 'Không tôn giáo / thế tục', '无宗教 / 世俗'],
   'religion.buddhism': ['Buddhism', 'Phật giáo', '佛教'],

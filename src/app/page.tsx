@@ -1,5 +1,5 @@
 'use client';
-// HuyenBao v11.20 — React edition. Two-level grouped nav, a systems links map,
+// HuyenBao v11.21 — React edition. Two-level grouped nav, a systems links map,
 // gigs, levels, social, the cosmic frontier, EN/VI/中文, LLM oracle with
 // random kind dispatch (luck / setback / life-stage / story), pre-owned
 // market + social listings, and a Hall of Fame tab.
@@ -16,6 +16,7 @@ import {
   fmt, taxOf, fresh, begin, tick, applyOffline, stageOf, worldYear, branchCount, bizCost, clubMult, branchNet, fameBonus, bizMultiplier,
   bizIncome, yearIncome, living, lotValue, upkeep, assetVal, bizVal, stockVal, netWorth,
   bizRevenue, bizCosts, bizNet, bizMarketShare, bizRndMult, investBizRnd,
+  grantSpirit, spiritGainTodayLeft, SPIRIT_DAILY_CAP,
   effYears, tuitionOf, meets, reqText, knowledgeText, snapshot, dateOf,
   processDay, yearEnd,
   doGig, gigReady, gigLock, gigPay, addPost, buySpace, spaceIncome, socialIncome, levelMult, canPost, postCooldownLeft,
@@ -72,7 +73,7 @@ if (typeof window !== 'undefined') {
 // v11.8 — the bundled version. The /version.json file in /public is polled
 // every 5 minutes; if its version is newer than this, a "reload to update"
 // banner appears even in a running session (no F5 needed).
-const BUNDLED_VERSION = 'v11.20';
+const BUNDLED_VERSION = 'v11.21';
 const VERSION_POLL_MS = 5 * 60 * 1000;
 const SEEN_KEY = 'tycoon_seen_' + BUNDLED_VERSION;
 
@@ -490,7 +491,7 @@ function Header({ s, eraName }: { s: GameState; eraName: (y: number) => string }
     <header className="top">
       <div className="brand">
         <Art id="s-coin" className="logo" />
-        <div><h1><span className="mini">v11.20</span> HuyenBao</h1>
+        <div><h1><span className="mini">v11.21</span> HuyenBao</h1>
           <div className="mini">{s.started ? `${s.nation} · ${eraName(worldYear(s))}` : t('tagline')}</div></div>
       </div>
       <div><div className="mini">{t('cash')}</div><div id="tcash" style={{ color: s.money < 0 ? 'var(--brick)' : undefined }}>{fmt(s.money)}</div>
@@ -1063,6 +1064,8 @@ function HealthAlerts({ s }: { s: GameState }) {
 function SpiritTab({ s, act }: { s: GameState; act: Act }) {
   const { t } = useT();
   const sp = Math.round(s.spirit), stIdx = spiritState(s.spirit);
+  // v11.21 — daily contemplation cap remaining (for the spirit-panel note).
+  const spiritLeft = spiritGainTodayLeft(s);
   const rows: { id: string; art: string; name: string; cost: number; cd: number; gain: number }[] = [
     { id: 'meditate', art: 'w-lotus', name: t('meditate'), cost: 0, cd: 1, gain: 4 },
     { id: 'temple', art: 'w-temple', name: t('temple'), cost: TEMPLE_COST, cd: TEMPLE_CD, gain: 6 },
@@ -1132,14 +1135,18 @@ function SpiritTab({ s, act }: { s: GameState; act: Act }) {
           </span>
         </Row>
       )}
+      {/* v11.21 — Spirit panels now grant spirit points (capped per day). */}
+      <div className="mini" style={{ padding: '6px 8px', background: 'rgba(0,0,0,0.02)', borderRadius: 4, marginBottom: 6, opacity: .85 }}>
+        {t('sp.spiritPanelNote', '', { cap: SPIRIT_DAILY_CAP })} · <b>{spiritLeft}/{SPIRIT_DAILY_CAP}</b> {t('left')}.
+      </div>
       {/* v11.11 — Kinh Dịch (I Ching), first Huyen-Hoc-AI feature integrated into the main app */}
-      <KinhDichPanel />
+      <KinhDichPanel act={act} />
       {/* v11.14 — Tử Vi (紫微斗数), second Huyen-Hoc-AI feature integrated */}
-      <TuViPanel s={s} />
+      <TuViPanel s={s} act={act} />
       {/* v11.15 — Phong Thuỷ Bát Trạch (八宅), third Huyen-Hoc-AI feature integrated */}
-      <PhongThuyPanel s={s} />
+      <PhongThuyPanel s={s} act={act} />
       {/* v11.16 — Tarot nâng cao (full 78-card deck + multi-card spreads), fourth Huyen-Hoc-AI feature integrated */}
-      <TarotSpreadPanel />
+      <TarotSpreadPanel act={act} />
     </>
   );
 }
@@ -1169,7 +1176,7 @@ function HexLines({ hex }: { hex: CastResult['primary'] }) {
   );
 }
 
-function KinhDichPanel() {
+function KinhDichPanel({ act }: { act: Act }) {
   const { t, lang } = useT();
   const [question, setQuestion] = useState('');
   const [busy, setBusy] = useState(false);
@@ -1199,6 +1206,13 @@ function KinhDichPanel() {
       if (!res.ok) throw new Error('fetch');
       const reading = await res.json();
       setResult({ cast, reading });
+      // v11.21 — casting the I Ching is a contemplation act; grant a small
+      // spirit boost (1-3 points) capped per game-day. The act callback
+      // mutates s.spirit via grantSpirit() and surfaces the gain as a toast.
+      act(st => {
+        const g = grantSpirit(st, 2, 'Kinh Dịch cast');
+        return g > 0 ? t('sp.spiritGain', '', { n: g, src: 'Kinh Dịch' }) : null;
+      });
     } catch {
       setErr(t('kd.errFetch'));
     } finally { setBusy(false); }
@@ -1272,7 +1286,7 @@ function KinhDichPanel() {
 // character's byear + birthMonth + birthDay (v11.19: was day=15 default)
 // plus an hour the player enters here. The LLM interpretation comes from
 // /api/tuvi. No save-state change.
-function TuViPanel({ s }: { s: GameState }) {
+function TuViPanel({ s, act }: { s: GameState; act: Act }) {
   const { t, lang } = useT();
   // v11.19 — seed day from the character's birthDay instead of mid-month 15.
   const [day, setDay] = useState(s.birthDay || 15);
@@ -1304,6 +1318,12 @@ function TuViPanel({ s }: { s: GameState }) {
       if (!res.ok) throw new Error('fetch');
       const reading = await res.json();
       setResult({ laso, reading });
+      // v11.21 — building the Tử Vi chart is a deep self-contemplation act;
+      // grant 2-4 spirit (capped per game-day via grantSpirit).
+      act(st => {
+        const g = grantSpirit(st, 3, 'Tử Vi chart');
+        return g > 0 ? t('sp.spiritGain', '', { n: g, src: 'Tử Vi' }) : null;
+      });
     } catch {
       setErr(t('tv.errFetch'));
     } finally { setBusy(false); }
@@ -1404,7 +1424,7 @@ function TuViPanel({ s }: { s: GameState }) {
 // gender, and house/kitchen/bedroom directions the player enters — no save
 // change. Mirrors the Huyen-Hoc-AI FastAPI Bát Trạch + Cửu Tinh reference, but
 // runs on the main app's own LLM (same client as /api/divine + /api/tuvi).
-function PhongThuyPanel({ s }: { s: GameState }) {
+function PhongThuyPanel({ s, act }: { s: GameState; act: Act }) {
   const { t, lang } = useT();
   // v11.19 — seed day from the character's birthDay instead of mid-month 15.
   const [day, setDay] = useState(s.birthDay || 15);
@@ -1442,6 +1462,12 @@ function PhongThuyPanel({ s }: { s: GameState }) {
       if (!res.ok) throw new Error('fetch');
       const interp = await res.json();
       setResult({ reading, interp });
+      // v11.21 — phong thuỷ analysis aligns the player with their space;
+      // grant 1-3 spirit (capped per game-day via grantSpirit).
+      act(st => {
+        const g = grantSpirit(st, 2, 'Phong Thuỷ analysis');
+        return g > 0 ? t('sp.spiritGain', '', { n: g, src: 'Phong Thuỷ' }) : null;
+      });
     } catch {
       setErr(t('pt.errFetch'));
     } finally { setBusy(false); }
@@ -1584,7 +1610,7 @@ function PhongThuyPanel({ s }: { s: GameState }) {
 // but runs on the main app's own LLM (same client as /api/divine + tuvi +
 // phongthuy). The earlier v11.6 simple Tarot (1 card, 30-day cooldown) stays
 // above; this panel is the full-spread upgrade.
-function TarotSpreadPanel() {
+function TarotSpreadPanel({ act }: { act: Act }) {
   const { t, lang } = useT();
   const [spread, setSpread] = useState<1 | 3 | 5>(3);
   const [question, setQuestion] = useState('');
@@ -1623,6 +1649,14 @@ function TarotSpreadPanel() {
       if (!res.ok) throw new Error('fetch');
       const interp = await res.json();
       setResult({ cards, interp });
+      // v11.21 — Tarot spread is an intuition/contemplation act; grant 1-3
+      // spirit (capped per game-day via grantSpirit). Bigger spreads give
+      // a touch more: 1-card → +1, 3-card → +2, 5-card → +3.
+      const spiritAmt = spread === 1 ? 1 : spread === 3 ? 2 : 3;
+      act(st => {
+        const g = grantSpirit(st, spiritAmt, 'Tarot spread');
+        return g > 0 ? t('sp.spiritGain', '', { n: g, src: 'Tarot' }) : null;
+      });
     } catch {
       setErr(t('tt.errFetch'));
     } finally { setBusy(false); }

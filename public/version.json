@@ -1,19 +1,17 @@
 {
-  "version": "v11.20",
+  "version": "v11.21",
   "releasedAt": "2026-11-10",
-  "headline": "HuyenBao v11.20 — business P&L + R&D investment + market share + catalogue sorted by difficulty + ads reduce health",
-  "summary": "Backlog-clearing pass: business detail (P&L + market share + R&D), catalogue re-sorted easiest→hardest with unlock hints, advertising/hype posts now reduce health (stress from promo grind). All four Huyen-Hoc-AI features (Kinh Dịch / Tử Vi / Phong Thuỷ / Tarot) unchanged. AI audit pass: confirmed the 5 existing AI mechanisms (random oracle popup, story endpoint, divine (I Ching), tuvi, phongthuy, tarot, post generator) are wired correctly with 3-layer fallback (Ollama local → ZAI cloud → deterministic local). Elliot crypto MVP: already linked from the Market tab in v11.19 (https://elliott.huyenbao.com/) — Phase 2 ECOSYSTEM.md roadmap referenced from there.",
+  "headline": "HuyenBao v11.21 — Spirit-tab activities now grant spirit points (capped per day)",
+  "summary": "Per player request, the four Spirit-tab panels (Kinh Dịch / Tử Vi / Phong Thuỷ / Tarot nâng cao) now grant spirit points when a reading completes. Each activity is a contemplation act: Kinh Dịch cast +2, Tử Vi chart +3, Phong Thuỷ analysis +2, Tarot spread +1–3 (1-card → +1, 3-card → +2, 5-card → +3). Capped at SPIRIT_DAILY_CAP=8 points per game-day so the player can't farm spirit by spamming casts — the cap resets when the game-day rolls over. The Spirit tab shows the daily remaining budget inline. Spirit points feed the existing spirit-state system (Restless / Calm / Centered / Enlightened) and unlock the existing perks: spirit ≥ 70 → business ×1.10 + slower aging; spirit ≥ 80 → cosmic ventures ×1.25. 4 Huyen-Hoc-AI features unchanged in their reading logic — only a post-reading spirit grant was added.",
   "features": [
-    "Business P&L summary card at the top of BizTab: revenue (annualised, gross), costs (per-branch overhead + manager fees + farm/fac line upkeep), net profit, market share (% of notional 60-branch local market)",
-    "R&D investment panel: invest $50k–$5M+ for a 365-game-day biz-multiplier boost (log-scaled: $50k→+5%, $500k→+20%, $5M caps at +25%). Active boost shown with days remaining. Re-investing replaces the active boost (doesn't stack)",
-    "bizRevenue / bizCosts / bizNet / bizMarketShare / bizRndMult / investBizRnd helpers added to engine.ts; bizMultiplier now reads bizRndMult()",
-    "GameState.bizRnd field (backfilled in migrate) stores the active R&D investment",
-    "Catalogue categories now sorted by minimum item price ascending — Phone ($999) first, Private jet ($10M) last. Previously insertion order mixed cheap with expensive",
-    "Locked categories (Sport bike / Car requiring moto / car licence) now show a 🔒 hint with the licence name that unlocks them, instead of just 'licence needed'. Owned licences show a ✓ chip",
-    "Ads/hype posts reduce health: addPost() with boost ≥ 1.4 (hype = 1.6, viral brand deals = 2.0) now costs 0.3–1.2 health per post, scaled by boost. Queued toast notifies the player of the health cost ('Hype post — stressed from promo grind, health −N')",
-    "Catalogue note explains the sort + unlock-hint behaviour",
-    "AI audit pass: 5 AI mechanisms (oracle popup / story / divine / tuvi / phongthuy / tarot / post) all confirmed wired with 3-layer fallback. No bugs found",
-    "Elliot crypto MVP: the Market-tab crypto hook (added v11.19) IS the MVP — links to https://elliott.huyenbao.com/ for the dedicated Elliott Wave crypto app. Phase 2 ECOSYSTEM.md roadmap referenced from there",
-    "Version bumped to v11.20 at FRONT of app name (v11.20 HuyenBao)"
+    "Kinh Dịch cast grants +2 spirit on successful interpretation (capped per day)",
+    "Tử Vi chart build grants +3 spirit on successful interpretation (capped per day)",
+    "Phong Thuỷ analysis grants +2 spirit on successful interpretation (capped per day)",
+    "Tarot spread grants +1–3 spirit on successful interpretation (1-card → +1, 3-card → +2, 5-card → +3; capped per day)",
+    "grantSpirit() helper + SPIRIT_DAILY_CAP=8 + spiritGainTodayLeft() added to engine.ts; GameState.spiritGainToday tracks the daily total (backfilled in migrate)",
+    "Spirit tab shows inline daily-budget note: 'Each Spirit activity grants +1–3 spirit (capped 8/day) · N/8 left'",
+    "Toast on each grant: '{src} — spirit +{n}' so the player sees the gain; if cap hit, no toast (silently capped)",
+    "Spirit points feed the existing spirit-state system (Restless / Calm / Centered / Enlightened) + perks (biz ×1.10 at 70+, cosmic ×1.25 at 80+)",
+    "Version bumped to v11.21 at FRONT of app name (v11.21 HuyenBao)"
   ]
 }
