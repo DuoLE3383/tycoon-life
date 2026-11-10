@@ -1,14 +1,14 @@
 {
-  "version": "v11.43",
+  "version": "v11.44",
   "releasedAt": "2026-11-10",
-  "headline": "HuyenBao v11.43 — sửa 5 bug bằng lái (label 'Cần bằng lái' → 'Không đủ tiền' + i18n + short course)",
-  "summary": "LICENCE BUG FIXES. 5 bugs found and fixed in the licence system. (A) WRONG BUTTON LABEL: when the player couldn't afford a licence, the enrol button showed 'Cần bằng lái' (Need licence) on a licence enrol button — making it look broken. Now correctly shows 'Không đủ tiền' (Not enough cash). (B) MISSING I18N KEY: 'parallelStudyNote' was undefined → rendered as literal text. Now uses existing 'multiStudyNote' key. (C) MISSING LIC.MECHANIC: the mechanic licence had no translations → showed English in VI/ZH. Now has full EN/VI/ZH. (D) EMPTY 'NEEDED FOR': boat/pilot/mechanic licences showed 'needed for' with nothing after it. Now localises category names + hides the segment when empty. (E) SHORT COURSE POLLUTION: short courses (bootcamp, MBA-fast, etc.) reused kind:'lic' and wrote to s.lic on completion — polluting the licence map + mislabelling as 'Licence' in toasts/logs. Now finishStudy checks SHORT_BY and skips the s.lic write + says 'Short course' not 'Licence'.",
+  "headline": "HuyenBao v11.44 — phục hồi thông báo cập nhật (per-patch + dynamic content từ version.json)",
+  "summary": "UPDATE NOTIFICATION RESTORED. The what's-new modal stopped showing after v11.24 because the SEEN_KEY was per-major-version (tycoon_seen_v11) — once dismissed, no patch (v11.25-v11.43) ever re-triggered it. Fixed: SEEN_KEY is now per-patch (tycoon_seen_v11.44) so each new deployment re-shows the modal once. Content is now DYNAMIC — driven from /public/version.json's headline + features[] fields (which ARE updated per-patch), instead of the stale static V11_FEATURES list from v11.0. The modal fetches version.json on mount and renders the current patch's actual changelog. Old players who dismissed v11 will see this modal once on next load.",
   "features": [
-    "BUG A FIX: licence enrol button 'Cần bằng lái' → 'Không đủ tiền' when can't afford",
-    "BUG B FIX: missing 'parallelStudyNote' i18n key → use existing 'multiStudyNote'",
-    "BUG C FIX: missing 'lic.mechanic' translations → added EN/VI/ZH",
-    "BUG D FIX: 'needed for' empty for boat/pilot/mechanic → localise + hide when empty",
-    "BUG E FIX: short courses no longer write to s.lic + correctly labelled 'Short course' in toasts/logs",
-    "Version bumped to v11.43"
+    "PER-PATCH SEEN_KEY: tycoon_seen_v11 → tycoon_seen_v11.44 (re-shows on each new patch)",
+    "DYNAMIC CONTENT: modal fetches /public/version.json headline + features[] on mount",
+    "REMOVED: stale static V11_FEATURES list (was from v11.0, never updated)",
+    "FALLBACK: if fetch fails, shows v11.headline + v11.summary i18n keys",
+    "Old players who dismissed v11 will see the modal once on next load",
+    "Version bumped to v11.44"
   ]
 }

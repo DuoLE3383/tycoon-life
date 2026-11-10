@@ -1,5 +1,5 @@
 'use client';
-// HuyenBao v11.43 — React edition. Two-level grouped nav, a systems links map,
+// HuyenBao v11.44 — React edition. Two-level grouped nav, a systems links map,
 // gigs, levels, social, the cosmic frontier, EN/VI/中文, LLM oracle with
 // random kind dispatch (luck / setback / life-stage / story), pre-owned
 // market + social listings, a Hall of Fame tab, and a real player-to-player
@@ -95,14 +95,17 @@ if (typeof window !== 'undefined') {
 // v11.8 — the bundled version. The /version.json file in /public is polled
 // every 5 minutes; if its version is newer than this, a "reload to update"
 // banner appears even in a running session (no F5 needed).
-const BUNDLED_VERSION = 'v11.43';
+const BUNDLED_VERSION = 'v11.44';
 const VERSION_POLL_MS = 5 * 60 * 1000;
-// v11.24 — 'what's new' modal is shown ONCE PER PLAYER per MAJOR version
-// (tycoon_seen_v11), not once per patch release. Previously the key was
-// per-patch (tycoon_seen_v11.21/.22/.23) so every version bump re-showed the
-// SAME static v11 feature list — the "big update notification repeats!!!"
-// complaint. Now it appears on first load of the v11 era only.
-const SEEN_KEY = 'tycoon_seen_v11';
+// v11.44 — 'what's new' modal now fires PER PATCH (not per major version).
+// The SEEN_KEY is derived from BUNDLED_VERSION so each new patch re-shows the
+// modal once. Content is driven from /public/version.json (headline + features),
+// which IS updated per-patch — so the modal always shows fresh, accurate
+// changelog content instead of the stale static v11 list.
+// v11.24 had switched to per-major (tycoon_seen_v11) to avoid the "stale list
+// repeats" complaint, but that meant patch-level updates were never announced.
+// The per-patch key + dynamic content from version.json solves both problems.
+const SEEN_KEY = 'tycoon_seen_' + BUNDLED_VERSION;
 
 export default function Page() {
   const { s } = useGame();
@@ -130,18 +133,31 @@ export default function Page() {
   const [aiBusy, setAiBusy] = useState(false);
   const [aiNoteKey, setAiNoteKey] = useState('oracle.note');
   const [qtyMap, setQtyMap] = useState<Record<string, number>>({});
-  // v11 — version banner state. 'whatsNew' shows the V11 feature list once
-  // per player (localStorage flag). 'reload' shows when /version.json reports
-  // a newer version than the bundled one (polled every 5 min, no F5 needed).
+  // v11 — version banner state. 'whatsNew' shows the what's-new modal once
+  // per player per PATCH (localStorage flag keyed by version). 'reload' shows
+  // when /version.json reports a newer version than the bundled one.
   const [whatsNew, setWhatsNew] = useState(false);
+  // v11.44 — dynamic content from version.json (headline + features array).
+  const [whatsNewContent, setWhatsNewContent] = useState<{ headline: string; features: string[] } | null>(null);
   const [reloadPrompt, setReloadPrompt] = useState<{ version: string; headline: string } | null>(null);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Show the "what's new in V11" modal on first load if not seen yet.
+  // v11.44 — Show the "what's new" modal on first load if not seen yet.
+  // Also fetch version.json to get the current patch's headline + features
+  // so the modal shows fresh content (not the stale static v11 list).
   useEffect(() => {
-    try {
-      if (!localStorage.getItem(SEEN_KEY)) setWhatsNew(true);
-    } catch { /* ignore */ }
+    let seen = false;
+    try { seen = !!localStorage.getItem(SEEN_KEY); } catch { /* ignore */ }
+    if (!seen) {
+      setWhatsNew(true);
+      // Fetch the dynamic content from version.json
+      fetch(asset('/version.json'), { cache: 'no-store' })
+        .then(r => r.ok ? r.json() : null)
+        .then((j: { headline?: string; features?: string[] } | null) => {
+          if (j?.headline && j?.features) setWhatsNewContent({ headline: j.headline, features: j.features });
+        })
+        .catch(() => { /* ignore — modal will fall back to static content */ });
+    }
   }, []);
 
   // Poll /version.json every 5 minutes — if the deployed version is newer
@@ -469,43 +485,39 @@ export default function Page() {
         </div>
       )}
 
-      {/* v11 — what's-new modal, shown once per player per major version */}
-      {whatsNew && <WhatsNewModal onDismiss={dismissWhatsNew} />}
+      {/* v11.44 — what's-new modal, shown once per player per PATCH.
+          Content driven from version.json (headline + features). */}
+      {whatsNew && <WhatsNewModal onDismiss={dismissWhatsNew} content={whatsNewContent} />}
     </div>
   );
 }
 
 // ================= v11 WHAT'S NEW MODAL =================
-const V11_FEATURES: [string, string][] = [
-  ['Used-market era filter', 'No more 2018 Ducati in a 2001 game — listings now respect the timeline.'],
-  ['Jet / yacht crew hire', 'No licence needed — hire a crew instead, just pay monthly upkeep.'],
-  ['Random AI oracle popups', 'Life twists fire on their own every so often — no click required.'],
-  ['Enhanced character creation', 'Live preview, random button, confirm step, suggestion card.'],
-  ['Life-choice arcs', 'Change interests, drop out, re-enroll, take short/accelerated courses.'],
-  ['Per-degree roadmap', 'Each degree shows its goal, strengths, and career path.'],
-  ['Business two-path', 'Degree route OR capital+manager route with monthly closure risk.'],
-  ['IPO + conglomerate', 'Private → raise capital → IPO → conglomerate. Dividends, M&A, spinoffs.'],
-  ['Real-event market shocks', '1929 / 1973 / 2008 / 2020 reshape valuation, rates, demand, closure odds.'],
-  ['Bank credit overhaul', 'Loan limit from verified income + collateral + history. 18yo can\'t buy a mansion.'],
-  ['Legal consequences', 'Hint under each choice cites the rule. Fines + XP loss + humorous punishments + cheat shortcuts.'],
-];
-
-function WhatsNewModal({ onDismiss }: { onDismiss: () => void }) {
+// v11.44 — the modal now takes dynamic content from version.json. If the
+// content hasn't loaded yet (or fetch failed), it falls back to a simple
+// "what's new" message with the bundled version. The old static V11_FEATURES
+// list is removed — version.json is the single source of truth for changelog.
+function WhatsNewModal({ onDismiss, content }: { onDismiss: () => void; content: { headline: string; features: string[] } | null }) {
   // v11.27 — language buttons inside the popup so players can switch
   // language without closing the modal first (user request).
   const { t, lang, setLang } = useT();
+  const headline = content?.headline || t('v11.headline');
+  const features = content?.features || [];
   return (
     <div className="modal on" onClick={e => { if (e.target === e.currentTarget) onDismiss(); }}>
       <div className="mcard" style={{ maxWidth: 580, textAlign: 'left' }}>
-        <div className="mhead"><h2>✨ {t('v11.headline')}</h2><span className="mlang">{LANGS.map(l => <button key={l.id} className="ibtn ghost tsmall" aria-pressed={lang === l.id} data-lang={l.id} onClick={() => setLang(l.id as Lang)}>{l.label}</button>)}</span><button className="ibtn ghost" onClick={onDismiss}><Ic id="ic-x" className="bsi" /><span>✕</span></button></div>
-        <p className="sub" style={{ marginTop: 0 }}>{t('v11.summary')}</p>
-        <ul style={{ margin: '12px 0', paddingLeft: 20, display: 'grid', gap: 8 }}>
-          {V11_FEATURES.map(([title, desc]) => (
-            <li key={title} style={{ listStyle: 'disc' }}>
-              <b>{title}</b> — <span className="sub">{desc}</span>
-            </li>
-          ))}
-        </ul>
+        <div className="mhead"><h2>✨ {headline}</h2><span className="mlang">{LANGS.map(l => <button key={l.id} className="ibtn ghost tsmall" aria-pressed={lang === l.id} data-lang={l.id} onClick={() => setLang(l.id as Lang)}>{l.label}</button>)}</span><button className="ibtn ghost" onClick={onDismiss}><Ic id="ic-x" className="bsi" /><span>✕</span></button></div>
+        {features.length > 0 ? (
+          <ul style={{ margin: '12px 0', paddingLeft: 20, display: 'grid', gap: 6 }}>
+            {features.map((f, i) => (
+              <li key={i} style={{ listStyle: 'disc', fontSize: '.88rem' }}>
+                <span className="sub">{f}</span>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="sub" style={{ marginTop: 0 }}>{t('v11.summary')}</p>
+        )}
         <button className="ibtn" style={{ width: '100%', marginTop: 12 }} onClick={onDismiss}>
           <Ic id="ic-check" className="bsi" /><span>{t('v11.gotIt')}</span>
         </button>
@@ -555,7 +567,7 @@ function Header({ s, eraName }: { s: GameState; eraName: (y: number) => string }
     <header className="top">
       <div className="brand">
         <Art id="s-coin" className="logo" />
-        <div><h1><span className="mini">v11.43</span> HuyenBao</h1>
+        <div><h1><span className="mini">v11.44</span> HuyenBao</h1>
           <div className="mini">{s.started ? `${s.nation} · ${eraName(worldYear(s))}` : t('tagline')}</div></div>
       </div>
       <div><div className="mini">{t('cash')}</div><div id="tcash" style={{ color: s.money < 0 ? 'var(--brick)' : undefined }}>{fmt(s.money)}</div>
