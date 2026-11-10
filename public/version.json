@@ -1,6 +1,6 @@
 {
   "version": "v11.56",
-  "releasedAt": "2026-11-10",
+  "releasedAt": "2026-11-11",
   "headline": "HuyenBao v11.56 — toast moved to bottom + used items in buy catalogue",
   "summary": "POPUP OVERLAP FIX + USED ITEMS. The toast notification was at top-center (z-index 150) which overlapped the sticky PinZone dashboard (z-index 40) — the user kept reporting this as 'đè popup'. Now the toast is at BOTTOM-center, away from the dashboard. Also raised old-style .modal z-index 50 → 250 so EventModal/GameOver/WhatsNew (which use .modal.on, not .modal-overlay) cover the toast too. Second feature: used items from the pre-owned market are now shown IN the buy catalogue (bds/lux/budget sections) — cheaper than new, with condition pill + age + discount % + a 'Buy + repair in Workshop' hint. Previously used items were only in the Auctions tab.",
   "features": [
