@@ -1,5 +1,5 @@
 'use client';
-// HuyenBao v11.40 — React edition. Two-level grouped nav, a systems links map,
+// HuyenBao v11.41 — React edition. Two-level grouped nav, a systems links map,
 // gigs, levels, social, the cosmic frontier, EN/VI/中文, LLM oracle with
 // random kind dispatch (luck / setback / life-stage / story), pre-owned
 // market + social listings, a Hall of Fame tab, and a real player-to-player
@@ -95,7 +95,7 @@ if (typeof window !== 'undefined') {
 // v11.8 — the bundled version. The /version.json file in /public is polled
 // every 5 minutes; if its version is newer than this, a "reload to update"
 // banner appears even in a running session (no F5 needed).
-const BUNDLED_VERSION = 'v11.40';
+const BUNDLED_VERSION = 'v11.41';
 const VERSION_POLL_MS = 5 * 60 * 1000;
 // v11.24 — 'what's new' modal is shown ONCE PER PLAYER per MAJOR version
 // (tycoon_seen_v11), not once per patch release. Previously the key was
@@ -377,31 +377,47 @@ export default function Page() {
       <div dangerouslySetInnerHTML={{ __html: ART_DEFS }} />
       <div className="wrap">
         <Header s={s} eraName={eraName} />
-        <PinZone s={s} t={t} onEdit={() => setEditingProfile(true)} />
-        <nav role="tablist" className="tnav gnav" aria-label="Sections">
-          {GROUPS.map(([gid, gn, gic, subs]) => (
-            <button key={gid} role="tab" aria-selected={activeGroup === gid} data-g={gid}
-              onClick={() => setTab(lastTab[gid] || subs[0][0])}>
-              {Ic({ id: gic, className: 'si navsi' })}{t('grp.' + gid, gn)}
-            </button>
-          ))}
-        </nav>
-        {/* v11.37 — hide the page-level subnav when the active group has only
-            ONE sub-tab (e.g. Assets). That single button was degenerate — it
-            looked like a broken empty menu row above the AssetsTab's own
-            internal 7-section nav. Now the internal nav is the only subnav. */}
-        {curSubs.length > 1 && (
-        <nav role="tablist" className="tnav subnav" aria-label="Sub-sections">
-          {curSubs.map(([k, n, ic]) => (
-            <button key={k} role="tab" aria-selected={tab === k} data-t={k}
-              data-tip={t('ttab.' + k, '')}
-              onClick={() => { setTab(k); setLastTab(lt => ({ ...lt, [activeGroup]: k })); }}>
-              {Ic({ id: ic, className: 'si navsi' })}{t('tab.' + k, n)}
-              {k === 'friends' && comm.ready && (comm.incoming.length > 0 || comm.unclaimedGifts.length > 0) && <span className="navdot" />}
-            </button>
-          ))}
-        </nav>
-        )}
+        {/* v11.41 — PinZone + nav merged into ONE sticky header. The whole
+            block (character overview + gnav + subnav) stays pinned to the top
+            so the menu never scrolls away. Width is constrained so it never
+            overflows the sides. */}
+        <div className="sticky-header">
+          <PinZone s={s} t={t} onEdit={() => setEditingProfile(true)} />
+          <nav role="tablist" className="tnav gnav" aria-label="Sections">
+            {GROUPS.map(([gid, gn, gic, subs]) => {
+              // v11.41 — hide the Space sub-tab in the Empire group until the
+              // player reaches 'empire' entity tier (interstellar). The group
+              // button still shows; only the Cosmic sub-tab is gated.
+              const visibleSubs = gid === 'world' ? subs.filter(([k]) => k !== 'space' || entityTierOf(s) === 'empire' || entityTierOf(s) === 'federation') : subs;
+              return (
+                <button key={gid} role="tab" aria-selected={activeGroup === gid} data-g={gid}
+                  onClick={() => setTab(lastTab[gid] || visibleSubs[0][0])}>
+                  {Ic({ id: gic, className: 'si navsi' })}{t('grp.' + gid, gn)}
+                </button>
+              );
+            })}
+          </nav>
+          {/* v11.37 — hide the page-level subnav when the active group has only
+              ONE sub-tab (e.g. Assets). v11.41 — also filter Space sub-tab. */}
+          {(() => {
+            const visibleSubs = activeGroup === 'world'
+              ? curSubs.filter(([k]) => k !== 'space' || entityTierOf(s) === 'empire' || entityTierOf(s) === 'federation')
+              : curSubs;
+            if (visibleSubs.length <= 1) return null;
+            return (
+              <nav role="tablist" className="tnav subnav" aria-label="Sub-sections">
+                {visibleSubs.map(([k, n, ic]) => (
+                  <button key={k} role="tab" aria-selected={tab === k} data-t={k}
+                    data-tip={t('ttab.' + k, '')}
+                    onClick={() => { setTab(k); setLastTab(lt => ({ ...lt, [activeGroup]: k })); }}>
+                    {Ic({ id: ic, className: 'si navsi' })}{t('tab.' + k, n)}
+                    {k === 'friends' && comm.ready && (comm.incoming.length > 0 || comm.unclaimedGifts.length > 0) && <span className="navdot" />}
+                  </button>
+                ))}
+              </nav>
+            );
+          })()}
+        </div>
         <main id="tview" key={tab} className="enter">
           {tab === 'home' && <HomeTab s={s} act={act} askAI={askAI} aiBusy={aiBusy} aiNote={t(aiNoteKey)} eraName={eraName} />}
           {tab === 'career' && <CareerTab s={s} act={act} />}
@@ -539,7 +555,7 @@ function Header({ s, eraName }: { s: GameState; eraName: (y: number) => string }
     <header className="top">
       <div className="brand">
         <Art id="s-coin" className="logo" />
-        <div><h1><span className="mini">v11.40</span> HuyenBao</h1>
+        <div><h1><span className="mini">v11.41</span> HuyenBao</h1>
           <div className="mini">{s.started ? `${s.nation} · ${eraName(worldYear(s))}` : t('tagline')}</div></div>
       </div>
       <div><div className="mini">{t('cash')}</div><div id="tcash" style={{ color: s.money < 0 ? 'var(--brick)' : undefined }}>{fmt(s.money)}</div>
@@ -3235,6 +3251,29 @@ function EntityTab({ s, act }: { s: GameState; act: Act }) {
         </span>
       )}
     </Row>
+
+    {/* v11.41 — "What to do" guidance card. Explains the current tier, what
+        the player needs to step up, and WHY each threshold matters. Replaces
+        the confusing cup icon + opaque ladder with clear actionable text. */}
+    <div className="card" style={{ marginBottom: 10, padding: 12, background: 'rgba(176,138,62,.06)', border: '1px solid var(--accent)' }}>
+      <b style={{ fontSize: '.95rem' }}>🎯 {t('empire.guide', 'Your path to empire')}</b>
+      <p className="sub" style={{ marginTop: 6 }}>
+        {tier === 'none' && t('empire.guide.none', 'You are a private citizen. Grow your net worth to $1M to become a Conglomerate — the first step on the empire ladder. Buy businesses, invest in stocks, and build wealth.')}
+        {tier === 'conglomerate' && t('empire.guide.conglomerate', 'You run a conglomerate. To step up to Autonomous Territory: reach $75M net worth + 60 influence (via advocacy actions in the Power tab). Then declare autonomy.')}
+        {tier === 'autonomous' && t('empire.guide.autonomous', 'You govern an autonomous territory. To become a Nation: court recognition from ≥3 other nations (30 influence each), then declare independence. Pick a constitution first.')}
+        {tier === 'nation' && t('empire.guide.nation', 'You founded a sovereign nation. To reach Interstellar Empire: $7.5B net worth + 550 influence + control 5 star systems (Cosmic tab unlocks here). Run elections to grow influence.')}
+        {tier === 'empire' && t('empire.guide.empire', 'Your interstellar empire spans ≥5 star systems. To form a Galactic Federation: $50B net worth + 2000 influence + unify 50% of known space. The Cosmic tab is now unlocked.')}
+        {tier === 'federation' && t('empire.guide.federation', 'You lead a Galactic Federation — the highest tier. You have unified ≥50% of known space. This is the endgame.')}
+      </p>
+      {next && (
+        <p className="mini" style={{ marginTop: 8, color: 'var(--accent)' }}>
+          {t('empire.next', 'Next tier')}: {tierLabel(lang, tierIdx + 1)} —
+          {nw < next.min && ` ${t('netWorth')}: ${fmt(nw)}/${fmt(next.min)} ·`}
+          {inf < next.minInfluence && ` ${t('v11.tier')} inf: ${inf}/${next.minInfluence}`}
+          {nw >= next.min && inf >= next.minInfluence && ` ✅ ${t('empire.ready', 'Ready to step up!')}`}
+        </p>
+      )}
+    </div>
 
     {/* Entity tiers ladder */}
     <h3 style={{ margin: '12px 0 4px' }}>{t('v11.entityLadderTitle')}</h3>

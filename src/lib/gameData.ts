@@ -744,13 +744,32 @@ export const TABS: [string, string, string][] = [
 export const GROUPS: [string, string, string, [string, string, string][]][] = [
   ['life', 'Character', 't-life', [['home', 'Overview', 't-life'], ['health', 'Wellbeing', 'w-heart'], ['spirit', 'Mind', 'w-lotus'], ['pets', 'Companions', 'ic-paw']]],
   ['assets', 'Assets', 'ic-bag', [['assets', 'Assets', 'ic-bag']]],
-  ['growth', 'Education', 't-cap', [['edu', 'Education', 't-cap'], ['career', 'Career', 't-work']]],
+  // v11.41 — Education split from Career per UX feedback. Education = degrees/
+  // licences/short courses. Career = jobs + experience + contracts + raise.
+  // Experience also feeds the Workshop (repair skill) so the two stay linked
+  // conceptually even though they're separate groups now.
+  ['edu', 'Education', 't-cap', [['edu', 'Education', 't-cap']]],
+  ['career', 'Career', 't-work', [['career', 'Career', 't-work']]],
   ['finance', 'Finance', 't-bank', [['markets', 'Markets', 't-stock'], ['bank', 'Banking', 't-bank']]],
-  ['empire', 'Business', 't-biz', [['biz', 'Business', 't-biz'], ['space', 'Space', 't-space']]],
-  ['network', 'Social', 't-social', [['social', 'Social', 't-social'], ['relations', 'Relations', 'ic-heart'], ['club', 'Clubs', 't-club']]],
-  // v11.25 — real player-to-player community (distinct from the NPC 'network' group)
-  ['community', 'Community', 'ic-users', [['friends', 'Friends', 'ic-users'], ['chat', 'Chat', 't-social'], ['lboard', 'Leaderboard', 'ic-trophy']]],
-  ['world', 'Empire', 't-rank', [['power', 'Power', 't-power'], ['entity', 'Empire', 'b-corp'], ['rank', 'Ranking', 't-rank'], ['fame', 'Hall of Fame', 'ic-trophy'], ['links', 'Systems', 'ic-link']]],
+  // v11.41 — Business group no longer carries Space; Space moves to the
+  // Empire group (only relevant once the player is a super-entity).
+  ['empire', 'Business', 't-biz', [['biz', 'Business', 't-biz']]],
+  // v11.41 — Social + Community merged into ONE group. Sub-tabs distinguish:
+  //   Social = AI NPC interactions (posts, relations, clubs)
+  //   Community = real players (friends, chat, leaderboard)
+  ['network', 'Network', 't-social', [
+    ['social', 'Social', 't-social'],
+    ['relations', 'Relations', 'ic-heart'],
+    ['club', 'Clubs', 't-club'],
+    ['friends', 'Friends', 'ic-users'],
+    ['chat', 'Chat', 't-social'],
+    ['lboard', 'Leaderboard', 'ic-trophy'],
+  ]],
+  // v11.41 — Empire group renamed + reiconned (was 't-rank' cup; now 'b-corp'
+  // building = empire/conglomerate visual). Space tab now lives HERE, hidden
+  // until the player reaches 'empire' entity tier (interstellar). Tier
+  // explanations + what-to-do guidance added in the EntityTab UI.
+  ['world', 'Empire', 'b-corp', [['power', 'Power', 't-power'], ['entity', 'Empire', 'b-corp'], ['rank', 'Ranking', 't-rank'], ['fame', 'Hall of Fame', 'ic-trophy'], ['space', 'Cosmic', 't-space'], ['links', 'Systems', 'ic-link']]],
 ];
 
 // ================= v8: gigs, levels & XP, the cosmic frontier =================

@@ -27,7 +27,7 @@ html[data-theme="light"] body{background:#e2e7df}
 .tgame button{font:inherit;cursor:pointer;color:inherit}
 .tgame input,.tgame select{font:inherit;width:100%;padding:9px 12px;border-radius:10px;border:1px solid var(--line2);background:var(--card);color:var(--ink)}
 .tgame :focus-visible{outline:2px solid var(--accent);outline-offset:2px}
-.tgame .wrap{max-width:920px;margin:0 auto;padding:14px}
+.tgame .wrap{max-width:860px;margin:0 auto;padding:14px}
 .tgame .top{display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding:4px 0 10px}
 .tgame .brand{display:flex;align-items:center;gap:10px;flex:1;min-width:210px}
 .tgame .logo{width:46px;height:46px;flex:none;border-radius:12px;background:var(--card);border:1px solid var(--line);padding:4px}
@@ -518,6 +518,12 @@ html[data-theme="dark"] .tgame .ibtn.ghost{background:linear-gradient(180deg,#32
 /* v11.28 — pinned life-overview (PinZone): compact age card, sticky at the
    top of the viewport so age + the four key numbers stay visible on every
    tab while scrolling. The thin accent stripe mirrors the life-health tint. */
+/* v11.41 — sticky-header wraps PinZone + gnav + subnav into one pinned block.
+   The whole header stays visible while the player scrolls the main content.
+   max-width constrains the nav so it never overflows the sides. */
+.tgame .sticky-header{position:sticky;top:0;z-index:40;max-width:860px;margin:0 auto;padding:6px 0;background:color-mix(in srgb,var(--paper) 92%,transparent);backdrop-filter:blur(10px);border-radius:0 0 12px 12px;box-shadow:0 4px 14px rgba(60,55,40,.10)}
+.tgame .sticky-header .pinzone{position:static;margin:0 0 4px}
+.tgame .sticky-header .gnav,.tgame .sticky-header .subnav{margin:0}
 .tgame .pinzone{position:sticky;top:6px;z-index:40;padding:9px 12px;margin:8px 0;backdrop-filter:blur(8px);background:color-mix(in srgb, var(--card) 88%, transparent)}
 .tgame .pinzone .agehead{margin-bottom:6px;gap:7px;row-gap:4px}
 .tgame .pinzone .agehead b{font-size:1.02rem}

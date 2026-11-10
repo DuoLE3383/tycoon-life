@@ -1,16 +1,18 @@
 {
-  "version": "v11.40",
+  "version": "v11.41",
   "releasedAt": "2026-11-10",
-  "headline": "HuyenBao v11.40 — free health (rest/self-train/7d/30d), travel feature, admin create-item-from-URL",
-  "summary": "HEALTH + TRAVEL + ADMIN ITEMS. (1) HEALTH: 4 new free recovery options — Rest (+3hp, 1d cd), Self-train (+4hp, 1d cd), 7-day rest cure (+20hp, 7d cd), 30-day sabbatical (+50hp, 30d cd). No gym fee needed — low-cash players can recover. (2) TRAVEL: new feature with 7 destinations from $500 local weekend to $5M orbital space tourism. Each trip costs cash + game days, grants spirit/health/fame boosts, has per-destination cooldown. TravelSection popup in HomeTab. (3) ADMIN CREATE ITEM: new 'createItem' action in /api/admin/game — admin enters name + category + price + image URL, item is stored in custom_items SQLite table, shows in admin picker with thumbnail, can be granted to players. GET /api/admin/game now returns custom items.",
+  "headline": "HuyenBao v11.41 — sticky dashboard+menu, tách học vấn/sự nghiệp, gộp xã hội+cộng đồng, ẩn vũ trụ, sửa icon đế chế",
+  "summary": "MENU RESTRUCTURE. (1) STICKY HEADER: PinZone + gnav + subnav merged into ONE sticky block — menu never scrolls away, never overflows sides. Max-width narrowed 920px→860px. (2) EDUCATION SPLIT from Career: Education = degrees/licences/courses; Career = jobs + experience + contracts + raise. Experience feeds Workshop repair. (3) SPACE HIDDEN: Cosmic tab now lives in Empire group, hidden until player reaches 'empire' entity tier (interstellar). (4) SOCIAL+COMMUNITY MERGED: one 'Network' group with 6 sub-tabs — Social/Relations/Clubs (AI NPCs) + Friends/Chat/Leaderboard (real players). (5) EMPIRE ICON FIXED: was cup (t-rank), now building (b-corp) = empire/conglomerate visual. (6) EMPIRE GUIDANCE: new 'Your path to empire' card in EntityTab explains current tier + what to do next + why each threshold matters, in EN/VI/ZH.",
   "features": [
-    "HEALTH: 4 free recovery options — Rest (+3hp), Self-train (+4hp), 7-day cure (+20hp), 30-day sabbatical (+50hp) — all $0",
-    "HEALTH UI: free options shown with green FREE tag + sageb button; timed options show cooldown duration",
-    "TRAVEL: 7 destinations (local/beach/mountain/asia/europe/safari/space) — costs cash+days, grants spirit/health/fame, per-dest cooldown",
-    "TRAVEL ENGINE: travel(), travelReady(), travelCooldownLeft() + GameState.travelLastDay field (migrated)",
-    "ADMIN CREATE ITEM: createItem action — name + cat + price + image URL → stored in custom_items SQLite table",
-    "ADMIN UI: create-item form with live image preview + custom items shown first in picker with thumbnail",
-    "API: GET /api/admin/game returns custom items; POST supports createItem action",
-    "Version bumped to v11.40"
+    "STICKY HEADER: PinZone + gnav + subnav in one pinned block (position:sticky, max-width:860px, blur backdrop)",
+    "NARROWER: .wrap max-width 920px→860px so content doesn't spread too wide",
+    "EDUCATION SPLIT: separate 'edu' group (was inside 'growth' with Career)",
+    "CAREER SEPARATE: 'career' group with experience + contracts + raise (experience feeds Workshop)",
+    "SPACE HIDDEN: Cosmic tab in Empire group, gated behind entityTierOf(s)==='empire'||'federation'",
+    "NETWORK MERGED: Social+Community → one 'network' group (6 sub-tabs: Social/Relations/Clubs/Friends/Chat/Leaderboard)",
+    "EMPIRE ICON: t-rank cup → b-corp building (empire/conglomerate visual)",
+    "EMPIRE GUIDANCE: 'Your path to empire' card with tier-specific what-to-do + next-tier progress",
+    "i18n: empire.guide.* + empire.next/ready + tab.space/entity + grp.edu/career in EN/VI/ZH",
+    "Version bumped to v11.41"
   ]
 }
