@@ -459,3 +459,67 @@ html[data-theme="dark"] .tgame .mcard{box-shadow:0 14px 46px rgba(0,0,0,.5)}
 .tgame .soc-lbrow b{display:block;line-height:1.3}
 .tgame .soc-rank{width:36px;flex:none;text-align:center;font-weight:800;font-variant-numeric:tabular-nums}
 .tgame .soc-nw{margin-left:auto;font-variant-numeric:tabular-nums}
+
+/* ================= v11.27 — life tint · 3D nav · attention · admin ================= */
+/* Life-status tint: the root .tgame gets life-0..4 from healthState(); a fixed,
+   transparent radial wash tells the player how their life is going at a glance
+   (best → danger). pointer-events:none so nothing becomes unclickable. */
+.tgame::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:3;transition:background 1.4s ease}
+.tgame.life-0::before{background:radial-gradient(1100px 560px at 50% -8%, rgba(46,158,91,.11), transparent 62%)}
+.tgame.life-1::before{background:radial-gradient(1100px 560px at 50% -8%, rgba(123,201,111,.09), transparent 62%)}
+.tgame.life-2::before{background:radial-gradient(1100px 560px at 50% -8%, rgba(216,177,58,.11), transparent 62%)}
+.tgame.life-3::before{background:radial-gradient(1100px 560px at 50% -8%, rgba(224,123,46,.14), transparent 62%)}
+.tgame.life-4::before{background:radial-gradient(1100px 560px at 50% -8%, rgba(192,57,43,.19), transparent 66%);animation:lifeDanger 2.4s ease-in-out infinite alternate}
+@keyframes lifeDanger{from{opacity:.75}to{opacity:1}}
+
+/* 3D menu — group + sub nav buttons tilt toward the cursor and lift on press */
+.tgame .tnav{perspective:640px}
+.tgame .tnav button{transform-style:preserve-3d;transition:transform .18s cubic-bezier(.2,.8,.2,1),box-shadow .18s ease,background .18s ease;will-change:transform}
+.tgame .tnav button:hover{transform:translateY(-2px) rotateX(9deg) translateZ(4px);box-shadow:0 7px 16px rgba(40,35,25,.22),inset 0 -2px 0 rgba(0,0,0,.10)}
+.tgame .tnav button:active{transform:translateY(1px) rotateX(2deg) scale(.965);box-shadow:0 1px 3px rgba(40,35,25,.28)}
+.tgame .tnav button[aria-selected="true"]{transform:translateZ(7px);box-shadow:0 5px 12px rgba(40,35,25,.20)}
+@media (prefers-reduced-motion: reduce){.tgame .tnav button{transition:none;transform:none}}
+
+/* Dashboard needs-attention strip */
+.tgame .attention{display:grid;grid-template-columns:repeat(auto-fit,minmax(112px,1fr));gap:8px;margin:0 0 10px}
+.tgame .att-card{background:rgba(127,127,127,.07);border:1px solid var(--line);border-radius:11px;padding:8px 11px;display:grid;gap:1px}
+.tgame .att-v{font-weight:800;font-variant-numeric:tabular-nums;font-size:1.04rem}
+.tgame .att-l{font-size:.7rem;opacity:.62;text-transform:uppercase;letter-spacing:.05em}
+.tgame .att-warn{border:1px solid var(--brick);color:var(--brick);background:var(--brickBg);border-radius:11px;padding:7px 11px;font-size:.85rem;font-weight:600;margin:0 0 10px}
+.tgame .att-warn.ok{border-color:var(--sage);color:var(--sage);background:var(--sageBg)}
+
+/* What's-new popup language buttons */
+.tgame .mlang{display:inline-flex;gap:4px}
+
+/* Market quick trade (MAX / ALL) */
+.tgame .tquick{font-size:.72rem;font-weight:800;padding:6px 8px;border-radius:8px;border:1px solid var(--line);background:rgba(127,127,127,.06);cursor:pointer}
+.tgame .tquick:disabled{opacity:.4;cursor:not-allowed}
+.tgame .tquick:not(:disabled):hover{border-color:var(--accent);color:var(--accent)}
+
+/* SQLite server-mode community banner */
+.tgame .soc-banner.ok{background:var(--sageBg)}
+
+/* ================= v11.27 — /admin dashboard ================= */
+.admpage{max-width:980px;margin:0 auto;padding:26px 16px 64px;font-family:inherit;line-height:1.5}
+.adm-head{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.adm-head h1{font-size:1.4rem;margin:0}
+.adm-head h1 span{opacity:.55;font-weight:600}
+.adm-chip{font-size:.72rem;border:1.5px solid var(--sage,#5f8d6e);color:var(--sage,#5f8d6e);border-radius:999px;padding:3px 10px;font-weight:800;letter-spacing:.03em}
+.adm-gate{border:1px solid var(--line,#ddd);border-radius:14px;padding:18px;margin:18px 0}
+.adm-gate p{margin:0 0 10px}
+.adm-row{display:flex;gap:8px;margin:12px 0;flex-wrap:wrap}
+.adm-row input{flex:1;min-width:180px;padding:10px 12px;border:1px solid #b9b2a4;border-radius:9px;font:inherit}
+.adm-row button,.adm-gate>button{padding:10px 18px;border-radius:9px;border:0;background:#33302b;color:#f4f1ea;font-weight:700;cursor:pointer}
+.adm-note,.adm-sub,.adm-en{font-size:.78rem;opacity:.6}
+.adm-list{padding-left:20px;line-height:1.8;margin:8px 0}
+.adm-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin:18px 0}
+.adm-card{border:1px solid var(--line,#ddd);border-radius:13px;padding:13px;display:grid;gap:2px;background:rgba(127,127,127,.05)}
+.adm-val{font-size:1.5rem;font-weight:800;font-variant-numeric:tabular-nums}
+.adm-lab{font-weight:700;font-size:.9rem}
+.adm-top h2{margin:22px 0 4px;font-size:1.05rem}
+.adm-top table{width:100%;border-collapse:collapse;margin-top:8px}
+.adm-top th,.adm-top td{text-align:left;padding:8px;border-bottom:1px solid var(--line,#e2ddd2);font-size:.9rem}
+.adm-top th{opacity:.55;font-size:.75rem;text-transform:uppercase;letter-spacing:.04em}
+.adm-nw{font-weight:750;font-variant-numeric:tabular-nums}
+.adm-foot{display:flex;justify-content:space-between;margin-top:26px;font-size:.8rem;opacity:.75;gap:10px;flex-wrap:wrap}
+.adm-back{color:inherit}

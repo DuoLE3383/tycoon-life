@@ -1,15 +1,20 @@
 {
-  "version": "v11.26",
+  "version": "v11.27",
   "releasedAt": "2026-11-10",
-  "headline": "HuyenBao v11.26 — Sức khoẻ bị hao mòn bởi mọi hành động: gigs (kể cả xem quảng cáo) giờ trừ sức khoẻ, chống spam lấy tiền",
-  "summary": "HEALTH COSTS FOR ACTIONS. Every gig now drains health by its own 'hp' cost — watching an ad costs 0.5, delivery 2 (physical), freelance/tutor 1.5, sponsored 1, consult 2. The ad gig has no cooldown, so its small per-watch cost doubles as the anti-spam valve: an all-day ad grind wears the player down and can no longer be farmed for free money. Each gig shows its cost on the card (red 'health -n' next to the +$ pay) and queues a localised toast (EN/VI/ZH) when performed. Health is floored at 0 — a gig alone can never push it negative; if health hits 0 the game still ends with cause=health on the next day tick. Recovery paths are unchanged: gym (+6, $80), checkup (+15, $600), pet walks, good sleep and diet. Also re-verified the whole health system with new regression tests: the v11.20 hype/charity post drain still works, plain posts cost nothing, and grinding yourself to 0 still ends the run.",
+  "headline": "HuyenBao v11.27 — SQLite tự host trên VPS (chat/bạn bè/quà/BXH thật, không cần Supabase) + Admin dashboard + nền đổi màu theo sức khoẻ",
+  "summary": "SELF-HOSTED SQLITE + ADMIN. The community backend now runs ON YOUR OWN VPS with zero extra services: /api/social/* route handlers persist chat, friends, gifts, presence and the leaderboard into a local SQLite file (data/social.db, WAL mode, all input clamped server-side, gifts restricted to accepted friends, 1.2s server flood guard). The browser auto-detects the backend with one /api/social/ping probe — Supabase env vars are no longer needed, and the supabase-js npm dependency is GONE (loaded from CDN only when Supabase is explicitly configured), which permanently fixes the VPS build error \"Module not found: Can't resolve '@supabase/supabase-js'\". Backends: supabase (env) > sqlite (server detected) > demo (static hosts). New /admin dashboard (key-guarded by the ADMIN_KEY env var) shows players, online, messages/gifts 24h, friendships, DB size and the top-10 board. UI: the whole app is tinted by health state (5 transparent levels from emerald 'best' to pulsing red 'danger'), the Overview tab opens with a needs-attention strip (cash / net worth / income per year / health — colour-coded, plus a warning line for critical health, short sleep, no diet, debt, negative income), the what's-new popup carries EN/VI/ZH buttons, the market gets a portfolio card (total holdings + today's movers) and one-tap MAX buy / ALL sell, and the nav menu is now 3D (perspective tilt + press depth). 6 new integration tests cover the SQLite layer (identity codes, clamps, flood guard, friends flow, gift claim-once, admin stats).",
   "features": [
-    "GIGS COST HEALTH: ad 0.5 · delivery 2 · freelance 1.5 · tutor 1.5 · sponsored 1 · consult 2 per action",
-    "ANTI-SPAM: the no-cooldown ad gig now self-limits — 20 ad watches/day = -10 health",
-    "UI: gig cards show '· health -n' (red) next to the +$ pay when ready",
-    "TOASTS: '💢 {gig} — the grind wears you down, health -n' localised × EN/VI/ZH",
-    "SAFETY: gig drain floors at 0; death-by-health still only judged on the day tick",
-    "TESTS: 7 new regression tests — per-gig drain, exact ad cost, floor, cumulative spam, localised toast, death integration, v11.20 hype-post drain",
-    "Version bumped to v11.26 at FRONT of app name"
+    "SQLITE BACKEND: /api/social/{ping,init,messages,friends,gifts,presence,leaderboard} on better-sqlite3 — data/social.db (WAL), auto-created schema",
+    "ZERO-CONFIG VPS: browser probes /api/social/ping once and upgrades demo → sqlite automatically; NEXT_PUBLIC_SOCIAL_BACKEND=sqlite forces it",
+    "BUILD FIX: @supabase/supabase-js removed from dependencies — loaded from CDN only when Supabase env vars are set; VPS builds no longer fail on missing node_modules",
+    "SERVER RULES: all strings clamped, uid validated, gifts only between accepted friends, 1.2s flood guard, unique read-aloud HB- codes",
+    "ADMIN DASHBOARD: /admin protected by ADMIN_KEY env var — players, online (13s window), messages/gifts 24h, friendships, DB size, top 10",
+    "HEALTH TINT: whole-app transparent background wash in 5 levels (life-0 best … life-4 danger with slow pulse), driven by healthState()",
+    "ATTENTION STRIP: Overview opens with cash / net worth / income-per-year / health cards + aggregated warnings (critical health, sleep <7h, no diet, debt, negative income)",
+    "MARKET: portfolio card with total holdings + today's best/worst movers; one-tap MAX buy and ALL sell per stock",
+    "POPUP i18n: language buttons (EN/VI/ZH) inside the what's-new modal",
+    "3D NAV: group + sub-tab buttons tilt in perspective, lift on hover, press down on click (respects prefers-reduced-motion)",
+    "TESTS: 6 integration tests for the SQLite layer; 141 tests total",
+    "Version bumped to v11.27 at FRONT of app name"
   ]
 }

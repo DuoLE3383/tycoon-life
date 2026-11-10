@@ -28,6 +28,15 @@ function SocBanner({ comm }: { comm: Comm }) {
     );
   }
   if (comm.mode === 'supabase') return null;
+  if (comm.mode === 'sqlite') {
+    // v11.27 — self-hosted SQLite backend detected: everyone on this server
+    // shares the same chat/friends/gifts/leaderboard. No setup guide needed.
+    return (
+      <div className="soc-banner ok">
+        <span>🗄 {t('soc.sqlite')}</span>
+      </div>
+    );
+  }
   return (
     <details className="fold soc-setup">
       <summary>🧪 {t('soc.demo')}</summary>

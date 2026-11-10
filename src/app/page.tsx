@@ -1,5 +1,5 @@
 'use client';
-// HuyenBao v11.26 — React edition. Two-level grouped nav, a systems links map,
+// HuyenBao v11.27 — React edition. Two-level grouped nav, a systems links map,
 // gigs, levels, social, the cosmic frontier, EN/VI/中文, LLM oracle with
 // random kind dispatch (luck / setback / life-stage / story), pre-owned
 // market + social listings, a Hall of Fame tab, and a real player-to-player
@@ -77,7 +77,7 @@ if (typeof window !== 'undefined') {
 // v11.8 — the bundled version. The /version.json file in /public is polled
 // every 5 minutes; if its version is newer than this, a "reload to update"
 // banner appears even in a running session (no F5 needed).
-const BUNDLED_VERSION = 'v11.26';
+const BUNDLED_VERSION = 'v11.27';
 const VERSION_POLL_MS = 5 * 60 * 1000;
 // v11.24 — 'what's new' modal is shown ONCE PER PLAYER per MAJOR version
 // (tycoon_seen_v11), not once per patch release. Previously the key was
@@ -353,7 +353,7 @@ export default function Page() {
   const eraName = (y: number) => t('era.' + eraOf(y).from, eraOf(y).name);
 
   return (
-    <div className="tgame">
+    <div className={'tgame life-' + healthState(s.health)}>
       <div dangerouslySetInnerHTML={{ __html: ART_DEFS }} />
       <div className="wrap">
         <Header s={s} eraName={eraName} />
@@ -448,11 +448,13 @@ const V11_FEATURES: [string, string][] = [
 ];
 
 function WhatsNewModal({ onDismiss }: { onDismiss: () => void }) {
-  const { t } = useT();
+  // v11.27 — language buttons inside the popup so players can switch
+  // language without closing the modal first (user request).
+  const { t, lang, setLang } = useT();
   return (
     <div className="modal on" onClick={e => { if (e.target === e.currentTarget) onDismiss(); }}>
       <div className="mcard" style={{ maxWidth: 580, textAlign: 'left' }}>
-        <div className="mhead"><h2>✨ {t('v11.headline')}</h2><button className="ibtn ghost" onClick={onDismiss}><Ic id="ic-x" className="bsi" /><span>✕</span></button></div>
+        <div className="mhead"><h2>✨ {t('v11.headline')}</h2><span className="mlang">{LANGS.map(l => <button key={l.id} className="ibtn ghost tsmall" aria-pressed={lang === l.id} data-lang={l.id} onClick={() => setLang(l.id as Lang)}>{l.label}</button>)}</span><button className="ibtn ghost" onClick={onDismiss}><Ic id="ic-x" className="bsi" /><span>✕</span></button></div>
         <p className="sub" style={{ marginTop: 0 }}>{t('v11.summary')}</p>
         <ul style={{ margin: '12px 0', paddingLeft: 20, display: 'grid', gap: 8 }}>
           {V11_FEATURES.map(([title, desc]) => (
@@ -510,7 +512,7 @@ function Header({ s, eraName }: { s: GameState; eraName: (y: number) => string }
     <header className="top">
       <div className="brand">
         <Art id="s-coin" className="logo" />
-        <div><h1><span className="mini">v11.26</span> HuyenBao</h1>
+        <div><h1><span className="mini">v11.27</span> HuyenBao</h1>
           <div className="mini">{s.started ? `${s.nation} · ${eraName(worldYear(s))}` : t('tagline')}</div></div>
       </div>
       <div><div className="mini">{t('cash')}</div><div id="tcash" style={{ color: s.money < 0 ? 'var(--brick)' : undefined }}>{fmt(s.money)}</div>
@@ -582,6 +584,33 @@ function HomeTab({ s, act, askAI, aiBusy, aiNote, eraName }: { s: GameState; act
   ];
   return (
     <>
+      {/* v11.27 — needs-attention strip: the four numbers that decide the run,
+          colour-coded (debt / negative income red, health by severity) with a
+          warning line aggregating health sanity checks. */}
+      {(() => {
+        const yi = yearIncome(s);
+        const warns: string[] = [];
+        if (s.health < 20) warns.push('att.critical');
+        else if (s.health < 40) warns.push('att.low');
+        else if (s.health < 60) warns.push('att.recover');
+        if (s.sleepHours < 7) warns.push('att.sleep');
+        if (!s.diet && s.health < 70) warns.push('att.diet');
+        if (s.money < 0) warns.push('att.debt');
+        if (yi < 0) warns.push('att.negative');
+        return (
+          <>
+            <div className="attention" data-life={healthState(s.health)}>
+              <div className="att-card"><span className={'att-v' + (s.money < 0 ? ' down' : '')}>{fmt(s.money)}</span><span className="att-l">{t('cash')}</span></div>
+              <div className="att-card"><span className="att-v">{fmt(netWorth(s))}</span><span className="att-l">{t('netWorth')}</span></div>
+              <div className="att-card"><span className={'att-v ' + (yi >= 0 ? 'up' : 'down')}>{yi >= 0 ? '+' : ''}{fmt(yi)}</span><span className="att-l">{t('inc.total')}</span></div>
+              <div className="att-card"><span className="att-v" style={{ color: s.health < 40 ? 'var(--brick)' : s.health < 60 ? 'var(--gold)' : 'var(--sage)' }}>{Math.round(s.health)}</span><span className="att-l">{t('health')}</span></div>
+            </div>
+            {warns.length > 0
+              ? <div className="att-warn" role="status">⚠ {warns.map(w => t(w)).join(' · ')}</div>
+              : <div className="att-warn ok" role="status">✓ {t('att.allgood')}</div>}
+          </>
+        );
+      })()}
       <div className="card hero">
         <div className="heroimg" style={{ backgroundImage: 'url(' + asset('/img/hero-city-v10.jpg') + ')' }} aria-hidden="true" />
         <div className="herobody">
@@ -2088,6 +2117,21 @@ function StockTab({ s, act, qtyMap, setQtyMap }: { s: GameState; act: Act; qtyMa
           </div>
         )}
       </Row>
+      {/* v11.27 — portfolio pulse: total holdings value + today's movers */}
+      {(() => {
+        const val = STOCKS.reduce((a, x) => a + (s.stk[x.id] || 0) * s.prices[x.id], 0);
+        const movers = STOCKS.map(x => { const hh = s.hist[x.id]; return { id: x.id, ch: hh.length > 1 ? (s.prices[x.id] / hh[hh.length - 2] - 1) * 100 : 0 }; }).sort((a, b) => b.ch - a.ch);
+        const best = movers[0], worst = movers[movers.length - 1];
+        return (
+          <Row art="s-coin">
+            <b>{t('mk.portfolio')} · <span className={val > 0 ? 'up' : ''}>{fmt(val)}</span></b>
+            <span className="sub">{t('mk.holdings', '', { n: fmt(val) })}</span>
+            <span className="mini" style={{ display: 'block', marginTop: 2 }}>
+              📈 {best.id} <b className="up">+{best.ch.toFixed(1)}%</b> · 📉 {worst.id} <b className={worst.ch >= 0 ? 'up' : 'down'}>{worst.ch.toFixed(1)}%</b> — {t('mk.movers')}
+            </span>
+          </Row>
+        );
+      })()}
       {STOCKS.map(st => {
         const p = s.prices[st.id], h = s.hist[st.id];
         const ch = h.length > 1 ? (p / h[h.length - 2] - 1) * 100 : 0, q = s.stk[st.id] || 0;
@@ -2099,6 +2143,9 @@ function StockTab({ s, act, qtyMap, setQtyMap }: { s: GameState; act: Act; qtyMa
               onChange={e => setQtyMap({ ...qtyMap, [st.id]: Math.max(1, Math.floor(+e.target.value || 1)) })} />
             <button className="tsell" disabled={!q} onClick={() => act(g => { const r2 = trade(g, st.id, 'sell', qtyMap[st.id] || 1); return r2.msg; })}>{t('sellS')}</button>
             <button className="tbuy" disabled={s.money < p} onClick={() => act(g => { const r2 = trade(g, st.id, 'buy', qtyMap[st.id] || 1); return r2.ok ? r2.msg : null; })}>{t('buy')}</button>
+            {/* v11.27 — one-tap MAX buy (spend all affordable cash) / ALL sell (entire holding) */}
+            <button className="tquick" title={t('mk.buyMax')} disabled={s.money < p} onClick={() => act(g => { const q2 = Math.max(1, Math.floor(g.money / Math.max(1, g.prices[st.id]))); return trade(g, st.id, 'buy', q2).msg; })}>{t('mk.max')}</button>
+            <button className="tquick" title={t('mk.sellAll')} disabled={!q} onClick={() => act(g => trade(g, st.id, 'sell', g.stk[st.id] || 0).msg)}>{t('mk.all')}</button>
           </div>}>
           <b>{st.id} <span className={ch >= 0 ? 'up' : 'down'}>{ch >= 0 ? '▲' : '▼'}{Math.abs(ch).toFixed(1)}%</span></b>
           <span className="sub">{st.name} · {fmt(p)} · {t('hold', '', { n: q })}</span>

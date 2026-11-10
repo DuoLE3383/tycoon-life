@@ -16,14 +16,20 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { netWorth, type GameState } from './engine';
 import { useT } from './i18n';
-import type { SupabaseClient } from '@supabase/supabase-js';
+
+// v11.27 — the Supabase JS client is loaded from the CDN at runtime (see
+// getSb) instead of being bundled. The npm dependency broke self-hosted
+// builds whenever node_modules was incomplete — VPS report:
+// "Module not found: Can't resolve '@supabase/supabase-js'". SQLite and
+// demo deployments never load it at all.
+type SbClient = any; // structural any — the real client arrives from the CDN at runtime
 
 // ---------------------------------------------------------------- types
 export interface SocPlayer { id: string; code: string; name: string; avatar: string; level: number; nw: number; ts: number }
 export interface SocMsg { id: string; uid: string; name: string; avatar: string; text: string; ts: number }
 export interface SocEdge { id: string; a: string; b: string; status: 'pending' | 'accepted'; ts: number }
 export interface SocGift { id: string; from: string; to: string; amount: number; note: string; claimed: boolean; ts: number; fromName: string }
-export type SocMode = 'supabase' | 'demo';
+export type SocMode = 'supabase' | 'sqlite' | 'demo';
 
 export const SOC_AVATARS = ['🐯', '🦊', '🐼', '🦁', '🐸', '🐧', '🦉', '🐙', '🦋', '🐢', '🌻', '🍀'];
 export const SOC_MSG_MAX = 280;
@@ -31,7 +37,14 @@ export const SOC_GIFT_MAX = 1e15;
 
 const URL_ENV = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const KEY_ENV = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-export const socialMode: SocMode = URL_ENV && KEY_ENV ? 'supabase' : 'demo';
+// v11.27 — NEXT_PUBLIC_SOCIAL_BACKEND=sqlite forces the self-hosted backend
+// without a probe; by default demo mode probes /api/social/ping ONCE at init
+// and upgrades itself to sqlite when a real server answers (zero-config VPS
+// deploy — no env vars needed on the VPS at all).
+const SQLITE_HINT = process.env.NEXT_PUBLIC_SOCIAL_BACKEND === 'sqlite';
+export let socialMode: SocMode = URL_ENV && KEY_ENV ? 'supabase' : SQLITE_HINT ? 'sqlite' : 'demo';
+const BASE = process.env.NEXT_PUBLIC_BASE_PATH || '';
+const asset = (p: string) => BASE + p;
 
 // identity/profile storage (shared by both modes so switching modes keeps name+avatar)
 const PKEY = 'hb_soc_profile_v1';
@@ -279,16 +292,28 @@ const demo = {
 };
 
 // ================================================================ SUPABASE PROVIDER
-let sb: SupabaseClient | null = null;
+let sb: SbClient | null = null;
 let sbInitPromise: Promise<void> | null = null;
-let chatChannel: ReturnType<SupabaseClient['channel']> | null = null;
+let chatChannel: ReturnType<SbClient['channel']> | null = null;
 let lastSendTs = 0;
-let sbUid: string | null = null;
+let sbUid = ''; // '' = not signed in yet (avoids null-narrowing across awaits)
 
-async function getSb(): Promise<SupabaseClient> {
+async function getSb(): Promise<SbClient> {
   if (sb) return sb;
-  const { createClient } = await import('@supabase/supabase-js');
-  sb = createClient(URL_ENV as string, KEY_ENV as string, { auth: { persistSession: true, autoRefreshToken: true } });
+  if (typeof window === 'undefined') throw new Error('supabase-client-only');
+  const w = window as unknown as { supabase?: { createClient?: (...a: unknown[]) => SbClient } };
+  if (!w.supabase?.createClient) {
+    // UMD build of supabase-js v2 — the same snippet as the official docs.
+    await new Promise<void>((resolve, reject) => {
+      const s = document.createElement('script');
+      s.src = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2';
+      s.onload = () => resolve();
+      s.onerror = () => reject(new Error('supabase-cdn-failed'));
+      document.head.appendChild(s);
+    });
+  }
+  if (!w.supabase?.createClient) throw new Error('supabase-cdn-missing');
+  sb = w.supabase.createClient(URL_ENV as string, KEY_ENV as string, { auth: { persistSession: true, autoRefreshToken: true } });
   return sb;
 }
 interface PlayerRow { id: string; code: string; name: string; avatar: string; level: number; nw: number; ts: number }
@@ -506,6 +531,160 @@ const sbApi = {
   },
 };
 
+// ================================================================ SQLITE PROVIDER (v11.27)
+// Talks to /api/social/* route handlers backed by better-sqlite3 on the same
+// origin — the zero-extra-service option for a self-hosted VPS (the user's
+// explicit request). Identity is per-BROWSER (localStorage uid), stable
+// across sessions like the Supabase anon uid; the server keeps a players row
+// with a unique HB- code for it. Chat/presence/friends/gifts poll every 5s —
+// no realtime channel on plain SQLite; the Supabase path keeps realtime.
+const SUID_KEY = 'hb_soc_uid_v1';
+let sqlUid: string | null = null;
+let sqlPollIv: ReturnType<typeof setInterval> | null = null;
+let lastSqlSend = 0;
+
+function sqlFetch<T = any>(path: string, body?: unknown): Promise<T> {
+  const opt: RequestInit = body !== undefined
+    ? { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) }
+    : { cache: 'no-store' };
+  return fetch(asset(path), opt).then(r => {
+    if (!r.ok) throw new Error('http-' + r.status);
+    return r.json() as Promise<T>;
+  });
+}
+function sqlIdentity(): string {
+  if (!sqlUid) {
+    try {
+      let u = localStorage.getItem(SUID_KEY);
+      if (!u) {
+        u = 'u' + (typeof crypto !== 'undefined' && crypto.randomUUID
+          ? crypto.randomUUID().replace(/-/g, '')
+          : Math.random().toString(36).slice(2) + Date.now().toString(36)).slice(0, 24);
+        localStorage.setItem(SUID_KEY, u);
+      }
+      sqlUid = u;
+    } catch { sqlUid = 'u' + Math.random().toString(36).slice(2) + Date.now().toString(36); }
+  }
+  return sqlUid;
+}
+interface SqlPaint {
+  me?: SocPlayer; messages?: SocMsg[]; edges?: SocEdge[]; gifts?: SocGift[];
+  board?: SocPlayer[]; online?: SocPlayer[]; people?: Record<string, SocPlayer>;
+}
+function sqlApply(data: SqlPaint) {
+  if (data.me) {
+    const prof = loadProfile();
+    st.me = { ...data.me, name: prof?.name || data.me.name, avatar: prof?.avatar || data.me.avatar };
+  }
+  if (data.messages) st.messages = data.messages.slice(-80);
+  if (data.edges) st.edges = data.edges;
+  if (data.gifts) st.gifts = data.gifts;
+  if (data.board) st.board = data.board;
+  if (data.online) st.online = data.online;
+  if (data.people) indexPeople(Object.values(data.people));
+  indexPeople([...(data.board || []), ...(data.online || [])]);
+  bump();
+}
+async function sqlRefreshAll() {
+  if (!st.me) return;
+  const uid = encodeURIComponent(st.me.id);
+  const [m, f, g, b, pr] = await Promise.all([
+    sqlFetch<{ messages: SocMsg[] }>('/api/social/messages'),
+    sqlFetch<{ edges: SocEdge[]; people: Record<string, SocPlayer> }>(`/api/social/friends?uid=${uid}`),
+    sqlFetch<{ gifts: SocGift[] }>(`/api/social/gifts?uid=${uid}`),
+    sqlFetch<{ board: SocPlayer[] }>('/api/social/leaderboard'),
+    sqlFetch<{ online: SocPlayer[] }>('/api/social/presence', { uid: sqlIdentity() }).catch(() => ({ online: st.online })),
+  ]);
+  sqlApply({ messages: m.messages, edges: f.edges, gifts: g.gifts, board: b.board, online: pr.online, people: f.people });
+}
+const sqliteApi = {
+  async init(displayName: string) {
+    const prof = loadProfile();
+    const data = await sqlFetch<Required<SqlPaint>>('/api/social/init', {
+      uid: sqlIdentity(), name: prof?.name || displayName || 'HuyenBao', avatar: prof?.avatar || '🐯', level: 1, nw: 0,
+    });
+    st.ready = true; st.error = null;
+    sqlApply(data);
+    if (st.me) saveProfile({ name: st.me.name, avatar: st.me.avatar });
+    if (!sqlPollIv) sqlPollIv = setInterval(() => { void sqliteApi.refreshAll().catch(() => { /* offline — next tick retries */ }); }, 5000);
+  },
+  async updateProfile(name: string, avatar: string) {
+    if (!st.me) return;
+    st.me.name = clamp(name, 24) || st.me.name;
+    st.me.avatar = avatar;
+    saveProfile({ name: st.me.name, avatar });
+    await sqlFetch('/api/social/init', { uid: sqlIdentity(), name: st.me.name, avatar, level: st.me.level, nw: st.me.nw });
+    await sqlRefreshAll();
+  },
+  async pushStats(level: number, nw: number) {
+    if (!st.me) return;
+    st.me.level = level; st.me.nw = nw;
+    try { await sqlFetch('/api/social/init', { uid: sqlIdentity(), name: st.me.name, avatar: st.me.avatar, level, nw }); } catch { /* ignore */ }
+  },
+  async send(text: string) {
+    if (!st.me || !text.trim()) return false;
+    const now = Date.now();
+    if (now - lastSqlSend < 1200) return false; // light client-side flood guard
+    lastSqlSend = now;
+    const r = await sqlFetch<{ ok: boolean; message?: SocMsg }>('/api/social/messages', { uid: sqlIdentity(), text });
+    if (r.ok && r.message && !st.messages.some(x => x.id === String(r.message!.id))) {
+      st.messages = [...st.messages, r.message].slice(-80);
+      bump();
+    }
+    return !!r.ok;
+  },
+  async addFriendByCode(raw: string): Promise<AddResult> {
+    if (!st.me) return 'fail';
+    const code = raw.trim().toUpperCase();
+    if (!code) return 'fail';
+    if (code === st.me.code) return 'self';
+    const r = await sqlFetch<{ result: AddResult }>('/api/social/friends', { uid: sqlIdentity(), action: 'add', code });
+    if (r.result === 'sent' || r.result === 'auto') await sqlRefreshAll();
+    return r.result;
+  },
+  async respondEdge(id: string, accept: boolean) {
+    await sqlFetch('/api/social/friends', { uid: sqlIdentity(), action: accept ? 'accept' : 'decline', edgeId: Number(id) });
+    await sqlRefreshAll();
+  },
+  async removeFriend(uid: string) {
+    await sqlFetch('/api/social/friends', { uid: sqlIdentity(), action: 'remove', targetUid: uid });
+    await sqlRefreshAll();
+  },
+  async sendGift(to: string, amount: number, note: string) {
+    if (!st.me || !(amount > 0) || amount > SOC_GIFT_MAX || to === st.me.id) return false;
+    const r = await sqlFetch<{ ok: boolean }>('/api/social/gifts', { uid: sqlIdentity(), action: 'send', to, amount, note });
+    if (r.ok) await sqlRefreshAll();
+    return !!r.ok;
+  },
+  async claimGift(id: string) {
+    const r = await sqlFetch<{ ok: boolean }>('/api/social/gifts', { uid: sqlIdentity(), action: 'claim', id: Number(id) });
+    if (r.ok) await sqlRefreshAll();
+    return !!r.ok;
+  },
+  async refreshAll() { await sqlRefreshAll(); },
+  async pollNotifications() {
+    const out = { reqs: [] as SocPlayer[], gifts: [] as SocGift[] };
+    if (!st.me) return out;
+    await sqlRefreshAll();
+    const seen = loadSeen();
+    for (const e of st.edges) {
+      if (e.b === st.me.id && e.status === 'pending' && !seen.has('e' + e.id)) {
+        seen.add('e' + e.id);
+        const p = st.people[e.a];
+        if (p) out.reqs.push(p);
+      }
+    }
+    for (const g of st.gifts) {
+      if (g.to === st.me.id && !g.claimed && !seen.has('g' + g.id)) {
+        seen.add('g' + g.id);
+        out.gifts.push(g);
+      }
+    }
+    if (out.reqs.length || out.gifts.length) saveSeen(seen);
+    return out;
+  },
+};
+
 // ---------------------------------------------------------------- dispatch
 type AddResult = 'sent' | 'auto' | 'exists' | 'self' | 'notfound' | 'fail';
 interface SocBackend {
@@ -521,7 +700,27 @@ interface SocBackend {
   refreshAll(): Promise<void>;
   pollNotifications(): Promise<{ reqs: SocPlayer[]; gifts: SocGift[] }>;
 }
-const backend: SocBackend = socialMode === 'supabase' ? sbApi : (demo as unknown as SocBackend);
+let backend: SocBackend = demo as unknown as SocBackend;
+let backendResolved = false;
+// v11.27 — pick the real backend once, at first init. Supabase wins when its
+// env vars are set; otherwise a single /api/social/ping probe upgrades demo
+// to the self-hosted SQLite backend when a real server answers (VPS), and
+// static hosts (GitHub Pages) simply stay in demo mode.
+async function resolveBackend(): Promise<SocBackend> {
+  if (backendResolved) return backend;
+  backendResolved = true;
+  if (socialMode === 'demo') {
+    try {
+      const r = await fetch(asset('/api/social/ping'), { cache: 'no-store' });
+      const j = await r.json() as { backend?: string };
+      if (r.ok && j.backend === 'sqlite') socialMode = 'sqlite';
+    } catch { /* static host — stay demo */ }
+  }
+  backend = socialMode === 'supabase' ? (sbApi as unknown as SocBackend)
+    : socialMode === 'sqlite' ? (sqliteApi as unknown as SocBackend)
+    : (demo as unknown as SocBackend);
+  return backend;
+}
 
 // ---------------------------------------------------------------- React hook
 export interface Comm {
@@ -560,7 +759,10 @@ export function useCommunity(s: GameState, showToast: (m: string) => void): Comm
   const init = () => {
     if (bootedRef.current) return;
     bootedRef.current = true;
-    backend.init(s.name || 'HuyenBao').then(() => bump()).catch(() => bump());
+    resolveBackend()
+      .then(b => b.init(s.name || 'HuyenBao'))
+      .then(() => bump())
+      .catch(() => bump());
   };
   const retry = () => { bootedRef.current = false; init(); };
   useEffect(() => { init();

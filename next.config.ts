@@ -16,6 +16,10 @@ const nextConfig: NextConfig = {
   images: { unoptimized: true },
   reactStrictMode: false,
   turbopack: { root: __dirname },
+  // v11.27 — better-sqlite3 is a native module used only by the /api/social
+  // route handlers on a real server (VPS). Keep it external so Next doesn't
+  // try to bundle the .node binary.
+  serverExternalPackages: ["better-sqlite3"],
 };
 
 export default nextConfig;

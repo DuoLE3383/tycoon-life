@@ -9,14 +9,14 @@
     "build:static": "node scripts/static-build.mjs",
     "start": "next start -p 3333",
     "lint": "eslint .",
-    "test": "tsx --test src/lib/engine.test.ts src/lib/power.test.ts src/lib/empire.test.ts src/lib/zodiac.test.ts src/lib/phongthuy.test.ts src/lib/tarot.test.ts",
+    "test": "tsx --test src/lib/engine.test.ts src/lib/power.test.ts src/lib/empire.test.ts src/lib/zodiac.test.ts src/lib/phongthuy.test.ts src/lib/tarot.test.ts src/lib/server/socialDb.test.ts",
     "typecheck": "tsc --noEmit"
   },
   "engines": {
     "node": ">=20"
   },
   "dependencies": {
-    "@supabase/supabase-js": "^2.119.0",
+    "better-sqlite3": "^12.4.1",
     "clsx": "^2.1.1",
     "next": "^16.1.1",
     "react": "^19.0.0",
@@ -26,6 +26,7 @@
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
+    "@types/better-sqlite3": "^7.6.13",
     "@types/node": "^22",
     "@types/react": "^19",
     "@types/react-dom": "^19",
