@@ -1,15 +1,15 @@
 {
-  "version": "v11.38",
+  "version": "v11.39",
   "releasedAt": "2026-11-10",
-  "headline": "HuyenBao v11.38 — sửa 3D button (color-mix→rgba), thu nhỏ button + menu",
-  "summary": "BUTTON FIX. v11.37's 3D buttons used color-mix() which rendered FLAT in some browsers — now rebuilt with plain rgba() gradients that render everywhere. The 3D effect is now visible: top-highlight gradient + solid bottom-rim shadow + drop shadow on every button (.ibtn, .gig, nav tabs). Hover lifts -1px, press sinks +1px. Buttons also smaller: .ibtn padding 6px→5px, font .86rem→.8rem, min-width 104px→92px, border-radius 999px→10px (sharper). .gig buttons get 3D too (were flat cards). Nav tabs shrunk more: gnav .82rem→.78rem, subnav .74rem→.7rem.",
+  "headline": "HuyenBao v11.39 — sửa AI i18n (VI), admin game-control tab, career exp+contract+raise, gigs popup glow",
+  "summary": "BIG UPDATE. (1) AI EVENT I18N FIXED: 3 bugs caused AI events to render in English for Vietnamese players — stale closure (askAI had empty deps []), lazy lang init (defaulted to 'en' on first render), and no English-detection fallback. All fixed; AI events now render in the player's UI language. (2) ADMIN GAME-CONTROL TAB: new '🎮 Điều khiển' tab in /ads dashboard — grant any item (70+ items + 12 rare grails), set money/fame/health/spirit/level, trigger elections, advance game time. New /api/admin/game endpoint. (3) CAREER SYSTEM: full-time jobs now grant a 1-year contract + accumulate experience (XP per year). New actions: Negotiate raise (30-80% success based on exp+level+fame; 15% fire risk on failure) + Quit job (voluntary). Contract expiry triggers 8-25% fire chance per year (modified by experience + health). yearEnd adds experience + rolls firing. (4) GIGS POPUP: gigs moved from inline grid to a popup modal; trigger button GLOWS (pulsing amber ring) when gigs are ready + shows a badge count — so players notice new work without it eating vertical space.",
   "features": [
-    "3D BUTTON FIX: replaced color-mix() with plain rgba() — renders in ALL browsers (was flat in some)",
-    "3D on .gig buttons: gig cards now have gradient + rim shadow + hover lift (were flat)",
-    "3D on nav tabs: gnav active tab gets gold gradient + rim shadow",
-    "SMALLER BUTTONS: .ibtn padding 6px→5px, font .86rem→.8rem, min-width 104px→92px, radius 999px→10px",
-    "SMALLER GIG: .gig padding 10px→8px, icon 38px→34px, title .92rem→.85rem",
-    "SMALLER NAV: gnav .82rem→.78rem padding 6px→5px; subnav .74rem→.7rem padding 4px→3px",
-    "Version bumped to v11.38"
+    "AI I18N FIX: askAI deps [] → [lang]; lang lazy-inits from localStorage on first render; English-detection fallback in /api/story route",
+    "ADMIN GAME-CONTROL TAB (NEW): grant items, set money/fame/health/spirit/level, trigger elections, advance time — GET /api/admin/game lists all items, POST applies actions",
+    "CAREER: 1-year contract on FT hire; experience accumulates per year; Negotiate raise (30-80% success, 15% fire risk); Quit job; contract-expiry fire roll 8-25%/yr",
+    "CAREER UI: current-job card shows salary + experience XP bar + contract days remaining + raise/quit buttons",
+    "GIGS POPUP: inline grid → modal popup; trigger button glows amber when gigs ready + badge count",
+    "8 admin tabs now: Tổng quan · Hệ thống · Người chơi · Trò chuyện · Quà tặng · Bảng XH · CSDL · Điều khiển",
+    "Version bumped to v11.39"
   ]
 }

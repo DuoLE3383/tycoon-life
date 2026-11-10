@@ -1045,6 +1045,20 @@ const D: Record<string, [string, string, string]> = {
   'gig.medical': ['Medical locum', 'Bác sĩ thời vụ', '临时医生'],
   'gig.endorsement': ['Brand endorsement', 'Đại diện thương hiệu', '品牌代言'],
   'gig.speaking': ['Speaking engagement', 'Diễn thuyết', '演讲活动'],
+  // v11.39 — career system
+  'career.current': ['Current position', 'Vị trí hiện tại', '当前职位'],
+  'career.salary': ['Salary', 'Lương', '薪资'],
+  'career.experience': ['Experience', 'Kinh nghiệm', '经验'],
+  'career.raises': ['Raises', 'Lần tăng lương', '加薪次数'],
+  'career.contract': ['Contract', 'Hợp đồng', '合同'],
+  'career.remaining': ['remaining', 'còn lại', '剩余'],
+  'career.contractExpired': ['Contract expired — at-will employment', 'Hết hợp đồng — làm việc tùy ý', '合同到期 — 随意雇佣'],
+  'career.negotiateRaise': ['Negotiate raise', 'Thương lượng tăng lương', '谈判加薪'],
+  'career.quitJob': ['Quit job', 'Nghỉ việc', '辞职'],
+  'career.raiseHint': ['Raise success: 30-80% based on experience + level + fame. Failure: 15% chance of being fired.', 'Tăng lương: 30-80% tuỳ kinh nghiệm + cấp + danh tiếng. Thất bại: 15% khả năng bị đuổi.', '加薪成功率：30-80%（取决于经验+等级+名气）。失败：15%概率被解雇。'],
+  'months': ['months', 'tháng', '月'],
+  'gigs.popup': ['Quick gigs', 'Việc nhanh', '快速工作'],
+  'gigs.newGlow': ['New gigs available!', 'Có việc mới!', '有新工作！'],
   'farm.crop': ['Staple crops', 'Lúa gạo & hoa màu', '主粮作物'],
   'farm.dairy': ['Dairy & livestock', 'Sữa & chăn nuôi', '乳业与畜牧'],
   'farm.orchard': ['Orchards & coffee', 'Vườn cây & cà phê', '果园与咖啡'],
@@ -1300,15 +1314,18 @@ const Ctx = createContext<{ lang: Lang; setLang: (l: Lang) => void; t: ReturnTyp
 });
 
 export function LangProvider({ children }: { children: ReactNode }) {
-  const [lang, setLang] = useState<Lang>('en');
-  useEffect(() => {
-    let timer: ReturnType<typeof setTimeout> | undefined;
+  // v11.39 — lazy-init lang from localStorage so the FIRST render already has
+  // the right language. Previously lang defaulted to 'en' and was only updated
+  // inside a useEffect (which runs AFTER first render), so askAI's stale
+  // closure captured 'en' even for Vietnamese players — causing AI events to
+  // render in English.
+  const [lang, setLang] = useState<Lang>(() => {
     try {
       const v = localStorage.getItem('tycoon_lang') as Lang | null;
-      if (v === 'en' || v === 'vi' || v === 'zh') timer = setTimeout(() => setLang(v), 0);
+      if (v === 'en' || v === 'vi' || v === 'zh') return v;
     } catch { /* ignore */ }
-    return () => { if (timer) clearTimeout(timer); };
-  }, []);
+    return 'en';
+  });
   const set = (l: Lang) => {
     setLang(l);
     try { localStorage.setItem('tycoon_lang', l); } catch { /* ignore */ }

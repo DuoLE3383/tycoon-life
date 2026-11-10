@@ -92,6 +92,8 @@ export interface PowerState {
   // `foundationMult` lifts all influence gains by +20%.
   boardNomineeBiz?: number;
   foundationMult?: number;
+  // v11.39 — admin can force the next yearEnd to run an election check.
+  electionPending?: boolean;
   // v11.4 — election results. Each nation tracks the player's last result.
   //   status: 'never' | 'running' | 'won' | 'lost' | 'recalled'
   //   year: when the most recent election was held

@@ -1,5 +1,5 @@
 'use client';
-// HuyenBao v11.38 — React edition. Two-level grouped nav, a systems links map,
+// HuyenBao v11.39 — React edition. Two-level grouped nav, a systems links map,
 // gigs, levels, social, the cosmic frontier, EN/VI/中文, LLM oracle with
 // random kind dispatch (luck / setback / life-stage / story), pre-owned
 // market + social listings, a Hall of Fame tab, and a real player-to-player
@@ -36,6 +36,7 @@ import {
   openBranch, openBranchCapital, capitalPathCost, MANAGER_MONTHLY, rollBranchClosures, buyFarmLine, buyFacLine, buyItem, sellLot, trade, joinClub, leaveClub, foundClub,
   franchiseBranch, negotiateBizSell, pushBizOffer, acceptBizOffer, type BizOffer,
   hire, enrollDeg, enrollLic, enrollShortCourse, dropStudySlot, changeInterest, bankOp, donate, applyEventChoice, applyAIChoice, currentEvent, studyWorkMult,
+  negotiateRaise, quitJob,
   spaceUpgradeReady, startSpaceUpgrade, spaceUpgradeDays, spaceMultiplier, SPACE_TRAVEL_COST,
   recordActivity, studyPace, sleepHealthMult, sleepHoursOptions,
   gameOverTier, botRows, type AIEvent, type AIEventKind, type GameState,
@@ -92,7 +93,7 @@ if (typeof window !== 'undefined') {
 // v11.8 — the bundled version. The /version.json file in /public is polled
 // every 5 minutes; if its version is newer than this, a "reload to update"
 // banner appears even in a running session (no F5 needed).
-const BUNDLED_VERSION = 'v11.38';
+const BUNDLED_VERSION = 'v11.39';
 const VERSION_POLL_MS = 5 * 60 * 1000;
 // v11.24 — 'what's new' modal is shown ONCE PER PLAYER per MAJOR version
 // (tycoon_seen_v11), not once per patch release. Previously the key was
@@ -352,7 +353,7 @@ export default function Page() {
       bump(); persist();
     } else setAiNoteKey('oracle.fail');
     setAiBusy(false);
-  }, []);
+  }, [lang]);
 
   // v11 — random AI oracle popup. The engine sets s.aiEvPending with ~1%
   // chance per game-day; this effect watches the flag and triggers the
@@ -536,7 +537,7 @@ function Header({ s, eraName }: { s: GameState; eraName: (y: number) => string }
     <header className="top">
       <div className="brand">
         <Art id="s-coin" className="logo" />
-        <div><h1><span className="mini">v11.38</span> HuyenBao</h1>
+        <div><h1><span className="mini">v11.39</span> HuyenBao</h1>
           <div className="mini">{s.started ? `${s.nation} · ${eraName(worldYear(s))}` : t('tagline')}</div></div>
       </div>
       <div><div className="mini">{t('cash')}</div><div id="tcash" style={{ color: s.money < 0 ? 'var(--brick)' : undefined }}>{fmt(s.money)}</div>
@@ -686,6 +687,56 @@ function EditProfileModal({ s, act, onClose }: { s: GameState; act: Act; onClose
   );
 }
 
+// ================= v11.39 — GIGS POPUP =================
+// Gigs moved from an inline grid in HomeTab into a popup. The trigger button
+// GLOWS (pulsing amber ring) when there are gigs ready to do — so the player
+// notices "new work available" without it eating vertical space all the time.
+function GigsPopup({ s, act, t }: { s: GameState; act: Act; t: TFn }) {
+  const [open, setOpen] = useState(false);
+  const readyCount = GIGS.filter(g => gigReady(s, g)).length;
+  const glow = readyCount > 0;
+  return (
+    <>
+      <button className={'gigs-trigger' + (glow ? ' glow' : '') + (open ? ' on' : '')} onClick={() => setOpen(o => !o)}>
+        <Art id="ic-bag" className="si" />
+        <span>{t('gigs.popup', 'Quick gigs')}</span>
+        {glow && <span className="gigs-badge">{readyCount}</span>}
+      </button>
+      {open && (
+        <div className="modal-overlay" onClick={() => setOpen(false)}>
+          <div className="modal-box gigs-modal" onClick={e => e.stopPropagation()}>
+            <div className="modal-head">
+              <h2>💼 {t('gigs.popup', 'Quick gigs')}</h2>
+              <button className="modal-x" onClick={() => setOpen(false)} aria-label="Close">✕</button>
+            </div>
+            <div className="modal-body">
+              {glow && <p className="mini" style={{ color: 'var(--amber)', marginBottom: 8 }}>✨ {t('gigs.newGlow', 'New gigs available!')}</p>}
+              <div className="gigs">
+                {GIGS.map(g => {
+                  const ready = gigReady(s, g), lock = gigLock(s, g);
+                  const left = s.gigs[g.id] != null ? Math.max(0, g.cd - (s.lastDay - s.gigs[g.id])) : 0;
+                  return (
+                    <button key={g.id} className="gig" data-gig={g.id} disabled={!ready}
+                      onClick={() => { act(st => doGig(st, g.id, t)); }}>
+                      <Art id={g.icon} />
+                      <span><b>{t('gig.' + g.id, g.id)}</b>
+                        <span className="sub" style={{ display: 'block' }}>
+                          {!ready && lock ? t('gig.need', '', { x: lock })
+                            : !ready ? t('gig.cooldown', '', { n: left })
+                              : <><span className="pay">+{fmt(gigPay(s, g))}</span>{g.hp ? <span className="hppay"> · {t('gig.hp', '', { n: g.hp })}</span> : null}</>}
+                        </span></span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+
 // ================= HOME =================
 function HomeTab({ s, act, askAI, aiBusy, aiNote, eraName }: { s: GameState; act: Act; askAI: () => void; aiBusy: boolean; aiNote: string; eraName: (y: number) => string }) {
   const { t, lang } = useT();
@@ -779,25 +830,9 @@ function HomeTab({ s, act, askAI, aiBusy, aiNote, eraName }: { s: GameState; act
         {incRows.map(([k, v]) => v > 0 ? <div key={k} className="lb"><span>{k}</span><span className="up">+{fmt(v)}</span></div> : null)}
       </div>
 
-      <h3>{t('gigs')}</h3>
-      <div className="gigs">
-        {GIGS.map(g => {
-          const ready = gigReady(s, g), lock = gigLock(s, g);
-          const left = s.gigs[g.id] != null ? Math.max(0, g.cd - (s.lastDay - s.gigs[g.id])) : 0;
-          return (
-            <button key={g.id} className="gig" data-gig={g.id} disabled={!ready}
-              onClick={() => act(st => doGig(st, g.id, t))}>
-              <Art id={g.icon} />
-              <span><b>{t('gig.' + g.id, g.id)}</b>
-                <span className="sub" style={{ display: 'block' }}>
-                  {!ready && lock ? t('gig.need', '', { x: lock })
-                    : !ready ? t('gig.cooldown', '', { n: left })
-                      : <><span className="pay">+{fmt(gigPay(s, g))}</span>{g.hp ? <span className="hppay"> · {t('gig.hp', '', { n: g.hp })}</span> : null}</>}
-                </span></span>
-            </button>
-          );
-        })}
-      </div>
+      {/* v11.39 — gigs moved into a popup. A "Quick gigs" button in the header
+          opens the popup; the button GLOWS when there are gigs ready to do. */}
+      <GigsPopup s={s} act={act} t={t} />
 
       {/* v11.8 — manual "Ask AI" button removed. The oracle now fires only via
           the auto-popup effect (engine sets s.aiEvPending with ~3% chance/game-day).
@@ -892,8 +927,31 @@ function CareerTab({ s, act }: { s: GameState; act: Act }) {
   const { t } = useT();
   const reqLabel = useReqLabel();
   const activeJobs = jobsOf(s);
+  const ftJob = activeJobs.find(j => j.ft);
+  const ftExp = ftJob ? (s.jobExp[ftJob.id] || 0) : 0;
+  const contractDaysLeft = s.jobContractEnd > 0 ? Math.max(0, Math.round(s.jobContractEnd - s.day)) : 0;
   return (
     <>
+      {/* v11.39 — Current job card: experience, contract status, raise/quit actions */}
+      {ftJob && (
+        <div className="card" style={{ marginBottom: 10 }}>
+          <div className="lb"><span>{t('career.current', 'Current position')}</span><b>{t('job.' + ftJob.id, ftJob.name)}</b></div>
+          <div className="sub" style={{ marginTop: 4 }}>{t('career.salary', 'Salary')}: {fmt(ftJob.salary * studyWorkMult(s))}{t('perYear')}</div>
+          <div className="sub">{t('career.experience', 'Experience')}: <b style={{ color: 'var(--accent)' }}>{ftExp}</b> XP · {t('career.raises', 'Raises')}: {s.jobRaises}</div>
+          <div className="sub">
+            {contractDaysLeft > 0
+              ? `${t('career.contract', 'Contract')}: ${Math.round(contractDaysLeft / 30)} ${t('months', 'months')} ${t('career.remaining', 'remaining')}`
+              : `${t('career.contractExpired', 'Contract expired — at-will employment')}`}
+          </div>
+          {/* Experience progress bar */}
+          <div className="wbar" style={{ marginTop: 6, height: 6 }}><i style={{ width: Math.min(100, ftExp / 10) + '%', background: 'var(--gold)' }} /></div>
+          <div className="trade" style={{ marginTop: 8, flexWrap: 'wrap' }}>
+            <Btn ic="ic-up" label={t('career.negotiateRaise', 'Negotiate raise')} kind="sageb" onClick={() => act(st => negotiateRaise(st))} />
+            <Btn ic="ic-x" label={t('career.quitJob', 'Quit job')} kind="danger" onClick={() => act(st => quitJob(st))} />
+          </div>
+          <p className="mini" style={{ marginTop: 6, opacity: .65 }}>{t('career.raiseHint', 'Raise success: 30-80% based on experience + level + fame. Failure: 15% chance of being fired.')}</p>
+        </div>
+      )}
       <h3>{t('jobs')}</h3>
       {JOBS.map(jb => {
         const mine = activeJobs.some(job => job.id === jb.id);

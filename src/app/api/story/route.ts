@@ -32,6 +32,20 @@ const LANG_DIRECTIVE: Record<Lang, string> = {
   zh: '请用简体中文撰写 title、text、choice labels 和 outcomes。不要使用英文。'
 };
 
+// v11.39 — detect if the LLM returned mostly English text for a non-English
+// request. If so, we fall through to the local template engine (which IS
+// fully localized) instead of showing English to a Vietnamese/Chinese player.
+// Heuristic: strip all non-letter chars; if >70% of the remaining chars are
+// ASCII A-Za-z, it's English. Vietnamese has many diacritics (á à ả ã ạ â ă ê
+// ô ơ ư đ etc.) and Chinese has CJK ideographs — both push the ASCII ratio
+// well below 70%.
+function looksLikeEnglish(text: string): boolean {
+  const letters = text.replace(/[^A-Za-z\u00C0-\u024F\u4e00-\u9fff]/g, '');
+  if (!letters.length) return true; // empty = treat as English (skip guard)
+  const ascii = (text.match(/[A-Za-z]/g) || []).length;
+  return ascii / letters.length > 0.70;
+}
+
 const DIRECTIONS_BY_KIND: Record<AIEventKind, string[]> = {
   story: [
     'a career crossroads: a risky promotion, a rival offering a job, or a bold pivot',
@@ -216,7 +230,14 @@ export async function POST(req: NextRequest) {
         const parsed = JSON.parse(m[0]) as StoryEv;
         if (parsed && parsed.title && Array.isArray(parsed.choices) && parsed.choices.length) {
           const ev = clampEv({ ...parsed, kind }, Number(state.netWorth) || 0);
-          return NextResponse.json({ ...ev, source: 'backend-local' });
+          // v11.39 — if the LLM ignored the language directive (returned mostly
+          // English text for a non-English request), fall through to localTwist
+          // instead of returning the wrong-language event.
+          if (lang !== 'en' && looksLikeEnglish(ev.title + ' ' + ev.text)) {
+            // skip — try ZAI cloud or local fallback below
+          } else {
+            return NextResponse.json({ ...ev, source: 'backend-local' });
+          }
         }
       }
     }
@@ -239,7 +260,13 @@ export async function POST(req: NextRequest) {
     if (m) {
       const parsed = JSON.parse(m[0]) as StoryEv;
       if (parsed && parsed.title && Array.isArray(parsed.choices) && parsed.choices.length) {
-        return NextResponse.json(clampEv({ ...parsed, kind }, Number(state.netWorth) || 0));
+        const ev = clampEv({ ...parsed, kind }, Number(state.netWorth) || 0);
+        // v11.39 — same English-detection guard for the ZAI cloud path.
+        if (lang !== 'en' && looksLikeEnglish(ev.title + ' ' + ev.text)) {
+          // fall through to localTwist
+        } else {
+          return NextResponse.json(ev);
+        }
       }
     }
   } catch (e) {

@@ -121,6 +121,10 @@ export interface GameState {
   spaceUpgrade: { startedDay: number; completesDay: number } | null; spaceTravel: boolean;
   lots: { id: string; paid: number; day: number; condition?: number; condDay?: number; repaired?: number }[]; stk: Record<string, number>;
   club: string | null; ownClub: string | null; job: string | null; sideJob: string | null;
+  // v11.39 — career system: experience per job-id, contract end-day, raise history.
+  jobExp: Record<string, number>;       // XP accumulated per job-id (resets on quit)
+  jobContractEnd: number;               // day the current contract expires (0 = no contract)
+  jobRaises: number;                    // total successful raises negotiated
   clubs: string[]; // v10.5 — multiple-club membership (s.club stays as the 'active' / highest-mult one)
   deg: Record<FieldKey, number>; lic: Record<string, boolean>; study: Study | null; sideStudy: Study | null;
   name: string; byear: number; nation: string; religion: Religion; ints: string[]; tals: string[]; topField: FieldKey | null;
@@ -488,6 +492,7 @@ export function fresh(): GameState {
     money: 0, age: START, day: 0, lastDay: 0, lastYr: START, lastSeen: null, biz: {}, branches: {}, farm: {}, fac: {},
     farmBought: {}, facBought: {}, spaceBought: {}, spaceUpgrade: null, spaceTravel: false,
     lots: [], stk: {},     club: null, ownClub: null, job: null, sideJob: null,
+    jobExp: {}, jobContractEnd: 0, jobRaises: 0,
     deg: { business: 0, engineering: 0, medicine: 0, science: 0, arts: 0 }, lic: {}, study: null, sideStudy: null,
     name: 'Alex', byear: 1992, nation: 'Vietnam', religion: 'none', ints: [], tals: [], topField: null, started: false,
     avatar: '🧑',
@@ -550,6 +555,10 @@ export function migrate(raw: unknown): GameState {
   s.relations = s.relations && typeof s.relations === 'object' ? s.relations : {};
   s.pets = Array.isArray(s.pets) ? s.pets : [];
   s.clubs = Array.isArray(s.clubs) ? s.clubs : (s.club ? [s.club] : []);
+  // v11.39 — career system backfill for old saves.
+  s.jobExp = s.jobExp && typeof s.jobExp === 'object' ? s.jobExp : {};
+  s.jobContractEnd = typeof s.jobContractEnd === 'number' ? s.jobContractEnd : 0;
+  s.jobRaises = typeof s.jobRaises === 'number' ? s.jobRaises : 0;
   s.aiEvPending = !!s.aiEvPending;
   s.shortCompleted = Array.isArray(s.shortCompleted) ? s.shortCompleted : [];
   // v11.17 — toast queue (backfill for old saves).
@@ -1190,6 +1199,13 @@ const AMBIENT_EVENTS: { msg: string; toast: string; cash?: number; health?: numb
 export function yearEnd(s: GameState, age: number, rng: () => number = Math.random): void {
   pushLog(s, `Happy birthday. You are now ${age}.`);
   if (age === RETIRE) { s.job = null; s.sideJob = null; pushLog(s, 'You retired. Your pension starts.'); }
+  // v11.39 — career: add 1 year of experience to current job + roll firing risk.
+  if (age < RETIRE) {
+    addJobExperience(s, 1);
+    if (rollJobFiring(s, rng)) {
+      queueToast(s, '💼 You were fired — contract expired.');
+    }
+  }
   if (s.fame > 0) s.fame = Math.max(0, Math.round(s.fame * .92));
   // v10.5 — pets grant passive fame per year (only happy pets).
   const petFame = petFameBonus(s);
@@ -1420,6 +1436,55 @@ export function acceptBizOffer(s: GameState, offer: BizOffer): string | null {
   addPost(s, `Closed a deal — sold a ${b?.name || 'business'} outlet for $${offer.offer.toLocaleString()}.`, 1.2);
   return `Sold for $${offer.offer.toLocaleString()}!`;
 }
+
+// ---------------------------------------------------------------- v11.39 — admin game control
+// Server-side wrappers the /api/admin/game route calls to let the operator
+// directly manipulate a player's GameState. Each function takes the state
+// (already loaded from localStorage on the client, or reconstructed from a
+// save snapshot on the server) and mutates it in place. Returns a toast msg.
+export function adminGrantItem(s: GameState, itemId: string): string | null {
+  const it = (ITEM_BY as Record<string, { name: string; price: number }>)[itemId];
+  if (!it) return null;
+  s.lots.push({ id: itemId, paid: it.price, day: s.day, condition: 100, condDay: s.day, repaired: 0 });
+  pushLog(s, `Admin granted: ${it.name}.`);
+  return `✅ Granted ${it.name}`;
+}
+export function adminSetMoney(s: GameState, amount: number): string {
+  s.money = Math.max(-1e12, Math.min(1e15, Number(amount) || 0));
+  return `✅ Money set to $${s.money.toLocaleString()}`;
+}
+export function adminSetFame(s: GameState, amount: number): string {
+  s.fame = Math.max(0, Math.min(1e6, Math.round(Number(amount) || 0)));
+  return `✅ Fame set to ${s.fame}`;
+}
+export function adminSetHealth(s: GameState, amount: number): string {
+  s.health = Math.max(0, Math.min(100, Number(amount) || 0));
+  return `✅ Health set to ${Math.round(s.health)}`;
+}
+export function adminSetSpirit(s: GameState, amount: number): string {
+  s.spirit = Math.max(0, Math.min(100, Number(amount) || 0));
+  return `✅ Spirit set to ${Math.round(s.spirit)}`;
+}
+export function adminSetLevel(s: GameState, lvl: number): string {
+  s.level = Math.max(1, Math.min(999, Math.round(Number(lvl) || 1)));
+  s.xp = 0;
+  return `✅ Level set to ${s.level}`;
+}
+export function adminTriggerElection(s: GameState): string {
+  // Force the election flag — the next yearEnd tick will run the election
+  // if the player has national_power tier + influence ≥ 80.
+  s.power = s.power || freshPower();
+  s.power.electionPending = true;
+  pushLog(s, 'Admin triggered an election cycle.');
+  return '✅ Election triggered (resolves at next year-end if eligible)';
+}
+export function adminAdvanceTime(s: GameState, days: number): string {
+  const d = Math.max(0, Math.min(3650, Math.round(Number(days) || 0)));
+  s.lastDay += d;
+  s.day += d;
+  pushLog(s, `Admin advanced time by ${d} days.`);
+  return `✅ Advanced ${d} days`;
+}
 export function buyFarmLine(s: GameState, id: string): string | null {
   const l = FARM_LINES.find(x => x.id === id); if (!l || s.farm[l.id]) return null;
   if (!lineReady(s, l) || s.money < l.cost) return null;
@@ -1549,8 +1614,73 @@ export function hire(s: GameState, id: string): string | null {
   const current = jobsOf(s).find(job => job.ft === j.ft);
   if (current) return `Quit ${current.name} first to change this work slot.`;
   const key = j.ft ? 'job' : 'sideJob';
-  s[key] = j.id; pushLog(s, `Started work as ${j.name}.`);
+  s[key] = j.id;
+  // v11.39 — start a 1-year contract for full-time jobs + init experience.
+  if (j.ft) s.jobContractEnd = s.day + 365;
+  s.jobExp = s.jobExp || {};
+  if (s.jobExp[id] == null) s.jobExp[id] = 0;
+  pushLog(s, `Started work as ${j.name}.`);
   return 'Hired as ' + j.name + '!';
+}
+// v11.39 — career: negotiate a raise. Success chance based on experience in
+// the current job (jobExp) + level + fame. Risk: if negotiation fails, 15%
+// chance of being fired. Returns a toast message.
+export function negotiateRaise(s: GameState): string {
+  const job = jobOf(s);
+  if (!job) return 'No active job to negotiate for.';
+  const exp = s.jobExp[job.id] || 0;
+  // Success chance: base 30% + 5% per 100 exp + 3% per level + 2% per 10 fame, capped 80%.
+  const chance = Math.min(0.80, 0.30 + exp / 2000 + s.level * 0.03 + s.fame / 500);
+  if (Math.random() < chance) {
+    const raise = Math.round(job.salary * (0.08 + Math.random() * 0.12)); // 8-20% raise
+    s.jobRaises++;
+    pushLog(s, `Negotiated a raise at ${job.name}: +$${raise.toLocaleString()}/yr.`);
+    return `✅ Raise approved! +$${raise.toLocaleString()}/yr`;
+  }
+  // Failed negotiation — 15% chance of being fired.
+  if (Math.random() < 0.15) {
+    s.job = null;
+    s.jobContractEnd = 0;
+    pushLog(s, `Negotiation failed — fired from ${job.name}.`);
+    return `❌ Negotiation failed — you were fired from ${job.name}!`;
+  }
+  pushLog(s, `Raise request denied at ${job.name}. No change.`);
+  return '❌ Raise denied. Try again later.';
+}
+// v11.39 — career: quit a job voluntarily. Clears the slot + contract.
+export function quitJob(s: GameState): string {
+  const job = jobOf(s);
+  if (!job) return 'No active job to quit.';
+  s.job = null;
+  s.jobContractEnd = 0;
+  pushLog(s, `Quit ${job.name} voluntarily.`);
+  return `You quit ${job.name}.`;
+}
+// v11.39 — career: add experience to the current job (called from yearEnd).
+export function addJobExperience(s: GameState, years: number): void {
+  const job = jobOf(s);
+  if (!job) return;
+  s.jobExp = s.jobExp || {};
+  s.jobExp[job.id] = (s.jobExp[job.id] || 0) + Math.round(years * 100);
+}
+// v11.39 — career: check if the player should be fired (contract expired +
+// poor performance). Called from yearEnd. Returns true if fired.
+export function rollJobFiring(s: GameState, rng: () => number = Math.random): boolean {
+  const job = jobOf(s);
+  if (!job) return false;
+  // If contract expired, 8% base chance of being fired per year (modified by performance).
+  if (s.jobContractEnd > 0 && s.day < s.jobContractEnd) return false; // still under contract
+  const exp = s.jobExp[job.id] || 0;
+  // More experience = safer. Low health = higher risk.
+  let chance = 0.08 + (s.health < 40 ? 0.06 : 0) - Math.min(0.06, exp / 8000);
+  chance = Math.max(0.02, Math.min(0.25, chance));
+  if (rng() < chance) {
+    s.job = null;
+    s.jobContractEnd = 0;
+    pushLog(s, `Fired from ${job.name} (contract expired, performance review).`);
+    return true;
+  }
+  return false;
 }
 export function enrollDeg(s: GameState, f: FieldKey): string | null {
   const field = FIELDS[f];

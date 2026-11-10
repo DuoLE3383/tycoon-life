@@ -62,7 +62,7 @@ const ONLINE_MS = 13000;
 const isOnline = (p: APlayer | ATop) => 'last_seen' in p && Date.now() - (p as { last_seen: number }).last_seen < ONLINE_MS;
 
 type Phase = 'locked' | 'loading' | 'live' | 'badkey' | 'noserver';
-type Tab = 'overview' | 'system' | 'players' | 'chat' | 'gifts' | 'leaderboard' | 'db';
+type Tab = 'overview' | 'system' | 'players' | 'chat' | 'gifts' | 'leaderboard' | 'game' | 'db';
 
 export default function AdminPage() {
   const [phase, setPhase] = useState<Phase>('loading');
@@ -87,6 +87,11 @@ export default function AdminPage() {
   const [sendAmt, setSendAmt] = useState('1000');
   const [sendNote, setSendNote] = useState('');
   const [top, setTop] = useState<ATop[] | null>(null);
+  // ---- game control tab
+  const [itemList, setItemList] = useState<{ items: { id: string; name: string; cat: string; price: number; rarity: string }[]; rare: { id: string; name: string; cat: string; price: number; rarity: string }[] } | null>(null);
+  const [gameUid, setGameUid] = useState('');
+  const [gameItemId, setGameItemId] = useState('');
+  const [gameAmount, setGameAmount] = useState('100000');
 
   const flash = useCallback((m: string) => { setNote(m); setTimeout(() => setNote(''), 4500); }, []);
 
@@ -123,6 +128,7 @@ export default function AdminPage() {
   const loadMsgs = useCallback(async () => { try { const j = await adminGet<{ messages: AMsg[] }>('/api/admin/messages'); setMsgs(j.messages); } catch { setMsgs([]); } }, [adminGet]);
   const loadGifts = useCallback(async () => { try { const j = await adminGet<{ gifts: AGift[] }>('/api/admin/gifts'); setGifts(j.gifts); } catch { setGifts([]); } }, [adminGet]);
   const loadTop = useCallback(async () => { try { const j = await adminGet<{ top: ATop[] }>('/api/admin/leaderboard', { limit: '50' }); setTop(j.top); } catch { setTop([]); } }, [adminGet]);
+  const loadItems = useCallback(async () => { try { setItemList(await adminGet<typeof itemList>('/api/admin/game')); } catch { setItemList(null); } }, [adminGet]);
 
   const loadTab = useCallback((tb: Tab) => {
     if (tb === 'system') void loadSys();
@@ -130,7 +136,8 @@ export default function AdminPage() {
     else if (tb === 'chat') void loadMsgs();
     else if (tb === 'gifts') void loadGifts();
     else if (tb === 'leaderboard') void loadTop();
-  }, [loadSys, loadPlayers, loadMsgs, loadGifts, loadTop]);
+    else if (tb === 'game') void loadItems();
+  }, [loadSys, loadPlayers, loadMsgs, loadGifts, loadTop, loadItems]);
 
   const unlock = useCallback(() => {
     keyRef.current = key.trim();
@@ -216,6 +223,7 @@ export default function AdminPage() {
     { id: 'gifts', label: '🎁 Quà tặng' },
     { id: 'leaderboard', label: '🏆 Bảng XH' },
     { id: 'db', label: '🗄 CSDL' },
+    { id: 'game', label: '🎮 Điều khiển' },
   ];
 
   return (
@@ -426,6 +434,53 @@ export default function AdminPage() {
               </div>
               <div className="adm-tools"><button className="adm-btn" onClick={() => void dbVacuum()}>🧹 VACUUM — tối ưu file CSDL</button><button className="adm-btn adm-danger" onClick={() => void dbClearMsgs()}>🗑 Xoá TOÀN BỘ tin nhắn chat</button></div>
               <p className="adm-note">VACUUM nén lại file <code>social.db</code> sau khi xoá dữ liệu. Xoá tin nhắn là hành động phá huỷ — không thể hoàn tác; hãy cân nhắc backup file trước.</p>
+            </section>
+          )}
+
+          {/* ---------------- GAME CONTROL (v11.39) ---------------- */}
+          {tab === 'game' && (
+            <section className="adm-top">
+              <h2 style={{ marginTop: 0 }}>🎮 Điều khiển game</h2>
+              <p className="adm-note">Cấp item, đặt money/fame/health/level, mở bầu cử, tăng thời gian. Hành động ghi vào audit log — client áp dụng khi player ping tiếp.</p>
+              <div className="adm-bcast">
+                <b>Người chơi mục tiêu (UID hoặc HB-code)</b>
+                <div className="adm-row">
+                  <input className="adm-input" value={gameUid} placeholder="HB-XXXXXX hoặc UID" onChange={e => setGameUid(e.target.value)} style={{ flex: '0 0 200px' }} />
+                </div>
+                <div className="adm-row">
+                  <input className="adm-input" type="number" value={gameAmount} placeholder="Amount" onChange={e => setGameAmount(e.target.value)} style={{ flex: '0 0 140px' }} />
+                  <button className="adm-btn" disabled={!gameUid.trim()} onClick={() => void (async () => { try { await adminPost('/api/admin/game', { action: 'setMoney', uid: gameUid, amount: Number(gameAmount) }); flash('✅ Đặt money'); } catch { flash('❌ Thất bại'); } })()}>💵 Đặt money</button>
+                  <button className="adm-btn" disabled={!gameUid.trim()} onClick={() => void (async () => { try { await adminPost('/api/admin/game', { action: 'setFame', uid: gameUid, amount: Number(gameAmount) }); flash('✅ Đặt fame'); } catch { flash('❌ Thất bại'); } })()}>⭐ Đặt fame</button>
+                  <button className="adm-btn" disabled={!gameUid.trim()} onClick={() => void (async () => { try { await adminPost('/api/admin/game', { action: 'setHealth', uid: gameUid, amount: Number(gameAmount) }); flash('✅ Đặt health'); } catch { flash('❌ Thất bại'); } })()}>❤️ Đặt health</button>
+                  <button className="adm-btn" disabled={!gameUid.trim()} onClick={() => void (async () => { try { await adminPost('/api/admin/game', { action: 'setSpirit', uid: gameUid, amount: Number(gameAmount) }); flash('✅ Đặt spirit'); } catch { flash('❌ Thất bại'); } })()}>🧘 Đặt spirit</button>
+                  <button className="adm-btn" disabled={!gameUid.trim()} onClick={() => void (async () => { try { await adminPost('/api/admin/game', { action: 'setLevel', uid: gameUid, level: Number(gameAmount) }); flash('✅ Đặt level'); } catch { flash('❌ Thất bại'); } })()}>⭐ Đặt level</button>
+                </div>
+                <div className="adm-row">
+                  <button className="adm-btn" disabled={!gameUid.trim()} onClick={() => void (async () => { try { await adminPost('/api/admin/game', { action: 'triggerElection', uid: gameUid }); flash('✅ Đã mở bầu cử'); } catch { flash('❌ Thất bại'); } })()}>🗳️ Mở bầu cử</button>
+                  <button className="adm-btn" disabled={!gameUid.trim()} onClick={() => void (async () => { try { await adminPost('/api/admin/game', { action: 'advanceTime', uid: gameUid, days: Number(gameAmount) }); flash('✅ Tăng ' + gameAmount + ' ngày'); } catch { flash('❌ Thất bại'); } })()}>⏰ Tăng thời gian (ngày)</button>
+                </div>
+              </div>
+
+              <div className="adm-tools"><b style={{ fontSize: '.95rem' }}>Cấp item cho người chơi</b><button className="adm-btn adm-ghost" onClick={() => void loadItems()}>↻ Làm mới danh sách</button></div>
+              {itemList && (
+                <div className="adm-scroll" style={{ maxHeight: 400 }}>
+                  <table>
+                    <thead><tr><th>Item</th><th>Danh mục</th><th>Giá</th><th>Hiếm</th><th>Quản trị</th></tr></thead>
+                    <tbody>
+                      {[...itemList.items, ...itemList.rare].map(it => (
+                        <tr key={it.id}>
+                          <td>{it.name}</td>
+                          <td>{it.cat}</td>
+                          <td className="adm-nw">${it.price.toLocaleString()}</td>
+                          <td>{it.rarity}</td>
+                          <td className="adm-actions"><button className="adm-btn" title="Cấp item" disabled={!gameUid.trim()} onClick={() => void (async () => { try { await adminPost('/api/admin/game', { action: 'grantItem', uid: gameUid, itemId: it.id }); flash('✅ Đã cấp ' + it.name); } catch { flash('❌ Thất bại'); } })()}>🎁</button></td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+              {!itemList && <p className="adm-note">Đang tải danh sách item…</p>}
             </section>
           )}
         </>
