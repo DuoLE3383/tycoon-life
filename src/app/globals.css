@@ -412,3 +412,48 @@ html[data-theme="dark"] .tgame .mcard{box-shadow:0 14px 46px rgba(0,0,0,.5)}
 .tgame .perkrow{display:flex;align-items:center;gap:8px;padding:8px 12px;border-radius:10px;border:1px dashed var(--line2);margin-bottom:6px;font-size:.86rem}
 .tgame .perkrow.on{border-style:solid;border-color:var(--sage);color:var(--ink);background:var(--sageBg)}
 .tgame .perkrow .mini{margin-left:auto}
+
+/* ===== v11.25 — community (real players): chat / friends / leaderboard ===== */
+.tgame .navdot{width:8px;height:8px;border-radius:999px;background:var(--brick);flex:none;box-shadow:0 0 0 2px var(--card)}
+.tgame .soc-banner{display:flex;align-items:center;gap:10px;justify-content:space-between;font-size:.84rem;background:var(--sageBg);border:1px solid var(--line);border-radius:14px;padding:10px 14px;margin-bottom:10px}
+.tgame .soc-banner.warn{background:var(--brickBg)}
+.tgame .soc-setup summary{font-weight:650}
+.tgame .soc-steps{margin:8px 0 12px;padding-left:20px;display:grid;gap:6px;font-size:.86rem}
+.tgame .soc-av{width:34px;height:34px;flex:none;display:inline-flex;align-items:center;justify-content:center;border-radius:10px;background:var(--paper2);border:1px solid var(--line);font-size:19px}
+.tgame .soc-av.big{width:52px;height:52px;font-size:30px;border-radius:14px}
+.tgame .soc-av.dim{opacity:.5}
+.tgame .soc-avwrap{position:relative;flex:none;display:inline-flex}
+.tgame .soc-dot{position:absolute;right:-2px;bottom:-2px;width:10px;height:10px;border-radius:999px;background:var(--sage);border:2px solid var(--card)}
+.tgame .soc-onhead{display:flex;align-items:baseline;justify-content:space-between;gap:8px;margin-bottom:8px}
+.tgame .soc-online{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px}
+.tgame .soc-ochip{display:inline-flex;align-items:center;gap:6px;font-size:.78rem;font-weight:650;background:var(--paper2);border:1px solid var(--line);border-radius:999px;padding:3px 10px 3px 4px}
+.tgame .soc-ochip .soc-av{width:22px;height:22px;font-size:13px;border-radius:999px}
+.tgame .soc-msgs{max-height:320px;min-height:200px;overflow-y:auto;display:flex;flex-direction:column;gap:10px;padding:4px 2px;margin-bottom:10px}
+.tgame .soc-empty{display:flex;align-items:center;justify-content:center;min-height:160px;opacity:.7}
+.tgame .smsg{display:flex;gap:8px;max-width:88%}
+.tgame .smsg .soc-av{width:30px;height:30px;font-size:16px;align-self:flex-end}
+.tgame .smsg-bd{display:flex;flex-direction:column;gap:2px;min-width:0}
+.tgame .smsg-hd{display:flex;align-items:baseline;gap:8px;font-size:.78rem;color:var(--mute)}
+.tgame .smsg-hd b{color:var(--ink);font-size:.84rem}
+.tgame .smsg-tx{background:var(--paper2);border:1px solid var(--line);border-radius:14px 14px 14px 4px;padding:7px 12px;font-size:.92rem;overflow-wrap:anywhere}
+.tgame .smsg.me{align-self:flex-end;flex-direction:row-reverse}
+.tgame .smsg.me .smsg-hd{justify-content:flex-end}
+.tgame .smsg.me .smsg-tx{background:var(--sageBg);border-color:var(--sage);border-radius:14px 14px 4px 14px}
+.tgame .soc-inrow{display:flex;gap:8px}
+.tgame .soc-inrow input{flex:1;min-width:0}
+.tgame .soc-idrow{display:flex;align-items:flex-end;gap:10px}
+.tgame .soc-avpick{display:flex;gap:4px;flex-wrap:wrap;margin-top:10px}
+.tgame .soc-avbtn{border:1px solid transparent;background:transparent;border-radius:10px;font-size:20px;padding:4px 6px;line-height:1}
+.tgame .soc-avbtn:hover{background:var(--paper2)}
+.tgame .soc-avbtn.on{background:var(--paper2);border-color:var(--accent)}
+.tgame .soc-code{display:flex;align-items:center;gap:8px;margin-top:12px;flex-wrap:wrap}
+.tgame .soc-codechip{font-family:ui-monospace,Menlo,Consolas,monospace;font-weight:800;font-size:1.02rem;letter-spacing:1.5px;background:var(--paper2);border:1px dashed var(--line2);border-radius:10px;padding:6px 12px}
+.tgame .soc-friend{flex-wrap:wrap}
+.tgame .soc-giftform{width:100%;display:grid;gap:6px;padding:8px 2px 2px}
+.tgame .soc-claimed{opacity:.62}
+.tgame .soc-lbrow{display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:12px;border:1px solid transparent;margin-bottom:2px}
+.tgame .soc-lbrow.me{background:var(--sageBg);border-color:var(--sage)}
+.tgame .soc-lbrow .info{flex:1;min-width:0}
+.tgame .soc-lbrow b{display:block;line-height:1.3}
+.tgame .soc-rank{width:36px;flex:none;text-align:center;font-weight:800;font-variant-numeric:tabular-nums}
+.tgame .soc-nw{margin-left:auto;font-variant-numeric:tabular-nums}

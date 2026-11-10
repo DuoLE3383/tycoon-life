@@ -701,6 +701,8 @@ export const GROUPS: [string, string, string, [string, string, string][]][] = [
   ['finance', 'Finance', 't-bank', [['markets', 'Markets', 't-stock'], ['bank', 'Banking', 't-bank']]],
   ['empire', 'Business', 't-biz', [['biz', 'Business', 't-biz'], ['space', 'Space', 't-space']]],
   ['network', 'Social', 't-social', [['social', 'Social', 't-social'], ['relations', 'Relations', 'ic-heart'], ['club', 'Clubs', 't-club']]],
+  // v11.25 — real player-to-player community (distinct from the NPC 'network' group)
+  ['community', 'Community', 'ic-users', [['friends', 'Friends', 'ic-users'], ['chat', 'Chat', 't-social'], ['lboard', 'Leaderboard', 'ic-trophy']]],
   ['world', 'Empire', 't-rank', [['power', 'Power', 't-power'], ['entity', 'Empire', 'b-corp'], ['rank', 'Ranking', 't-rank'], ['fame', 'Hall of Fame', 'ic-trophy'], ['links', 'Systems', 'ic-link']]],
 ];
 

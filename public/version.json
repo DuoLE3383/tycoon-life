@@ -1,22 +1,20 @@
 {
-  "version": "v11.24",
+  "version": "v11.25",
   "releasedAt": "2026-11-10",
-  "headline": "HuyenBao v11.24 — market finally moves + Finance/Assets split + 16 new items + 3D nav + event/notification fixes",
-  "summary": "Structural + bugfix pass. (1) MARKET FIXED — the real bug behind 'market chưa hoạt động': STOCKS[].vol was defined but never used and s.hist was never pushed to, so prices only moved on year-boundary shocks/crises and sparklines were dead flat lines. Stocks now do a daily geometric random walk (30s per game-day) scaled by each stock's volatility (COIN ±9% … BANK ±2%) with gentle mean reversion toward the listing price (clamped 0.25×–6×), and history is appended (capped 60 points) so charts finally move. (2) EVENTS/NOTIFICATIONS FIXED — the real bug behind 'thông báo và hint sự kiện vẫn chưa hoạt động': the day>30 threshold meant 15 minutes of real play before the FIRST AI-oracle popup or ambient toast could ever roll; most sessions ended before anything fired. Threshold lowered day>30 → day>3 (~90 seconds). Rates unchanged (9%/day oracle, 6%/day ambient). (3) WHAT'S-NEW REPEAT FIXED — the modal key was per-patch (tycoon_seen_v11.21/.22/.23) so every version bump re-showed the SAME static v11 feature list ('big update bị lặp lại'); now keyed once per major version (tycoon_seen_v11). Also removed the reload-banner button that wiped the seen flag. (4) NAV REORGANIZED — 'Portfolio' group split into two: 'Tài sản' (Assets — the diversified item catalogue) and 'Tài chính' (Finance — Markets + Banking). Physical possessions and financial instruments are different mental models. (5) 16 NEW ITEMS in 5 new categories: Sneakers (Jordan 1, Yeezy, Dior B23, Nike Air Mag, LV×Nike AF1), Handbag (Coach Tabby, LV Neverfull, Chanel Classic Flap, Hermès Birkin), Audio (McIntosh stack, gramophone), Camera (Leica M11, Hasselblad 907X), Classic car (BMW M3 E30, Porsche 959, Mercedes 300SL Gullwing). Grail pieces appreciate (Air Mag +10%/yr, Birkin +12%/yr — mirroring real collector markets). 3 new SVG icons (sneaker, handbag, camera). Catalog now 67 items / 16 categories. (6) 3D ANIMATED NAV — buttons lift on hover with perspective rotateX tilt (Level 1) or scale pop (Level 2), press down on :active; disabled under prefers-reduced-motion. Version bumped to v11.24. 4 Huyen-Hoc-AI features unchanged.",
+  "headline": "HuyenBao v11.25 — Cộng đồng: chat + bạn bè + tặng quà + BXH toàn cầu (Supabase / demo 2 tab)",
+  "summary": "PLAYER-TO-PLAYER COMMUNITY. A new 'Cộng đồng / Community' group lands with three tabs: (1) Chat — global room with live presence (online list), realtime via Supabase, Enter-to-send, flood guard. (2) Bạn bè / Friends — add friends by player code (HB-XXXXXX), accept/decline requests, remove, and GIFT money to friends (deducted on send, claimed from the gift inbox); unread badge dot on the nav. (3) Bảng xếp hạng / Leaderboard — top 50 players by net worth with medals, own-row highlight, auto-sync while playing. BACKEND: when NEXT_PUBLIC_SUPABASE_URL + NEXT_PUBLIC_SUPABASE_ANON_KEY are set at build time, everything runs on Supabase (free Postgres) with anonymous auth + full Row Level Security (schema: /hb-supabase-schema.sql — players, messages, friend edges, gifts; every write scoped to its owner; realtime channel for chat + presence). Without env vars the game ships a zero-config demo mode: same-device tabs sync via BroadcastChannel + localStorage so two tabs can chat, friend and gift each other — and the Friends tab carries a built-in 5-step setup guide + downloadable SQL so switching to real multiplayer is copy-paste. Identity: display name + emoji avatar + player code, stored per browser.",
   "features": [
-    "MARKET FIX: daily geometric random walk per stock (vol from STOCKS[].vol — was defined but never used)",
-    "MARKET FIX: s.hist now appended every game-day (capped 60 points) — sparklines finally move (was initialized once, never pushed)",
-    "MARKET FIX: soft mean reversion toward listing price (≤1.2%/day) + price clamp 0.25×–6× to prevent runaway values",
-    "EVENT FIX: AI-oracle popup threshold day>30 → day>3 — first popup can now fire after ~90 seconds instead of ~15 minutes",
-    "EVENT FIX: ambient mini-toast threshold day>30 → day>3 (rates unchanged: 9%/day oracle, 6%/day ambient)",
-    "BUGFIX: what's-new modal shown once per MAJOR version (tycoon_seen_v11) instead of once per patch — kills the 'big update repeats' complaint",
-    "BUGFIX: reload-banner button no longer wipes the seen flag",
-    "NAV: 'Portfolio' group split into 'Tài sản' (Assets) + 'Tài chính' (Finance = Markets + Banking) — VI/EN/ZH",
-    "ITEMS: +16 items in 5 new categories — Sneakers (5), Handbag (4), Audio (2), Camera (2), Classic car (3)",
-    "ITEMS: collector grails appreciate — Nike Air Mag +10%/yr, Hermès Birkin +12%/yr, Mercedes 300SL +8%/yr (real collector-market rates)",
-    "ITEMS: catalogue now 67 items across 16 categories",
-    "ART: +3 SVG symbols — i-shoe (sneaker), i-handbag, i-cam (camera)",
-    "NAV 3D: hover lift + rotateX tilt on Level-1 buttons (perspective 700px), scale pop on Level-2, press-down on :active",
-    "Version bumped to v11.24 at FRONT of app name (v11.24 HuyenBao)"
+    "COMMUNITY: new nav group 'Cộng đồng / Community / 社区' with 3 tabs — Chat, Bạn bè (Friends), Bảng xếp hạng (Leaderboard)",
+    "CHAT: global room, live online-presence list, auto-scroll, Enter to send, 280-char cap + 1.2s flood guard",
+    "FRIENDS: add by player code HB-XXXXXX (mutual requests auto-accept), accept/decline/remove, online dot per friend",
+    "GIFTS: send money to friends (deducted at send, claimed from inbox) — claim credits the local wallet via the standard act() pipeline",
+    "LEADERBOARD: top 50 by net worth, medals for top 3, own row highlighted, stats auto-push (30s throttle) while playing",
+    "NOTIFICATIONS: friend requests + unclaimed gifts toast in the background (45s sweep) and light up a red dot on the Friends nav tab",
+    "SUPABASE BACKEND: anonymous auth (stable per-browser identity) + RLS policies on 4 tables (players/messages/edges/gifts) — anon key is safe to expose",
+    "REALTIME: Supabase channel for chat INSERTs + presence sync; polling fallbacks (messages 30s, notifications 45s)",
+    "DEMO MODE (no env vars): BroadcastChannel + localStorage — two tabs on one device interact fully; setup guide + SQL download built into the Friends tab",
+    "IDENTITY: display name (≤24 chars) + 12 emoji avatars + unambiguous player code (no I/O/0/1), editable profile card",
+    "i18n: ~50 new strings × EN/VI/ZH, nav tooltips (ttab.*) included",
+    "Version bumped to v11.25 at FRONT of app name"
   ]
 }

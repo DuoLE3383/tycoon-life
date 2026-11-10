@@ -1,8 +1,10 @@
 'use client';
-// HuyenBao v11.24 — React edition. Two-level grouped nav, a systems links map,
+// HuyenBao v11.25 — React edition. Two-level grouped nav, a systems links map,
 // gigs, levels, social, the cosmic frontier, EN/VI/中文, LLM oracle with
 // random kind dispatch (luck / setback / life-stage / story), pre-owned
-// market + social listings, and a Hall of Fame tab.
+// market + social listings, a Hall of Fame tab, and a real player-to-player
+// community (chat / friends / gifts / global leaderboard — Supabase or
+// same-device demo mode, see src/lib/social.ts).
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Art, Ic, ART_DEFS } from '@/lib/art';
 import { useGame, getState, persist, bump, resetState, reincarnateState } from '@/lib/store';
@@ -55,6 +57,8 @@ import {
   MONTHS as MONTHS_NAMES,
 } from '@/lib/engine';
 import { localTwist, pickKind } from '@/lib/story';
+import { ChatView, FriendsView, BoardView } from './community';
+import { useCommunity } from '@/lib/social';
 import { castHexagram, validateQuestion, type CastResult } from '@/lib/iching';
 import { lapLaSo, type LaSo } from '@/lib/tuvi';
 import { phanTichToanDien, HUONG, type PhongThuyReading, type Huong } from '@/lib/phongthuy';
@@ -73,7 +77,7 @@ if (typeof window !== 'undefined') {
 // v11.8 — the bundled version. The /version.json file in /public is polled
 // every 5 minutes; if its version is newer than this, a "reload to update"
 // banner appears even in a running session (no F5 needed).
-const BUNDLED_VERSION = 'v11.24';
+const BUNDLED_VERSION = 'v11.25';
 const VERSION_POLL_MS = 5 * 60 * 1000;
 // v11.24 — 'what's new' modal is shown ONCE PER PLAYER per MAJOR version
 // (tycoon_seen_v11), not once per patch release. Previously the key was
@@ -186,6 +190,11 @@ export default function Page() {
       toastShowing.current = false;
     }, dur);
   }, [toast]);
+
+  // v11.25 — player-to-player community (chat / friends / gifts / leaderboard).
+  // Singleton provider: Supabase when NEXT_PUBLIC_SUPABASE_* env vars are set
+  // at build time, otherwise a same-device BroadcastChannel demo.
+  const comm = useCommunity(s, showToast);
 
   const achToast = useCallback((got: string[]) => {
     const names = got.map(id => t('ach.' + id));
@@ -363,6 +372,7 @@ export default function Page() {
               data-tip={t('ttab.' + k, '')}
               onClick={() => { setTab(k); setLastTab(lt => ({ ...lt, [activeGroup]: k })); }}>
               {Ic({ id: ic, className: 'si navsi' })}{t('tab.' + k, n)}
+              {k === 'friends' && comm.ready && (comm.incoming.length > 0 || comm.unclaimedGifts.length > 0) && <span className="navdot" />}
             </button>
           ))}
         </nav>
@@ -380,6 +390,9 @@ export default function Page() {
           {tab === 'social' && <SocialTab s={s} act={act} />}
           {tab === 'relations' && <RelationsTab s={s} act={act} />}
           {tab === 'club' && <ClubTab s={s} act={act} />}
+          {tab === 'friends' && <FriendsView s={s} act={act} comm={comm} toast={showToast} />}
+          {tab === 'chat' && <ChatView comm={comm} />}
+          {tab === 'lboard' && <BoardView comm={comm} />}
           {tab === 'bank' && <BankTab s={s} act={act} />}
           {tab === 'rank' && <RankTab s={s} board={rankBoard} setBoard={setRankBoard} />}
           {tab === 'power' && <PowerTab s={s} act={act} />}
@@ -497,7 +510,7 @@ function Header({ s, eraName }: { s: GameState; eraName: (y: number) => string }
     <header className="top">
       <div className="brand">
         <Art id="s-coin" className="logo" />
-        <div><h1><span className="mini">v11.24</span> HuyenBao</h1>
+        <div><h1><span className="mini">v11.25</span> HuyenBao</h1>
           <div className="mini">{s.started ? `${s.nation} · ${eraName(worldYear(s))}` : t('tagline')}</div></div>
       </div>
       <div><div className="mini">{t('cash')}</div><div id="tcash" style={{ color: s.money < 0 ? 'var(--brick)' : undefined }}>{fmt(s.money)}</div>
