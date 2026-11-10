@@ -692,6 +692,32 @@ html[data-theme="dark"] .tgame .ibtn.ghost{background:linear-gradient(180deg,#32
 .tgame .gigs-modal .gigs{grid-template-columns:repeat(auto-fill,minmax(180px,1fr))}
 @media (prefers-reduced-motion: reduce){.tgame .gigs-trigger.glow{animation:none}}
 
+/* v11.45 — nav popup menus (replaces gnav + subnav horizontal bars) */
+.tgame .nav-popups{display:flex;gap:4px;flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;padding:4px 0;border-top:1px solid var(--line)}
+.tgame .nav-popups::-webkit-scrollbar{display:none}
+.tgame .nav-popup-wrap{position:relative;flex:none}
+.tgame .nav-popup-btn{display:flex;align-items:center;gap:4px;padding:5px 10px;border-radius:8px;border:1px solid var(--line);background:linear-gradient(180deg,rgba(255,255,255,.06) 0%,rgba(255,255,255,0) 50%),var(--card);color:var(--mute);font-weight:650;font-size:.76rem;cursor:pointer;white-space:nowrap;transition:all .12s;box-shadow:0 1px 0 rgba(60,55,40,.1)}
+.tgame .nav-popup-btn:hover{color:var(--ink);border-color:var(--line2);transform:translateY(-1px)}
+.tgame .nav-popup-btn.on{background:linear-gradient(180deg,rgba(255,255,255,.12) 0%,rgba(255,255,255,0) 50%),var(--accent);border-color:var(--accent);color:var(--accentInk)}
+.tgame .nav-popup-btn.open{border-color:var(--accent);color:var(--accent)}
+.tgame .nav-popup-btn .si{width:14px;height:14px}
+.tgame .nav-popup-menu{position:fixed;inset:0;z-index:100;background:rgba(0,0,0,.3);display:flex;align-items:flex-start;justify-content:center;padding-top:60px}
+.tgame .nav-popup-menu-inner{background:var(--card);border:1px solid var(--line2);border-radius:12px;padding:6px;box-shadow:0 12px 32px rgba(0,0,0,.25);min-width:180px;max-width:280px;display:flex;flex-direction:column;gap:2px}
+.tgame .nav-popup-link{display:flex;align-items:center;gap:8px;padding:7px 10px;border-radius:8px;border:0;background:transparent;color:var(--ink);font-weight:600;font-size:.82rem;cursor:pointer;text-align:left;transition:background .1s}
+.tgame .nav-popup-link:hover{background:rgba(127,127,127,.1)}
+.tgame .nav-popup-link.on{background:var(--paper2);color:var(--accent)}
+.tgame .nav-popup-link .si{width:16px;height:16px;flex:none}
+.tgame .nav-popup-link .navdot{margin-left:auto}
+
+/* v11.45 — clickable navigation links in PinZone dashboard */
+.tgame .nav-link{display:flex;align-items:center;gap:6px;width:100%;background:transparent;border:0;cursor:pointer;text-align:left;padding:2px 0;transition:background .1s;border-radius:6px}
+.tgame .nav-link:hover{background:rgba(127,127,127,.06)}
+.tgame .pinzone-assets.nav-link,.tgame .pinzone-income.nav-link{flex-direction:column;align-items:stretch;gap:0}
+.tgame .pinzone-assets.nav-link:hover,.tgame .pinzone-income.nav-link:hover{background:rgba(127,127,127,.04)}
+
+/* v11.45 — main page no-scroll: constrain main content height */
+.tgame .wrap{max-width:860px;margin:0 auto;padding:10px 14px}
+
 /* v11.37 — biz-actions row (franchise + sell buttons per business) */
 .tgame .biz-actions .ibtn{min-width:auto;padding:5px 11px;font-size:.78rem}
 

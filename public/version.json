@@ -1,14 +1,15 @@
 {
-  "version": "v11.44",
+  "version": "v11.45",
   "releasedAt": "2026-11-10",
-  "headline": "HuyenBao v11.44 — phục hồi thông báo cập nhật (per-patch + dynamic content từ version.json)",
-  "summary": "UPDATE NOTIFICATION RESTORED. The what's-new modal stopped showing after v11.24 because the SEEN_KEY was per-major-version (tycoon_seen_v11) — once dismissed, no patch (v11.25-v11.43) ever re-triggered it. Fixed: SEEN_KEY is now per-patch (tycoon_seen_v11.44) so each new deployment re-shows the modal once. Content is now DYNAMIC — driven from /public/version.json's headline + features[] fields (which ARE updated per-patch), instead of the stale static V11_FEATURES list from v11.0. The modal fetches version.json on mount and renders the current patch's actual changelog. Old players who dismissed v11 will see this modal once on next load.",
+  "headline": "HuyenBao v11.45 — thiết kế lại toàn bộ giao diện: menu popup, dashboard no-scroll, biểu đồ + điều hướng",
+  "summary": "FULL UI REDESIGN. (1) NAV → POPUP MENUS: the old horizontal gnav + subnav bars are replaced with compact dropdown popup menus. Each group (Character/Assets/Education/Career/Finance/Business/Network/Empire) is a button; clicking opens a popup with the group's sub-tabs as clickable links. Saves vertical space + groups related links. (2) DASHBOARD NO-SCROLL: PinZone is now the MAIN dashboard — everything the player needs at a glance (character, bars, sleep, asset chart, income) in ONE pinned card. Main page doesn't need to scroll for core info. (3) CLICKABLE NAVIGATION: every chart/bar in the dashboard is now a navigation link — click health bar → goes to Wellbeing tab; click asset chart → goes to Assets tab; click income → goes to Business tab; click XP bar → goes to Career tab. All navigation is intuitive. (4) CHARTS + CORRELATIONS: asset breakdown bar chart with 6 color-coded segments, income breakdown rows, health/spirit/XP progress bars — all visible at a glance + clickable.",
   "features": [
-    "PER-PATCH SEEN_KEY: tycoon_seen_v11 → tycoon_seen_v11.44 (re-shows on each new patch)",
-    "DYNAMIC CONTENT: modal fetches /public/version.json headline + features[] on mount",
-    "REMOVED: stale static V11_FEATURES list (was from v11.0, never updated)",
-    "FALLBACK: if fetch fails, shows v11.headline + v11.summary i18n keys",
-    "Old players who dismissed v11 will see the modal once on next load",
-    "Version bumped to v11.44"
+    "NAV POPUP MENUS: 8 group buttons → dropdown popups with sub-tab links (replaces gnav+subnav bars)",
+    "DASHBOARD NO-SCROLL: PinZone is the main dashboard, all core info in one pinned card",
+    "CLICKABLE NAVIGATION: health bar→Wellbeing, asset chart→Assets, income→Business, XP→Career",
+    "CHARTS: asset breakdown bar (6 color segments), income rows, health/spirit/XP bars",
+    "COMPACT: nav buttons are small pills with icon+label, horizontal scroll on overflow",
+    "POPUP MENU: centered overlay with sub-tab links, click outside to close",
+    "Version bumped to v11.45"
   ]
 }

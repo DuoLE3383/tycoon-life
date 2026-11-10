@@ -1,5 +1,5 @@
 'use client';
-// HuyenBao v11.44 — React edition. Two-level grouped nav, a systems links map,
+// HuyenBao v11.45 — React edition. Two-level grouped nav, a systems links map,
 // gigs, levels, social, the cosmic frontier, EN/VI/中文, LLM oracle with
 // random kind dispatch (luck / setback / life-stage / story), pre-owned
 // market + social listings, a Hall of Fame tab, and a real player-to-player
@@ -95,7 +95,7 @@ if (typeof window !== 'undefined') {
 // v11.8 — the bundled version. The /version.json file in /public is polled
 // every 5 minutes; if its version is newer than this, a "reload to update"
 // banner appears even in a running session (no F5 needed).
-const BUNDLED_VERSION = 'v11.44';
+const BUNDLED_VERSION = 'v11.45';
 const VERSION_POLL_MS = 5 * 60 * 1000;
 // v11.44 — 'what's new' modal now fires PER PATCH (not per major version).
 // The SEEN_KEY is derived from BUNDLED_VERSION so each new patch re-shows the
@@ -393,46 +393,15 @@ export default function Page() {
       <div dangerouslySetInnerHTML={{ __html: ART_DEFS }} />
       <div className="wrap">
         <Header s={s} eraName={eraName} />
-        {/* v11.41 — PinZone + nav merged into ONE sticky header. The whole
-            block (character overview + gnav + subnav) stays pinned to the top
-            so the menu never scrolls away. Width is constrained so it never
-            overflows the sides. */}
+        {/* v11.45 — PinZone is now the MAIN dashboard (no-scroll). Nav is
+            popup menus. The whole top is compact + pinned. */}
         <div className="sticky-header">
-          <PinZone s={s} t={t} onEdit={() => setEditingProfile(true)} act={act} />
-          <nav role="tablist" className="tnav gnav" aria-label="Sections">
-            {GROUPS.map(([gid, gn, gic, subs]) => {
-              // v11.41 — hide the Space sub-tab in the Empire group until the
-              // player reaches 'empire' entity tier (interstellar). The group
-              // button still shows; only the Cosmic sub-tab is gated.
-              const visibleSubs = gid === 'world' ? subs.filter(([k]) => k !== 'space' || entityTierOf(s) === 'empire' || entityTierOf(s) === 'federation') : subs;
-              return (
-                <button key={gid} role="tab" aria-selected={activeGroup === gid} data-g={gid}
-                  onClick={() => setTab(lastTab[gid] || visibleSubs[0][0])}>
-                  {Ic({ id: gic, className: 'si navsi' })}{t('grp.' + gid, gn)}
-                </button>
-              );
-            })}
-          </nav>
-          {/* v11.37 — hide the page-level subnav when the active group has only
-              ONE sub-tab (e.g. Assets). v11.41 — also filter Space sub-tab. */}
-          {(() => {
-            const visibleSubs = activeGroup === 'world'
-              ? curSubs.filter(([k]) => k !== 'space' || entityTierOf(s) === 'empire' || entityTierOf(s) === 'federation')
-              : curSubs;
-            if (visibleSubs.length <= 1) return null;
-            return (
-              <nav role="tablist" className="tnav subnav" aria-label="Sub-sections">
-                {visibleSubs.map(([k, n, ic]) => (
-                  <button key={k} role="tab" aria-selected={tab === k} data-t={k}
-                    data-tip={t('ttab.' + k, '')}
-                    onClick={() => { setTab(k); setLastTab(lt => ({ ...lt, [activeGroup]: k })); }}>
-                    {Ic({ id: ic, className: 'si navsi' })}{t('tab.' + k, n)}
-                    {k === 'friends' && comm.ready && (comm.incoming.length > 0 || comm.unclaimedGifts.length > 0) && <span className="navdot" />}
-                  </button>
-                ))}
-              </nav>
-            );
-          })()}
+          <PinZone s={s} t={t} onEdit={() => setEditingProfile(true)} act={act} onNav={(k: string) => { setTab(k); setLastTab(lt => ({ ...lt, [activeGroup]: k })); }} />
+          {/* v11.45 — nav replaced with popup menus. Each group is a dropdown
+              button; clicking opens a popup with the group's sub-tabs. */}
+          <NavPopups s={s} t={t} activeGroup={activeGroup} tab={tab} onNav={(gid: string, k: string) => {
+            setTab(k); setLastTab(lt => ({ ...lt, [gid]: k }));
+          }} comm={comm} />
         </div>
         <main id="tview" key={tab} className="enter">
           {tab === 'home' && <HomeTab s={s} act={act} askAI={askAI} aiBusy={aiBusy} aiNote={t(aiNoteKey)} eraName={eraName} />}
@@ -567,7 +536,7 @@ function Header({ s, eraName }: { s: GameState; eraName: (y: number) => string }
     <header className="top">
       <div className="brand">
         <Art id="s-coin" className="logo" />
-        <div><h1><span className="mini">v11.44</span> HuyenBao</h1>
+        <div><h1><span className="mini">v11.45</span> HuyenBao</h1>
           <div className="mini">{s.started ? `${s.nation} · ${eraName(worldYear(s))}` : t('tagline')}</div></div>
       </div>
       <div><div className="mini">{t('cash')}</div><div id="tcash" style={{ color: s.money < 0 ? 'var(--brick)' : undefined }}>{fmt(s.money)}</div>
@@ -593,7 +562,7 @@ function Header({ s, eraName }: { s: GameState; eraName: (y: number) => string }
 // numbers that matter stay visible on every tab while the player scrolls.
 // Warnings only render when something actually needs attention — no permanent
 // "all good" banner eating vertical space.
-function PinZone({ s, t, onEdit, act }: { s: GameState; t: TFn; onEdit: () => void; act: Act }) {
+function PinZone({ s, t, onEdit, act, onNav }: { s: GameState; t: TFn; onEdit: () => void; act: Act; onNav: (k: string) => void }) {
   const { t: _t } = useT();
   const a = s.age, st = stageOf(a), pct = (a - START) / (END_AGE - START) * 100;
   const p = (x: number) => ((x - START) / (END_AGE - START) * 100).toFixed(2) + '%';
@@ -663,9 +632,9 @@ function PinZone({ s, t, onEdit, act }: { s: GameState; t: TFn; onEdit: () => vo
             <span className="sub">{t('rentBills')}: {fmt((living(Math.floor(s.age)) + upkeep(s) + studyTuition(s)) / 12)}{t('perMonth')}</span>
           </div>
           <div className="pinzone-bars">
-            <div className="wrow"><span className="mini wl">{t('health')}</span><div className="wbar"><i style={{ width: s.health + '%', background: s.health < 40 ? 'var(--brick)' : 'var(--sage)' }} /></div><span className="mini">{Math.round(s.health)}</span></div>
-            <div className="wrow"><span className="mini wl">{t('spirit')}</span><div className="wbar"><i style={{ width: s.spirit + '%', background: 'var(--slate)' }} /></div><span className="mini">{Math.round(s.spirit)}</span></div>
-            <div className="wrow"><span className="mini wl">XP</span><div className="wbar"><i style={{ width: xpPct + '%', background: 'var(--gold)' }} /></div><span className="mini">{s.level}</span></div>
+            <button className="wrow nav-link" onClick={() => onNav('health')} title={t('health')}><span className="mini wl">{t('health')}</span><div className="wbar"><i style={{ width: s.health + '%', background: s.health < 40 ? 'var(--brick)' : 'var(--sage)' }} /></div><span className="mini">{Math.round(s.health)}</span></button>
+            <button className="wrow nav-link" onClick={() => onNav('spirit')} title={t('spirit')}><span className="mini wl">{t('spirit')}</span><div className="wbar"><i style={{ width: s.spirit + '%', background: 'var(--slate)' }} /></div><span className="mini">{Math.round(s.spirit)}</span></button>
+            <button className="wrow nav-link" onClick={() => onNav('career')} title="Career"><span className="mini wl">XP</span><div className="wbar"><i style={{ width: xpPct + '%', background: 'var(--gold)' }} /></div><span className="mini">{s.level}</span></button>
           </div>
         </div>
         {/* Right column: sleep + asset chart + income */}
@@ -678,8 +647,8 @@ function PinZone({ s, t, onEdit, act }: { s: GameState; t: TFn; onEdit: () => vo
             </select>
             <span className="mini">{t('sleepEffects', '', { p: Math.round((studyPace(s.sleepHours) - 1) * 100), h: healthChangeText })}</span>
           </div>
-          {/* Asset breakdown chart */}
-          <div className="pinzone-assets">
+          {/* Asset breakdown chart — clickable to navigate to Assets tab */}
+          <button className="pinzone-assets nav-link" onClick={() => onNav('assets')}>
             <div className="lb"><span className="mini wl">{t('netWorth')}</span><b>{fmt(netWorth(s))}</b></div>
             <div className="asset-bar" role="img" aria-label={t('assetBreakdown')}>
               {assetSegs.map(([label, v, color]) => v > 0 && (
@@ -691,14 +660,14 @@ function PinZone({ s, t, onEdit, act }: { s: GameState; t: TFn; onEdit: () => vo
                 <span key={label} className="asset-leg-item"><span className="sw" style={{ background: color }} />{label} <b>{v > 0 ? fmt(v) : '—'}</b></span>
               ))}
             </div>
-          </div>
-          {/* Income breakdown */}
-          <div className="pinzone-income">
+          </button>
+          {/* Income breakdown — clickable to navigate to Business/Banking */}
+          <button className="pinzone-income nav-link" onClick={() => onNav('biz')}>
             <div className="lb"><span className="mini wl">{t('incomeBreakdown')}</span><b className={yi >= 0 ? 'up' : 'down'}>{yi >= 0 ? '+' : ''}{fmt(yi)}{t('perYear')}</b></div>
             {incRows.filter(([, v]) => v > 0).map(([k, v]) => (
               <div key={k} className="lb"><span className="mini">{k}</span><span className="up">+{fmt(v)}</span></div>
             ))}
-          </div>
+          </button>
         </div>
       </div>
       {warns.length > 0 && <div className="att-warn pin" role="status">⚠ {warns.map(w => t(w)).join(' · ')}</div>}
@@ -821,6 +790,51 @@ function GigsPopup({ s, act, t }: { s: GameState; act: Act; t: TFn }) {
         </div>
       )}
     </>
+  );
+}
+
+// ================= v11.45 — NAV POPUP MENUS =================
+// Replaces the old gnav + subnav horizontal bars with compact dropdown
+// popups. Each group is a button; clicking opens a popup with the group's
+// sub-tabs as clickable links. Saves vertical space + groups related links.
+function NavPopups({ s, t, activeGroup, tab, onNav, comm }: {
+  s: GameState; t: TFn; activeGroup: string; tab: string;
+  onNav: (gid: string, k: string) => void;
+  comm: { ready: boolean; incoming: unknown[]; unclaimedGifts: unknown[] };
+}) {
+  const [openGroup, setOpenGroup] = useState<string | null>(null);
+  return (
+    <nav className="nav-popups" aria-label="Sections">
+      {GROUPS.map(([gid, gn, gic, subs]) => {
+        const isWorld = gid === 'world';
+        const visibleSubs = isWorld ? subs.filter(([k]) => k !== 'space' || entityTierOf(s) === 'empire' || entityTierOf(s) === 'federation') : subs;
+        const isActive = activeGroup === gid;
+        return (
+          <div key={gid} className="nav-popup-wrap">
+            <button className={'nav-popup-btn' + (isActive ? ' on' : '') + (openGroup === gid ? ' open' : '')}
+              onClick={() => setOpenGroup(openGroup === gid ? null : gid)}
+              aria-expanded={openGroup === gid}>
+              {Ic({ id: gic, className: 'si navsi' })}
+              <span>{t('grp.' + gid, gn)}</span>
+            </button>
+            {openGroup === gid && (
+              <div className="nav-popup-menu" onClick={() => setOpenGroup(null)}>
+                <div className="nav-popup-menu-inner" onClick={e => e.stopPropagation()}>
+                  {visibleSubs.map(([k, n, ic]) => (
+                    <button key={k} className={'nav-popup-link' + (tab === k ? ' on' : '')}
+                      onClick={() => { onNav(gid, k); setOpenGroup(null); }}>
+                      {Ic({ id: ic, className: 'si navsi' })}
+                      <span>{t('tab.' + k, n)}</span>
+                      {k === 'friends' && comm.ready && (comm.incoming.length > 0 || comm.unclaimedGifts.length > 0) && <span className="navdot" />}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </nav>
   );
 }
 
