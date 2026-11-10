@@ -1,20 +1,21 @@
 {
-  "version": "v11.51",
+  "version": "v11.52",
   "releasedAt": "2026-11-10",
-  "headline": "HuyenBao v11.51 — mobile layout fixes + Assets tab reordered (owned first)",
-  "summary": "MOBILE UX PASS. Tooltips (the stuck 'phong thuy +2' popup) now only show on hover-capable devices — touch screens no longer leave them open after a tap. Modal popups tightened for mobile (padding 16px → 6px, max-width 100%, smaller header/body padding, full-width footer buttons). Asset section tabs scroll horizontally on mobile instead of wrapping. Cash chip + PinZone chips shrink to fit narrow screens. Biz-actions buttons go full-width on mobile. Toast font/padding reduced on mobile so long notifications don't dominate. Assets tab reordered: 'Owned' is now the first section (was 4th, after bds/lux/budget), and the tab opens on the player's portfolio by default instead of the buy catalogue.",
+  "headline": "HuyenBao v11.52 — GitHub auto-deploy webhook",
+  "summary": "AUTO-DEPLOY. New /api/deploy webhook endpoint receives GitHub push events, verifies the X-Hub-Signature-256 HMAC with a shared secret, filters to push events on refs/heads/main, then fires scripts/deploy.sh in the background (detached, fire-and-forget so the response returns before systemctl restart kills the process). The deploy script does git fetch + reset --hard origin/main → npm ci → npm run build → sudo systemctl restart huyenbao, logging every step to /var/log/huyenbao-deploy.log. Full setup walk-through in DEPLOY.md (sudoers entry, env vars on the systemd unit, GitHub webhook config, log rotation).",
   "features": [
-    "FIX: tooltips wrapped in @media (hover: hover) — touch devices no longer show the stuck popup after a tap (was the 'phong thuy +2' tooltip bug)",
-    "FIX: modal-overlay padding tightened 16px → 6px on mobile so popups fill more screen",
-    "FIX: modal-box + gigs-modal max-width forced to 100% on mobile (was 440px / 560px, could overflow)",
-    "FIX: modal-head/body/foot padding reduced on mobile; footer buttons go full-width with flex:1",
-    "FIX: asset-section tabs (.asec) scroll horizontally on mobile like gnav/subnav (no more 2-row wrap)",
-    "FIX: cash-chip + pchip + hpill shrink on mobile so PinZone agehead fits better",
-    "FIX: biz-actions buttons go full-width on mobile (flex:1, wrap cleanly)",
-    "FIX: toast font + padding reduced on mobile so long notifications don't dominate the screen",
-    "FIX: avatar-picker 5 cols on narrow screens (was 6, cramped); edit-preview avatar smaller",
-    "REORDER: Assets tab sections now: Own → Real estate → Luxury → Budget → Auctions → Rare → Workshop (was bds → lux → budget → own → ...)",
-    "REORDER: Assets tab default section is now 'own' (player's portfolio) instead of 'bds' (buy catalogue)",
-    "Version bumped to v11.51"
+    "NEW: /api/deploy route — GitHub webhook receiver with HMAC-SHA256 signature verification (timingSafeEqual, fail-closed if secret unset)",
+    "NEW: filters to push events on refs/heads/main only — other events (PR, issues, branch pushes) logged + ignored",
+    "NEW: GET /api/deploy — quick health check showing whether auto-deploy is configured (no secret leak)",
+    "NEW: scripts/deploy.sh — git fetch + reset --hard origin/main → npm ci → npm run build → sudo systemctl restart huyenbao",
+    "NEW: deploy script is detached + unref'd so it survives the systemctl restart that kills the webhook's parent process",
+    "NEW: /var/log/huyenbao-deploy.log — every deploy logged with timestamp + commit + pusher + repo",
+    "NEW: DEPLOY.md — full setup walk-through (sudoers entry, env vars, GitHub webhook config, log rotation, manual fallback)",
+    "SECURITY: fail-closed if DEPLOY_WEBHOOK_SECRET env var is unset (503 deploy-not-configured)",
+    "SECURITY: signature compared with timingSafeEqual — no timing side-channel on the secret",
+    "SECURITY: sudoers entry grants ONLY `systemctl restart huyenbao` — service user gains no other root privileges",
+    "SECURITY: git reset --hard origin/main discards any local VPS edits — never edit files on the server directly",
+    "Static build unchanged: route.ts excluded from GitHub Pages build (pageExtensions: ['tsx'])",
+    "Version bumped to v11.52"
   ]
 }
