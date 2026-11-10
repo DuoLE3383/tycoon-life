@@ -409,6 +409,9 @@ const D: Record<string, [string, string, string]> = {
   'used.sell': ['Sell used', 'Bán đồ cũ', '卖二手'],
   'used.list': ['List on feed', 'Đăng lên mạng xã hội', '挂到社交动态'],
   'used.discount': ['{n}% off new', 'Rẻ hơn {n}% so với mới', '比新品便宜 {n}%'],
+  // v11.56 — used items now also shown in the buy catalogue (bds/lux/budget).
+  'used.buyNote': ['Pre-owned items at a discount — buy cheaper, repair in the Workshop to restore value.', 'Đồ cũ giá hời — mua rẻ hơn, mang sang Workshop sửa chữa để phục hồi giá trị.', '二手物品折扣价 — 买入更便宜，可在工坊修理以恢复价值。'],
+  'used.repairHint': ['Buy + repair in Workshop', 'Mua + sửa tại Workshop', '购买 + 工坊修理'],
   'used.story': ['Backstory', 'Lai lịch', '来历'],
   'used.empty': ['No listings match your cash right now — come back next year.', 'Không có món nào vừa túi — quay lại năm sau.', '目前没有合适的物品 — 明年再来。'],
   // v10.4 — Hall of Fame

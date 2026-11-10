@@ -1,23 +1,18 @@
 {
-  "version": "v11.55",
+  "version": "v11.56",
   "releasedAt": "2026-11-10",
-  "headline": "HuyenBao v11.55 — PinZone redesign: prominent warnings + 2-row layout + readable charts",
-  "summary": "DASHBOARD REDESIGN. The main PinZone dashboard was cramped (13 elements on one flex-wrap row), warnings were buried at the bottom, and chart labels were too small to read. Now: (1) Warning banner at the TOP — each warning is a clickable chip (critical=red / warn=orange / info=muted) that navigates to the relevant tab. New warnings added: lowCash, highLoan, sleepDebtHigh. (2) Identity row (avatar+name+age+stage+date) separated from stats row (cash+health+spirit+level+NW+income) — clean 2-row layout. (3) Health pill color-coded by state (red/orange/yellow/green). (4) Bigger chips (hpill-big, pchip-big classes). (5) Donut chart: thicker ring (12 vs 10), bigger center text (14 vs 11). (6) Bar chart: bigger bars (16 vs 14), bigger labels (9 vs 8), wider label column. (7) Chart legend font .72rem (was .66rem). Mobile: warning chips stack full-width, stats wrap 3-per-row.",
+  "headline": "HuyenBao v11.56 — toast moved to bottom + used items in buy catalogue",
+  "summary": "POPUP OVERLAP FIX + USED ITEMS. The toast notification was at top-center (z-index 150) which overlapped the sticky PinZone dashboard (z-index 40) — the user kept reporting this as 'đè popup'. Now the toast is at BOTTOM-center, away from the dashboard. Also raised old-style .modal z-index 50 → 250 so EventModal/GameOver/WhatsNew (which use .modal.on, not .modal-overlay) cover the toast too. Second feature: used items from the pre-owned market are now shown IN the buy catalogue (bds/lux/budget sections) — cheaper than new, with condition pill + age + discount % + a 'Buy + repair in Workshop' hint. Previously used items were only in the Auctions tab.",
   "features": [
-    "NEW: Warning banner at the TOP of PinZone (was a single line at the bottom, easy to miss)",
-    "NEW: Each warning is a clickable chip → navigates to the relevant tab (health/bank/home/finance-overview)",
-    "NEW: 3 severity levels — critical (red 🔴) / warn (orange 🟠) / info (muted ℹ️)",
-    "NEW: 2 new warning types — att.lowCash (cash <$1K) + att.highLoan (loan >30% of NW)",
-    "NEW: sleepDebtHigh warning (debt >21h) as critical severity",
-    "RESTRUCTURE: agehead split into 2 rows — identity-row (avatar+name+age+stage+date) + stats-row (cash+health+spirit+level+NW+income)",
-    "NEW: Health pill color-coded by state — red (<20) / orange (<40) / yellow (<60) / green (60+)",
-    "NEW: hpill-big + pchip-big CSS classes — bigger stats chips (.88rem vs .78rem)",
-    "ENHANCE: DonutChart thicker ring (strokeWidth 12 vs 10) + bigger center text (14 vs 11)",
-    "ENHANCE: BarChart bigger bars (16px vs 14px) + bigger labels (9 vs 8) + wider label column (70 vs 60)",
-    "ENHANCE: Chart legend font .72rem (was .66rem) for readability",
-    "NEW: pinzone-v55 CSS class with its own padding + mobile rules",
-    "Mobile: warning chips stack full-width, stats wrap 3-per-row, identity date wraps to next line",
-    "NEW: i18n keys att.lowCash + att.highLoan (EN/VI/中文)",
-    "Version bumped to v11.55"
+    "FIX: toast moved top-center → bottom-center so it never covers the sticky PinZone dashboard (was the persistent 'đè popup' complaint across v11.50-v11.55)",
+    "FIX: old-style .modal z-index raised 50 → 250 so EventModal/GameOver/WhatsNew cover the toast (was below toast z-index 150)",
+    "FIX: toast animation now slides from bottom (was from top)",
+    "FIX: mobile toast position adjusted to bottom with safe-area inset",
+    "NEW: used items from USED_MARKET now shown in the buy catalogue (bds/lux/budget sections) — not just in the Auctions tab",
+    "NEW: each used item tile shows brand + name + condition pill + age + ask price + discount % + '🔧 Buy + repair in Workshop' hint",
+    "NEW: used items are era-filtered (since <= current year) + exclude ones the player already owns",
+    "NEW: used.buyNote i18n explains the value proposition: buy cheaper, repair in Workshop to restore value",
+    "NEW: used.repairHint i18n: 'Buy + repair in Workshop' (EN/VI/中文)",
+    "Version bumped to v11.56"
   ]
 }

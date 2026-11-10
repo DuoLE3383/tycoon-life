@@ -1,5 +1,5 @@
 'use client';
-// HuyenBao v11.55 — React edition. Two-level grouped nav, a systems links map,
+// HuyenBao v11.56 — React edition. Two-level grouped nav, a systems links map,
 // gigs, levels, social, the cosmic frontier, EN/VI/中文, LLM oracle with
 // random kind dispatch (luck / setback / life-stage / story), pre-owned
 // market + social listings, a Hall of Fame tab, and a real player-to-player
@@ -100,7 +100,7 @@ if (typeof window !== 'undefined') {
 // v11.8 — the bundled version. The /version.json file in /public is polled
 // every 5 minutes; if its version is newer than this, a "reload to update"
 // banner appears even in a running session (no F5 needed).
-const BUNDLED_VERSION = 'v11.55';
+const BUNDLED_VERSION = 'v11.56';
 const VERSION_POLL_MS = 5 * 60 * 1000;
 // v11.44 — 'what's new' modal now fires PER PATCH (not per major version).
 // The SEEN_KEY is derived from BUNDLED_VERSION so each new patch re-shows the
@@ -597,7 +597,7 @@ function Header({ s, eraName }: { s: GameState; eraName: (y: number) => string }
     <header className="top">
       <div className="brand">
         <Art id="s-coin" className="logo" />
-        <div><h1><span className="mini">v11.55</span> HuyenBao</h1>
+        <div><h1><span className="mini">v11.56</span> HuyenBao</h1>
           <div className="mini">{s.started ? `${s.nation} · ${eraName(worldYear(s))}` : t('tagline')}</div></div>
       </div>
       {/* v11.46 — removed Cash/NW/Income from header (was duplicate of PinZone).
@@ -2574,6 +2574,8 @@ function AssetsTab({ s, act, curCat, setCurCat }: { s: GameState; act: Act; curC
   };
 
   // ---- buy-catalogue section (shared by bds / lux / budget) ----
+  // v11.56 — now also shows used items from USED_MARKET that match the group,
+  // so players can buy cheaper pre-owned items + repair them in the workshop.
   const groupSec = (g: ItemGroup) => {
     const items = ITEMS.filter(i => itemGroup(i) === g);
     const cats = [...new Set(items.map(i => i.cat))].sort((a, b) => {
@@ -2582,6 +2584,13 @@ function AssetsTab({ s, act, curCat, setCurCat }: { s: GameState; act: Act; curC
       return loA - loB;
     });
     const mine = [...ownLots(g).map(({ l, i }) => ({ l, i })), ...ownUsed(g).map(({ u, i }) => ({ u, i }))];
+    // v11.56 — used items from USED_MARKET matching this group, era-filtered,
+    // excluding ones the player already owns.
+    const usedForGroup = USED_MARKET
+      .filter(u => u.since <= y)
+      .filter(u => itemGroup({ cat: u.cat, lux: u.lux }) === g)
+      .filter(u => !s.used.some(owned => owned.id === u.id))
+      .slice(0, 6);
     return <>
       <p className="sub">{t('agroup.sub.' + g)}</p>
       {mine.length > 0 && <>
@@ -2615,6 +2624,36 @@ function AssetsTab({ s, act, curCat, setCurCat }: { s: GameState; act: Act; curC
         })}
       </div>
       <p className="sub">{t('tapCategory')}</p>
+
+      {/* v11.56 — Used items section: cheaper pre-owned items, repairable. */}
+      {usedForGroup.length > 0 && (
+        <>
+          <h3>🔧 {t('used.title')} · {t('agroup.' + g)}</h3>
+          <p className="mini" style={{ opacity: .65, marginBottom: 6 }}>{t('used.buyNote')}</p>
+          <div className="grid">
+            {usedForGroup.map(u => {
+              const off = Math.max(0, Math.round((1 - u.askPrice / u.newPrice) * 100));
+              const cond = u.condition;
+              const condTxt = cond >= 80 ? 'mint' : cond >= 60 ? 'good' : cond >= 40 ? 'fair' : 'rough';
+              return <button key={u.id} className="tile used-tile" disabled={s.money < u.askPrice}
+                onClick={() => setPendingBuy({ kind: 'used', used: u })}>
+                {USED_IMAGES[u.id]
+                  ? <img className="tile-photo" src={asset(USED_IMAGES[u.id])} alt={u.name} loading="lazy" />
+                  : <Art id={u.art} />}
+                <span>
+                  <b>{u.brand ? <span className="bchip" style={{ background: u.c }}>{u.brand}</span> : null}{u.name}</b>
+                  <span className="sub" style={{ display: 'block' }}>
+                    <span className="cond-pill" data-cond={condTxt}>{t('used.cond')} {cond}</span>
+                    {' · '}{t('used.age', '', { n: u.ageYears })}
+                  </span>
+                  <span className="sub" style={{ display: 'block' }}>{t('used.ask')} <b>{fmt(u.askPrice)}</b> · <span className="up">{t('used.discount', '', { n: off })}</span></span>
+                  <span className="mini" style={{ display: 'block', marginTop: 2, color: 'var(--accent)' }}>🔧 {t('used.repairHint')}</span>
+                </span>
+              </button>;
+            })}
+          </div>
+        </>
+      )}
     </>;
   };
 
