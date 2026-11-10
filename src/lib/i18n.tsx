@@ -642,6 +642,22 @@ const D: Record<string, [string, string, string]> = {
   'buy.discountOff': ['{n}% off new', 'Rẻ hơn mới {n}%', '比新品低 {n}%'],
   // Power + Empire explanations (v11.18)
   'pw.explainTitle': ['What does this tier mean?', 'Cấp này nghĩa là gì?', '这一级是什么意思？'],
+  // v11.50 — top-level "What is Power?" intro for players who don't understand
+  // the system yet. Surfaces the 5 tiers, the 4 influence sources, and the 3
+  // things you can DO with influence (advocacy / transparency / elections).
+  'pw.introTitle': ['What is Power?', 'Power là gì?', '权力是什么？'],
+  'pw.introBody': ['Power is your influence beyond money — political clout, social reach, and the ability to shape the world. It unlocks as your net worth grows and feeds from 4 sources:', 'Power là tầm ảnh hưởng VƯỢT KHOẢN tiền bạc — quyền lực chính trị, tầm vóc xã hội, và khả năng định hình thế giới. Mở khoá khi tài sản tăng và được nuôi bởi 4 nguồn:', '权力是金钱之外的影响力——政治杠杆、社会触及与塑造世界的能力。随净资产增长解锁，由 4 个来源供给：'],
+  'pw.source.charity': ['Charity donations (every $10K ≈ 1 influence)', 'Quyên góp từ thiện (mỗi $10K ≈ 1 influence)', '慈善捐款（每 1 万美元≈1 影响力）'],
+  'pw.source.clubChair': ['Founding/leading a club (chair seat)', 'Sáng lập/lãnh đạo club (ghế chủ tịch)', '创办/领导俱乐部（主席席位）'],
+  'pw.source.board': ['Sitting on a corporation\'s board (national_power+)', 'Ngồi HĐQT tập đoàn (national_power trở lên)', '担任企业董事（国家权力级以上）'],
+  'pw.source.media': ['Owning media outlets (large social following)', 'Sở hữu truyền thông (theo dõi xã hội lớn)', '拥有媒体（大量社交粉丝）'],
+  'pw.tiersLabel': ['The 5 tiers (auto-set by net worth):', '5 cấp (tự động theo tài sản):', '5 个等级（按净资产自动判定）：'],
+  'pw.tierList': ['Mogul ($1M+) · Influencer ($10M+) · National Power ($100M+) · State Leader ($1B+) · Hegemon ($10B+)', 'Mogul ($1M+) · Influencer ($10M+) · National Power ($100M+) · State Leader ($1B+) · Hegemon ($10B+)', '大亨（100万+）· 影响力人物（1000万+）· 国家权力（1亿+）· 国家领导（10亿+）· 霸主（100亿+）'],
+  'pw.whatYouCanDo': ['What you can do with Power:', 'Bạn có thể làm gì với Power:', '拥有权力后能做什么：'],
+  'pw.do.advocacy': ['Advocacy — spend influence to push a policy (tax cuts, deregulation, etc.)', 'Vận động — tiêu influence để đẩy chính sách (giảm thuế, bãi bỏ quy định...)', '倡导——消耗影响力推动政策（减税、放松监管等）'],
+  'pw.do.transparency': ['Transparency actions — lower your scrutiny when scandals hit', 'Hành động minh bạch — giảm scrutiny khi scandal nổ', '透明行动——丑闻爆发时降低审查度'],
+  'pw.do.election': ['Run for office (national_power+; 80 influence, scrutiny <95)', 'Ứng cử chức vụ (national_power+; 80 influence, scrutiny <95)', '参选公职（国家权力级以上；需 80 影响力、审查 <95）'],
+  'pw.introTip': ['Tip: Donate to charity early — small recurring donations are the most reliable way to build influence. The diminishing-returns curve means the first $100K counts more than the next million.', 'Mẹo: Quyên góp từ thiện sớm — quyên góp nhỏ đều đặn là cách ổn định nhất để tích influence. Đường cong lợi suất giảm dần nên $100K đầu tiên đáng giá hơn $1M kế tiếp.', '提示：早期捐款——小额持续捐献是积累影响力最稳的方式。边际递减使前 10 万比接下来的 100 万更值钱。'],
   'pw.explainMogul': ['Industry moguls sit on corporate boards and lobby industry policy. Influence accrues from board seats + club chairmanship + media ownership. Run for election only after national_power tier.', 'Trùm ngành ngồi trong hội đồng quản trị các tập đoàn và vận động chính sách ngành. Influence đến từ ghế board + chức chủ tịch club + sở hữu truyền thông. Chỉ ứng cử khi đạt national_power.', '行业大亨可担任企业董事，影响产业政策。影响力来自董事席位、俱乐部主席及媒体所有权。达到 national_power 后方可参选。'],
   'pw.explainInfluencer': ['Influencers have a large public platform — social posts sway opinion. Higher fame from clubs + verified account amplifies reach. Foundation endowment unlocks at this tier (passive influence boost).', 'Người ảnh hưởng có nền tảng lớn — bài đăng xã hội lung lay dư luận. Fame cao từ club + tài khoản xác thực tăng tầm. Quỹ từ thiện mở khoá ở cấp này (boost influence thụ động).', '影响力人物拥有大型公共平台——社交帖子可左右舆论。俱乐部与认证账号提升知名度。此级解锁慈善基金会（被动影响力加成）。'],
   'pw.explainNational': ['National powers can run for office in their country. Election requires 80+ influence and scrutiny under 95. Winning a term doubles foundation influence and opens state-leader path.', 'Quyền lực quốc gia có thể ứng cử chức vụ trong nước. Bầu cử cần 80+ influence và scrutiny dưới 95. Đắc cử nhân đôi influence từ quỹ và mở đường state_leader.', '国家权力可参选本国公职。选举需 80+ 影响力且审查低于 95。当选后基金会影响力翻倍，开启通向 state_leader 之路。'],
@@ -1112,6 +1128,19 @@ const D: Record<string, [string, string, string]> = {
   'biz.offerFrom': ['Offer from', 'Đề nghị từ', '报价来自'],
   'biz.buyerWalked': ['Buyer walked away', 'Người mua rút lui', '买方退出'],
   'biz.franchised': ['Franchised', 'Đã nhượng quyền', '已特许'],
+  // v11.50 — franchise explainer card (clear economics) + brand customization.
+  'biz.franchiseTitle': ['Franchise — how it works', 'Nhượng quyền — cách hoạt động', '特许经营——运作机制'],
+  'biz.franchiseExplain': ['Convert a branch you own into a franchised outlet. You get an upfront franchise fee (1.8× the branch\'s paid value — immediate cash), but the branch\'s ongoing income drops by 10% (royalty paid to the franchisee). Use it to raise capital for expansion without selling the branch.', 'Chuyển một chi nhánh bạn sở hữu thành cửa hàng nhượng quyền. Bạn nhận phí nhượng quyền trả trước (1.8× giá vốn chi nhánh — tiền mặt ngay), nhưng thu nhập hằng tháng của chi nhánh giảm 10% (tiền nhượng quyền trả cho bên nhận). Dùng để huy động vốn mở rộng mà không cần bán chi nhánh.', '将你拥有的分店转为特许经营门店。你获得预付特许费（1.8×分店投入——即时现金），但该分店持续收入减少 10%（作为特许权使用费付给加盟方）。用于扩张时融资而不必出售分店。'],
+  'biz.franchiseMath': ['Upfront fee = branch paid × 1.8 · Royalty = 10% of branch income · Net effect: cash now, slower income ongoing.', 'Phí trả trước = giá vốn chi nhánh × 1.8 · Nhượng quyền = 10% thu nhập chi nhánh · Hiệu quả: tiền mặt ngay, thu nhập chậm hơn.', '预付特许费 = 分店投入 × 1.8 · 特许权使用费 = 分店收入的 10% · 净效果：现金到账快，持续收入变慢。'],
+  'biz.franchiseWhen': ['When to franchise: you need cash for a bigger purchase (degree, factory, rare item) and a 10% income cut on one branch is worth the liquidity.', 'Khi nào nên nhượng quyền: bạn cần tiền mặt cho một mua lơn (bằng, nhà máy, vật phẩm hiếm) và việc cắt 10% thu nhập một chi nhánh là đáng đổi lấy thanh khoản.', '何时特许：你需要现金做大额采购（学位、工厂、稀有物品）时，一个分店削减 10% 收入换取流动性是值得的。'],
+  'biz.brandTitle': ['Brand customization', 'Tuỳ chỉnh thương hiệu', '品牌定制'],
+  'biz.brandNote': ['Set a custom name + emoji logo for each chain you own. The brand shows in the BizTab, on branch chips, and in social hype posts.', 'Đặt tên + emoji logo riêng cho mỗi chuỗi bạn sở hữu. Thương hiệu hiển thị trong BizTab, trên chip chi nhánh, và trong bài đăng xã hội.', '为你拥有的每条连锁店设定自定义名称 + emoji 标志。品牌会显示在商业标签、分店卡片以及社交推广贴中。'],
+  'biz.brandBtn': ['Set brand', 'Đặt thương hiệu', '设定品牌'],
+  'biz.brandName': ['Brand name', 'Tên thương hiệu', '品牌名称'],
+  'biz.brandLogo': ['Logo (emoji)', 'Logo (emoji)', '标志（emoji）'],
+  'biz.brandSave': ['Save brand', 'Lưu thương hiệu', '保存品牌'],
+  'biz.brandReset': ['Reset to default', 'Đặt lại mặc định', '恢复默认'],
+  'biz.brandSet': ['Brand updated: {x}', 'Đã cập nhật thương hiệu: {x}', '品牌已更新：{x}'],
   // v11.37 — new gigs
   'gig.busk': ['Street performance', 'Diễn đường phố', '街头表演'],
   'gig.petcare': ['Pet sitting', 'Trông thú cưng', '宠物看护'],

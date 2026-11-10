@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { ASSET_DEPRECIATION_RATE, DAY_MS, GIGS, YEAR_EVENTS } from './gameData';
+import { ASSET_DEPRECIATION_RATE, DAY_MS, GIGS, YEAR_EVENTS, BIZ, NPCS } from './gameData';
 import {
   addPost, bankOp, bizMultiplier, begin, bizVal, checkAch, doGig, effYears, enrollDeg, enrollLic, fresh, gigPay,
   lotValue, migrate, processDay, sleepHealthMult, sleepHealthRecovery, sleepDebtStudyMult, sleepDebtHealthMult, studyPace, studyWorkMult,
@@ -11,6 +11,8 @@ import {
   // v11.49 — Portfolio Dashboard helpers
   recordTx, portfolioRealizedGains, portfolioUnrealizedGains, portfolioInvested, portfolioIncome, portfolioROI, stockROI, cashFlowLastDays,
   buyItem, sellLot, buySpace,
+  // v11.50 — brand customization + NPC reactions
+  setBizBrand, bizBrandOf, generateNpcReactions, openBranch, franchiseBranch, FRANCHISE_FEE_MULT, FRANCHISE_ROYALTY,
   dateOf, worldYear, type GameState, type Transaction,
 } from './engine';
 
@@ -1177,5 +1179,112 @@ test('v11.49: migrate preserves existing tx log + cost basis on save', () => {
   const migrated = migrate(s);
   assert.equal(migrated.transactions.length, beforeCount);
   assert.equal(migrated.costBasis['TECH'], beforeBasis);
+});
+
+// ================= v11.50 — BRAND + NPC REACTIONS + FRANCHISE =================
+
+test('v11.50: setBizBrand refuses when player owns no branches of the biz', () => {
+  const s = fresh();
+  // 'cafe' requires the business degree; with a fresh state we have no biz.
+  const result = setBizBrand(s, 'cafe', 'Dương Coffee', '☕');
+  assert.equal(result, null);
+  assert.deepEqual(s.brands, {});
+});
+
+test('v11.50: setBizBrand stores the name + logo when player owns ≥1 branch', () => {
+  const s = fresh();
+  // Manually grant a cafe branch (skip the degree req).
+  s.branches['cafe'] = [{ r: 0, mood: 1, paid: 800, day: s.day }];
+  s.biz['cafe'] = 1;
+  const result = setBizBrand(s, 'cafe', 'Dương Coffee', '☕');
+  assert.ok(result);
+  assert.equal(s.brands['cafe'].name, 'Dương Coffee');
+  assert.equal(s.brands['cafe'].logo, '☕');
+});
+
+test('v11.50: setBizBrand clamps name to 24 chars and logo to one emoji', () => {
+  const s = fresh();
+  s.branches['cafe'] = [{ r: 0, mood: 1, paid: 800, day: s.day }];
+  s.biz['cafe'] = 1;
+  setBizBrand(s, 'cafe', 'A very long brand name that exceeds the 24 char limit', '☕☕☕');
+  assert.equal(s.brands['cafe'].name.length, 24, 'name is clamped to 24 chars');
+  assert.equal(s.brands['cafe'].logo, '☕', 'logo is clamped to first emoji');
+});
+
+test('v11.50: bizBrandOf returns the custom brand when set, falls back otherwise', () => {
+  const s = fresh();
+  // No brand set → falls back to default biz name + emoji
+  const fallback = bizBrandOf(s, 'cafe');
+  assert.equal(fallback.name, BIZ.find(b => b.id === 'cafe')!.name);
+  assert.equal(fallback.logo, '☕'); // fallbackEmojis['cafe']
+  // Set a brand → returns the custom brand
+  s.branches['cafe'] = [{ r: 0, mood: 1, paid: 800, day: s.day }];
+  s.biz['cafe'] = 1;
+  setBizBrand(s, 'cafe', 'Dương Coffee', '🫖');
+  const custom = bizBrandOf(s, 'cafe');
+  assert.equal(custom.name, 'Dương Coffee');
+  assert.equal(custom.logo, '🫖');
+});
+
+test('v11.50: migrate backfills brands map for old saves', () => {
+  const oldSave = fresh();
+  delete (oldSave as { brands?: Record<string, unknown> }).brands;
+  const s = migrate(oldSave);
+  assert.deepEqual(s.brands, {});
+});
+
+test('v11.50: franchiseBranch produces fee = branch.paid × 1.8 (the explainer math)', () => {
+  const s = fresh();
+  s.money = 1_000_000;
+  s.branches['cafe'] = [{ r: 0, mood: 1, paid: 10000, day: s.day }];
+  s.biz['cafe'] = 1;
+  const moneyBefore = s.money;
+  franchiseBranch(s, 'cafe', 0);
+  const expectedFee = Math.round(10000 * FRANCHISE_FEE_MULT);
+  assert.equal(s.money - moneyBefore, expectedFee, 'fee matches 1.8× paid value');
+  assert.equal(s.branches['cafe'][0].franchised, true, 'branch is now flagged franchised');
+});
+
+test('v11.50: generateNpcReactions returns [] when player has no relations', () => {
+  const s = fresh();
+  assert.deepEqual(s.relations, {});
+  assert.deepEqual(generateNpcReactions(s, 'Some event'), []);
+});
+
+test('v11.50: generateNpcReactions buckets commenters by friendship sentiment', () => {
+  const s = fresh();
+  // Pick three NPCs from the game data and set their friendship levels.
+  const npcIds = NPCS.slice(0, 3).map(n => n.id);
+  s.relations[npcIds[0]] = { friendship: 70, romance: 0, lastInteract: 0, interactions: 5 }; // friend → pos
+  s.relations[npcIds[1]] = { friendship: 25, romance: 0, lastInteract: 0, interactions: 3 }; // acquaintance → neutral
+  s.relations[npcIds[2]] = { friendship: -20, romance: 0, lastInteract: 0, interactions: 2 }; // rival → neg
+  const reactions = generateNpcReactions(s, 'Big news', () => 0.5);
+  assert.equal(reactions.length, 3, 'one reaction per sentiment bucket');
+  const sentiments = reactions.map(r => r.sentiment).sort();
+  assert.deepEqual(sentiments, ['neg', 'neutral', 'pos'].sort());
+  // Each reaction carries the NPC's display name + non-empty text.
+  for (const r of reactions) {
+    assert.ok(r.name.length > 0, 'name populated');
+    assert.ok(r.text.length > 0, 'text populated');
+  }
+});
+
+test('v11.50: generateNpcReactions caps at 3 commenters even with many relations', () => {
+  const s = fresh();
+  for (const npc of NPCS.slice(0, 10)) {
+    s.relations[npc.id] = { friendship: 60, romance: 0, lastInteract: 0, interactions: 5 };
+  }
+  const reactions = generateNpcReactions(s, 'Event', () => 0.5);
+  assert.ok(reactions.length <= 3, 'caps at 3 reactions');
+});
+
+test('v11.50: addPost now returns the created Post (so callers can attach reactions)', () => {
+  const s = fresh();
+  s.started = true;
+  s.lastDay = 1;
+  const post = addPost(s, 'Hello world', 1);
+  assert.ok(post, 'addPost returns the post object');
+  assert.equal(post!.t, 'Hello world');
+  assert.equal(post!.likes >= 0, true);
 });
 

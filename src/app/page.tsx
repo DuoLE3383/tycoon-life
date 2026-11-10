@@ -1,5 +1,5 @@
 'use client';
-// HuyenBao v11.49 — React edition. Two-level grouped nav, a systems links map,
+// HuyenBao v11.50 — React edition. Two-level grouped nav, a systems links map,
 // gigs, levels, social, the cosmic frontier, EN/VI/中文, LLM oracle with
 // random kind dispatch (luck / setback / life-stage / story), pre-owned
 // market + social listings, a Hall of Fame tab, and a real player-to-player
@@ -36,6 +36,7 @@ import {
   doGig, gigReady, gigLock, gigPay, addPost, buySpace, spaceIncome, socialIncome, levelMult, canPost, postCooldownLeft,
   openBranch, openBranchCapital, capitalPathCost, MANAGER_MONTHLY, rollBranchClosures, buyFarmLine, buyFacLine, buyItem, sellLot, trade, joinClub, leaveClub, foundClub,
   franchiseBranch, negotiateBizSell, pushBizOffer, acceptBizOffer, type BizOffer,
+  setBizBrand, bizBrandOf,
   hire, enrollDeg, enrollLic, enrollShortCourse, dropStudySlot, changeInterest, bankOp, donate, applyEventChoice, applyAIChoice, currentEvent, studyWorkMult,
   negotiateRaise, quitJob,
   travel, travelReady, travelCooldownLeft,
@@ -97,7 +98,7 @@ if (typeof window !== 'undefined') {
 // v11.8 — the bundled version. The /version.json file in /public is polled
 // every 5 minutes; if its version is newer than this, a "reload to update"
 // banner appears even in a running session (no F5 needed).
-const BUNDLED_VERSION = 'v11.49';
+const BUNDLED_VERSION = 'v11.50';
 const VERSION_POLL_MS = 5 * 60 * 1000;
 // v11.44 — 'what's new' modal now fires PER PATCH (not per major version).
 // The SEEN_KEY is derived from BUNDLED_VERSION so each new patch re-shows the
@@ -204,7 +205,10 @@ export default function Page() {
     }
     toastShowing.current = true;
     setToast(entry);
-    const dur = Math.min(8000, Math.max(3500, msg.length * 55));
+    // v11.50 — increased duration: 4.5s min, 12s max (was 3.5s/8s). Per-char
+    // weight dropped slightly so short toasts still feel snappy but milestone
+    // + AI-event toasts get enough screen time to actually be read.
+    const dur = Math.min(12000, Math.max(4500, msg.length * 50));
     if (toastTimer.current) clearTimeout(toastTimer.current);
     toastTimer.current = setTimeout(() => {
       setToast(null);
@@ -221,7 +225,8 @@ export default function Page() {
     const next = toastQueue.current.shift()!;
     toastShowing.current = true;
     setToast(next);
-    const dur = Math.min(8000, Math.max(3500, next.msg.length * 55));
+    // v11.50 — match the new 4.5-12s duration above.
+    const dur = Math.min(12000, Math.max(4500, next.msg.length * 50));
     if (toastTimer.current) clearTimeout(toastTimer.current);
     toastTimer.current = setTimeout(() => {
       setToast(null);
@@ -499,6 +504,8 @@ function WhatsNewModal({ onDismiss, content }: { onDismiss: () => void; content:
   const { t, lang, setLang } = useT();
   const headline = content?.headline || t('v11.headline');
   const features = content?.features || [];
+  // v11.50 — Esc-to-close (the modal already has click-outside via target check).
+  useEscapeKey(onDismiss);
   return (
     <div className="modal on" onClick={e => { if (e.target === e.currentTarget) onDismiss(); }}>
       <div className="mcard" style={{ maxWidth: 580, textAlign: 'left' }}>
@@ -525,6 +532,30 @@ function WhatsNewModal({ onDismiss, content }: { onDismiss: () => void; content:
 // ================= shared bits =================
 type Act = (fn: (st: GameState) => string | null | void) => void;
 type TFn = ReturnType<typeof useT>['t'];
+
+// v11.50 — Esc-to-close hook for dismissible modals. Pass onClose; while the
+// calling component is mounted, pressing Esc calls onClose once. Skips when
+// the active element is an input/textarea/select (don't steal form edits).
+function useEscapeKey(onClose: () => void, active: boolean = true): void {
+  useEffect(() => {
+    if (!active) return;
+    const handler = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return;
+      const el = document.activeElement;
+      const tag = el?.tagName?.toLowerCase();
+      // Don't hijack Esc while editing inputs (lets the user cancel field edits).
+      if (tag === 'input' || tag === 'textarea' || tag === 'select') {
+        (el as HTMLElement | null)?.blur?.();
+        return;
+      }
+      e.preventDefault();
+      e.stopPropagation();
+      onClose();
+    };
+    window.addEventListener('keydown', handler, true);
+    return () => window.removeEventListener('keydown', handler, true);
+  }, [onClose, active]);
+}
 
 function Row({ art, image, children, right }: { art: string; image?: string; children: React.ReactNode; right?: React.ReactNode }) {
   return <div className="row">{image ? <img className="rowimg" src={asset(image)} alt="" loading="lazy" /> : (art && <Art id={art} />)}<div className="info">{children}</div>{right}</div>;
@@ -563,7 +594,7 @@ function Header({ s, eraName }: { s: GameState; eraName: (y: number) => string }
     <header className="top">
       <div className="brand">
         <Art id="s-coin" className="logo" />
-        <div><h1><span className="mini">v11.49</span> HuyenBao</h1>
+        <div><h1><span className="mini">v11.50</span> HuyenBao</h1>
           <div className="mini">{s.started ? `${s.nation} · ${eraName(worldYear(s))}` : t('tagline')}</div></div>
       </div>
       {/* v11.46 — removed Cash/NW/Income from header (was duplicate of PinZone).
@@ -642,7 +673,7 @@ function PinZone({ s, t, onEdit, act, onNav }: { s: GameState; t: TFn; onEdit: (
         <span className="avchip" data-tip={t('edit.profile', 'Edit profile')}>{s.avatar}</span><b>{s.name}</b> <button className="pin-edit" onClick={onEdit} title={t('edit.profile', 'Edit profile')} aria-label={t('edit.profile', 'Edit profile')}>✏️</button> <span className="sep">·</span> {t('age')} {Math.floor(a)}
         <span className="tag dark">{t('stage.' + STAGES.indexOf(st), st.name)}</span>
         <span className="mini">{dstr}</span>
-        <span className="pchip" data-tip={t('cash')}><Ic id="s-coin" className="bsi" />{fmt(s.money)}</span>
+        <span className={'cash-chip' + (s.money < 1000 ? ' low' : '')} data-tip={t('cash')}><Ic id="s-coin" className="bsi" />{fmt(s.money)}</span>
         <span className="hpill" data-life={healthState(s.health)}><Ic id="w-heart" className="bsi" />{Math.round(s.health)}</span>
         <span className="hpill"><Ic id="w-lotus" className="bsi" />{Math.round(s.spirit)}</span>
         <span className="pchip" data-tip={`Lv ${s.level} · ${s.xp}/${xpNeed(s.level)} XP`}>⭐ {s.level}</span>
@@ -734,6 +765,8 @@ function EditProfileModal({ s, act, onClose }: { s: GameState; act: Act; onClose
   const { t } = useT();
   const [name, setName] = useState(s.name);
   const [avatar, setAvatar] = useState(s.avatar);
+  // v11.50 — Esc-to-close + click-outside (overlay handler already exists).
+  useEscapeKey(onClose);
   const save = () => {
     const trimmed = name.trim().slice(0, 24);
     act(st => {
@@ -792,6 +825,9 @@ function GigsPopup({ s, act, t }: { s: GameState; act: Act; t: TFn }) {
   const [open, setOpen] = useState(false);
   const readyCount = GIGS.filter(g => gigReady(s, g)).length;
   const glow = readyCount > 0;
+  // v11.50 — Esc-to-close when the popup is open.
+  useEscapeKey(() => setOpen(false), open);
+  const close = () => setOpen(false);
   return (
     <>
       <button className={'gigs-trigger' + (glow ? ' glow' : '') + (open ? ' on' : '')} onClick={() => setOpen(o => !o)}>
@@ -800,11 +836,11 @@ function GigsPopup({ s, act, t }: { s: GameState; act: Act; t: TFn }) {
         {glow && <span className="gigs-badge">{readyCount}</span>}
       </button>
       {open && (
-        <div className="modal-overlay" onClick={() => setOpen(false)}>
+        <div className="modal-overlay" onClick={close}>
           <div className="modal-box gigs-modal" onClick={e => e.stopPropagation()}>
             <div className="modal-head">
               <h2>💼 {t('gigs.popup', 'Quick gigs')}</h2>
-              <button className="modal-x" onClick={() => setOpen(false)} aria-label="Close">✕</button>
+              <button className="modal-x" onClick={close} aria-label="Close">✕</button>
             </div>
             <div className="modal-body">
               {glow && <p className="mini" style={{ color: 'var(--amber)', marginBottom: 8 }}>✨ {t('gigs.newGlow', 'New gigs available!')}</p>}
@@ -825,6 +861,9 @@ function GigsPopup({ s, act, t }: { s: GameState; act: Act; t: TFn }) {
                     </button>
                   );
                 })}
+              </div>
+              <div className="modal-foot" style={{ justifyContent: 'center' }}>
+                <button className="btn-ghost" onClick={close}>{t('edit.cancel', 'Close')} (Esc)</button>
               </div>
             </div>
           </div>
@@ -936,6 +975,9 @@ function NavPopups({ s, t, activeGroup, tab, onNav, comm }: {
 // ================= v11.40 — TRAVEL SECTION =================
 function TravelSection({ s, act, t }: { s: GameState; act: Act; t: TFn }) {
   const [open, setOpen] = useState(false);
+  // v11.50 — Esc-to-close.
+  useEscapeKey(() => setOpen(false), open);
+  const close = () => setOpen(false);
   return (
     <>
       <button className={'gigs-trigger'} style={{ background: 'linear-gradient(180deg,rgba(255,255,255,.12) 0%,rgba(255,255,255,0) 50%),var(--slate)', borderColor: 'var(--slate)', color: '#fff' }} onClick={() => setOpen(o => !o)}>
@@ -943,11 +985,11 @@ function TravelSection({ s, act, t }: { s: GameState; act: Act; t: TFn }) {
         <span>{t('travel.title', 'Travel')}</span>
       </button>
       {open && (
-        <div className="modal-overlay" onClick={() => setOpen(false)}>
+        <div className="modal-overlay" onClick={close}>
           <div className="modal-box gigs-modal" onClick={e => e.stopPropagation()}>
             <div className="modal-head">
               <h2>✈️ {t('travel.title', 'Travel')}</h2>
-              <button className="modal-x" onClick={() => setOpen(false)} aria-label="Close">✕</button>
+              <button className="modal-x" onClick={close} aria-label="Close">✕</button>
             </div>
             <div className="modal-body">
               <p className="mini" style={{ marginBottom: 10 }}>{t('travel.intro', 'Take a trip to refresh your spirit and health.')}</p>
@@ -1055,6 +1097,9 @@ function MoreInfoPopup({ s, t, lang, eraName, y, news, timelineLocale }: {
 }) {
   const [open, setOpen] = useState(false);
   const [section, setSection] = useState<'guide' | 'news' | 'ach' | 'timeline' | 'log'>('guide');
+  // v11.50 — Esc-to-close + click-outside.
+  useEscapeKey(() => setOpen(false), open);
+  const close = () => setOpen(false);
   return (
     <>
       <button className="gigs-trigger" style={{ background: 'linear-gradient(180deg,rgba(255,255,255,.12) 0%,rgba(255,255,255,0) 50%),var(--slate)', borderColor: 'var(--slate)', color: '#fff' }} onClick={() => setOpen(true)}>
@@ -1062,11 +1107,11 @@ function MoreInfoPopup({ s, t, lang, eraName, y, news, timelineLocale }: {
         <span>More</span>
       </button>
       {open && (
-        <div className="modal-overlay" onClick={() => setOpen(false)}>
+        <div className="modal-overlay" onClick={close}>
           <div className="modal-box gigs-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 600 }}>
             <div className="modal-head">
               <h2>📋 More info</h2>
-              <button className="modal-x" onClick={() => setOpen(false)} aria-label="Close">✕</button>
+              <button className="modal-x" onClick={close} aria-label="Close">✕</button>
             </div>
             <div className="modal-body">
               <div className="nav-popups" style={{ marginBottom: 10 }}>
@@ -1277,8 +1322,14 @@ function BizTab({ s, act }: { s: GameState; act: Act }) {
   const net = bizNet(s);
   const share = bizMarketShare(s);
   const hasBranches = BIZ.some(b => branchCount(s, b.id) > 0);
-  // v11.37 — negotiate-sell offer state (one active offer at a time).
+  // v11.50 — Esc-to-close for the bizOffer sell-negotiation modal.
   const [bizOffer, setBizOffer] = useState<BizOffer | null>(null);
+  useEscapeKey(() => setBizOffer(null), !!bizOffer);
+  const closeBizOffer = () => setBizOffer(null);
+  // v11.50 — brand customization modal state (per-biz). Null = closed.
+  const [editingBrand, setEditingBrand] = useState<{ bizId: string; name: string; logo: string } | null>(null);
+  useEscapeKey(() => setEditingBrand(null), !!editingBrand);
+  const closeBrandEditor = () => setEditingBrand(null);
   // v11.20 — R&D investment state. Local input for the amount; the actual
   // investment runs through investBizRnd() in the engine.
   const [rndAmount, setRndAmount] = useState(50000);
@@ -1332,18 +1383,34 @@ function BizTab({ s, act }: { s: GameState; act: Act }) {
         <div className="mini" style={{ textTransform: 'uppercase', letterSpacing: '.4px' }}>{t('v11.twoPaths')}</div>
         <p className="sub" style={{ margin: '4px 0 0' }}>{t('v11.twoPathsNote')}</p>
       </div>
+      {/* v11.50 — franchise explainer card (clear economics + when-to-use tip). */}
+      <div className="card" style={{ marginBottom: 10, padding: 12, background: 'linear-gradient(180deg,rgba(125,148,132,.06) 0%,rgba(125,148,132,0) 60%)', border: '1px solid rgba(125,148,132,.3)' }}>
+        <div className="mini" style={{ textTransform: 'uppercase', letterSpacing: '.4px', color: 'var(--sage)' }}>{t('biz.franchiseTitle')}</div>
+        <p className="sub" style={{ margin: '6px 0 6px' }}>{t('biz.franchiseExplain')}</p>
+        <div className="mini" style={{ padding: '6px 10px', background: 'rgba(0,0,0,.04)', borderRadius: 6, fontWeight: 600 }}>{t('biz.franchiseMath')}</div>
+        <p className="mini" style={{ marginTop: 6, color: 'var(--accent)', fontWeight: 600 }}>💡 {t('biz.franchiseWhen')}</p>
+      </div>
+      {/* v11.50 — brand customization explainer */}
+      {hasBranches && (
+        <div className="card" style={{ marginBottom: 10, padding: 10 }}>
+          <div className="mini" style={{ textTransform: 'uppercase', letterSpacing: '.4px' }}>{t('biz.brandTitle')}</div>
+          <p className="sub" style={{ margin: '4px 0 0' }}>{t('biz.brandNote')}</p>
+        </div>
+      )}
       {BIZ.map(b => {
         const n = branchCount(s, b.id), c = bizCost(s, b), ok = meets(s, b.req);
         const cap = capitalPathCost(s, b);
         const managerMo = MANAGER_MONTHLY(b.base);
         const closureChance = Math.max(1, Math.min(35, Math.round((0.04 + (s.eraBiz < 0.9 ? 0.08 : 0) + (n > 5 ? 0.01 * (n - 5) : 0)) * 100)));
+        const brand = bizBrandOf(s, b.id);
+        const hasBrand = !!s.brands?.[b.id];
         return <Row key={b.id} art={b.art} right={<div className="trade" style={{ flexWrap: 'wrap' }}>
           {/* Degree path */}
           <Btn ic={ok ? (n ? 'ic-up' : 'ic-plus') : 'ic-x'} label={t('v11.degreePath') + ': ' + fmt(c)} kind={ok ? '' : 'ghost'} disabled={!ok || s.money < c} onClick={() => act(st => openBranch(st, b.id))} />
           {/* Capital path */}
           <Btn ic="ic-coins" label={t('v11.capitalPath') + ': ' + fmt(cap)} kind="ghost" disabled={s.money < cap + cap * 0.2} onClick={() => act(st => openBranchCapital(st, b.id))} />
         </div>}>
-          <b>{t('biz.' + b.id, b.name)} <span className="tag">{b.ind}</span> <span className="tag">{n} {t('branches')}</span></b>
+          <b>{brand.logo ? <span style={{ marginRight: 4 }}>{brand.logo}</span> : null}{brand.name} <span className="tag">{b.ind}</span> <span className="tag">{n} {t('branches')}</span>{hasBrand && <span className="tag" style={{ color: 'var(--accent)', borderColor: 'rgba(202,138,4,.4)' }}>★</span>}</b>
           <span className="sub">{n ? t('chain') + ': ' : t('openIn', '', { r: b.reg[0] }) + ' (+' + fmt(b.inc * 1.25 * 12) + t('ifSteady') + ') · '}{t('requires')} {reqLabel(b.req)}</span>
           <span className="mini" style={{ display: 'block', marginTop: 2 }}>{t('v11.capitalPathSummary', '', { cost: fmt(cap), manager: fmt(managerMo), chance: closureChance })}</span>
           {n > 0 && <div>{(s.branches[b.id] || []).map((br, i) => {
@@ -1352,7 +1419,7 @@ function BizTab({ s, act }: { s: GameState; act: Act }) {
             const isFranchised = !!br.franchised;
             return <span key={i} className={'brchip ' + (net >= 0 ? 'up' : 'dn')}>{b.reg[br.r % b.reg.length]} · {net >= 0 ? '+' : ''}{fmt(net)}/mo · {br.mood >= 1.35 ? t('booming') : br.mood <= .55 ? t('struggling') : t('steady')}{isCapital ? ' · ' + t('v11.manager') : ''}{isFranchised ? ' · ' + t('biz.franchised') : ''}</span>;
           })}
-          {/* v11.37 — franchise + negotiate-sell actions per business */}
+          {/* v11.37 — franchise + negotiate-sell + v11.50 brand actions per business */}
           <div className="biz-actions" style={{ marginTop: 4, display: 'flex', gap: 6, flexWrap: 'wrap' }}>
             <Btn ic="ic-up" label={t('biz.franchiseBtn')} kind="ghost" disabled={!(s.branches[b.id] || []).some(br => !br.franchised)} onClick={() => {
               const idx = (s.branches[b.id] || []).findIndex(br => !br.franchised);
@@ -1362,6 +1429,10 @@ function BizTab({ s, act }: { s: GameState; act: Act }) {
               const offer = negotiateBizSell(s, b.id, 0);
               if (offer) setBizOffer(offer);
             }} />
+            {/* v11.50 — brand customization button (only shown when the player owns ≥1 branch). */}
+            {n > 0 && (
+              <Btn ic="ic-star" label={t('biz.brandBtn')} kind="ghost" onClick={() => setEditingBrand({ bizId: b.id, name: brand.name, logo: brand.logo })} />
+            )}
           </div>
           </div>}
         </Row>;
@@ -1387,11 +1458,11 @@ function BizTab({ s, act }: { s: GameState; act: Act }) {
       <p className="sub">{t('bizNote')}</p>
       {/* v11.37 — negotiate-sell offer modal */}
       {bizOffer && (
-        <div className="modal-overlay" onClick={() => setBizOffer(null)}>
+        <div className="modal-overlay" onClick={closeBizOffer}>
           <div className="modal-box edit-modal" onClick={e => e.stopPropagation()}>
             <div className="modal-head">
               <h2>🤝 {t('biz.sellBtn')}</h2>
-              <button className="modal-x" onClick={() => setBizOffer(null)} aria-label="Close">✕</button>
+              <button className="modal-x" onClick={closeBizOffer} aria-label="Close">✕</button>
             </div>
             <div className="modal-body">
               <div className="edit-preview">
@@ -1415,7 +1486,7 @@ function BizTab({ s, act }: { s: GameState; act: Act }) {
               )}
             </div>
             <div className="modal-foot">
-              <button className="btn-ghost" onClick={() => setBizOffer(null)}>{t('edit.cancel', 'Cancel')}</button>
+              <button className="btn-ghost" onClick={closeBizOffer}>{t('edit.cancel', 'Cancel')} (Esc)</button>
               {!bizOffer.pushed && bizOffer.offer > 0 && (
                 <button className="btn-primary" onClick={() => {
                   const pushed = pushBizOffer(s, bizOffer);
@@ -1425,14 +1496,95 @@ function BizTab({ s, act }: { s: GameState; act: Act }) {
               {bizOffer.offer > 0 && (
                 <button className="btn-primary" onClick={() => {
                   act(st => acceptBizOffer(st, bizOffer));
-                  setBizOffer(null);
+                  closeBizOffer();
                 }}>{t('biz.acceptOffer')} {fmt(bizOffer.offer)}</button>
               )}
             </div>
           </div>
         </div>
       )}
+      {/* v11.50 — Brand customization modal. Lets the player rename + re-logo
+          a biz chain they own. Brand shows on the biz row + branch chips. */}
+      {editingBrand && (
+        <BrandEditorModal
+          s={s}
+          act={act}
+          editing={editingBrand}
+          onClose={closeBrandEditor}
+        />
+      )}
     </>
+  );
+}
+
+// v11.50 — Brand editor modal: pick a custom name + emoji logo for a biz chain.
+function BrandEditorModal({ s, act, editing, onClose }: {
+  s: GameState; act: Act; editing: { bizId: string; name: string; logo: string }; onClose: () => void;
+}) {
+  const { t } = useT();
+  const [name, setName] = useState(editing.name);
+  const [logo, setLogo] = useState(editing.logo);
+  const b = BIZ.find(x => x.id === editing.bizId);
+  const SUGGESTED_LOGOS = ['☕', '🛍️', '🌾', '🏭', '💻', '🏨', '🎬', '🛒', '🏦', '🍽️', '🍔', '🍕', '🍣', '🍜', '🎨', '📷', '🎸', '🚗', '🏠', '💎', '⭐', '🔥', '🌿', '🤖'];
+  const save = () => {
+    act(st => {
+      const msg = setBizBrand(st, editing.bizId, name, logo);
+      return msg || t('biz.brandSet', '', { x: name });
+    });
+    onClose();
+  };
+  const reset = () => {
+    act(st => {
+      if (st.brands) delete st.brands[editing.bizId];
+      return t('biz.brandReset');
+    });
+    onClose();
+  };
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal-box edit-modal" onClick={e => e.stopPropagation()}>
+        <div className="modal-head">
+          <h2>⭐ {t('biz.brandBtn')}</h2>
+          <button className="modal-x" onClick={onClose} aria-label="Close">✕</button>
+        </div>
+        <div className="modal-body">
+          <div className="edit-preview">
+            <span className="edit-preview-av" style={{ fontSize: '2rem' }}>{logo || '🏢'}</span>
+            <div>
+              <b className="big">{name.trim() || b?.name || editing.bizId}</b>
+              <div className="mini">{t('edit.preview', 'Preview')}</div>
+            </div>
+          </div>
+          <label className="field">
+            <span>{t('biz.brandName')}</span>
+            <input type="text" value={name} maxLength={24} placeholder={b?.name || editing.bizId}
+              onChange={e => setName(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') save(); }} />
+          </label>
+          <label className="field">
+            <span>{t('biz.brandLogo')}</span>
+            <input type="text" value={logo} maxLength={4} placeholder="☕"
+              onChange={e => setLogo(e.target.value.slice(0, 4))}
+              onKeyDown={e => { if (e.key === 'Enter') save(); }}
+              style={{ fontSize: '1.4rem', textAlign: 'center' }} />
+          </label>
+          <div className="avatar-picker" style={{ marginTop: 4 }}>
+            {SUGGESTED_LOGOS.map(em => (
+              <button key={em} type="button" className={'av-opt' + (em === logo ? ' on' : '')}
+                onClick={() => setLogo(em)} style={{ fontSize: '1.1rem' }}>{em}</button>
+            ))}
+          </div>
+        </div>
+        <div className="modal-foot">
+          <button className="btn-ghost" onClick={onClose}>{t('edit.cancel', 'Cancel')} (Esc)</button>
+          {s.brands?.[editing.bizId] && (
+            <button className="btn-ghost" onClick={reset} style={{ color: 'var(--brick)' }}>{t('biz.brandReset')}</button>
+          )}
+          <button className="btn-primary" onClick={save} disabled={!name.trim()}>
+            {t('biz.brandSave')}
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -2861,6 +3013,17 @@ function SocialTab({ s, act }: { s: GameState; act: Act }) {
               <b style={{ fontSize: '.9rem' }}>@{s.name.toLowerCase().replace(/[^a-z0-9_]/g, '') || 'huyenbao'}{s.social.verified && <span className="vbadge">✓</span>}</b>
               <div style={{ fontSize: '.92rem' }}>{p.t}</div>
               <span className="mini">♥ {p.likes.toLocaleString()} · {t('followers')} +{Math.round(p.likes * 0.3).toLocaleString()}</span>
+              {/* v11.50 — NPC reactions on AI-event posts. Friends comment
+                  supportive, rivals snark — sentiment coloured accordingly. */}
+              {p.reactions && p.reactions.length > 0 && (
+                <div className="post-reactions" style={{ marginTop: 6, display: 'flex', flexDirection: 'column', gap: 3, paddingLeft: 8, borderLeft: '2px solid var(--line)' }}>
+                  {p.reactions.map((rx, j) => (
+                    <div key={j} className="mini" style={{ fontSize: '.78rem', color: rx.sentiment === 'pos' ? 'var(--sage)' : rx.sentiment === 'neg' ? 'var(--brick)' : 'var(--mute)' }}>
+                      <b style={{ opacity: .9 }}>{rx.name}:</b> {rx.text}
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
             <span className="plikes">♥ {p.likes.toLocaleString()}</span>
           </div>
@@ -3349,6 +3512,28 @@ function PowerTab({ s, act }: { s: GameState; act: Act }) {
     'state_leader': 'pw.explainState',
   };
   return (<>
+    {/* v11.50 — top-level "What is Power?" intro card. New players land here
+        confused about what Power even is; this gives them the elevator pitch
+        + the 5 tiers + the 4 influence sources + the 3 things they can DO. */}
+    <div className="card" style={{ marginBottom: 10, padding: 14, background: 'linear-gradient(180deg,rgba(202,138,4,.06) 0%,rgba(202,138,4,0) 60%)', border: '1px solid rgba(202,138,4,.25)' }}>
+      <div className="mini" style={{ textTransform: 'uppercase', letterSpacing: '.4px', color: 'var(--accent)' }}>{t('pw.introTitle')}</div>
+      <p className="sub" style={{ margin: '6px 0 8px' }}>{t('pw.introBody')}</p>
+      <ul className="explain-bullets" style={{ margin: '0 0 8px', paddingLeft: 0, listStyle: 'none' }}>
+        <li><Ic id="ic-heart" className="si bul-ic" /><span>{t('pw.source.charity')}</span></li>
+        <li><Ic id="ic-crown" className="si bul-ic" /><span>{t('pw.source.clubChair')}</span></li>
+        <li><Ic id="t-biz" className="si bul-ic" /><span>{t('pw.source.board')}</span></li>
+        <li><Ic id="t-social" className="si bul-ic" /><span>{t('pw.source.media')}</span></li>
+      </ul>
+      <div className="mini" style={{ marginTop: 8, marginBottom: 4, fontWeight: 650 }}>{t('pw.tiersLabel')}</div>
+      <div className="sub" style={{ fontSize: '.78rem', lineHeight: 1.5 }}>{t('pw.tierList')}</div>
+      <div className="mini" style={{ marginTop: 10, marginBottom: 4, fontWeight: 650 }}>{t('pw.whatYouCanDo')}</div>
+      <ul className="explain-bullets" style={{ margin: 0, paddingLeft: 0, listStyle: 'none' }}>
+        <li><Ic id="ic-check" className="si bul-ic" /><span>{t('pw.do.advocacy')}</span></li>
+        <li><Ic id="ic-check" className="si bul-ic" /><span>{t('pw.do.transparency')}</span></li>
+        <li><Ic id="ic-crown" className="si bul-ic" /><span>{t('pw.do.election')}</span></li>
+      </ul>
+      <p className="mini" style={{ marginTop: 10, padding: '8px 10px', background: 'rgba(202,138,4,.08)', borderRadius: 8, color: 'var(--accent)', fontWeight: 600 }}>💡 {t('pw.introTip')}</p>
+    </div>
     {/* Current tier + next-threshold hint */}
     <Row art="t-power">
       <b>{t('v11.powerCurrentTier')} <span className={tier === 'none' ? 'down' : 'up'}>{showTier(lang)}</span></b>

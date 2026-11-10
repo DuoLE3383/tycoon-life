@@ -84,7 +84,7 @@ export interface AIChoice { l: string; cost?: number; money?: number; fame?: num
 // a meaningful life-stage pivot (close shop, drop out, wrong turn).
 export type AIEventKind = 'story' | 'luck' | 'badluck' | 'lifestage';
 export interface AIEvent { title: string; text: string; choices: AIChoice[]; source?: 'backend' | 'backend-local' | 'local'; kind?: AIEventKind }
-export interface Post { d: number; t: string; likes: number }
+export interface Post { d: number; t: string; likes: number; reactions?: { name: string; text: string; sentiment: 'pos' | 'neg' | 'neutral' }[] }
 // v11.28 — a timed marketplace job: either an AUCTION (bids arrive over the
 // window, the hammer can land above the ask, or nothing sells) or a fixed-
 // price SALE LISTING (one buyer either meets the ask or doesn't). The item is
@@ -183,6 +183,11 @@ export interface GameState {
   txSeq: number;                       // monotonic id counter
   transactions: Transaction[];        // last TX_CAP entries (oldest trimmed)
   costBasis: Record<string, number>;  // total $ invested per stock id (weighted)
+  // v11.50 — per-biz brand customization (name + emoji logo). Keyed by bizId.
+  // Players who own at least one branch of a biz can rename + re-logo the
+  // chain so the BizTab + branch chips + social hype posts reflect their
+  // brand identity (e.g. "☕ Dương Coffee" instead of "Coffee shop").
+  brands: Record<string, { name: string; logo: string }>;
   cause: 'age' | 'health' | null;
   social: { followers: number; posts: Post[]; verified?: boolean; lastPostDay?: number };
   ach: string[];
@@ -483,11 +488,13 @@ export const canPost = (s: GameState): boolean =>
 export const postCooldownLeft = (s: GameState): number =>
   s.social.lastPostDay == null ? 0 : Math.max(0, POST_COOLDOWN_DAYS - (s.lastDay - s.social.lastPostDay));
 
-export function addPost(s: GameState, t: string, boost = 1, rng: () => number = Math.random): void {
+// v11.50 — addPost now returns the created Post (or null if on cooldown)
+// so callers like applyAIChoice can attach NPC reactions to it.
+export function addPost(s: GameState, t: string, boost = 1, rng: () => number = Math.random): Post | null {
   // v11.9 — engine-side cooldown guard (the UI also disables the buttons).
   // Keeps the console hook (__tycoon) and any future callers from bypassing
   // the one-post-per-day limit.
-  if (!canPost(s)) return;
+  if (!canPost(s)) return null;
   // v11.20 — advertising/hype posts reduce health. Posts with boost ≥ 1.4
   // (hype = 1.6, viral brand deals = 2.0, etc.) are 'ad-flavoured' and the
   // promo grind wears the player down: 0.5-2 health per hype post, scaled
@@ -517,7 +524,8 @@ export function addPost(s: GameState, t: string, boost = 1, rng: () => number = 
     s.social.followers = Math.max(0, s.social.followers - lost);
     pushLog(s, `Backlash on a post — lost ${lost.toLocaleString()} followers.`);
   }
-  s.social.posts.unshift({ d: s.lastDay, t, likes });
+  const post: Post = { d: s.lastDay, t, likes };
+  s.social.posts.unshift(post);
   s.social.lastPostDay = s.lastDay;
   if (s.social.posts.length > 12) s.social.posts.pop();
   const gainMult = spike ? 2 + rng() : 1;
@@ -528,6 +536,68 @@ export function addPost(s: GameState, t: string, boost = 1, rng: () => number = 
     pushLog(s, 'Your account got the blue check. Verified!');
     addXp(s, 40);
   }
+  return post;
+}
+
+// v11.50 — generate NPC reactions for an AI-event social post. The player's
+// relations (s.relations) decide who comments and the sentiment:
+//   friendship > 50  → supportive comments (pos)
+//   0..50            → mixed acknowledgment (neutral)
+//   < 0              → snarky/critical (neg)
+// Picks up to 3 commenters (one per sentiment bucket if available), favouring
+// the most-interacted NPCs. Returns the reactions array (may be empty).
+export function generateNpcReactions(s: GameState, eventTitle: string, rng: () => number = Math.random): NonNullable<Post['reactions']> {
+  const rels = Object.entries(s.relations)
+    .filter(([, r]) => r && typeof r.friendship === 'number')
+    .map(([npcId, r]) => ({ npcId, friendship: r.friendship, interactions: r.interactions || 0 }))
+    .sort((a, b) => b.interactions - a.interactions);
+  if (rels.length === 0) return [];
+  // Bucket by sentiment.
+  const pos = rels.filter(r => r.friendship > 50);
+  const neu = rels.filter(r => r.friendship >= 0 && r.friendship <= 50);
+  const neg = rels.filter(r => r.friendship < 0);
+  // Reaction template pools per sentiment (translated client-side via name only;
+  // the body text stays in English because NPC flavour doesn't need full i18n).
+  const posTemplates = [
+    'Proud of you 🙌',
+    'Knew you had it in you!',
+    'This is huge — congrats!',
+    'About time the world noticed.',
+    'You earned every bit of this.',
+  ];
+  const neuTemplates = [
+    'Interesting news.',
+    'Heard about this — wild.',
+    'Just saw the headline.',
+    'Quite the development.',
+    'Wow, didn\'t see that coming.',
+  ];
+  const negTemplates = [
+    'Could\'ve gone differently.',
+    'Not surprised, honestly.',
+    'Bold move... risky.',
+    'We\'ll see how this turns out.',
+    'Hmm. Debatable.',
+  ];
+  const pick = (arr: string[]) => arr[Math.floor(rng() * arr.length)];
+  const reactions: NonNullable<Post['reactions']> = [];
+  // Pick one commenter from each non-empty bucket (up to 3 total).
+  if (pos.length) {
+    const r = pos[Math.floor(rng() * pos.length)];
+    const npc = NPC_BY[r.npcId];
+    if (npc) reactions.push({ name: npc.name, text: pick(posTemplates), sentiment: 'pos' });
+  }
+  if (neu.length && reactions.length < 3) {
+    const r = neu[Math.floor(rng() * neu.length)];
+    const npc = NPC_BY[r.npcId];
+    if (npc) reactions.push({ name: npc.name, text: pick(neuTemplates), sentiment: 'neutral' });
+  }
+  if (neg.length && reactions.length < 3) {
+    const r = neg[Math.floor(rng() * neg.length)];
+    const npc = NPC_BY[r.npcId];
+    if (npc) reactions.push({ name: npc.name, text: pick(negTemplates), sentiment: 'neg' });
+  }
+  return reactions;
 }
 
 // v10.5 — pick a varied post template by category and interpolate context.
@@ -578,6 +648,7 @@ export function fresh(): GameState {
     health: 92, spirit: 18, karma: 0, diet: false, well: {}, cause: null,
     sleepHours: 6, sleepDebt: 0, timeline: [], ach: [],
     txSeq: 0, transactions: [], costBasis: {},
+    brands: {},
     used: [], mkt: [], favs: [], rareUp: [], rareLive: null, hall: null, pastLives: [], relations: {}, pets: [], clubs: [], aiEvPending: false, shortCompleted: [],
     pendingToasts: [],
     crisis: null, shocks: [], lastResearchDay: 0, researchBrief: null,
@@ -703,6 +774,8 @@ export function migrate(raw: unknown): GameState {
   s.txSeq = typeof s.txSeq === 'number' ? s.txSeq : 0;
   s.transactions = Array.isArray(s.transactions) ? s.transactions.slice(-TX_CAP) : [];
   s.costBasis = s.costBasis && typeof s.costBasis === 'object' ? s.costBasis : {};
+  // v11.50 — backfill brand customization map for old saves.
+  s.brands = s.brands && typeof s.brands === 'object' ? s.brands : {};
   s.timeline = Array.isArray(s.timeline) ? s.timeline.slice(-45) : [];
   BIZ.forEach(b => (s.branches[b.id] || []).forEach((br, i) => {
     if (br.paid == null) br.paid = b.base * Math.pow(BRANCH_GROWTH, i);
@@ -1577,6 +1650,37 @@ export function franchiseBranch(s: GameState, bizId: string, branchIdx: number):
   return `Franchised! +$${fee.toLocaleString()} upfront (royalty ${FRANCHISE_ROYALTY * 100}% ongoing).`;
 }
 
+// v11.50 — brand customization for a biz chain. Player must own ≥1 branch of
+// the biz to set the brand. Name is clamped to 24 chars; logo is a single
+// emoji (clamped to 4 code-point chars to allow skin-tone modifiers etc.).
+// Setting a brand updates how the biz appears in BizTab + branch chips + any
+// social hype posts referencing the chain. Returns a toast message.
+export function setBizBrand(s: GameState, bizId: string, name: string, logo: string): string | null {
+  const b = BIZ.find(x => x.id === bizId);
+  if (!b) return null;
+  if (branchCount(s, bizId) <= 0) return null; // must own ≥1 branch
+  const trimmedName = name.trim().slice(0, 24) || b.name;
+  const trimmedLogo = (Array.from(logo.trim())[0] || '').slice(0, 4) || '';
+  s.brands = s.brands || {};
+  s.brands[bizId] = { name: trimmedName, logo: trimmedLogo };
+  pushLog(s, `Rebranded ${b.name} → ${trimmedLogo} ${trimmedName}.`);
+  return `Brand set: ${trimmedLogo} ${trimmedName}`;
+}
+
+// v11.50 — read helper for the brand display. Returns the brand or falls back
+// to the biz's default name + an emoji derived from its art id.
+export function bizBrandOf(s: GameState, bizId: string): { name: string; logo: string } {
+  const b = BIZ.find(x => x.id === bizId);
+  const brand = s.brands?.[bizId];
+  if (brand) return brand;
+  // Fall back to default biz name + a sensible emoji from the art id.
+  const fallbackEmojis: Record<string, string> = {
+    'cafe': '☕', 'shop': '🛍️', 'farm': '🌾', 'factory': '🏭', 'tech': '💻',
+    'hotel': '🏨', 'studio': '🎬', 'retail': '🛒', 'bank': '🏦', 'restaurant': '🍽️',
+  };
+  return { name: b?.name || bizId, logo: fallbackEmojis[bizId] || '🏢' };
+}
+
 // v11.37 — NEGOTIATE SELL: sell a business branch to an NPC buyer at a
 // negotiated price. The buyer makes an initial offer (70-100% of paid value);
 // the player can accept, or push for a higher price (risk: buyer walks 25%).
@@ -2200,10 +2304,33 @@ export function applyAIChoice(s: GameState, idx: number): string {
       ? (roll.success ? baseMsg : `${baseMsg} (It could have gone either way — this time, it didn't.)`)
       : (roll.success ? `${baseMsg} (The bold call paid off.)` : `${baseMsg} (The bold call cost you. As advertised.)`);
   pushLog(s, `AI twist — ${ev.title}: ${msg}`);
-  addPost(s, `${ev.title} — you read it here first.`, 1);
+  // v11.50 — auto-post AI events to social as rumors. Skip the 1/day cooldown
+  // guard (rumours spread regardless of when the player last posted) by
+  // pushing directly to s.social.posts. Attach NPC reactions based on the
+  // player's relationship state — friends comment supportive, rivals snark.
+  const rumorText = rumorHeadline(ev.title, ev.kind);
+  const reactions = generateNpcReactions(s, ev.title);
+  s.social.posts.unshift({ d: s.lastDay, t: rumorText, likes: Math.round(5 + (s.social.followers > 1000 ? Math.sqrt(s.social.followers) : 0)), reactions: reactions.length ? reactions : undefined });
+  s.social.lastPostDay = s.lastDay;
+  if (s.social.posts.length > 12) s.social.posts.pop();
+  if (reactions.length) {
+    pushLog(s, `NPCs reacted: ${reactions.map(r => `${r.name} (${r.sentiment})`).join(' · ')}`);
+  }
   s.story.used.push(ev.title); if (s.story.used.length > 24) s.story.used.shift();
   s.aiEv = null;
   return msg;
+}
+
+// v11.50 — turn an AI event title into a social-feed rumour headline. Different
+// framing by event kind so the feed feels varied (luck = announcement, badluck
+// = leaked news, lifestage = pivot announcement, story = vague teaser).
+function rumorHeadline(title: string, kind?: AIEventKind): string {
+  switch (kind) {
+    case 'luck': return `📈 ${title} — sources close to the player confirm.`;
+    case 'badluck': return `📉 Rumour: ${title}. Insiders are talking.`;
+    case 'lifestage': return `🔄 ${title} — a new chapter begins.`;
+    default: return `📰 ${title}. Word is spreading.`;
+  }
 }
 
 // v10.5 — derive risk classification from a choice's effects.
