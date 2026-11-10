@@ -1445,6 +1445,16 @@ const D: Record<string, [string, string, string]> = {
   'soc.boardNote': ['Your net worth syncs to the board automatically while you play.', 'Tổng tài sản của bạn tự đồng bộ lên bảng xếp hạng khi chơi.', '你的净资产会在游玩时自动同步到排行榜。'],
   'soc.notifReq': ['🤝 Friend request from {n}', '🤝 Lời mời kết bạn từ {n}', '🤝 来自 {n} 的好友请求'],
   'soc.notifGift': ['🎁 Gift from {n} — open Friends to claim', '🎁 Quà từ {n} — mở tab Bạn bè để nhận', '🎁 来自 {n} 的礼物 — 打开好友页领取'],
+  // v12 — rotating tips card on the HomeTab. One tip visible at a time,
+  // rotates every 30s (or each game tick — see TipsCard in page.tsx).
+  // Six curated, evergreen tips that point at underused features.
+  'tip.title': ['Tips', 'Mẹo', '提示'],
+  'tip.1': ['Buy low, sell high — check the used market for deals.', 'Mua thấp bán cao — xem chợ đồ cũ để tìm hời.', '低买高卖 — 看看二手市场找便宜。'],
+  'tip.2': ['Sleep 7h+ to recover health faster.', 'Ngủ 7h+ để hồi máu nhanh hơn.', '睡7小时以上能更快恢复健康。'],
+  'tip.3': ['Deposit idle cash to savings for 2%/yr interest.', 'Gửi tiền nhàn rỗi vào tiết kiệm nhận 2%/năm.', '把闲钱存储蓄账户，年息2%。'],
+  'tip.4': ['Franchise a branch for upfront cash when you need liquidity.', 'Nhượng quyền chi nhánh để lấy tiền mặt khi cần thanh khoản.', '特许经营分店换取现金，缓解流动性。'],
+  'tip.5': ['Study in your top field for 20% tuition discount.', 'Học đúng ngành hàng đầu giảm 20% học phí.', '在天赋专业就读享20%学费折扣。'],
+  'tip.6': ['Check the Finance Overview tab for action suggestions.', 'Mở tab Tổng quan tài chính để xem gợi ý hành động.', '查看财务概览标签获取行动建议。'],
 };
 
 export function makeT(lang: Lang) {

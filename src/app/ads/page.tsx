@@ -333,16 +333,17 @@ export default function AdminPage() {
               </div>
               <div className="adm-scroll">
                 <table>
-                  <thead><tr><th>Người chơi</th><th>Mã</th><th>Level</th><th>Tài sản</th><th>Hoạt động</th><th>Trạng thái</th><th>Quản trị</th></tr></thead>
+                  <thead><tr><th>Người chơi</th><th>Mã</th><th>UID</th><th>Level</th><th>Tài sản</th><th>Hoạt động</th><th>Trạng thái</th><th>Quản trị</th></tr></thead>
                   <tbody>
                     {(players ?? []).map(p => {
                       if (gifting && gifting.id === p.id) {
-                        return (<tr key={p.id} className="adm-editrow"><td colSpan={7}><div className="adm-bcast"><b>🎁 Gửi quà từ HuyenBao 📢 tới {p.avatar} {p.name} ({p.code})</b><div className="adm-row"><input className="adm-input" type="number" value={giftAmt} aria-label="amount" onChange={e => setGiftAmt(e.target.value)} style={{ flex: '0 0 140px' }} /><input className="adm-input" value={giftNote} placeholder="Lời nhắn (tuỳ chọn)" onChange={e => setGiftNote(e.target.value)} style={{ flex: 1 }} /></div><div className="adm-row"><button className="adm-btn" onClick={() => void sendGiftToPlayer}>🎁 Gửi quà</button><button className="adm-btn adm-ghost" onClick={() => setGifting(null)}>Huỷ</button></div></div></td></tr>);
+                        return (<tr key={p.id} className="adm-editrow"><td colSpan={8}><div className="adm-bcast"><b>🎁 Gửi quà từ HuyenBao 📢 tới {p.avatar} {p.name} ({p.code})</b><div className="adm-row"><input className="adm-input" type="number" value={giftAmt} aria-label="amount" onChange={e => setGiftAmt(e.target.value)} style={{ flex: '0 0 140px' }} /><input className="adm-input" value={giftNote} placeholder="Lời nhắn (tuỳ chọn)" onChange={e => setGiftNote(e.target.value)} style={{ flex: 1 }} /></div><div className="adm-row"><button className="adm-btn" onClick={() => void sendGiftToPlayer}>🎁 Gửi quà</button><button className="adm-btn adm-ghost" onClick={() => setGifting(null)}>Huỷ</button></div></div></td></tr>);
                       }
                       return editing && editing.id === p.id ? (
                         <tr key={p.id} className="adm-editrow">
                           <td><input className="adm-input" style={{ width: 60 }} value={editing.avatar} onChange={e => setEditing({ ...editing, avatar: e.target.value })} aria-label="avatar" /><input className="adm-input" style={{ width: 140, marginLeft: 6 }} value={editing.name} onChange={e => setEditing({ ...editing, name: e.target.value })} aria-label="name" /></td>
                           <td><code>{p.code}</code></td>
+                          <td><code className="adm-uid" title={p.id}>{p.id.length > 12 ? p.id.slice(0, 8) + '…' + p.id.slice(-4) : p.id}</code></td>
                           <td><input className="adm-input" style={{ width: 64 }} type="number" value={editing.level} onChange={e => setEditing({ ...editing, level: Math.max(1, Math.round(Number(e.target.value) || 1)) })} aria-label="level" /></td>
                           <td><input className="adm-input" style={{ width: 120 }} type="number" value={editing.nw} onChange={e => setEditing({ ...editing, nw: Math.max(0, Number(e.target.value) || 0) })} aria-label="net worth" /></td>
                           <td>{fmtAgo(p.last_seen)}</td><td>{p.banned ? '🚫' : '✓'}</td>
@@ -351,7 +352,9 @@ export default function AdminPage() {
                       ) : (
                         <tr key={p.id} className={p.banned ? 'adm-banned' : ''}>
                           <td>{p.avatar} {p.name}{isOnline(p) ? ' 🟢' : ''}</td>
-                          <td><code>{p.code}</code></td><td>{p.level}</td><td className="adm-nw">{fmtMoney(p.nw)}</td><td>{fmtAgo(p.last_seen)}</td>
+                          <td><code>{p.code}</code></td>
+                          <td><code className="adm-uid" title={p.id}>{p.id.length > 12 ? p.id.slice(0, 8) + '…' + p.id.slice(-4) : p.id}</code></td>
+                          <td>{p.level}</td><td className="adm-nw">{fmtMoney(p.nw)}</td><td>{fmtAgo(p.last_seen)}</td>
                           <td>{p.banned ? '🚫 Bị cấm' : isOnline(p) ? '🟢 Online' : '✓'}</td>
                           <td className="adm-actions">
                             <button className="adm-btn" title="Sửa thông tin" onClick={() => { setEditing({ ...p }); setNote(''); }}>✏️</button>
@@ -362,8 +365,8 @@ export default function AdminPage() {
                         </tr>
                       );
                     })}
-                    {players && players.length === 0 && <tr><td colSpan={7}>Không tìm thấy người chơi nào.</td></tr>}
-                    {!players && <tr><td colSpan={7}>Đang tải…</td></tr>}
+                    {players && players.length === 0 && <tr><td colSpan={8}>Không tìm thấy người chơi nào.</td></tr>}
+                    {!players && <tr><td colSpan={8}>Đang tải…</td></tr>}
                   </tbody>
                 </table>
               </div>

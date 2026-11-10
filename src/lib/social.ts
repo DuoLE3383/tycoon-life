@@ -35,6 +35,31 @@ export const SOC_AVATARS = ['🐯', '🦊', '🐼', '🦁', '🐸', '🐧', '�
 export const SOC_MSG_MAX = 280;
 export const SOC_GIFT_MAX = 1e15;
 
+// v12 — disambiguate same-name players on the social/leaderboard rendering.
+// When two players on the server share a display name (e.g. both "Alex"), we
+// append the last 5 chars of their server UID to the name shown in the
+// leaderboard / online list / friends list / chat sender — so the player can
+// tell them apart at a glance without the admin having to step in.
+//
+// Returns a map of `playerId → displayName`. Players with a unique name get
+// their bare name; only duplicates get the `-xxxxx` suffix.
+export function dedupeNames(players: SocPlayer[]): Record<string, string> {
+  const counts: Record<string, number> = {};
+  for (const p of players) {
+    const n = p.name || '';
+    counts[n] = (counts[n] || 0) + 1;
+  }
+  const out: Record<string, string> = {};
+  for (const p of players) {
+    const n = p.name || '';
+    // v12 — only append the suffix when the name genuinely collides (count>1)
+    // AND the player has an id to derive a suffix from. Players with empty
+    // names fall back to the avatar-less "HuyenBao" default elsewhere.
+    out[p.id] = counts[n] > 1 && p.id ? `${n}-${p.id.slice(-5)}` : n;
+  }
+  return out;
+}
+
 const URL_ENV = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const KEY_ENV = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 // v11.27 — NEXT_PUBLIC_SOCIAL_BACKEND=sqlite forces the self-hosted backend

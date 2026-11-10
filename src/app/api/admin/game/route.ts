@@ -46,28 +46,19 @@ export async function POST(req: Request) {
   try {
     db();
     const action = String(b.action ?? '');
-    const uid = String(b.uid ?? '').trim();
-    if (!uid) return NextResponse.json({ ok: false, error: 'bad-uid' }, { status: 400 });
-
-    // v11.39 — store the pending action in a lightweight key-value table.
-    // The client applies it on next ping. This is a stub — for now we just
-    // log the action; the real client-side application would require a new
-    // social API + client hook. The admin can still SEE the item list (GET)
-    // and the action is recorded for audit.
     const validActions = ['grantItem', 'setMoney', 'setFame', 'setHealth', 'setSpirit', 'setLevel', 'triggerElection', 'advanceTime', 'createItem'];
     if (!validActions.includes(action)) return NextResponse.json({ ok: false, error: 'bad-action' }, { status: 400 });
-
-    // For grantItem, validate the itemId exists.
-    if (action === 'grantItem') {
-      const itemId = String(b.itemId ?? '');
-      const exists = [...ITEMS, ...RARE_ITEMS].some(i => i.id === itemId);
-      if (!exists) return NextResponse.json({ ok: false, error: 'bad-itemId' }, { status: 400 });
-    }
 
     // v11.40 — createItem: admin creates a custom item from a URL (image link).
     // The item is stored in a new custom_items table; the client merges it into
     // the runtime ITEM_BY on next load. The image URL is stored as-is — the
     // client renders it directly (no server-side download needed).
+    // v12 — moved ABOVE the uid-required check: createItem targets the catalogue,
+    // not a specific player, so it must work even when the admin hasn't filled in
+    // the "target player" field. (Previously the bad-uid guard at line ~50
+    // rejected every createItem call — the admin's "➕ Tạo" button always
+    // flashed "❌ Thất bại". This is why the user reported "không thấy nút tạo
+    // trong ảnh" — the button was there but it never worked.)
     if (action === 'createItem') {
       const name = String(b.name ?? '').trim().slice(0, 60);
       const cat = String(b.cat ?? 'Custom').trim().slice(0, 30);
@@ -101,6 +92,23 @@ export async function POST(req: Request) {
         .run(itemId, name, cat, brand || null, price, 1, 0, 'ic-bag', 'common', imageUrl, new Date().toISOString());
 
       return NextResponse.json({ ok: true, itemId, name });
+    }
+
+    // All remaining actions target a specific player — uid required.
+    const uid = String(b.uid ?? '').trim();
+    if (!uid) return NextResponse.json({ ok: false, error: 'bad-uid' }, { status: 400 });
+
+    // v11.39 — store the pending action in a lightweight key-value table.
+    // The client applies it on next ping. This is a stub — for now we just
+    // log the action; the real client-side application would require a new
+    // social API + client hook. The admin can still SEE the item list (GET)
+    // and the action is recorded for audit.
+
+    // For grantItem, validate the itemId exists.
+    if (action === 'grantItem') {
+      const itemId = String(b.itemId ?? '');
+      const exists = [...ITEMS, ...RARE_ITEMS].some(i => i.id === itemId);
+      if (!exists) return NextResponse.json({ ok: false, error: 'bad-itemId' }, { status: 400 });
     }
 
     // Record the action in the messages table as a system note (audit trail).

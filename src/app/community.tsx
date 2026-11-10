@@ -3,11 +3,11 @@
 // in-game NPC "social" tab): global chat, friends by player code with gifting,
 // and the cross-device leaderboard. Data comes from useCommunity() in page.tsx
 // (Supabase when configured, same-device demo mode otherwise).
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Ic } from '@/lib/art';
 import { fmt, type GameState } from '@/lib/engine';
 import { useT } from '@/lib/i18n';
-import { SOC_AVATARS, SOC_GIFT_MAX, SOC_MSG_MAX, type Comm, type SocGift, type SocPlayer } from '@/lib/social';
+import { SOC_AVATARS, SOC_GIFT_MAX, SOC_MSG_MAX, dedupeNames, type Comm, type SocGift, type SocPlayer } from '@/lib/social';
 
 const asset = (p: string) => (process.env.NEXT_PUBLIC_BASE_PATH || '') + p;
 type Act = (fn: (st: GameState) => string | null | void) => void;
@@ -48,9 +48,24 @@ function Av({ p, dim }: { p: SocPlayer | null; dim?: boolean }) {
   return <span className={'soc-av' + (dim ? ' dim' : '')}>{p ? p.avatar : '❔'}</span>;
 }
 
+// v12 — convenience wrapper around dedupeNames that consumes the union of
+// online + board + visible people (so a name shared across lists still gets
+// the suffix everywhere it appears). Returns the same `id → displayName` map
+// as dedupeNames; callers fall back to the raw name for ids not in the map.
+function useDedupe(comm: Comm): Record<string, string> {
+  // v12 — useMemo so the map is recomputed only when the player set changes
+  // (every poll), not on every render. The combined list is the universe of
+  // names the player currently sees; duplicates inside it get the suffix.
+  const all = [...comm.online, ...comm.board, ...Object.values(comm.people)];
+  return useMemo(() => dedupeNames(all), [all]);
+}
+
 // ============================== CHAT ==============================
 export function ChatView({ comm }: { comm: Comm }) {
   const { t } = useT();
+  // v12 — disambiguate same-name players in the online-now strip + chat
+  // sender headers. Falls back to the bare name for unique names.
+  const names = useDedupe(comm);
   const [text, setText] = useState('');
   const [busy, setBusy] = useState(false);
   const boxRef = useRef<HTMLDivElement>(null);
@@ -77,7 +92,7 @@ export function ChatView({ comm }: { comm: Comm }) {
         {comm.online.length > 0 && (
           <div className="soc-online">
             {comm.online.slice(0, 12).map(p => (
-              <span className="soc-ochip" key={p.id} title={p.name}><Av p={p} />{p.name}</span>
+              <span className="soc-ochip" key={p.id} title={p.name}><Av p={p} />{names[p.id] ?? p.name}</span>
             ))}
           </div>
         )}
@@ -86,11 +101,16 @@ export function ChatView({ comm }: { comm: Comm }) {
             ? <div className="sub soc-empty">{t('soc.chatEmpty')}</div>
             : comm.messages.map(m => {
               const mine = !!comm.me && m.uid === comm.me.id;
+              // v12 — apply the same-name suffix to chat sender headers too.
+              // m.name is what was stored at send time; if the sender is in
+              // the dedupe map (still online / on the board) we use the
+              // disambiguated version so two "Alex" messages are distinguishable.
+              const shownName = mine ? t('soc.you') : (names[m.uid] ?? m.name);
               return (
                 <div className={'smsg' + (mine ? ' me' : '')} key={m.id}>
                   <span className="soc-av">{m.avatar}</span>
                   <div className="smsg-bd">
-                    <div className="smsg-hd"><b>{mine ? t('soc.you') : m.name}</b><span className="mini">{hm(m.ts)}</span></div>
+                    <div className="smsg-hd"><b>{shownName}</b><span className="mini">{hm(m.ts)}</span></div>
                     <div className="smsg-tx">{m.text}</div>
                   </div>
                 </div>
@@ -118,6 +138,9 @@ export function ChatView({ comm }: { comm: Comm }) {
 // ============================== FRIENDS ==============================
 export function FriendsView({ s, act, comm, toast }: { s: GameState; act: Act; comm: Comm; toast: (m: string) => void }) {
   const { t } = useT();
+  // v12 — disambiguate same-name friends / requesters / gift senders so the
+  // player can tell two "Alex" friends apart. Falls back to the bare name.
+  const names = useDedupe(comm);
   const [nameDraft, setNameDraft] = useState('');
   const [avatarDraft, setAvatarDraft] = useState('🐯');
   const [codeIn, setCodeIn] = useState('');
@@ -228,10 +251,12 @@ export function FriendsView({ s, act, comm, toast }: { s: GameState; act: Act; c
         ? <p className="sub">{t('soc.noRequests')}</p>
         : comm.incoming.map(e => {
           const p = comm.people[e.a] ?? null;
+          // v12 — disambiguated name (suffix when name collides).
+          const nm = p ? (names[p.id] ?? p.name) : '…';
           return (
             <div className="row" key={e.id}>
               <Av p={p} />
-              <div className="info"><b>{p?.name ?? '…'}</b><span className="mini">{p?.code}</span></div>
+              <div className="info"><b>{nm}</b><span className="mini">{p?.code}</span></div>
               <button className="ibtn sageb tsmall" onClick={() => void comm.respondEdge(e.id, true)}>{t('soc.accept')}</button>
               <button className="ibtn ghost tsmall" onClick={() => void comm.respondEdge(e.id, false)}>{t('soc.decline')}</button>
             </div>
@@ -245,7 +270,8 @@ export function FriendsView({ s, act, comm, toast }: { s: GameState; act: Act; c
         <div className="row soc-friend" key={edge.id}>
           <span className="soc-avwrap"><Av p={p} />{p && isOnline(p.id) && <i className="soc-dot" title={t('soc.online')} />}</span>
           <div className="info">
-            <b>{p?.name ?? '…'}</b>
+            {/* v12 — disambiguated name (bare name when unique, suffix when collided). */}
+            <b>{p ? (names[p.id] ?? p.name) : '…'}</b>
             <span className="mini">{p ? `${t('lvl')} ${p.level} · ${fmt(p.nw)}` : ''}</span>
           </div>
           <button className="ibtn tsmall" onClick={() => setGiftOpen(o => ({ ...o, [p?.id ?? '']: !o[p?.id ?? ''] }))}>
@@ -274,11 +300,18 @@ export function FriendsView({ s, act, comm, toast }: { s: GameState; act: Act; c
       {comm.gifts.length === 0 && <p className="sub">{t('soc.noGifts')}</p>}
       {comm.gifts.map(g => {
         const mine = !!comm.me && g.from === comm.me.id;
+        // v12 — disambiguate the FROM name + the TO name in the gift row.
+        // g.fromName is stored at send time; if the sender is still in the
+        // dedupe map we use the suffixed version so two same-name senders
+        // are distinguishable in the inbox.
+        const fromNm = names[g.from] ?? g.fromName;
+        const toP = comm.people[g.to];
+        const toNm = mine ? t('soc.you') : (toP ? (names[toP.id] ?? toP.name) : '…');
         return (
           <div className={'row' + (g.claimed ? ' soc-claimed' : '')} key={g.id}>
             <span className="soc-av">🎁</span>
             <div className="info">
-              <b>{g.fromName} → {mine ? t('soc.you') : (comm.people[g.to]?.name ?? '…')}</b>
+              <b>{fromNm} → {toNm}</b>
               <span className="mini">{fmt(g.amount)}{g.note ? ` · “${g.note}”` : ''} · {hm(g.ts)}</span>
             </div>
             {mine
@@ -296,6 +329,10 @@ export function FriendsView({ s, act, comm, toast }: { s: GameState; act: Act; c
 // ============================== LEADERBOARD ==============================
 export function BoardView({ comm }: { comm: Comm }) {
   const { t } = useT();
+  // v12 — disambiguate same-name players on the leaderboard. The dedupe map
+  // considers the union of board + online + visible people so a name shared
+  // across lists still gets the suffix consistently.
+  const names = useDedupe(comm);
   const medals = ['🥇', '🥈', '🥉'];
   return (
     <>
@@ -308,12 +345,14 @@ export function BoardView({ comm }: { comm: Comm }) {
         {comm.board.length === 0 && <div className="sub soc-empty">{t('soc.emptyBoard')}</div>}
         {comm.board.map((p, i) => {
           const mine = !!comm.me && p.id === comm.me.id;
+          // v12 — suffixed name when collides, bare name otherwise.
+          const nm = names[p.id] ?? p.name;
           return (
             <div className={'soc-lbrow' + (mine ? ' me' : '')} key={p.id}>
               <span className="soc-rank">{i < 3 ? medals[i] : `#${i + 1}`}</span>
               <span className="soc-av">{p.avatar}</span>
               <div className="info">
-                <b>{p.name}{mine ? ` · ${t('soc.you')}` : ''}</b>
+                <b>{nm}{mine ? ` · ${t('soc.you')}` : ''}</b>
                 <span className="mini">{p.code} · {t('lvl')} {p.level}</span>
               </div>
               <b className="soc-nw">{fmt(p.nw)}</b>

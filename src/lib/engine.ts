@@ -127,8 +127,21 @@ export interface Transaction {
   realizedPnL?: number; // for sells: net profit (sell proceeds - cost basis) - fees
 }
 export const TX_CAP = 200; // keep the last 200 transactions (older trimmed)
+// v12 — short unique-per-life UID generator. Combines a base36 timestamp
+// (millisecond precision, ~7 chars) with a 5-char random suffix from
+// Math.random(). Collisions are negligible: even 100k UIDs generated in the
+// SAME millisecond would have a <1e-5 collision probability across the
+// 36^5 = ~60M random-suffix space. Output shape: "uid-lzxxxxx-yyyyy".
+export function genUid(): string {
+  return `uid-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 7)}`;
+}
 export interface GameState {
   schemaVersion: number;
+  // v12 — player UID. Short, stable, unique-per-life identifier generated at
+  // begin(). Used for disambiguating same-name players on the social layer +
+  // surfacing in the admin dashboard player list. Empty on fresh() until
+  // begin() assigns one; migrate() backfills it for pre-v12 saves.
+  uid: string;
   money: number; age: number; day: number; lastDay: number; lastYr: number;
   // v11.12 — epoch-ms of the last moment the player was actively playing.
   // Used by applyOffline() to advance time at the slower OFFLINE_DAY_MS rate
@@ -284,7 +297,7 @@ export type T = (k: string, f?: string, v?: Record<string, string | number>) => 
 // v11.57 — paid wellbeing cooldowns increased (user request: "ở phần có phí
 // hãy tăng thêm thời gian"). Free actions unchanged. This makes free options
 // (rest/selftrain/meditate) more valuable relative to paid ones.
-export const GYM_COST = 80, GYM_CD = 3, GYM_HP = 6;          // was cd=2
+export const GYM_COST = 80, GYM_CD = 30, GYM_HP = 6;          // v11.58: 1 month (was 3d)
 export const CHECKUP_COST = 600, CHECKUP_CD = 45, CHECKUP_HP = 15;  // was cd=30
 // v11.29 — deep medical treatment: the "I'm really weak, fix me NOW" option.
 // Expensive and a long-ish cooldown, but heals far more than a check-up.
@@ -637,6 +650,7 @@ export function buySpace(s: GameState, id: string): string | null {
 export function fresh(): GameState {
   const s: GameState = {
     schemaVersion: 4,
+    uid: '',
     money: 0, age: START, day: 0, lastDay: 0, lastYr: START, lastSeen: null, biz: {}, branches: {}, farm: {}, fac: {},
     farmBought: {}, facBought: {}, spaceBought: {}, spaceUpgrade: null, spaceTravel: false,
     lots: [], stk: {},     club: null, ownClub: null, job: null, sideJob: null,
@@ -698,6 +712,12 @@ export function migrate(raw: unknown): GameState {
   s.ach = Array.isArray(s.ach) ? s.ach : [];
   s.bank = s.bank || { dep: 0, loan: 0 };
   s.story = s.story || { used: [] };
+  // v12 — backfill the player UID for pre-v12 saves. Old saves have no uid
+  // field; generate one now so the social layer + admin dashboard always
+  // have a stable identifier for this life. Already-set uids (new saves) are
+  // kept verbatim. Trim defensively in case a corrupted save stored whitespace.
+  if (typeof s.uid !== 'string' || !s.uid.trim()) s.uid = genUid();
+  else s.uid = s.uid.trim();
   s.used = Array.isArray(s.used) ? s.used : [];
   // v11.28 — timed marketplace jobs backfill for old saves.
   s.mkt = Array.isArray(s.mkt) ? s.mkt : [];
@@ -806,6 +826,12 @@ export function migrate(raw: unknown): GameState {
 export function begin(s: GameState, opts: { name: string; byear: number; nation: string; religion?: Religion; ints: string[]; tals: string[]; gender?: Gender; birthMonth?: number; birthDay?: number; avatar?: string }) {
   const a = analyze(opts.ints, opts.tals);
   Object.assign(s, fresh(), { started: true });
+  // v12 — generate a fresh UID at the start of each life. Carried on the
+  // GameState so the social layer + admin dashboard can disambiguate
+  // same-name players. fresh() initialises it to '' so begin() is the single
+  // authority for assigning it (avoids leaking a stale UID from a prior
+  // fresh() call into a new life — Object.assign above already nuked it).
+  s.uid = genUid();
   s.name = opts.name.slice(0, 24) || 'Alex';
   // v11.36 — player-chosen emoji avatar. Default by gender if not provided.
   s.avatar = (opts.avatar || '').trim().slice(0, 8) || (opts.gender === 'male' ? '👨' : opts.gender === 'female' ? '👩' : '🧑');

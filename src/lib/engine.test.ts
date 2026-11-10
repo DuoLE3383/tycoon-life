@@ -5,7 +5,7 @@ import {
   addPost, bankOp, bizMultiplier, begin, bizVal, checkAch, doGig, effYears, enrollDeg, enrollLic, fresh, gigPay,
   lotValue, migrate, processDay, sleepHealthMult, sleepHealthRecovery, sleepDebtStudyMult, sleepDebtHealthMult, studyPace, studyWorkMult,
   SPACE_TRAVEL_COST, spaceIncome, startSpaceUpgrade, taxOf, tick, trade,
-  doWell, effWellCd, wellLeft, wellReady, TREAT_COST, TREAT_CD, healthWarnings, hire, jobIncome, meets, POST_COOLDOWN_DAYS, studyTuition,
+  doWell, effWellCd, wellLeft, wellReady, TREAT_COST, TREAT_CD, GYM_CD, GYM_COST, GYM_HP, WELL, healthWarnings, hire, jobIncome, meets, POST_COOLDOWN_DAYS, studyTuition,
   // v11.2 — crisis + market research exports
   effEraBiz, effEraFac, effLoanRate, effRisk, effDemand, researchCost, researchMarket,
   // v11.49 — Portfolio Dashboard helpers
@@ -15,6 +15,8 @@ import {
   setBizBrand, bizBrandOf, generateNpcReactions, openBranch, franchiseBranch, FRANCHISE_FEE_MULT, FRANCHISE_ROYALTY,
   // v11.53 — Finance Overview helpers
   yearExpenses, incomeBreakdown, expenseBreakdown, assetBreakdown, financeActions,
+  // v12 — player UID generator (regression test for the new UID field)
+  genUid,
   dateOf, worldYear, type GameState, type Transaction,
 } from './engine';
 
@@ -308,6 +310,12 @@ test('tick produces repeatable state changes with the same seed', () => {
   const options = { name: 'Test', byear: 1992, nation: 'Vietnam', ints: [], tals: [] };
   begin(stateA, options);
   begin(stateB, options);
+  // v12 — begin() assigns a non-deterministic uid (Date.now + Math.random),
+  // so the two states diverge on that field alone. Overwrite to a fixed value
+  // before the deepEqual — the assertion is about tick() determinism, not
+  // UID generation (which has its own dedicated v12 genUid test below).
+  stateA.uid = 'uid-test-fixed';
+  stateB.uid = 'uid-test-fixed';
   const rngA = seeded(1234), rngB = seeded(1234);
   for (let i = 0; i < 400; i++) {
     tick(stateA, 20_000, rngA);
@@ -1379,6 +1387,75 @@ test('v11.53: financeActions flags loan + idle cash + low health', () => {
   const lowIdx = ids.indexOf('deposit');
   if (highIdx >= 0 && lowIdx >= 0) {
     assert.ok(highIdx < lowIdx, 'high priority sorts before low');
+  }
+});
+
+// ---------- v11.58 — GYM_CD regression ----------
+// v11.58 increased the gym cooldown from 3 days to 30 days (1 month) per the
+// user request to make paid wellbeing actions feel weightier relative to the
+// free self-train option. This test pins the value so a future refactor
+// doesn't silently revert it. If you genuinely want to change GYM_CD again,
+// update the expected value here AND in src/app/page.tsx (HealthTab WELL list
+// reads it for the cooldown label).
+test('v11.58: GYM_CD is 30 days (1 month) — was 3 days before v11.58', () => {
+  assert.equal(GYM_CD, 30, 'GYM_CD should be 30 (1 month) per v11.58');
+  assert.equal(GYM_COST, 80, 'GYM_COST unchanged');
+  assert.equal(GYM_HP, 6, 'GYM_HP unchanged');
+  // The WELL catalogue must carry the same cd so the UI label matches the engine.
+  const gym = WELL.find(w => w.id === 'gym');
+  assert.ok(gym, 'WELL array must include the gym action');
+  assert.equal(gym!.cd, GYM_CD, 'WELL[gym].cd must equal GYM_CD');
+  assert.equal(gym!.cost, GYM_COST, 'WELL[gym].cost must equal GYM_COST');
+});
+
+// ---------- v12 — player UID regression ----------
+// v12 adds a stable per-life UID to GameState. fresh() starts empty (so the
+// intro / character creation screen doesn't show a stale chip); begin()
+// assigns one; migrate() backfills one for pre-v12 saves. The generator
+// returns the documented shape so the admin dashboard + social dedupe can
+// rely on it.
+test('v12: fresh() has empty uid; begin() assigns a non-empty uid', () => {
+  const f = fresh();
+  assert.equal(f.uid, '', 'fresh() must start with empty uid');
+  begin(f, { name: 'Test', byear: 1992, nation: 'Vietnam', ints: [], tals: [] });
+  // Read into a local so TS doesn't narrow through the assert.equal literal
+  // above (which would narrow f.uid to '' and then assert.ok to never).
+  const uid: string = f.uid;
+  assert.ok(uid, 'begin() must assign a non-empty uid');
+  assert.ok(uid.startsWith('uid-'), `uid must start with "uid-" — got ${uid}`);
+  // Shape: uid- + base36 timestamp + 5 random chars. Total length >= 9.
+  assert.ok(uid.length >= 9, `uid too short: ${uid}`);
+});
+
+test('v12: migrate() backfills uid for pre-v12 saves (missing or empty)', () => {
+  // 1. Save with no uid field at all (pre-v12 shape).
+  const pre = { schemaVersion: 4, name: 'Old' } as Partial<GameState>;
+  const m1 = migrate(pre);
+  const u1: string = m1.uid;
+  assert.ok(u1 && u1.startsWith('uid-'), `migrate must backfill uid — got ${u1}`);
+  // 2. Save with an empty-string uid (corrupted / mid-migration).
+  const m2 = migrate({ ...pre, uid: '' });
+  const u2: string = m2.uid;
+  assert.ok(u2 && u2.startsWith('uid-'), 'migrate must replace empty uid');
+  // 3. Save with a valid uid — preserved verbatim (trim only).
+  const existing = 'uid-lzabc123xyz';
+  const m3 = migrate({ ...pre, uid: existing });
+  assert.equal(m3.uid, existing, 'migrate must NOT clobber an existing uid');
+  // 4. Save with a whitespace-padded uid — trimmed, not regenerated.
+  const m4 = migrate({ ...pre, uid: '  ' + existing + '  ' });
+  assert.equal(m4.uid, existing, 'migrate must trim — not regenerate — a padded uid');
+});
+
+test('v12: genUid() returns unique-shaped ids across rapid successive calls', () => {
+  // 1000 calls in a tight loop — even at the same millisecond, the random
+  // suffix should keep collisions to zero. (36^5 = ~60M space, so 1000
+  // samples have a negligible collision probability.)
+  const seen = new Set<string>();
+  for (let i = 0; i < 1000; i++) {
+    const u = genUid();
+    assert.ok(u.startsWith('uid-'), `genUid shape: ${u}`);
+    assert.ok(!seen.has(u), `genUid collision at i=${i}: ${u}`);
+    seen.add(u);
   }
 });
 

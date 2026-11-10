@@ -1,5 +1,5 @@
 'use client';
-// HuyenBao v11.58 — React edition. Two-level grouped nav, a systems links map,
+// HuyenBao v12.0 — React edition. Two-level grouped nav, a systems links map,
 // gigs, levels, social, the cosmic frontier, EN/VI/中文, LLM oracle with
 // random kind dispatch (luck / setback / life-stage / story), pre-owned
 // market + social listings, a Hall of Fame tab, and a real player-to-player
@@ -108,7 +108,7 @@ if (typeof window !== 'undefined') {
 // v11.8 — the bundled version. The /version.json file in /public is polled
 // every 5 minutes; if its version is newer than this, a "reload to update"
 // banner appears even in a running session (no F5 needed).
-const BUNDLED_VERSION = 'v11.58';
+const BUNDLED_VERSION = 'v12.0';
 const VERSION_POLL_MS = 5 * 60 * 1000;
 // v11.44 — 'what's new' modal now fires PER PATCH (not per major version).
 // The SEEN_KEY is derived from BUNDLED_VERSION so each new patch re-shows the
@@ -203,6 +203,28 @@ export default function Page() {
   const dismissWhatsNew = useCallback(() => {
     try { localStorage.setItem(SEEN_KEY, '1'); } catch { /* ignore */ }
     setWhatsNew(false);
+  }, []);
+
+  // v12 — modal-overlap fix. When ANY modal/popup is in the DOM (modal-overlay,
+  // .modal.on, or .nav-popup-menu), toggle a `.has-modal` class on the .tgame
+  // root. The CSS uses this to shift the toast (#ttoast) from top-right →
+  // bottom-right so it stops covering the modal-x close button — the actual
+  // "popup bị đè" complaint. A MutationObserver catches every modal including
+  // the internal GigsPopup / MoreInfoPopup / BizOffer popups whose open state
+  // lives inside their own components (so we can't read it from here directly).
+  // Polling querySelector on each subtree mutation is cheap (one DOM read).
+  useEffect(() => {
+    if (typeof document === 'undefined') return;
+    const root = document.querySelector('.tgame');
+    if (!root) return;
+    const sync = () => {
+      const open = !!document.querySelector('.modal-overlay, .modal.on, .nav-popup-menu');
+      root.classList.toggle('has-modal', open);
+    };
+    sync();
+    const obs = new MutationObserver(sync);
+    obs.observe(document.body, { childList: true, subtree: true });
+    return () => { obs.disconnect(); root.classList.remove('has-modal'); };
   }, []);
 
   const showToast = useCallback((msg: string) => {
@@ -617,7 +639,7 @@ function Header({ s, eraName, speed, setSpeed }: { s: GameState; eraName: (y: nu
     <header className="top">
       <div className="brand">
         <Art id="s-coin" className="logo" />
-        <div><h1><span className="mini">v11.58</span> HuyenBao</h1>
+        <div><h1><span className="mini">v12.0</span> HuyenBao</h1>
           <div className="mini">{s.started ? `${s.nation} · ${eraName(worldYear(s))}` : t('tagline')}</div></div>
       </div>
       {/* v11.46 — removed Cash/NW/Income from header (was duplicate of PinZone).
@@ -736,6 +758,12 @@ function PinZone({ s, t, onEdit, act, onNav }: { s: GameState; t: TFn; onEdit: (
       <div className="agehead identity-row">
         <span className="avchip" data-tip={t('edit.profile', 'Edit profile')}>{s.avatar}</span>
         <b>{s.name}</b>
+        {/* v12 — small UID chip next to the name. Surfaces the player's stable
+            life identifier (used by the social layer + admin dashboard) without
+            dominating the bar. Last 6 chars are usually enough to tell two
+            same-name players apart in a glance; the full UID is on the admin
+            dashboard player list. Empty on fresh games (pre-begin) — hidden. */}
+        {s.uid && <code className="uid-chip" title={`UID: ${s.uid}`}>{s.uid.slice(-6)}</code>}
         <button className="pin-edit" onClick={onEdit} title={t('edit.profile', 'Edit profile')} aria-label={t('edit.profile', 'Edit profile')}>✏️</button>
         <span className="sep">·</span>
         <span className="mini">{t('age')} {Math.floor(a)}</span>
@@ -1156,9 +1184,62 @@ function HomeTab({ s, act, askAI, aiBusy, aiNote, eraName, onNav }: { s: GameSta
         <MoreInfoPopup s={s} t={t} lang={lang} eraName={eraName} y={y} news={news} timelineLocale={timelineLocale} onNav={onNav} />
       </div>
 
+      {/* v12 — compact rotating Tips card. One tip at a time, advances every
+          30 seconds (or sooner if the user clicks a dot). Six curated tips
+          point at underused features (used market, sleep recovery, savings
+          interest, franchising, tuition discount, Finance Overview tab). */}
+      <TipsCard t={t} onNav={onNav} />
+
       {aiBusy && <p className="sub">{t('oracle.thinking')}</p>}
       {!aiBusy && aiNote && <p className="sub">{aiNote}</p>}
     </>
+  );
+}
+
+// ================= v12 — TIPS CARD =================
+// Compact rotating-tips card below the HomeTab quick actions. One tip visible
+// at a time, advances every 30 seconds OR when the user clicks a dot. Six
+// curated evergreen tips that point at underused features (used market, sleep
+// recovery, savings interest, franchising, tuition discount, Finance Overview).
+// The whole card stays small (single row + dots) so it doesn't push the rest
+// of the dashboard down. Tapping the card body navigates to the relevant tab.
+const TIP_KEYS = ['tip.1', 'tip.2', 'tip.3', 'tip.4', 'tip.5', 'tip.6'] as const;
+// Each tip's "go to" tab — tapping the card body navigates here.
+const TIP_LINKS: Record<string, string> = {
+  'tip.1': 'assets',        // used market lives in the assets tab
+  'tip.2': 'home',          // sleep schedule is on the PinZone / home
+  'tip.3': 'bank',          // savings → bank tab
+  'tip.4': 'biz',           // franchise a branch → biz tab
+  'tip.5': 'edu',           // study → edu tab
+  'tip.6': 'finance-overview', // finance overview tab
+};
+const TIP_ICONS: Record<string, string> = {
+  'tip.1': '💡', 'tip.2': '😴', 'tip.3': '🏦',
+  'tip.4': '🏪', 'tip.5': '🎓', 'tip.6': '📊',
+};
+function TipsCard({ t, onNav }: { t: TFn; onNav: (k: string) => void }) {
+  const [idx, setIdx] = useState(() => Math.floor(Math.random() * TIP_KEYS.length));
+  // v12 — advance every 30 seconds. Re-uses one interval; cleanup on unmount.
+  // The index wraps via modulo so it always lands on a valid tip.
+  useEffect(() => {
+    const iv = setInterval(() => setIdx(i => (i + 1) % TIP_KEYS.length), 30000);
+    return () => clearInterval(iv);
+  }, []);
+  const key = TIP_KEYS[idx];
+  const link = TIP_LINKS[key];
+  return (
+    <div className="tips-card" role="status">
+      <span className="tips-ic">{TIP_ICONS[key]}</span>
+      {/* key={key} forces the fade animation to re-trigger on each rotation */}
+      <button className="tips-tx" key={key} onClick={() => onNav(link)} style={{ background: 'none', border: 0, padding: 0, textAlign: 'left', cursor: 'pointer', color: 'inherit', font: 'inherit' }}>
+        {t(key)} <span className="mini" style={{ marginLeft: 6, color: 'var(--accent)', fontWeight: 700 }}>→</span>
+      </button>
+      <span className="tips-dots" aria-hidden>
+        {TIP_KEYS.map((k, i) => (
+          <span key={k} className={'tips-dot' + (i === idx ? ' on' : '')} onClick={() => setIdx(i)} style={{ cursor: 'pointer' }} />
+        ))}
+      </span>
+    </div>
   );
 }
 

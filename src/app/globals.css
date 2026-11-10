@@ -925,3 +925,98 @@ html[data-theme="dark"] .tgame .cash-chip.low{color:#f87171;border-color:rgba(24
 .tgame .pinzone-v37{padding:9px 12px 10px}
 .tgame .pinzone-detail{display:flex;gap:14px;align-items:stretch;margin:7px 0 5px;padding-top:7px;border-top:1px solid var(--line)}
 
+/* ================= v12 — UID chip + tips card + admin popup-overlap fixes ================= */
+/* v12 — tiny monospace chip in the PinZone identity row that shows the last 6
+   chars of the player UID. Muted colour so it sits next to the name without
+   competing for attention; clicking selects the text so the player can copy
+   it if needed for support / friend lookups. */
+.tgame .uid-chip{
+  font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  font-size:.62rem;font-weight:700;letter-spacing:.04em;
+  padding:1px 6px;border-radius:6px;
+  background:rgba(127,127,127,.12);color:var(--mute);
+  border:1px solid var(--line);
+  user-select:all;cursor:text;flex:none;
+}
+.tgame .uid-chip:hover{background:rgba(127,127,127,.18);color:var(--ink)}
+
+/* v12 — compact rotating Tips card on the HomeTab (below quick actions).
+   One tip visible at a time, fades between rotations. Stays small so it
+   doesn't push the rest of the dashboard down. */
+.tgame .tips-card{
+  background:linear-gradient(180deg,rgba(255,255,255,.06) 0%,rgba(255,255,255,0) 50%),var(--card);
+  border:1px solid var(--line);border-left:3px solid var(--accent);
+  border-radius:12px;padding:10px 12px;margin:10px 0 0;
+  display:flex;align-items:center;gap:9px;
+  box-shadow:0 1px 2px rgba(60,55,40,.05);
+}
+.tgame .tips-card .tips-ic{font-size:1.05rem;flex:none;line-height:1}
+.tgame .tips-card .tips-tx{
+  flex:1;font-size:.82rem;line-height:1.4;color:var(--ink);
+  animation:tipFade .5s ease;
+}
+.tgame .tips-card .tips-dots{
+  display:flex;gap:3px;flex:none;align-items:center;
+}
+.tgame .tips-card .tips-dot{
+  width:5px;height:5px;border-radius:50%;
+  background:rgba(127,127,127,.3);transition:background .25s;
+}
+.tgame .tips-card .tips-dot.on{background:var(--accent)}
+@keyframes tipFade{from{opacity:.25;transform:translateY(2px)}to{opacity:1;transform:none}}
+@media (prefers-reduced-motion: reduce){.tgame .tips-card .tips-tx{animation:none}}
+
+/* v12 — admin dashboard: convert the inline .adm-flash note to a fixed
+   bottom-centre toast so it never pushes the form layout down (which the
+   user perceived as "popup bị đè" — the note appeared and the form jumped).
+   Now it overlays the bottom edge, leaving the create-item form exactly
+   where it was. Auto-dismissed by the existing 4.5s setTimeout in flash(). */
+.admpage .adm-flash{
+  position:fixed;left:50%;bottom:18px;transform:translateX(-50%);
+  z-index:9999;min-width:240px;max-width:min(560px,92vw);
+  text-align:center;box-shadow:0 8px 28px rgba(0,0,0,.18);
+  animation:admFlashIn .25s ease;
+}
+@keyframes admFlashIn{from{opacity:0;transform:translate(-50%,12px)}to{opacity:1;transform:translateX(-50%)}}
+@media (prefers-reduced-motion: reduce){.admpage .adm-flash{animation:none}}
+
+/* v12 — admin dashboard: tighten the create-item form layout so the "➕ Tạo"
+   button is never hidden behind the preview image. The dashed .adm-bcast
+   panel switches to flex-column so children stack predictably regardless
+   of viewport width; the preview thumbnail sits in its own row. */
+.admpage .adm-bcast{display:flex;flex-direction:column;gap:8px}
+.admpage .adm-bcast .adm-row{margin:0}
+.admpage .adm-bcast img{display:block;margin:4px 0 0}
+/* v12 — make the disabled "create" button visibly present (was 0.4 opacity,
+   which on dark backgrounds read as "no button exists"). Bump to 0.55 and
+   add a hint cursor so the user knows the button is there but inactive. */
+.admpage .adm-btn:disabled{opacity:.55;cursor:not-allowed}
+.admpage .adm-btn:disabled:hover{opacity:.55}
+
+/* v12 — game modal-overlap fix: when a modal-overlay is open, the toast
+   (top-right, z-index 300) can cover the modal-x close button (top-right of
+   the modal-box). Previous fixes tried lowering the toast z-index (it then
+   hid behind the modal and was never seen) and moving its default corner
+   (it then fought with the reload banner at the bottom). Neither worked.
+   The actual fix is conditional: when ANY modal is open, React toggles a
+   .has-modal class on .tgame, which shifts the toast to the BOTTOM-right
+   corner — away from the modal-head where the ✕ lives. Modal-overlay,
+   toast, and reload-banner all keep their existing z-indexes (200/300/1000)
+   so the toast stays visible-above-modal (notifications still surface) but
+   no longer blocks the close button. The .modal-x hit target is also
+   enlarged so it's an easy tap on mobile. */
+.tgame .modal-x{min-width:36px;min-height:32px;display:inline-flex;align-items:center;justify-content:center}
+.tgame.has-modal #ttoast{
+  top:auto !important;bottom:calc(10px + env(safe-area-inset-bottom,0px));
+  right:calc(10px + env(safe-area-inset-right,0px));
+  transform:none;
+  animation:toastInBottom .3s cubic-bezier(.2,.8,.2,1) both;
+}
+@keyframes toastInBottom{from{opacity:0;transform:translateX(120%)}to{opacity:1;transform:translateX(0)}}
+@media (prefers-reduced-motion: reduce){.tgame.has-modal #ttoast{animation:none}}
+
+/* v12 — admin player-list UID cell: small monospace, muted, wraps to its own
+   line under the name on narrow screens. */
+.admpage .adm-uid{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:.68rem;opacity:.55;white-space:nowrap}
+@media (max-width:640px){.admpage .adm-uid{display:block;margin-top:2px}}
+
