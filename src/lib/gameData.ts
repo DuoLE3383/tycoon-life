@@ -1,4 +1,11 @@
 // ================= GAME DATA (ported from the static game) =================
+// v11.58 — ITEMS / RARE_ITEMS / USED_MARKET data lives in /public/items.json
+// (single source of truth, shipped to clients as a static asset). The TS file
+// imports the JSON at module-load so the engine + tests can read the data
+// synchronously; `loadItems()` re-fetches /items.json at runtime on the client
+// so newly generated items (via /api/items/generate) can be merged in. The
+// TypeScript interfaces (ItemDef, UsedItem, Rarity) stay here.
+import itemsData from '../../public/items.json';
 export type FieldKey = 'business' | 'engineering' | 'medicine' | 'science' | 'arts';
 
 // v11.12 — online time runs at 30 real-seconds per game day (was 20s). When the
@@ -383,101 +390,9 @@ export type Rarity = 'common' | 'uncommon' | 'rare' | 'legendary';
 export const RARITY_MULT: Record<Rarity, number> = { common: 1, uncommon: 1.4, rare: 2.2, legendary: 4 };
 export const RARITY_COLOR: Record<Rarity, string> = { common: '#78725f', uncommon: '#3a5a99', rare: '#5b3da3', legendary: '#a16207' };
 export interface ItemDef { id: string; cat: string; brand?: string; name: string; c: string; price: number; lux: number; rate: number; art: string; rarity?: Rarity }
-export const ITEMS: ItemDef[] = [
-  // ---- Sport bikes ----
-  { id: 'bike-ktm', cat: 'Sport bike', brand: 'KTM', name: 'RC 390', c: '#f97316', price: 6000, lux: 6, rate: -.15, art: 'i-bike' },
-  { id: 'bike-ninja', cat: 'Sport bike', brand: 'Kawasaki', name: 'Ninja ZX-10R', c: '#16a34a', price: 16000, lux: 20, rate: -.12, art: 'i-bike' },
-  { id: 'bike-r1', cat: 'Sport bike', brand: 'Yamaha', name: 'YZF-R1', c: '#2563eb', price: 18000, lux: 25, rate: -.12, art: 'i-bike' },
-  { id: 'bike-s1000', cat: 'Sport bike', brand: 'BMW', name: 'S 1000 RR', c: '#1d4ed8', price: 20000, lux: 30, rate: -.12, art: 'i-bike' },
-  { id: 'bike-cbr', cat: 'Sport bike', brand: 'Honda', name: 'CBR1000RR-R', c: '#dc2626', price: 25000, lux: 35, rate: -.12, art: 'i-bike' },
-  { id: 'bike-panigale', cat: 'Sport bike', brand: 'Ducati', name: 'Panigale V4', c: '#ef4444', price: 30000, lux: 50, rate: -.1, art: 'i-bike' },
-  // ---- Phones ----
-  { id: 'ph-pixel', cat: 'Phone', brand: 'Google', name: 'Pixel 9 Pro', c: '#10b981', price: 999, lux: 3, rate: -.35, art: 'i-phone' },
-  { id: 'ph-iphone', cat: 'Phone', brand: 'Apple', name: 'iPhone 16 Pro', c: '#64748b', price: 1199, lux: 4, rate: -.35, art: 'i-phone' },
-  { id: 'ph-samsung', cat: 'Phone', brand: 'Samsung', name: 'Galaxy S25 Ultra', c: '#1e40af', price: 1299, lux: 5, rate: -.35, art: 'i-phone' },
-  { id: 'ph-vertu', cat: 'Phone', brand: 'Vertu', name: 'Signature Gold', c: '#ca8a04', price: 15000, lux: 60, rate: -.2, art: 'i-phone' },
-  // ---- Watches ----
-  { id: 'w-casio', cat: 'Watch', brand: 'Casio', name: 'G-Shock', c: '#374151', price: 150, lux: 1, rate: -.1, art: 'i-watch' },
-  { id: 'w-tag', cat: 'Watch', brand: 'TAG Heuer', name: 'Carrera', c: '#0f766e', price: 6000, lux: 25, rate: -.02, art: 'i-watch' },
-  { id: 'w-omega', cat: 'Watch', brand: 'Omega', name: 'Speedmaster', c: '#1e3a8a', price: 6500, lux: 28, rate: .01, art: 'i-watch' },
-  { id: 'w-rolex', cat: 'Watch', brand: 'Rolex', name: 'Submariner', c: '#15803d', price: 10000, lux: 80, rate: .05, art: 'i-watch' },
-  { id: 'w-ap', cat: 'Watch', brand: 'Audemars Piguet', name: 'Royal Oak', c: '#7c3aed', price: 30000, lux: 200, rate: .06, art: 'i-watch' },
-  { id: 'w-patek', cat: 'Watch', brand: 'Patek Philippe', name: 'Nautilus', c: '#0c4a6e', price: 35000, lux: 300, rate: .07, art: 'i-watch' },
-  // v11.18 — extra watches (collectible-grail tier)
-  { id: 'w-vacheron', cat: 'Watch', brand: 'Vacheron Constantin', name: 'Overseas Perpetual', c: '#4338ca', price: 55000, lux: 450, rate: .08, art: 'i-watch' },
-  { id: 'w-richardmille', cat: 'Watch', brand: 'Richard Mille', name: 'RM 011', c: '#92400e', price: 180000, lux: 1500, rate: .09, art: 'i-watch' },
-  // ---- Jewelry ----
-  { id: 'j-tiffany', cat: 'Jewelry', brand: 'Tiffany & Co.', name: 'Solitaire ring', c: '#0ea5e9', price: 12000, lux: 60, rate: .02, art: 'i-ring' },
-  { id: 'j-cartier', cat: 'Jewelry', brand: 'Cartier', name: 'Love bracelet', c: '#b91c1c', price: 7500, lux: 50, rate: .03, art: 'i-ring' },
-  { id: 'j-bulgari', cat: 'Jewelry', brand: 'Bulgari', name: 'Serpenti necklace', c: '#854d0e', price: 14000, lux: 90, rate: .03, art: 'i-ring' },
-  // v11.18 — extra jewelry (statement pieces)
-  { id: 'j-harrywinston', cat: 'Jewelry', brand: 'Harry Winston', name: 'Emerald drop necklace', c: '#047857', price: 85000, lux: 350, rate: .04, art: 'i-ring' },
-  // ---- Suits ----
-  { id: 's-zara', cat: 'Suit', brand: 'Zara', name: 'Slim suit', c: '#111827', price: 250, lux: 2, rate: -.2, art: 'i-suit' },
-  { id: 's-boss', cat: 'Suit', brand: 'Hugo Boss', name: 'Business suit', c: '#1f2937', price: 800, lux: 6, rate: -.2, art: 'i-suit' },
-  { id: 's-armani', cat: 'Suit', brand: 'Armani', name: 'Two-piece suit', c: '#312e81', price: 2500, lux: 20, rate: -.15, art: 'i-suit' },
-  { id: 's-brioni', cat: 'Suit', brand: 'Brioni', name: 'Bespoke suit', c: '#4c1d95', price: 4000, lux: 40, rate: -.1, art: 'i-suit' },
-  // v11.18 — extra suit (sartorial grail)
-  { id: 's-kiton', cat: 'Suit', brand: 'Kiton', name: 'Cipa 1960 bespoke', c: '#1e3a8a', price: 8000, lux: 80, rate: -.08, art: 'i-suit' },
-  // ---- Cars ----
-  { id: 'c-toyota', cat: 'Car', brand: 'Toyota', name: 'Camry', c: '#dc2626', price: 30000, lux: 5, rate: -.12, art: 'i-lambo' },
-  { id: 'c-tesla', cat: 'Car', brand: 'Tesla', name: 'Model S Plaid', c: '#7f1d1d', price: 100000, lux: 40, rate: -.13, art: 'i-lambo' },
-  { id: 'c-bmw', cat: 'Car', brand: 'BMW', name: 'M3', c: '#1d4ed8', price: 85000, lux: 60, rate: -.12, art: 'i-lambo' },
-  { id: 'c-porsche', cat: 'Car', brand: 'Porsche', name: '911 Carrera', c: '#ca8a04', price: 120000, lux: 80, rate: -.1, art: 'i-lambo' },
-  { id: 'c-lambo', cat: 'Car', brand: 'Lamborghini', name: 'Urus', c: '#16a34a', price: 240000, lux: 250, rate: -.1, art: 'i-lambo' },
-  { id: 'c-ferrari', cat: 'Car', brand: 'Ferrari', name: '296 GTB', c: '#dc2626', price: 330000, lux: 300, rate: -.08, art: 'i-lambo' },
-  { id: 'c-rr', cat: 'Car', brand: 'Rolls-Royce', name: 'Ghost', c: '#171717', price: 350000, lux: 400, rate: -.08, art: 'i-lambo' },
-  // v11.18 — extra car (hypercar)
-  { id: 'c-bugatti', cat: 'Car', brand: 'Bugatti', name: 'Chiron', c: '#0ea5e9', price: 3000000, lux: 2500, rate: -.05, art: 'i-lambo' },
-  // ---- Properties ----
-  { id: 'h-condo', cat: 'Property', name: 'City condo', c: '#0ea5e9', price: 300000, lux: 40, rate: .03, art: 'i-house' },
-  { id: 'h-house', cat: 'Property', name: 'Suburban house', c: '#16a34a', price: 550000, lux: 60, rate: .03, art: 'i-house' },
-  { id: 'h-penthouse', cat: 'Property', name: 'Downtown penthouse', c: '#7c3aed', price: 2500000, lux: 250, rate: .04, art: 'i-house' },
-  { id: 'h-villa', cat: 'Property', name: 'Beach villa', c: '#f59e0b', price: 3500000, lux: 350, rate: .04, art: 'i-villa' },
-  { id: 'h-island', cat: 'Property', name: 'Private island', c: '#06b6d4', price: 30000000, lux: 9000, rate: .05, art: 'i-island' },
-  // ---- Yachts ----
-  { id: 'y-azimut', cat: 'Yacht', brand: 'Azimut', name: '40 m motor yacht', c: '#0369a1', price: 8000000, lux: 900, rate: -.06, art: 'i-yacht' },
-  { id: 'y-sunseeker', cat: 'Yacht', brand: 'Sunseeker', name: 'Predator 74', c: '#0f172a', price: 12000000, lux: 1400, rate: -.06, art: 'i-yacht' },
-  // ---- Private jets ----
-  { id: 'p-cessna', cat: 'Private jet', brand: 'Cessna', name: 'Citation CJ3', c: '#475569', price: 10000000, lux: 1500, rate: -.08, art: 'i-jet' },
-  { id: 'p-gulf', cat: 'Private jet', brand: 'Gulfstream', name: 'G650', c: '#1e293b', price: 70000000, lux: 6000, rate: -.07, art: 'i-jet' },
-  // ---- Art ----
-  { id: 'a-contemp', cat: 'Art', name: 'Contemporary canvas', c: '#db2777', price: 50000, lux: 150, rate: .06, art: 'i-art' },
-  { id: 'a-impress', cat: 'Art', name: 'Impressionist original', c: '#a16207', price: 40000000, lux: 9000, rate: .07, art: 'i-art' },
-  // ---- v11.18: Collectibles (new category) — appreciating tangible assets ----
-  // Rare coins, stamps, wine, antiques. All appreciate slowly (rate > 0).
-  // No licence required — these are pure luxury/collectible plays.
-  { id: 'col-goldcoin', cat: 'Collectibles', name: 'Rare gold coin (19th c.)', c: '#ca8a04', price: 25000, lux: 100, rate: .05, art: 'i-coin' },
-  { id: 'col-stamp', cat: 'Collectibles', name: 'Rare postage stamp (mint)', c: '#15803d', price: 8000, lux: 40, rate: .04, art: 'i-stamp' },
-  { id: 'col-wine', cat: 'Collectibles', name: 'Vintage wine case (6 bt)', c: '#7f1d1d', price: 18000, lux: 70, rate: .06, art: 'i-wine' },
-  { id: 'col-ming', cat: 'Collectibles', name: 'Ming-dynasty porcelain vase', c: '#0c4a6e', price: 350000, lux: 800, rate: .07, art: 'i-vase' },
-  { id: 'col-strad', cat: 'Collectibles', name: 'Stradivarius violin', c: '#92400e', price: 2500000, lux: 3000, rate: .08, art: 'i-violin' },
-  // ---- v11.24: diversified catalogue (5 new categories, 16 items) ----
-  // Player feedback: "đa dạng hoá hơn phần item... đưa thành tài sản".
-  // Sneakers + handbags cover streetwear/luxury fashion; audio + camera
-  // cover equipment hobbies; classic cars are appreciating garage plays.
-  // ---- Sneakers ----
-  { id: 'sn-jordan', cat: 'Sneakers', brand: 'Nike', name: 'Air Jordan 1 Retro High', c: '#dc2626', price: 250, lux: 3, rate: -.1, art: 'i-shoe' },
-  { id: 'sn-yeezy', cat: 'Sneakers', brand: 'Adidas', name: 'Yeezy Boost 350', c: '#a3a3a3', price: 350, lux: 5, rate: -.15, art: 'i-shoe' },
-  { id: 'sn-dior', cat: 'Sneakers', brand: 'Dior', name: 'B23 high-top', c: '#334155', price: 1800, lux: 20, rate: -.08, art: 'i-shoe' },
-  { id: 'sn-aimag', cat: 'Sneakers', brand: 'Nike', name: 'Air Mag "Back to the Future"', c: '#f8fafc', price: 92000, lux: 1500, rate: .1, art: 'i-shoe', rarity: 'legendary' },
-  { id: 'sn-lvaf1', cat: 'Sneakers', brand: 'Louis Vuitton × Nike', name: 'Air Force 1 (Virgil Abloh)', c: '#a16207', price: 350000, lux: 2800, rate: .09, art: 'i-shoe', rarity: 'legendary' },
-  // ---- Handbags ----
-  { id: 'bag-coach', cat: 'Handbag', brand: 'Coach', name: 'Tabby 26', c: '#b45309', price: 450, lux: 4, rate: -.2, art: 'i-handbag' },
-  { id: 'bag-lv', cat: 'Handbag', brand: 'Louis Vuitton', name: 'Neverfull MM', c: '#7c2d12', price: 2400, lux: 18, rate: -.04, art: 'i-handbag' },
-  { id: 'bag-chanel', cat: 'Handbag', brand: 'Chanel', name: 'Classic Flap', c: '#111827', price: 11000, lux: 100, rate: .06, art: 'i-handbag' },
-  { id: 'bag-birkin', cat: 'Handbag', brand: 'Hermès', name: 'Birkin 35 Togo', c: '#78350f', price: 28000, lux: 420, rate: .12, art: 'i-bag', rarity: 'legendary' },
-  // ---- Audio ----
-  { id: 'au-mcintosh', cat: 'Audio', brand: 'McIntosh', name: 'Hi-fi amplifier stack', c: '#1e3a8a', price: 32000, lux: 220, rate: 0, art: 'i-sound' },
-  { id: 'au-gram', cat: 'Audio', brand: 'HMV', name: 'Gramophone (1930s)', c: '#7c3aed', price: 9000, lux: 90, rate: .05, art: 'i-sound' },
-  // ---- Camera ----
-  { id: 'cam-leica', cat: 'Camera', brand: 'Leica', name: 'M11 rangefinder', c: '#0f172a', price: 6500, lux: 55, rate: -.03, art: 'i-cam' },
-  { id: 'cam-hassel', cat: 'Camera', brand: 'Hasselblad', name: '907X & CFV 100C', c: '#44403c', price: 11000, lux: 80, rate: .01, art: 'i-cam' },
-  // ---- Classic cars (appreciating garage) ----
-  { id: 'cc-e30', cat: 'Classic car', brand: 'BMW', name: 'M3 Sport Evolution \'90', c: '#b91c1c', price: 260000, lux: 320, rate: .05, art: 'i-lambo' },
-  { id: 'cc-959', cat: 'Classic car', brand: 'Porsche', name: '959 \'87', c: '#e5e7eb', price: 1500000, lux: 1600, rate: .07, art: 'i-lambo' },
-  { id: 'cc-300sl', cat: 'Classic car', brand: 'Mercedes-Benz', name: '300SL Gullwing \'55', c: '#94a3b8', price: 1800000, lux: 2000, rate: .08, art: 'i-lambo', rarity: 'legendary' },
-];
+// v11.58 — ITEMS now loads from /public/items.json (single source of truth).
+// `as ItemDef[]` because the JSON import is typed as a plain object.
+export const ITEMS: ItemDef[] = itemsData.items as ItemDef[];
 // v10.5 — derive rarity from luxury tier if not set explicitly.
 // 0-9 common · 10-49 uncommon · 50-299 rare · 300+ legendary.
 export function itemRarity(it: { rarity?: Rarity; lux: number }): Rarity {
@@ -493,22 +408,48 @@ export function itemRarity(it: { rarity?: Rarity; lux: number }): Rarity {
 // catalogue — the only way to own one is the scheduled RARE AUCTION where
 // NPC collectors bid against the player (see tickRareAuctions in engine.ts).
 // They still live in ITEM_BY so owned lots / resale / repair all work.
-export const RARE_ITEMS: ItemDef[] = [
-  { id: 'rg-goldenegg', cat: 'Collectibles', name: 'Fabergé egg (gold & diamonds)', c: '#d4a017', price: 3200000, lux: 5200, rate: .08, art: 'i-coin', rarity: 'legendary' },
-  { id: 'rg-gto', cat: 'Classic car', brand: 'Ferrari', name: '250 GTO \'62', c: '#dc2626', price: 48000000, lux: 15000, rate: .09, art: 'i-lambo', rarity: 'legendary' },
-  { id: 'rg-pinkstar', cat: 'Jewelry', name: 'Pink Star diamond (59.6 ct)', c: '#ec4899', price: 71000000, lux: 18000, rate: .08, art: 'i-ring', rarity: 'legendary' },
-  { id: 'rg-bible', cat: 'Collectibles', name: 'First-edition Gutenberg leaf', c: '#7c2d12', price: 8500000, lux: 6000, rate: .07, art: 'i-stamp', rarity: 'legendary' },
-  { id: 'rg-picasso', cat: 'Art', name: 'Picasso "Femme assise"', c: '#0ea5e9', price: 69500000, lux: 17000, rate: .08, art: 'i-art', rarity: 'legendary' },
-  { id: 'rg-trex', cat: 'Collectibles', name: 'T-Rex skeleton (museum grade)', c: '#57534e', price: 31800000, lux: 12000, rate: .07, art: 'i-vase', rarity: 'legendary' },
-  { id: 'rg-moonrock', cat: 'Collectibles', name: 'Certified lunar meteorite', c: '#64748b', price: 2800000, lux: 4800, rate: .06, art: 'i-coin', rarity: 'legendary' },
-  { id: 'rg-jersey', cat: 'Collectibles', name: 'Match-worn World Cup jersey', c: '#16a34a', price: 9300000, lux: 7000, rate: .06, art: 'i-shirt', rarity: 'legendary' },
-  { id: 'rg-tulip', cat: 'Collectibles', name: "Semper Augustus tulip bulb (1637)", c: '#be185d', price: 1900000, lux: 3900, rate: .12, art: 'i-vase', rarity: 'legendary' },
-  { id: 'rg-wittelsbach', cat: 'Jewelry', name: 'Wittelsbach-Graff blue diamond', c: '#1d4ed8', price: 80000000, lux: 20000, rate: .08, art: 'i-ring', rarity: 'legendary' },
-  { id: 'rg-f1', cat: 'Classic car', name: 'Formula 1 championship car', c: '#f59e0b', price: 18500000, lux: 9000, rate: .07, art: 'i-bike', rarity: 'legendary' },
-  { id: 'rg-strad2', cat: 'Collectibles', name: 'Guarneri "del Gesù" violin', c: '#92400e', price: 16400000, lux: 8500, rate: .08, art: 'i-violin', rarity: 'legendary' },
-];
+export const RARE_ITEMS: ItemDef[] = itemsData.rareItems as ItemDef[];
 export const RARE_IDS = new Set(RARE_ITEMS.map(i => i.id));
-export const ITEM_BY = Object.fromEntries([...ITEMS, ...RARE_ITEMS].map(i => [i.id, i]));
+export const ITEM_BY: Record<string, ItemDef> = Object.fromEntries([...ITEMS, ...RARE_ITEMS].map(i => [i.id, i]));
+
+// v11.58 — runtime loader for client-side use. Re-fetches /items.json over the
+// network (so a freshly generated item — POST /api/items/generate → server
+// appends to a runtime registry — can be picked up without a full reload).
+// Falls back to the synchronously-imported data on any error (SSR, offline,
+// older build without the route). Returns the three pools the engine needs.
+export interface LoadedItems {
+  items: ItemDef[];
+  rareItems: ItemDef[];
+  usedMarket: UsedItem[];
+}
+export async function loadItems(): Promise<LoadedItems> {
+  if (typeof fetch !== 'undefined') {
+    try {
+      const base = (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_BASE_PATH) || '';
+      const res = await fetch(base + '/items.json', { cache: 'no-store' });
+      if (res.ok) {
+        const j = (await res.json()) as Partial<LoadedItems>;
+        if (Array.isArray(j.items) && Array.isArray(j.rareItems) && Array.isArray(j.usedMarket)) {
+          return {
+            items: j.items as ItemDef[],
+            rareItems: j.rareItems as ItemDef[],
+            usedMarket: j.usedMarket as UsedItem[],
+          };
+        }
+      }
+    } catch { /* fall through to the static import */ }
+  }
+  return { items: ITEMS, rareItems: RARE_ITEMS, usedMarket: USED_MARKET };
+}
+
+// v11.58 — register a freshly generated item (LLM-produced) into the runtime
+// pool. Mutates ITEMS + ITEM_BY so the new item is immediately buyable in the
+// AssetsTab. Idempotent: re-registering an existing id is a no-op.
+export function registerItem(item: ItemDef): void {
+  if (ITEM_BY[item.id]) return;
+  ITEMS.push(item);
+  ITEM_BY[item.id] = item;
+}
 
 // v11.33 — the three BUY catalogue groups requested by players:
 //   'bds'    Bất động sản — all Property
@@ -599,20 +540,7 @@ export interface UsedItem {
   story: string;         // one-line backstory shown in the listing
   since: number;         // v10.5: the real-world year this model first existed — used to filter the market by era
 }
-export const USED_MARKET: UsedItem[] = [
-  { id: 'u-camry-12y', baseId: 'c-toyota', name: 'Camry — 12y old, one owner', brand: 'Toyota', cat: 'Car', c: '#dc2626', art: 'i-lambo', ageYears: 12, condition: 62, askPrice: 8800, newPrice: 30000, lux: 3, rate: -.12, story: 'Retired teacher\'s daily driver. Service book in the glovebox.', since: 1983 },
-  { id: 'u-3-series-8y', baseId: 'c-bmw', name: 'BMW M3 — 8y old, modified', brand: 'BMW', cat: 'Car', c: '#1d4ed8', art: 'i-lambo', ageYears: 8, condition: 71, askPrice: 32000, newPrice: 85000, lux: 38, rate: -.12, story: 'Track-day toy of an enthusiast. Aftermarket exhaust, original parts included.', since: 1986 },
-  { id: 'u-911-22y', baseId: 'c-porsche', name: 'Porsche 911 — 22y old, air-cooled', brand: 'Porsche', cat: 'Car', c: '#ca8a04', art: 'i-lambo', ageYears: 22, condition: 84, askPrice: 58000, newPrice: 120000, lux: 95, rate: .02, story: 'Garage-kept, numbers-matching. Already appreciating.', since: 1964 },
-  { id: 'u-tesla-4y', baseId: 'c-tesla', name: 'Tesla Model S — 4y old, Plaid', brand: 'Tesla', cat: 'Car', c: '#7f1d1d', art: 'i-lambo', ageYears: 4, condition: 78, askPrice: 52000, newPrice: 100000, lux: 28, rate: -.13, story: 'Battery health 92%. Software-unlocked. First owner hit a kerb once.', since: 2012 },
-  { id: 'u-submariner-30y', baseId: 'w-rolex', name: 'Rolex Submariner — 30y old, patina', brand: 'Rolex', cat: 'Watch', c: '#15803d', art: 'i-watch', ageYears: 30, condition: 70, askPrice: 18500, newPrice: 10000, lux: 120, rate: .08, story: 'Tropical dial. Watchmaker\'s receipt in the box. A collector\'s piece.', since: 1953 },
-  { id: 'u-speedmaster-45y', baseId: 'w-omega', name: 'Omega Speedmaster — 45y old, pre-Moon', brand: 'Omega', cat: 'Watch', c: '#1e3a8a', art: 'i-watch', ageYears: 45, condition: 66, askPrice: 12000, newPrice: 6500, lux: 130, rate: .06, story: 'Cousin of the Moon watch. Original bracelet, lightly polished.', since: 1957 },
-  { id: 'u-carrera-15y', baseId: 'w-tag', name: 'TAG Heuer Carrera — 15y old', brand: 'TAG Heuer', cat: 'Watch', c: '#0f766e', art: 'i-watch', ageYears: 15, condition: 58, askPrice: 1800, newPrice: 6000, lux: 18, rate: -.02, story: 'Daily wearer for a dentist. Crystal has one tiny chip at 4 o\'clock.', since: 1963 },
-  { id: 'u-impress-50y', baseId: 'a-impress', name: 'Impressionist sketch — ~50y old', cat: 'Art', c: '#a16207', art: 'i-art', ageYears: 50, condition: 52, askPrice: 220000, newPrice: 40000000, lux: 1800, rate: .05, story: 'Attributed to a student of the master. Provenance paper-creased but legible.', since: 1870 },
-  { id: 'u-contemp-3y', baseId: 'a-contemp', name: 'Contemporary canvas — 3y old, rising artist', cat: 'Art', c: '#db2777', art: 'i-art', ageYears: 3, condition: 90, askPrice: 32000, newPrice: 50000, lux: 110, rate: .12, story: 'Bought at the artist\'s first solo show. Now in two museum collections.', since: 1990 },
-  { id: 'u-ghost-5y', baseId: 'c-rr', name: 'Rolls-Royce Ghost — 5y old, executive lease', brand: 'Rolls-Royce', cat: 'Car', c: '#171717', art: 'i-lambo', ageYears: 5, condition: 82, askPrice: 195000, newPrice: 350000, lux: 280, rate: -.08, story: 'Chauffeur-driven for a bank. Starlight headliner intact, full service history.', since: 2010 },
-  { id: 'u-panigale-6y', baseId: 'bike-panigale', name: 'Ducati Panigale V4 — 6y old, low km', brand: 'Ducati', cat: 'Sport bike', c: '#ef4444', art: 'i-bike', ageYears: 6, condition: 74, askPrice: 14000, newPrice: 30000, lux: 30, rate: -.1, story: 'Weekend rider. Removed the mirrors for trackdays, will refit on request.', since: 2018 },
-  { id: 'u-cbr-10y', baseId: 'bike-cbr', name: 'Honda CBR1000RR-R — 10y old', brand: 'Honda', cat: 'Sport bike', c: '#dc2626', art: 'i-bike', ageYears: 10, condition: 60, askPrice: 7800, newPrice: 25000, lux: 18, rate: -.12, story: 'Stunt-practice spare. Crashed twice, repaired honestly.', since: 2004 }
-];
+export const USED_MARKET: UsedItem[] = itemsData.usedMarket as UsedItem[];
 // Static pool of rotating listings shown to the player — at any given visit,
 // we surface a deterministic-ish 6-8 slice derived from USED_MARKET + a small
 // random shuffle seed stored in state.

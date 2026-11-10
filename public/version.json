@@ -1,19 +1,18 @@
 {
-  "version": "v11.57",
+  "version": "v11.58",
   "releasedAt": "2026-11-11",
-  "headline": "HuyenBao v11.57 — toast corner fix + free wellbeing bugfix + time x10/x50 + income-based loans",
-  "summary": "MULTI-FIX. (1) Toast moved to top-right CORNER (was bottom-center, still overlapping gigs popup footer). Now compact + z-index 300 above modal — visible without covering centered modal content. (2) BUGFIX: free wellbeing actions (rest, self-train, meditate, rest7, rest30) were blocked when cash was negative because `wellReady` checked `s.money >= w.cost` even for cost=0 actions. Now free actions skip the money check — always available, even in debt. (3) Paid wellbeing cooldowns increased (gym 2→3, checkup 30→45, treat 5→8, temple 3→5, retreat 60→90 days). (4) Banking: loan limit now includes income-based credit — base = 50% of net worth + 30% of yearly income. A player with $30K NW + $30K income can now borrow $24K (was $15K). Credit breakdown shown in BankTab. (5) Time acceleration: x1 / x10 / x50 speed control in the header — fast-forward through calm periods (studying, waiting for a degree).",
+  "headline": "HuyenBao v11.58 — items extracted to JSON + LLM-powered item generator",
+  "summary": "DATA SEPARATION + LLM INTEGRATION. All 67 ITEMS + 12 RARE_ITEMS + 12 USED_MARKET entries extracted from gameData.ts into public/items.json (single source of truth). New API route /api/items/generate calls a local LLM server (LLAMA_SERVER_URL=http://172.31.144.1:8888) to generate random new items with LLM-generated brand/name/backstory + random color/rarity/price/condition. After generation, the route searches the web for a matching image (z-ai-web-dev-sdk image search → picsum.photos fallback) and attaches the URL. A '✨ Generate new item' button in AssetsTab calls the API, registers the item into the live pool via registerItem(), and opens its category so the player sees it land. Falls back to deterministic generation when LLM is offline — no crash path.",
   "features": [
-    "FIX: toast moved bottom-center → top-right CORNER (compact, z-index 300 above modal). No longer covers gigs popup content.",
-    "FIX: free wellbeing actions (rest/selftrain/meditate/rest7/rest30) now work when cash is negative — was blocked by `s.money >= w.cost` check even for cost=0",
-    "CHANGE: paid wellbeing cooldowns increased — gym 2→3d, checkup 30→45d, treat 5→8d, temple 3→5d, retreat 60→90d",
-    "NEW: banking loan limit includes income-based credit — base 50% NW + 30% yearly income",
-    "NEW: maxLoanOf(s) helper returns {total, base, incomeCredit, existing} for the BankTab breakdown",
-    "NEW: BankTab shows credit limit breakdown card (base + income credit − existing loan = available)",
-    "NEW: time acceleration control in header — x1 (▶) / x10 / x50. Multiplies elapsed real-time before passing to tick()",
-    "NEW: speedRef mirrors speed state so the game-loop useEffect reads current value without re-creating the interval",
-    "NEW: speed-ctrl CSS class — compact pill button group, accent color when active",
-    "NEW: i18n keys for speed.label, speed.tip, bank.creditBreakdown, bank.baseCredit, bank.incomeCredit, bank.existingLoan, bank.available, bank.incomeCreditNote, well.freeNote (EN/VI/中文)",
-    "Version bumped to v11.57"
+    "NEW: public/items.json — all 67 items + 12 rare items + 12 used market listings extracted from gameData.ts",
+    "NEW: gameData.ts loads items from JSON import (synchronous, module-load safe) + loadItems() for client-side runtime fetch + registerItem() to add LLM-generated items to the live pool",
+    "NEW: /api/items/generate route — calls LLAMA_SERVER_URL (default http://172.31.144.1:8888) with OpenAI-compatible chat completions API",
+    "NEW: LLM generates brand + name + color + backstory; route computes category + rarity + price + luxury + rate + condition + art icon",
+    "NEW: image search via z-ai-web-dev-sdk (real CDN URLs) → picsum.photos fallback → always returns a usable image URL",
+    "NEW: graceful degradation — if LLM offline/unreachable/malformed, falls back to deterministic random generator (no crash)",
+    "NEW: registerItem(item) merges generated items into ITEMS + ITEM_BY so they're immediately buyable in the catalogue",
+    "NEW: '✨ Generate new item' button in AssetsTab — calls API, registers item, toasts result, opens category",
+    "NEW: asset() URL-aware so external image URLs render correctly even with NEXT_PUBLIC_BASE_PATH",
+    "Version bumped to v11.58"
   ]
 }

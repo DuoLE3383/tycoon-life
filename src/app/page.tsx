@@ -1,5 +1,5 @@
 'use client';
-// HuyenBao v11.57 — React edition. Two-level grouped nav, a systems links map,
+// HuyenBao v11.58 — React edition. Two-level grouped nav, a systems links map,
 // gigs, levels, social, the cosmic frontier, EN/VI/中文, LLM oracle with
 // random kind dispatch (luck / setback / life-stage / story), pre-owned
 // market + social listings, a Hall of Fame tab, and a real player-to-player
@@ -24,7 +24,7 @@ import {
   analyze, FIELDS, LICENSES, LIC_BY, LIC_FOR, STAGES, BIZ, FARM_LINES, FAC_LINES, ITEM_BY, ITEM_IMAGES, USED_IMAGES, STOCKS, ASSET_DEPRECIATION_RATE,
   CLUBS, JOBS, GIGS, SPACE_LINES, TABS, GROUPS, xpNeed, ITEMS, USED_MARKET, HALL_OF_FAME, itemRarity, RARITY_COLOR, RARITY_MULT, NPCS, NPC_BY, PETS, PET_BY, MAX_PETS, CREW_COST, SHORT_COURSES, SHORT_BY, BOTS, type Rarity, type FieldKey, type Req, type ItemDef, type UsedItem,
   RARE_ITEMS, RARE_IDS, itemGroup, type ItemGroup,
-  TRAVEL,
+  TRAVEL, registerItem,
 } from '@/lib/gameData';
 import {
   fmt, taxOf, fresh, begin, tick, applyOffline, stageOf, worldYear, branchCount, bizCost, clubMult, branchNet, fameBonus, bizMultiplier,
@@ -89,7 +89,14 @@ import { phanTichToanDien, HUONG, type PhongThuyReading, type Huong } from '@/li
 import { drawCards, spreadLabels, TAROT_GHI_CHU, type TarotCard } from '@/lib/tarot';
 import { useT, LANGS, type Lang } from '@/lib/i18n';
 
-const asset = (p: string) => (process.env.NEXT_PUBLIC_BASE_PATH || '') + p;
+const asset = (p: string) => {
+  // v11.58 — URL-aware: leave absolute http(s)/data URLs alone so generated
+  // items (whose image is a web URL returned by /api/items/generate) render
+  // correctly even when NEXT_PUBLIC_BASE_PATH is set for a sub-path deploy.
+  if (!p) return p;
+  if (/^https?:\/\//.test(p) || p.startsWith('data:')) return p;
+  return (process.env.NEXT_PUBLIC_BASE_PATH || '') + p;
+};
 
 // Test/debug hook: lets automation (and power users) drive the engine from the console.
 if (typeof window !== 'undefined') {
@@ -101,7 +108,7 @@ if (typeof window !== 'undefined') {
 // v11.8 — the bundled version. The /version.json file in /public is polled
 // every 5 minutes; if its version is newer than this, a "reload to update"
 // banner appears even in a running session (no F5 needed).
-const BUNDLED_VERSION = 'v11.57';
+const BUNDLED_VERSION = 'v11.58';
 const VERSION_POLL_MS = 5 * 60 * 1000;
 // v11.44 — 'what's new' modal now fires PER PATCH (not per major version).
 // The SEEN_KEY is derived from BUNDLED_VERSION so each new patch re-shows the
@@ -610,7 +617,7 @@ function Header({ s, eraName, speed, setSpeed }: { s: GameState; eraName: (y: nu
     <header className="top">
       <div className="brand">
         <Art id="s-coin" className="logo" />
-        <div><h1><span className="mini">v11.57</span> HuyenBao</h1>
+        <div><h1><span className="mini">v11.58</span> HuyenBao</h1>
           <div className="mini">{s.started ? `${s.nation} · ${eraName(worldYear(s))}` : t('tagline')}</div></div>
       </div>
       {/* v11.46 — removed Cash/NW/Income from header (was duplicate of PinZone).
@@ -2505,6 +2512,11 @@ function AssetsTab({ s, act, curCat, setCurCat }: { s: GameState; act: Act; curC
   const [pendingBuy, setPendingBuy] = useState<{ kind: 'new'; item: ItemDef } | { kind: 'used'; used: UsedItem } | null>(null);
   // v11.33 — draft amount for the live rare-auction bid box.
   const [bidDraft, setBidDraft] = useState('');
+  // v11.58 — LLM item generator busy flag. While true, the "Generate" button
+  // is disabled and shows a "Generating…" label; the fetch is awaited here
+  // (not in `act`) because `act` is synchronous — the async work happens
+  // first, then `act` is called with the registered item to toast + persist.
+  const [genBusy, setGenBusy] = useState(false);
   // Surface 6 used listings, shuffled deterministically by the current
   // game-year so the listings rotate as the player ages.
   const y = worldYear(s);
@@ -2733,8 +2745,51 @@ function AssetsTab({ s, act, curCat, setCurCat }: { s: GameState; act: Act; curC
   </>;
   const ownAllEmpty = s.lots.length === 0 && s.used.length === 0;
 
+  // v11.58 — "Generate new item" handler. POSTs to /api/items/generate (which
+  // calls the local llama.cpp LLM at LLAMA_SERVER_URL, then a web image search),
+  // then merges the returned item into the runtime ITEMS pool via registerItem()
+  // and caches its photo URL in ITEM_IMAGES so the AssetsTab renders it like any
+  // other catalogue entry. The async fetch is awaited BEFORE `act` — `act` is
+  // synchronous and is only used here to toast the result + persist state. If
+  // the route is unreachable (static export / offline), a deterministic toast
+  // explains the failure rather than crashing.
+  const onGenerate = async () => {
+    if (genBusy) return;
+    setGenBusy(true);
+    let toastMsg: string;
+    try {
+      const basePath = (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_BASE_PATH) || '';
+      const r = await fetch(basePath + '/api/items/generate', { method: 'POST' });
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      const item = await r.json() as ItemDef & { story?: string; image?: string | null; source?: string };
+      // Merge into the runtime pool + image cache so the new item shows up in
+      // the catalogue immediately and renders with its photo when bought.
+      registerItem(item);
+      if (item.image) ITEM_IMAGES[item.id] = item.image;
+      toastMsg = `✨ ${item.brand ? item.brand + ' ' : ''}${item.name} — ${t('v11.generated', 'added to catalogue', { n: item.cat })}`;
+      // Open the item's category in the catalogue so the player sees it land.
+      setCurCat(item.cat);
+    } catch (e) {
+      toastMsg = '✨ ' + t('v11.genFailed', 'Generation failed — is the LLM server running?');
+    } finally {
+      setGenBusy(false);
+    }
+    act(() => toastMsg);
+  };
+
   return (
     <>
+      {/* v11.58 — LLM-powered "Generate new item" action. Visible across every
+          section so the player can summon a fresh asset from anywhere in the
+          AssetsTab. Disabled while a request is in flight. */}
+      <div className="genbar" style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 8 }}>
+        <button className="ibtn ghost" onClick={onGenerate} disabled={genBusy}
+          title={t('v11.genHint', 'Calls the local LLM to invent a new item')}>
+          <Ic id="ic-star" className="bsi" />
+          <span>{genBusy ? t('v11.genBusy', 'Generating…') : t('v11.genBtn', '✨ Generate new item')}</span>
+        </button>
+      </div>
+
       {/* ---- v11.33: 7-section asset menu ---- */}
       <div className="tnav asec" role="tablist" aria-label="Asset sections">
         {secs.map(([k, ic, key, n]) => (
