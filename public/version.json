@@ -1,15 +1,16 @@
 {
-  "version": "v11.45",
+  "version": "v11.46",
   "releasedAt": "2026-11-10",
-  "headline": "HuyenBao v11.45 — thiết kế lại toàn bộ giao diện: menu popup, dashboard no-scroll, biểu đồ + điều hướng",
-  "summary": "FULL UI REDESIGN. (1) NAV → POPUP MENUS: the old horizontal gnav + subnav bars are replaced with compact dropdown popup menus. Each group (Character/Assets/Education/Career/Finance/Business/Network/Empire) is a button; clicking opens a popup with the group's sub-tabs as clickable links. Saves vertical space + groups related links. (2) DASHBOARD NO-SCROLL: PinZone is now the MAIN dashboard — everything the player needs at a glance (character, bars, sleep, asset chart, income) in ONE pinned card. Main page doesn't need to scroll for core info. (3) CLICKABLE NAVIGATION: every chart/bar in the dashboard is now a navigation link — click health bar → goes to Wellbeing tab; click asset chart → goes to Assets tab; click income → goes to Business tab; click XP bar → goes to Career tab. All navigation is intuitive. (4) CHARTS + CORRELATIONS: asset breakdown bar chart with 6 color-coded segments, income breakdown rows, health/spirit/XP progress bars — all visible at a glance + clickable.",
+  "headline": "HuyenBao v11.46 — progressive disclosure, sửa i18n leak, birth year input, tutorial, dedup",
+  "summary": "UX CLEANUP. (1) PROGRESSIVE DISCLOSURE: PinZone now hides advanced stats (net worth, income, job, degrees, fame, followers) until the player actually has them — new players see only Cash + Health + Spirit + Age + Level. (2) DEDUP: removed Cash/NetWorth/Income from the Header (was duplicate of PinZone). Asset chart legend hides empty segments (no more '—' rows). (3) TUTORIAL: new-player hint card with pulsing border appears when money < $500 + no income + no gigs done yet, directing them to 'Quick gigs'. (4) HOW TO PLAY MOVED TO TOP: the guide was buried at the bottom; now shows at the top of HomeTab, open by default for players under 25. (5) BIRTH YEAR INPUT: replaced the 100+ item dropdown with a number input (min/max validated). (6) I18N FIX: 'v11.birthDay' key was missing → leaked as literal text in character creation; now defined in EN/VI/ZH.",
   "features": [
-    "NAV POPUP MENUS: 8 group buttons → dropdown popups with sub-tab links (replaces gnav+subnav bars)",
-    "DASHBOARD NO-SCROLL: PinZone is the main dashboard, all core info in one pinned card",
-    "CLICKABLE NAVIGATION: health bar→Wellbeing, asset chart→Assets, income→Business, XP→Career",
-    "CHARTS: asset breakdown bar (6 color segments), income rows, health/spirit/XP bars",
-    "COMPACT: nav buttons are small pills with icon+label, horizontal scroll on overflow",
-    "POPUP MENU: centered overlay with sub-tab links, click outside to close",
-    "Version bumped to v11.45"
+    "PROGRESSIVE DISCLOSURE: hide NW/income/job/degrees/fame/followers until player has them",
+    "DEDUP: removed Cash/NW/Income from Header (only in PinZone now)",
+    "DEDUP: asset legend hides empty segments (no more '—' rows)",
+    "TUTORIAL: pulsing hint card for new players (money<$500 + no income + no gigs)",
+    "HOW TO PLAY: moved from bottom to top of HomeTab, open for age<25",
+    "BIRTH YEAR: 100+ dropdown → number input with validation",
+    "I18N FIX: v11.birthDay key added (was leaking as literal text)",
+    "Version bumped to v11.46"
   ]
 }

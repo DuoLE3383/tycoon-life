@@ -1267,6 +1267,12 @@ const D: Record<string, [string, string, string]> = {
   'v11.genderFemale': ['Female', 'Nữ', '女'],
   'v11.genderNonbinary': ['Non-binary', 'Phi nhị nguyên', '非二元'],
   'v11.birthMonth': ['Birth month', 'Tháng sinh', '出生月份'],
+  // v11.46 — fix missing v11.birthDay key (was leaking as literal text)
+  'v11.birthDay': ['Birth day', 'Ngày sinh', '出生日'],
+  // v11.46 — tutorial / progressive disclosure
+  'tutorial.welcome': ['Welcome! First steps', 'Chào! Bước đầu tiên', '欢迎！第一步'],
+  'tutorial.gigHint': ['Tap "Quick gigs" to earn your first cash', 'Bấm "Việc nhanh" để kiếm tiền đầu tiên', '点"快钱"赚第一笔钱'],
+  'tutorial.gigDone': ['Great! Now visit Wellbeing to rest if health drops', 'Tốt! Vào Sức khoẻ để nghỉ nếu tụt máu', '好！健康下降时去身心休息'],
   'v11.zodiacAffinity': ['affinity', 'hợp', '亲和'],
   'v11.zodiacEraHint': ['Zodiac + era hint', 'Gợi ý cung + thời đại', '星座+时代提示'],
   'v11.tarotTitle': ['Tarot draw', 'Rút tarot', '塔罗抽牌'],

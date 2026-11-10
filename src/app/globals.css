@@ -715,6 +715,13 @@ html[data-theme="dark"] .tgame .ibtn.ghost{background:linear-gradient(180deg,#32
 .tgame .pinzone-assets.nav-link,.tgame .pinzone-income.nav-link{flex-direction:column;align-items:stretch;gap:0}
 .tgame .pinzone-assets.nav-link:hover,.tgame .pinzone-income.nav-link:hover{background:rgba(127,127,127,.04)}
 
+/* v11.46 — tutorial hint card for new players */
+.tgame .tutorial-hint{border:2px solid var(--accent);background:rgba(176,138,62,.08);border-radius:12px;padding:10px 14px;margin:8px 0;animation:tutPulse 2s ease-in-out infinite}
+.tgame .tutorial-hint b{font-size:.92rem;color:var(--accent)}
+.tgame .tutorial-hint .sub{margin:4px 0 0}
+@keyframes tutPulse{0%,100%{box-shadow:0 0 0 0 rgba(176,138,62,.4)}50%{box-shadow:0 0 0 6px rgba(176,138,62,0)}}
+@media (prefers-reduced-motion: reduce){.tgame .tutorial-hint{animation:none}}
+
 /* v11.45 — main page no-scroll: constrain main content height */
 .tgame .wrap{max-width:860px;margin:0 auto;padding:10px 14px}
 

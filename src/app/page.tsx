@@ -1,5 +1,5 @@
 'use client';
-// HuyenBao v11.45 — React edition. Two-level grouped nav, a systems links map,
+// HuyenBao v11.46 — React edition. Two-level grouped nav, a systems links map,
 // gigs, levels, social, the cosmic frontier, EN/VI/中文, LLM oracle with
 // random kind dispatch (luck / setback / life-stage / story), pre-owned
 // market + social listings, a Hall of Fame tab, and a real player-to-player
@@ -95,7 +95,7 @@ if (typeof window !== 'undefined') {
 // v11.8 — the bundled version. The /version.json file in /public is polled
 // every 5 minutes; if its version is newer than this, a "reload to update"
 // banner appears even in a running session (no F5 needed).
-const BUNDLED_VERSION = 'v11.45';
+const BUNDLED_VERSION = 'v11.46';
 const VERSION_POLL_MS = 5 * 60 * 1000;
 // v11.44 — 'what's new' modal now fires PER PATCH (not per major version).
 // The SEEN_KEY is derived from BUNDLED_VERSION so each new patch re-shows the
@@ -536,11 +536,11 @@ function Header({ s, eraName }: { s: GameState; eraName: (y: number) => string }
     <header className="top">
       <div className="brand">
         <Art id="s-coin" className="logo" />
-        <div><h1><span className="mini">v11.45</span> HuyenBao</h1>
+        <div><h1><span className="mini">v11.46</span> HuyenBao</h1>
           <div className="mini">{s.started ? `${s.nation} · ${eraName(worldYear(s))}` : t('tagline')}</div></div>
       </div>
-      <div><div className="mini">{t('cash')}</div><div id="tcash" style={{ color: s.money < 0 ? 'var(--brick)' : undefined }}>{fmt(s.money)}</div>
-        <div className="mini">{t('netWorth')} {fmt(netWorth(s))} · {yearIncome(s) >= 0 ? '+' : ''}{fmt(yearIncome(s))}{t('perYear')}</div></div>
+      {/* v11.46 — removed Cash/NW/Income from header (was duplicate of PinZone).
+          Header now only carries language + theme + level chip. */}
       <div className="hstack">
         <span className="lvlchip" data-tip={`Lv ${s.level} · ${s.xp}/${xpNeed(s.level)} XP (${xpPct}%) · next in ${Math.max(0, xpNeed(s.level) - s.xp)} XP`}><Ic id="ic-xp" className="bsi" />{t('lvl')} {s.level}
           <span className="bar"><i style={{ width: xpPct + '%' }} /></span></span>
@@ -610,15 +610,18 @@ function PinZone({ s, t, onEdit, act, onNav }: { s: GameState; t: TFn; onEdit: (
         <span className="avchip" data-tip={t('edit.profile', 'Edit profile')}>{s.avatar}</span><b>{s.name}</b> <button className="pin-edit" onClick={onEdit} title={t('edit.profile', 'Edit profile')} aria-label={t('edit.profile', 'Edit profile')}>✏️</button> <span className="sep">·</span> {t('age')} {Math.floor(a)}
         <span className="tag dark">{t('stage.' + STAGES.indexOf(st), st.name)}</span>
         <span className="mini">{dstr}</span>
+        {/* v11.46 — progressive disclosure: core stats always show; advanced
+            stats (income, job, degrees, fame, followers) only when relevant. */}
         <span className="pchip" data-tip={t('cash')}><Ic id="s-coin" className="bsi" />{fmt(s.money)}</span>
-        <span className="pchip" data-tip={t('netWorth')}><Ic id="t-bank" className="bsi" />{fmt(netWorth(s))}</span>
-        <span className={'pchip ' + (yi >= 0 ? 'up' : 'down')} data-tip={t('inc.total', 'Income/yr')}><Ic id="t-stock" className="bsi" />{yi >= 0 ? '+' : ''}{fmt(yi)}{t('perYear')}</span>
         <span className="hpill" data-life={healthState(s.health)}><Ic id="w-heart" className="bsi" />{Math.round(s.health)}</span>
         <span className="hpill"><Ic id="w-lotus" className="bsi" />{Math.round(s.spirit)}</span>
+        <span className="pchip" data-tip={`Lv ${s.level} · ${s.xp}/${xpNeed(s.level)} XP`}>⭐ {t('lvl')} {s.level}<span className="pinbar"><i style={{ width: Math.min(100, Math.round(s.xp / xpNeed(s.level) * 100)) + '%' }} /></span></span>
+        {/* Advanced: only show NW + income once the player has >$0 assets or income */}
+        {(netWorth(s) > 0 || yi !== 0) && <span className="pchip" data-tip={t('netWorth')}><Ic id="t-bank" className="bsi" />{fmt(netWorth(s))}</span>}
+        {yi !== 0 && <span className={'pchip ' + (yi >= 0 ? 'up' : 'down')} data-tip={t('inc.total', 'Income/yr')}><Ic id="t-stock" className="bsi" />{yi >= 0 ? '+' : ''}{fmt(yi)}{t('perYear')}</span>}
         {activeJobs.length > 0 && <span className="pchip" data-tip={t('pin.job')}><Ic id="t-work" className="bsi" />{activeJobs.map(j => t('job.' + j.id, j.name)).join(' + ')}</span>}
         {Object.values(s.deg || {}).reduce((a, b) => a + b, 0) > 0 && <span className="pchip" data-tip={t('degrees')}>🎓 {Object.values(s.deg || {}).reduce((a, b) => a + b, 0)}</span>}
-        <span className="pchip" data-tip={`Lv ${s.level} · ${s.xp}/${xpNeed(s.level)} XP`}>⭐ {t('lvl')} {s.level}<span className="pinbar"><i style={{ width: Math.min(100, Math.round(s.xp / xpNeed(s.level) * 100)) + '%' }} /></span></span>
-        <span className="mini">{t('fame')} {s.fame} · {t('followers')} {s.social.followers.toLocaleString()}</span>
+        {s.fame > 0 && <span className="mini">{t('fame')} {s.fame}{s.social.followers > 0 ? ' · ' + t('followers') + ' ' + s.social.followers.toLocaleString() : ''}</span>}
       </div>
       {/* v11.42 — merged dashboard: character detail + bars + sleep + asset chart + income.
           Everything the player needs at a glance, in ONE pinned card. */}
@@ -656,8 +659,9 @@ function PinZone({ s, t, onEdit, act, onNav }: { s: GameState; t: TFn; onEdit: (
               ))}
             </div>
             <div className="asset-legend">
-              {assetSegs.map(([label, v, color]) => (
-                <span key={label} className="asset-leg-item"><span className="sw" style={{ background: color }} />{label} <b>{v > 0 ? fmt(v) : '—'}</b></span>
+              {/* v11.46 — only show asset segments that have value (hide "—" rows) */}
+              {assetSegs.filter(([, v]) => v > 0).map(([label, v, color]) => (
+                <span key={label} className="asset-leg-item"><span className="sw" style={{ background: color }} />{label} <b>{fmt(v)}</b></span>
               ))}
             </div>
           </button>
@@ -925,6 +929,35 @@ function HomeTab({ s, act, askAI, aiBusy, aiNote, eraName }: { s: GameState; act
           gigs. This removes the duplicate info the user complained about. */}
       <HealthAlerts s={s} />
 
+      {/* v11.46 — first-time tutorial hint. Shows a highlight card directing
+          new players to the Quick gigs button when they have no income + low cash. */}
+      {s.money < 500 && yearIncome(s) === 0 && Object.keys(s.gigs || {}).length === 0 && (
+        <div className="tutorial-hint" role="status">
+          <b>👋 {t('tutorial.welcome', 'Welcome! First steps')}</b>
+          <p className="sub">{t('tutorial.gigHint', 'Tap "Quick gigs" to earn your first cash')}</p>
+        </div>
+      )}
+
+      {/* v11.46 — "How to play" guide moved to TOP (was buried at bottom).
+          Shows as an open details for new players (age < 25), collapsed for veterans. */}
+      <details className="fold" id="guide" open={s.age < 25}>
+        <summary>{t('guide')}</summary>
+        <div className="foldbody">
+          <div className="imgs">
+            {[['/img/cafe.jpg', 'biz.cafe'], ['/img/farm.jpg', 'biz.farm'], ['/img/factory.jpg', 'biz.fac'], ['/img/tech.jpg', 'biz.tech'], ['/img/hotel.jpg', 'biz.hotel']].map(([src, k]) => (
+              <div key={src} className="imcard"><img src={asset(src)} alt={t(k)} loading="lazy" /><span>{t(k)}</span></div>
+            ))}
+          </div>
+          <p className="sub">{t('guide.1')}</p>
+          <p className="sub">{t('guide.2')}</p>
+          <p className="sub">{t('guide.3')}</p>
+          <p className="sub">{t('guide.4')}</p>
+          <p className="sub">{t('guide.5')}</p>
+          <p className="sub">{t('guide.6')}</p>
+          <p className="sub">{t('guide.7')}</p>
+        </div>
+      </details>
+
       {/* v11.42 — sleep schedule + asset breakdown + income breakdown cards
           have been MERGED into PinZone (the sticky dashboard above). HomeTab
           no longer duplicates them. The gigs popup + travel section remain. */}
@@ -945,23 +978,7 @@ function HomeTab({ s, act, askAI, aiBusy, aiNote, eraName }: { s: GameState; act
         {news.length ? news.map(n => <p className="news" key={n}>• {n}</p>) : <p className="news">• {t('quietYear', '', { era: eraName(y) })}</p>}
       </div>
 
-      <details className="fold" id="guide">
-        <summary>{t('guide')}</summary>
-        <div className="foldbody">
-          <div className="imgs">
-            {[['/img/cafe.jpg', 'biz.cafe'], ['/img/farm.jpg', 'biz.farm'], ['/img/factory.jpg', 'biz.fac'], ['/img/tech.jpg', 'biz.tech'], ['/img/hotel.jpg', 'biz.hotel']].map(([src, k]) => (
-              <div key={src} className="imcard"><img src={asset(src)} alt={t(k)} loading="lazy" /><span>{t(k)}</span></div>
-            ))}
-          </div>
-          <p className="sub">{t('guide.1')}</p>
-          <p className="sub">{t('guide.2')}</p>
-          <p className="sub">{t('guide.3')}</p>
-          <p className="sub">{t('guide.4')}</p>
-          <p className="sub">{t('guide.5')}</p>
-          <p className="sub">{t('guide.6')}</p>
-          <p className="sub">{t('guide.7')}</p>
-        </div>
-      </details>
+      {/* v11.46 — guide moved to top; this old copy removed */}
       {/* v11.13 — ecosystem roadmap fold; points to ECOSYSTEM.md in the repo */}
       <details className="fold" id="ecosystem">
         <summary>{t('eco.title')}</summary>
@@ -3745,8 +3762,9 @@ function Intro({ onBegin }: { onBegin: (o: { name: string; byear: number; nation
             <button className="ibtn ghost" onClick={randomise}><Ic id="ic-star" className="bsi" /><span>{t('v11.random')}</span></button>
           </div>
           <div className="field"><label>{t('name')}</label><input maxLength={24} placeholder="e.g. Minh" value={name} onChange={e => setName(e.target.value)} /></div>
+          {/* v11.46 — birth year as a number input (was 100+ dropdown). Validates 18+. */}
           <div className="field"><label>{t('birthYear')}</label>
-            <select value={byear} onChange={e => setByear(+e.target.value)}>{years.map(y => <option key={y} value={y}>{y}</option>)}</select></div>
+            <input type="number" min={nowY - 126} max={nowY - 18} value={byear} onChange={e => setByear(Math.max(nowY - 126, Math.min(nowY - 18, +e.target.value || nowY - 18)))} /></div>
           {/* v11.6 — gender + birth month */}
           <div className="field"><label>{t('v11.gender')}</label>
             <select value={gender} onChange={e => setGender(e.target.value as Gender)}>
