@@ -356,6 +356,9 @@ const D: Record<string, [string, string, string]> = {
   'att.diet': ['Turn on diet to slow health decay', 'Bật chế độ ăn kiêng để giảm suy giảm sức khoẻ', '开启饮食管理以减缓健康下降'],
   'att.debt': ['Cash is negative — beware of debt', 'Tiền mặt âm — cẩn thận rơi vào nợ', '现金为负——小心负债'],
   'att.negative': ['Annual income is negative', 'Thu nhập/năm đang âm', '年收入为负'],
+  // v11.55 — new structured warnings for the PinZone banner.
+  'att.lowCash': ['Cash below $1K — earn or withdraw from savings', 'Tiền mặt dưới $1K — kiếm tiền hoặc rút từ tiết kiệm', '现金不足 $1K——需赚钱或从储蓄提款'],
+  'att.highLoan': ['Loan is high (>30% of net worth) — repay to reduce interest', 'Vay cao (>30% tài sản) — trả bớt để giảm lãi', '贷款偏高（>净资产30%）——还款以减利息'],
   'att.allgood': ['Everything looks good — keep building!', 'Mọi thứ đều ổn — cứ xây dựng tiếp!', '一切正常——继续发展！'],
   'mk.portfolio': ['Portfolio', 'Danh mục', '投资组合'],
   'mk.holdings': ['Stock holdings worth {n}', 'Giá trị cổ phiếu đang giữ: {n}', '持有股票价值：{n}'],

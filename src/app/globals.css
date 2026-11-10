@@ -770,7 +770,35 @@ html[data-theme="dark"] .tgame .cash-chip.low{color:#f87171;border-color:rgba(24
 /* v11.45 — main page no-scroll: constrain main content height */
 .tgame .wrap{max-width:860px;margin:0 auto;padding:10px 14px}
 
-/* v11.37 — biz-actions row (franchise + sell buttons per business) */
+/* v11.55 — PinZone v55 redesign: warning banner at top, 2-row agehead
+   (identity + stats), bigger chips, readable charts. */
+.tgame .pinzone-v55{padding:8px 12px 9px}
+/* Warning banner — full-width row of clickable chips at the TOP of PinZone. */
+.tgame .pinzone-warns{display:flex;flex-wrap:wrap;gap:5px;margin:0 0 8px}
+.tgame .pwarn{display:inline-flex;align-items:center;gap:6px;padding:5px 10px;border-radius:8px;font-size:.78rem;font-weight:700;cursor:pointer;border:1px solid transparent;transition:filter .12s,transform .08s;text-decoration:none;flex:1 1 auto;min-width:0}
+.tgame .pwarn:hover{filter:brightness(1.08)}
+.tgame .pwarn:active{transform:translateY(1px)}
+.tgame .pwarn-ic{font-size:.9rem;flex:none}
+.tgame .pwarn-tx{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tgame .pwarn-go{color:currentColor;opacity:.7;font-weight:800;flex:none}
+.tgame .pwarn-critical{background:rgba(192,57,43,.15);border-color:rgba(192,57,43,.5);color:var(--brick)}
+.tgame .pwarn-warn{background:rgba(216,177,58,.12);border-color:rgba(216,177,58,.45);color:var(--warn,#d8b13a)}
+.tgame .pwarn-info{background:rgba(127,127,127,.08);border-color:var(--line);color:var(--mute)}
+/* Identity row — avatar + name + age + stage + date, one clean line. */
+.tgame .identity-row{align-items:center;gap:7px;margin-bottom:5px}
+.tgame .identity-row .mini{font-size:.76rem}
+/* Stats row — bigger chips, clear grouping. */
+.tgame .stats-row{align-items:center;gap:6px;margin-bottom:6px}
+.tgame .hpill-big{font-size:.88rem !important;padding:3px 10px !important;font-weight:700}
+.tgame .hpill-big svg{width:14px;height:14px}
+.tgame .pchip-big{font-size:.84rem !important;padding:3px 10px !important;font-weight:750}
+.tgame .pchip-big svg{width:13px;height:13px}
+/* Bigger dash-chart-box for readability. */
+.tgame .pinzone-v55 .dash-chart-box{padding:8px}
+.tgame .pinzone-v55 .dash-chart-legend{font-size:.72rem;gap:2px}
+.tgame .pinzone-v55 .dash-chart-legend .asset-leg-item{font-size:.72rem}
+.tgame .pinzone-v55 .dash-chart-legend .asset-leg-item b{font-weight:750}
+.tgame .pinzone-v55 .dash-chart-wrap{gap:8px}
 .tgame .biz-actions .ibtn{min-width:auto;padding:5px 11px;font-size:.78rem}
 
 /* ================= v11.42 — merged PinZone (dashboard + sleep + asset chart + income) ================= */
@@ -875,6 +903,19 @@ html[data-theme="dark"] .tgame .cash-chip.low{color:#f87171;border-color:rgba(24
   .tgame .modal-body .nav-popups{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none}
   .tgame .modal-body .nav-popups::-webkit-scrollbar{display:none}
   .tgame .modal-body .nav-popup-btn{flex:none;white-space:nowrap}
+  /* v11.55 — PinZone v55 mobile: warning chips stack full-width, stats wrap
+     3-per-row, identity date wraps to next line. */
+  .tgame .pinzone-v55{padding:6px 10px 7px}
+  .tgame .pinzone-warns{gap:4px;margin:0 0 6px}
+  .tgame .pwarn{font-size:.72rem;padding:4px 8px;flex:1 1 100%}
+  .tgame .pwarn-tx{white-space:normal}
+  .tgame .identity-row{flex-wrap:wrap;gap:5px;margin-bottom:4px}
+  .tgame .identity-row .mini{font-size:.7rem}
+  .tgame .stats-row{gap:5px;row-gap:4px}
+  .tgame .hpill-big{font-size:.8rem !important;padding:3px 8px !important}
+  .tgame .pchip-big{font-size:.76rem !important;padding:3px 8px !important}
+  .tgame .cash-chip{font-size:.86rem;padding:3px 9px}
+  .tgame .pinzone-v55 .dash-chart-legend{font-size:.68rem}
 }
 
 /* v11.37 — legacy pinzone-v37 (kept for reference, no longer used) */

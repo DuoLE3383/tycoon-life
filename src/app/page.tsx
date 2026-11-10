@@ -1,5 +1,5 @@
 'use client';
-// HuyenBao v11.54 — React edition. Two-level grouped nav, a systems links map,
+// HuyenBao v11.55 — React edition. Two-level grouped nav, a systems links map,
 // gigs, levels, social, the cosmic frontier, EN/VI/中文, LLM oracle with
 // random kind dispatch (luck / setback / life-stage / story), pre-owned
 // market + social listings, a Hall of Fame tab, and a real player-to-player
@@ -100,7 +100,7 @@ if (typeof window !== 'undefined') {
 // v11.8 — the bundled version. The /version.json file in /public is polled
 // every 5 minutes; if its version is newer than this, a "reload to update"
 // banner appears even in a running session (no F5 needed).
-const BUNDLED_VERSION = 'v11.54';
+const BUNDLED_VERSION = 'v11.55';
 const VERSION_POLL_MS = 5 * 60 * 1000;
 // v11.44 — 'what's new' modal now fires PER PATCH (not per major version).
 // The SEEN_KEY is derived from BUNDLED_VERSION so each new patch re-shows the
@@ -597,7 +597,7 @@ function Header({ s, eraName }: { s: GameState; eraName: (y: number) => string }
     <header className="top">
       <div className="brand">
         <Art id="s-coin" className="logo" />
-        <div><h1><span className="mini">v11.54</span> HuyenBao</h1>
+        <div><h1><span className="mini">v11.55</span> HuyenBao</h1>
           <div className="mini">{s.started ? `${s.nation} · ${eraName(worldYear(s))}` : t('tagline')}</div></div>
       </div>
       {/* v11.46 — removed Cash/NW/Income from header (was duplicate of PinZone).
@@ -631,9 +631,21 @@ function PinZone({ s, t, onEdit, act, onNav }: { s: GameState; t: TFn; onEdit: (
   const dstr = d.toLocaleDateString('en-US', { timeZone: 'UTC', weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
   const marks: [number, string][] = [[START, String(START)], [RETIRE, '65'], [END_AGE, '90']];
   const yi = yearIncome(s);
-  const warns: string[] = healthWarnings(s).map(w => 'att.' + w);
-  if (s.money < 0) warns.push('att.debt');
-  if (yi < 0) warns.push('att.negative');
+  // v11.55 — structured warnings with severity + link, rendered as a
+  // prominent banner at the TOP of the PinZone (was a single line at the
+  // bottom, easy to miss). Each warning is clickable → relevant tab.
+  type Warning = { id: string; key: string; severity: 'critical' | 'warn' | 'info'; link: string };
+  const warns: Warning[] = [];
+  if (s.health < 20) warns.push({ id: 'critical', key: 'att.critical', severity: 'critical', link: 'health' });
+  else if (s.health < 40) warns.push({ id: 'low', key: 'att.low', severity: 'critical', link: 'health' });
+  else if (s.health < 60) warns.push({ id: 'recover', key: 'att.recover', severity: 'warn', link: 'health' });
+  if (s.sleepHours < 7) warns.push({ id: 'sleep', key: 'att.sleep', severity: 'warn', link: 'home' });
+  if (s.sleepDebt > 21) warns.push({ id: 'sleepDebtHigh', key: 'sleepDebt.high', severity: 'critical', link: 'home' });
+  if (s.money < 0) warns.push({ id: 'debt', key: 'att.debt', severity: 'critical', link: 'bank' });
+  else if (s.money < 1000 && s.bank.dep < 1000) warns.push({ id: 'lowCash', key: 'att.lowCash', severity: 'warn', link: 'bank' });
+  if (yi < 0) warns.push({ id: 'negative', key: 'att.negative', severity: 'critical', link: 'finance-overview' });
+  if (s.bank.loan > netWorth(s) * 0.3) warns.push({ id: 'highLoan', key: 'att.highLoan', severity: 'warn', link: 'bank' });
+  if (!s.diet && s.health < 70) warns.push({ id: 'diet', key: 'att.diet', severity: 'info', link: 'health' });
   const activeJobs = jobsOf(s);
   const activeStudies = [s.study, s.sideStudy].filter((study): study is NonNullable<typeof study> => !!study);
   const studyTxt = activeStudies.length
@@ -669,32 +681,56 @@ function PinZone({ s, t, onEdit, act, onNav }: { s: GameState; t: TFn; onEdit: (
     [t('asset.bank'), bank, '#8a7ab5'],
     [t('asset.used'), used, '#c46b5e'],
   ];
+  const nw = netWorth(s);
+  const healthColor = s.health < 20 ? 'var(--brick)' : s.health < 40 ? 'var(--amber, #c47b2c)' : s.health < 60 ? 'var(--warn, #d8b13a)' : 'var(--sage)';
   return (
-    <section className="card age pinzone pinzone-v47" data-life={healthState(s.health)}>
-      {/* Top row: avatar + name + key stats — compact, one line */}
-      <div className="agehead">
-        <span className="avchip" data-tip={t('edit.profile', 'Edit profile')}>{s.avatar}</span><b>{s.name}</b> <button className="pin-edit" onClick={onEdit} title={t('edit.profile', 'Edit profile')} aria-label={t('edit.profile', 'Edit profile')}>✏️</button> <span className="sep">·</span> {t('age')} {Math.floor(a)}
+    <section className="card age pinzone pinzone-v55" data-life={healthState(s.health)}>
+      {/* v11.55 — WARNING BANNER at the top (was at the bottom, easy to miss).
+          Each warning is a clickable chip → relevant tab. Critical = red,
+          warn = orange, info = muted. */}
+      {warns.length > 0 && (
+        <div className="pinzone-warns" role="status" aria-live="polite">
+          {warns.map(w => (
+            <button key={w.id} className={'pwarn pwarn-' + w.severity} onClick={() => onNav(w.link)}>
+              <span className="pwarn-ic">{w.severity === 'critical' ? '🔴' : w.severity === 'warn' ? '🟠' : 'ℹ️'}</span>
+              <span className="pwarn-tx">{t(w.key)}</span>
+              <span className="pwarn-go">→</span>
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* Row 1: Identity — avatar + name + edit + age + stage + date */}
+      <div className="agehead identity-row">
+        <span className="avchip" data-tip={t('edit.profile', 'Edit profile')}>{s.avatar}</span>
+        <b>{s.name}</b>
+        <button className="pin-edit" onClick={onEdit} title={t('edit.profile', 'Edit profile')} aria-label={t('edit.profile', 'Edit profile')}>✏️</button>
+        <span className="sep">·</span>
+        <span className="mini">{t('age')} {Math.floor(a)}</span>
         <span className="tag dark">{t('stage.' + STAGES.indexOf(st), st.name)}</span>
-        <span className="mini">{dstr}</span>
-        <span className={'cash-chip' + (s.money < 1000 ? ' low' : '')} data-tip={t('cash')}><Ic id="s-coin" className="bsi" />{fmt(s.money)}</span>
-        <span className="hpill" data-life={healthState(s.health)}><Ic id="w-heart" className="bsi" />{Math.round(s.health)}</span>
-        <span className="hpill"><Ic id="w-lotus" className="bsi" />{Math.round(s.spirit)}</span>
-        <span className="pchip" data-tip={`Lv ${s.level} · ${s.xp}/${xpNeed(s.level)} XP`}>⭐ {s.level}</span>
-        {(netWorth(s) > 0 || yi !== 0) && <span className="pchip" data-tip={t('netWorth')}><Ic id="t-bank" className="bsi" />{fmt(netWorth(s))}</span>}
-        {yi !== 0 && <span className={'pchip ' + (yi >= 0 ? 'up' : 'down')} data-tip={t('inc.total', 'Income/yr')}>{yi >= 0 ? '+' : ''}{fmt(yi)}{t('perYear')}</span>}
-        {activeJobs.length > 0 && <span className="pchip" data-tip={t('pin.job')}><Ic id="t-work" className="bsi" />{activeJobs.map(j => t('job.' + j.id, j.name)).join(' + ')}</span>}
-        {s.fame > 0 && <span className="mini">{t('fame')} {s.fame}</span>}
+        <span className="mini" style={{ marginLeft: 'auto' }}>{dstr}</span>
       </div>
-      {/* v11.47 — dashboard with real SVG charts. 3-column compact layout:
-          donut chart (assets) | bar chart (income) | quick info (sleep + stats).
-          Everything fits without scrolling. */}
-      {netWorth(s) > 0 && (
+
+      {/* Row 2: Key stats — bigger chips, clear grouping, color-coded */}
+      <div className="agehead stats-row">
+        <span className={'cash-chip' + (s.money < 1000 ? ' low' : '')} data-tip={t('cash')}><Ic id="s-coin" className="bsi" />{fmt(s.money)}</span>
+        <span className={'hpill hpill-big'} data-life={healthState(s.health)} style={{ color: healthColor }} title={t('health')}>
+          <Ic id="w-heart" className="bsi" />{Math.round(s.health)}
+        </span>
+        <span className="hpill hpill-big"><Ic id="w-lotus" className="bsi" />{Math.round(s.spirit)}</span>
+        <span className="pchip pchip-big" data-tip={`Lv ${s.level} · ${s.xp}/${xpNeed(s.level)} XP (${xpPct}%)`}>⭐ {s.level}</span>
+        {(nw > 0 || yi !== 0) && <span className="pchip pchip-big" data-tip={t('netWorth')}><Ic id="t-bank" className="bsi" />{fmt(nw)}</span>}
+        {yi !== 0 && <span className={'pchip pchip-big ' + (yi >= 0 ? 'up' : 'down')} data-tip={t('inc.total', 'Income/yr')}>{yi >= 0 ? '+' : ''}{fmt(yi)}{t('perYear')}</span>}
+      </div>
+
+      {/* Row 3: Charts — bigger donut + bar + sleep, 3-col desktop / 1-col mobile */}
+      {nw > 0 && (
         <div className="dash-charts">
           {/* Asset donut chart */}
           <button className="dash-chart-box nav-link" onClick={() => onNav('assets')}>
-            <span className="mini wl">{t('netWorth')}</span>
+            <span className="mini wl">{t('netWorth')} · {fmt(nw)}</span>
             <div className="dash-chart-wrap">
-              <DonutChart size={100} segs={assetSegs.filter(([, v]) => v > 0).map(([label, value, color]) => ({ label, value, color }))} />
+              <DonutChart size={110} segs={assetSegs.filter(([, v]) => v > 0).map(([label, value, color]) => ({ label, value, color }))} />
               <div className="dash-chart-legend">
                 {assetSegs.filter(([, v]) => v > 0).map(([label, v, color]) => (
                   <span key={label} className="asset-leg-item"><span className="sw" style={{ background: color }} />{label} <b>{fmt(v)}</b></span>
@@ -703,8 +739,8 @@ function PinZone({ s, t, onEdit, act, onNav }: { s: GameState; t: TFn; onEdit: (
             </div>
           </button>
           {/* Income bar chart */}
-          <button className="dash-chart-box nav-link" onClick={() => onNav('biz')}>
-            <span className="mini wl">{t('incomeBreakdown')}</span>
+          <button className="dash-chart-box nav-link" onClick={() => onNav('finance-overview')}>
+            <span className="mini wl">{t('incomeBreakdown')} · +{fmt(yi)}{t('perYear')}</span>
             <div className="dash-chart-wrap">
               <BarChart
                 rows={incRows.filter(([, v]) => v > 0).map(([label, value]) => ({ label, value, color: '#4a9d7f' }))}
@@ -745,7 +781,8 @@ function PinZone({ s, t, onEdit, act, onNav }: { s: GameState; t: TFn; onEdit: (
           </div>
         </div>
       )}
-      {warns.length > 0 && <div className="att-warn pin" role="status">⚠ {warns.map(w => t(w)).join(' · ')}</div>}
+
+      {/* Row 4: Age track */}
       <div className="track slim" style={{ background: `linear-gradient(90deg,#8fae9b 0 ${p(22)},#c9b68e ${p(22)} ${p(26)},#c08a80 ${p(26)} ${p(RETIRE)},#9b93a8 ${p(RETIRE)})` }}>
         <div className="shade" style={{ left: pct + '%' }} /><div className="mark" style={{ left: pct + '%' }} />
       </div>
@@ -883,7 +920,7 @@ function GigsPopup({ s, act, t }: { s: GameState; act: Act; t: TFn }) {
 function DonutChart({ segs, size = 120 }: { segs: { label: string; value: number; color: string }[]; size?: number }) {
   const total = segs.reduce((a, s) => a + s.value, 0);
   if (total <= 0) return null;
-  const r = size / 2 - 8;
+  const r = size / 2 - 9;
   const cx = size / 2, cy = size / 2;
   const circumference = 2 * Math.PI * r;
   // Compute segments with their dash offsets using reduce (no reassignment).
@@ -893,36 +930,38 @@ function DonutChart({ segs, size = 120 }: { segs: { label: string; value: number
     const offset = arr.length > 0 ? arr[arr.length - 1].offset + arr[arr.length - 1].dash : 0;
     return [...arr, { ...s, dash, offset }];
   }, []);
+  // v11.55 — bigger center text + thicker ring for readability.
   return (
     <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} style={{ flex: 'none' }}>
       {computed.map(s => (
-        <circle key={s.label} cx={cx} cy={cy} r={r} fill="none" stroke={s.color} strokeWidth={10}
+        <circle key={s.label} cx={cx} cy={cy} r={r} fill="none" stroke={s.color} strokeWidth={12}
           strokeDasharray={`${s.dash} ${circumference - s.dash}`}
           strokeDashoffset={-s.offset}
           transform={`rotate(-90 ${cx} ${cy})`}
           style={{ transition: 'stroke-dasharray .3s ease' }}
         />
       ))}
-      <text x={cx} y={cy - 4} textAnchor="middle" fontSize="11" fontWeight="700" fill="var(--ink)">{visible.length}</text>
-      <text x={cx} y={cy + 10} textAnchor="middle" fontSize="8" fill="var(--mute)">assets</text>
+      <text x={cx} y={cy - 2} textAnchor="middle" fontSize="14" fontWeight="800" fill="var(--ink)">{visible.length}</text>
+      <text x={cx} y={cy + 12} textAnchor="middle" fontSize="9" fill="var(--mute)">assets</text>
     </svg>
   );
 }
 
 function BarChart({ rows, maxVal }: { rows: { label: string; value: number; color: string }[]; maxVal: number }) {
   const max = Math.max(maxVal, 1);
-  const barH = 14, gap = 4, labelW = 60;
+  // v11.55 — bigger bars + labels for readability (was barH=14, font=8).
+  const barH = 16, gap = 5, labelW = 70;
   const totalH = rows.length * (barH + gap);
   return (
-    <svg width="100%" height={totalH} viewBox={`0 0 200 ${totalH}`} preserveAspectRatio="none" style={{ overflow: 'visible' }}>
+    <svg width="100%" height={totalH} viewBox={`0 0 220 ${totalH}`} preserveAspectRatio="none" style={{ overflow: 'visible' }}>
       {rows.map((r, i) => {
         const y = i * (barH + gap);
-        const w = Math.max(2, (r.value / max) * (200 - labelW - 40));
+        const w = Math.max(2, (r.value / max) * (220 - labelW - 44));
         return (
           <g key={r.label}>
-            <text x={0} y={y + barH - 3} fontSize="8" fill="var(--mute)" style={{ textTransform: 'uppercase' }}>{r.label.length > 10 ? r.label.slice(0, 10) + '…' : r.label}</text>
+            <text x={0} y={y + barH - 4} fontSize="9" fontWeight="600" fill="var(--mute)" style={{ textTransform: 'uppercase' }}>{r.label.length > 11 ? r.label.slice(0, 11) + '…' : r.label}</text>
             <rect x={labelW} y={y} width={w} height={barH - 2} rx={3} fill={r.color} style={{ transition: 'width .3s ease' }} />
-            <text x={labelW + w + 4} y={y + barH - 3} fontSize="8" fontWeight="700" fill="var(--up)">+{fmt(r.value)}</text>
+            <text x={labelW + w + 4} y={y + barH - 4} fontSize="9" fontWeight="700" fill="var(--up)">+{fmt(r.value)}</text>
           </g>
         );
       })}
