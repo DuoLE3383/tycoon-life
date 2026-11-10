@@ -108,6 +108,25 @@ export interface MarketJob {
 }
 export type Religion = 'none' | 'buddhism' | 'christianity' | 'islam' | 'hinduism' | 'folk';
 export const RELIGIONS: Religion[] = ['none', 'buddhism', 'christianity', 'islam', 'hinduism', 'folk'];
+// v11.49 — Portfolio Dashboard: transaction log + cost-basis tracking.
+// Every cash-touching event (buy/sell stock, item, biz, bank transfer, gig
+// income, tuition, donation) is recorded so the Portfolio tab can show a
+// P&L breakdown, per-asset ROI, and a chronological transaction ledger.
+export type TxKind = 'buy' | 'sell' | 'income' | 'expense' | 'transfer' | 'dividend';
+export type TxAsset = 'stock' | 'lot' | 'biz' | 'branch' | 'farm' | 'fac' | 'space' | 'bank' | 'gig' | 'job' | 'tuition' | 'donate' | 'biz_sell';
+export interface Transaction {
+  id: number;          // monotonic id (from s.txSeq)
+  day: number;         // game day the tx happened
+  kind: TxKind;
+  asset: TxAsset;
+  ref: string;         // stock id, item id, biz id, etc. (or label)
+  name: string;        // human-readable label
+  qty: number;         // count (shares for stocks, 1 for unique items)
+  unit: number;        // per-unit price (or total for non-unitized flows)
+  amount: number;      // signed net cash flow: +income / -expense
+  realizedPnL?: number; // for sells: net profit (sell proceeds - cost basis) - fees
+}
+export const TX_CAP = 200; // keep the last 200 transactions (older trimmed)
 export interface GameState {
   schemaVersion: number;
   money: number; age: number; day: number; lastDay: number; lastYr: number;
@@ -156,6 +175,14 @@ export interface GameState {
   level: number; xp: number; gigs: Record<string, number>;
   health: number; spirit: number; karma: number; diet: boolean; well: Record<string, number>;
   sleepHours: number; timeline: DayTimeline[];
+  // v11.49 — sleep debt accumulates when sleepHours < 7 (deficit) and reduces
+  // when sleepHours > 7 (catch-up). Penalties: >7 debt = -10% study speed,
+  // >21 debt = -25% study + +20% health decay. Range 0..35 (5 days deficit).
+  sleepDebt: number;
+  // v11.49 — Portfolio Dashboard: transaction log + cost basis tracking.
+  txSeq: number;                       // monotonic id counter
+  transactions: Transaction[];        // last TX_CAP entries (oldest trimmed)
+  costBasis: Record<string, number>;  // total $ invested per stock id (weighted)
   cause: 'age' | 'health' | null;
   social: { followers: number; posts: Post[]; verified?: boolean; lastPostDay?: number };
   ach: string[];
@@ -299,10 +326,28 @@ export const wellLeft = (s: GameState, id: string) => {
   return last == null ? 0 : Math.max(0, effWellCd(s, id) - (s.lastDay - last));
 };
 export const healthMult = (s: GameState) => 0.7 + 0.3 * (s.health / 100);
-export const sleepHealthMult = (hours: number) => hours < 7
-  ? 1 + (7 - hours) * .15
-  : 1 - Math.min(.2, Math.max(0, hours - 8) * .1);
+export const sleepHealthMult = (hours: number) =>
+  // v11.49 — kept positive (decay multiplier on ageDecayPerDay). Recovery at
+  // 7h+ sleep is handled separately by sleepHealthRecovery() so the existing
+  // display formula (mult - 1) * 100 still works.
+  //  4h → +45% decay · 6h → +15% · 7h → 0% · 8h → 0% · 9h → −10% · 10h → −20%
+  hours < 7
+    ? 1 + (7 - hours) * .15
+    : 1 - Math.min(.2, Math.max(0, hours - 8) * .1);
+// v11.49 — health RECOVERY at 7h+ sleep. Returns an absolute amount added to
+// s.health each game day (NOT a multiplier). 0 below 7h (no recovery); rises
+// linearly with extra sleep so 12h (catch-up) recovers ~5× faster than 8h.
+//   7h → +0.05 · 8h → +0.10 · 9h → +0.20 · 10h → +0.30 · 12h → +0.50
+export const sleepHealthRecovery = (hours: number) =>
+  hours <= 7 ? 0 : Math.min(.5, Math.round((hours - 7) * .1 * 1000) / 1000);
 export const studyPace = (hours: number) => 1 + Math.max(0, 8 - hours) * .06;
+// v11.49 — sleep-debt penalty on study pace. Sleep debt accumulates 1/hour/day
+// below 7h, and is paid down at 2/hour/day above 7h (catch-up sleep is faster
+// than deficit accumulation, so a 12h night recovers 10 debt). Penalties:
+//   debt >  7 (1 day short)  → study pace × 0.90  (-10%)
+//   debt > 21 (3 days short) → study pace × 0.75  (-25%)  + health decay × 1.20
+export const sleepDebtStudyMult = (debt: number) => debt > 21 ? 0.75 : debt > 7 ? 0.9 : 1;
+export const sleepDebtHealthMult = (debt: number) => debt > 21 ? 1.2 : 1;
 export const ageDecayPerDay = (age: number) => age < 30 ? .015 : age < 45 ? .04 : age < 60 ? .08 : age < 75 ? .13 : .18;
 export const decayPerYear = (s: GameState) => Math.round(ageDecayPerDay(s.age) * 365.25 * (s.diet ? .55 : 1) * (s.spirit >= 70 ? .85 : 1));
 export const spiritBizMult = (s: GameState) => (s.spirit >= 70 ? 1.1 : 1);
@@ -401,6 +446,8 @@ export function doGig(s: GameState, id: string, t?: T, rng: () => number = Math.
   }
   addXp(s, g.id === 'ad' ? 4 : 10, rng);
   if (g.id !== 'ad' && rng() < 0.04) s.fame = s.fame + 1;
+  const gigName = t ? t('gig.' + g.id, g.id) : g.id;
+  recordTx(s, { kind: 'income', asset: 'gig', ref: g.id, name: gigName, qty: 1, unit: pay, amount: pay });
   return '+' + fmt(pay);
 }
 export function socialIncome(s: GameState): number { // annual ad revenue
@@ -507,6 +554,7 @@ export function buySpace(s: GameState, id: string): string | null {
   addXp(s, 200);
   pushLog(s, `Frontier venture founded: ${l.name}.`);
   addPost(s, `We are officially going beyond Earth. ${l.name} is a go.`, 2);
+  recordTx(s, { kind: 'buy', asset: 'space', ref: id, name: l.name, qty: 1, unit: l.cost, amount: -l.cost });
   return `${l.name} founded! Welcome to the cosmic frontier.`;
 }
 
@@ -528,7 +576,8 @@ export function fresh(): GameState {
     partner: false, married: false, kids: 0, m1: false, story: { used: [] },
     level: 1, xp: 0, gigs: {}, space: {}, social: { followers: 0, posts: [] },
     health: 92, spirit: 18, karma: 0, diet: false, well: {}, cause: null,
-    sleepHours: 8, timeline: [], ach: [],
+    sleepHours: 6, sleepDebt: 0, timeline: [], ach: [],
+    txSeq: 0, transactions: [], costBasis: {},
     used: [], mkt: [], favs: [], rareUp: [], rareLive: null, hall: null, pastLives: [], relations: {}, pets: [], clubs: [], aiEvPending: false, shortCompleted: [],
     pendingToasts: [],
     crisis: null, shocks: [], lastResearchDay: 0, researchBrief: null,
@@ -549,7 +598,11 @@ export function migrate(raw: unknown): GameState {
       version = 1;
     } else if (version === 1) {
       s.sideStudy = null;
-      s.sleepHours = 8;
+      // v11.49 — default daily sleep drops from 8h to 6h. Sleep-debt system
+      // makes the trade-off explicit: 6h = +12% study / +15% health decay.
+      // Existing v1 saves (which never had a sleepHours field) get the new
+      // default rather than the old 8h.
+      s.sleepHours = 6;
       s.timeline = [];
       s.schemaVersion = 2;
       version = 2;
@@ -642,7 +695,14 @@ export function migrate(raw: unknown): GameState {
     s.job = null;
   }
   if (!RELIGIONS.includes(s.religion)) s.religion = 'none';
-  s.sleepHours = typeof s.sleepHours === 'number' ? Math.min(10, Math.max(4, s.sleepHours)) : 8;
+  // v11.49 — clamp sleep hours to [4, 12] (12 added for catch-up sleep).
+  // Default for saves missing the field entirely is 6 (new default).
+  s.sleepHours = typeof s.sleepHours === 'number' ? Math.min(12, Math.max(4, s.sleepHours)) : 6;
+  // v11.49 — backfill sleep debt + portfolio fields for old saves.
+  s.sleepDebt = typeof s.sleepDebt === 'number' ? Math.min(35, Math.max(0, s.sleepDebt)) : 0;
+  s.txSeq = typeof s.txSeq === 'number' ? s.txSeq : 0;
+  s.transactions = Array.isArray(s.transactions) ? s.transactions.slice(-TX_CAP) : [];
+  s.costBasis = s.costBasis && typeof s.costBasis === 'object' ? s.costBasis : {};
   s.timeline = Array.isArray(s.timeline) ? s.timeline.slice(-45) : [];
   BIZ.forEach(b => (s.branches[b.id] || []).forEach((br, i) => {
     if (br.paid == null) br.paid = b.base * Math.pow(BRANCH_GROWTH, i);
@@ -854,6 +914,80 @@ export const bizVal = (s: GameState) => {
 };
 export const stockVal = (s: GameState) => STOCKS.reduce((a, x) => a + (s.stk[x.id] || 0) * s.prices[x.id], 0);
 export const netWorth = (s: GameState) => s.money + stockVal(s) + assetVal(s) + bizVal(s) + s.bank.dep - s.bank.loan + marketVal(s);
+
+// ================= v11.49 — PORTFOLIO DASHBOARD =================
+// Transaction log + cost-basis tracking so the Portfolio tab can show P&L,
+// per-asset ROI, and a chronological ledger. Every cash-touching action
+// (stocks, items, biz, bank, gigs, tuition, donations) calls recordTx.
+//
+// Cost basis is tracked per stock id as a single weighted-average dollar
+// figure (total $ invested in that stock). On a partial sell we deduct the
+// proportional share of the basis and realize the difference as P&L.
+export function recordTx(s: GameState, tx: Omit<Transaction, 'id' | 'day'>): void {
+  s.txSeq = (s.txSeq || 0) + 1;
+  s.transactions.push({ ...tx, id: s.txSeq, day: s.day });
+  if (s.transactions.length > TX_CAP) s.transactions = s.transactions.slice(-TX_CAP);
+}
+// v11.49 — realized P&L across all SELL transactions (stocks + items + biz).
+export const portfolioRealizedGains = (s: GameState): number =>
+  s.transactions.reduce((sum, tx) => sum + (tx.realizedPnL || 0), 0);
+// v11.49 — unrealized P&L: current market value minus cost basis, per holding.
+// Stocks: stk_qty × current_price − costBasis[id]. Lots + biz: lotValue/bizVal
+// already track appreciation from `paid`, so we expose them via the same API.
+export const portfolioUnrealizedGains = (s: GameState): number => {
+  let gains = 0;
+  // Stocks: weighted-avg cost basis tracked in s.costBasis[id].
+  for (const x of STOCKS) {
+    const qty = s.stk[x.id] || 0;
+    if (qty <= 0) continue;
+    const basis = s.costBasis[x.id] || 0;
+    gains += qty * s.prices[x.id] - basis;
+  }
+  // Lots: current value minus `paid` (depreciation + condition already applied).
+  gains += s.lots.reduce((a, l) => a + lotValue(s, l) - l.paid, 0);
+  // Businesses: per-branch current value minus `paid`.
+  const bizGains = (paid: number, boughtDay: number) =>
+    paid * Math.pow(1 + ASSET_DEPRECIATION_RATE, Math.max(0, (s.day - boughtDay) / 365.25)) - paid;
+  BIZ.forEach(b => (s.branches[b.id] || []).forEach(br => { gains += bizGains(br.paid, br.day); }));
+  FARM_LINES.forEach(l => { if (s.farm[l.id]) gains += bizGains(l.cost, s.farmBought[l.id] ?? s.day); });
+  FAC_LINES.forEach(l => { if (s.fac[l.id]) gains += bizGains(l.cost, s.facBought[l.id] ?? s.day); });
+  SPACE_LINES.forEach(l => { if (s.space[l.id]) gains += bizGains(l.cost, s.spaceBought[l.id] ?? s.day); });
+  return gains;
+};
+// v11.49 — total invested (sum of all BUY transactions' amounts, sign-flipped
+// to positive). Excludes transfers (bank deposits/loans) and income. Useful
+// for ROI denominator: ROI = (currentNW - totalInvested) / totalInvested.
+export const portfolioInvested = (s: GameState): number =>
+  s.transactions.reduce((sum, tx) => tx.kind === 'buy' ? sum + Math.abs(tx.amount) : sum, 0);
+// v11.49 — total income earned (gigs + jobs + dividends). Realized gains are
+// reported separately via portfolioRealizedGains to keep the breakdown clean.
+export const portfolioIncome = (s: GameState): number =>
+  s.transactions.reduce((sum, tx) => tx.kind === 'income' || tx.kind === 'dividend' ? sum + tx.amount : sum, 0);
+// v11.49 — overall ROI % across all invested capital. Includes both realized
+// and unrealized gains. Returns null when no investments yet (avoid div/0).
+export function portfolioROI(s: GameState): number | null {
+  const invested = portfolioInvested(s);
+  if (invested <= 0) return null;
+  return (portfolioRealizedGains(s) + portfolioUnrealizedGains(s)) / invested;
+}
+// v11.49 — per-stock ROI breakdown for the holdings table.
+export function stockROI(s: GameState, stockId: string): number | null {
+  const qty = s.stk[stockId] || 0;
+  if (qty <= 0) return null;
+  const basis = s.costBasis[stockId] || 0;
+  if (basis <= 0) return null;
+  return (qty * s.prices[stockId] - basis) / basis;
+}
+// v11.49 — net cash flow over a window of the last N days (default 30).
+// Income minus expenses minus investments. Useful for the burn-rate panel.
+export function cashFlowLastDays(s: GameState, days = 30): number {
+  const since = s.day - days;
+  return s.transactions.reduce((sum, tx) => {
+    if (tx.day < since) return sum;
+    if (tx.kind === 'transfer') return sum; // bank deposits/withdrawals are not P&L
+    return sum + tx.amount;
+  }, 0);
+}
 export const clickVal = (s: GameState) => Math.max(25, Math.round((30 + 0.01 * yearIncome(s)) * ((s.ints.includes('sports') || s.tals.includes('hands')) ? 1.25 : 1)));
 export const taxOf = (inc: number) => {
   let t = 0, lo = 0;
@@ -873,7 +1007,7 @@ export const effYears = (s: GameState, f: FieldKey, l: number) =>
 export const studyWorkMult = (s: GameState) => (s.study || s.sideStudy) && jobsOf(s).some(job => job.ft) ? .6 : 1;
 export const spaceUpgradeDays = 365;
 export const SPACE_TRAVEL_COST = 10000000;
-export const sleepHoursOptions = [4, 5, 6, 7, 8, 9, 10] as const;
+export const sleepHoursOptions = [4, 5, 6, 7, 8, 9, 10, 12] as const;
 export const spaceUpgradeReady = (s: GameState) =>
   !s.spaceTravel && !s.spaceUpgrade && !!s.space.orbital && s.level >= 12 &&
   worldYear(s) >= 2025 && s.money >= SPACE_TRAVEL_COST;
@@ -1013,11 +1147,27 @@ export function processDay(s: GameState, d: number, rng: () => number = Math.ran
       if (h.length > 60) h.shift();
     });
   }
+  // v11.49 — sleep debt: accumulate when < 7h, pay down when > 7h (catch-up
+  // rate is 2× the deficit rate so a single 12h night recovers a 4h deficit).
+  // Debt is clamped to [0, 35] (5 days of accumulated 4h-shortfall cap).
+  // Penalties use the BEFORE-sleep debt level — today's catch-up only reduces
+  // TOMORROW's penalty, not today's. So 10h sleep on day 3 of deficit (debt=21)
+  // still feels the penalty today but starts fresh tomorrow.
+  const debtBefore = s.sleepDebt;
+  const deficit = Math.max(0, 7 - s.sleepHours);
+  const catchup = Math.max(0, s.sleepHours - 7) * 2;
+  s.sleepDebt = Math.max(0, Math.min(35, s.sleepDebt + deficit - catchup));
   // Sleep trades study time for health recovery; other wellbeing modifiers still apply.
-  const dhp = ageDecayPerDay(s.age) * sleepHealthMult(s.sleepHours) * (s.diet ? .55 : 1) * (s.spirit >= 70 ? .85 : 1);
-  s.health = Math.max(0, s.health - dhp * (0.75 + rng() * 0.5));
-  if (s.study) s.study.end -= studyPace(s.sleepHours) - 1;
-  if (s.sideStudy) s.sideStudy.end -= studyPace(s.sleepHours) - 1;
+  // v11.49 — sleep ≥ 7h now RECOVERS health (sleepHealthRecovery adds a positive
+  // amount per day). Sleep-debt penalty (>21) multiplies decay by 1.2 (chronic
+  // deprivation also blocks recovery).
+  const dhp = ageDecayPerDay(s.age) * sleepHealthMult(s.sleepHours) * sleepDebtHealthMult(debtBefore) * (s.diet ? .55 : 1) * (s.spirit >= 70 ? .85 : 1);
+  const recovery = debtBefore > 21 ? 0 : sleepHealthRecovery(s.sleepHours); // exhausted = no recovery
+  s.health = Math.min(100, Math.max(0, s.health - dhp * (0.75 + rng() * 0.5) + recovery));
+  // v11.49 — apply sleep-debt penalty to study pace (>7 debt → ×0.9, >21 → ×0.75).
+  const debtMult = sleepDebtStudyMult(debtBefore);
+  if (s.study) s.study.end -= (studyPace(s.sleepHours) - 1) * debtMult;
+  if (s.sideStudy) s.sideStudy.end -= (studyPace(s.sleepHours) - 1) * debtMult;
   if (s.diet) s.money -= DIET_COST;
   if (s.health <= 15 && d % 30 === 0) pushLog(s, 'Your health is fragile — eat well, rest, see a doctor.');
   if (d % 14 === 0) {
@@ -1320,6 +1470,8 @@ export function openBranch(s: GameState, id: string): string | null {
   const reg = b.reg[(branchCount(s, b.id) - 1) % b.reg.length];
   pushLog(s, `Opened ${b.name} branch in ${reg}.`);
   addPost(s, `Ribbon cut! New ${b.name} opening in ${reg}.`, 1.2);
+  // v11.49 — record biz branch purchase (degree path) with cost as basis.
+  recordTx(s, { kind: 'buy', asset: 'branch', ref: `${b.id}#${s.biz[b.id] - 1}`, name: `${b.name} branch`, qty: 1, unit: c, amount: -c });
   return `Opened a ${b.name} in ${reg}!`;
 }
 // v11 — capital path: open a branch WITHOUT a degree by paying 2.5× the
@@ -1350,6 +1502,8 @@ export function openBranchCapital(s: GameState, id: string): string | null {
   const reg = b.reg[(branchCount(s, b.id) - 1) % b.reg.length];
   pushLog(s, `Opened ${b.name} via capital path in ${reg} (manager quality ${(managerQuality * 100).toFixed(0)}%).`);
   addPost(s, `Bought my way into ${b.name} — ${reg}. The manager starts Monday.`, 1.1);
+  // v11.49 — record biz branch purchase (capital path) with cost as basis.
+  recordTx(s, { kind: 'buy', asset: 'branch', ref: `${b.id}#${s.biz[b.id] - 1}`, name: `${b.name} branch (capital)`, qty: 1, unit: c, amount: -c });
   return `Opened ${b.name} (capital path) in ${reg}!`;
 }
 // v11 — monthly closure risk per branch. Rolled in yearEnd. Based on:
@@ -1418,6 +1572,8 @@ export function franchiseBranch(s: GameState, bizId: string, branchIdx: number):
   const b = BIZ.find(x => x.id === bizId);
   pushLog(s, `Franchised ${b?.name || bizId} outlet — received $${fee.toLocaleString()} upfront, royalty ${FRANCHISE_ROYALTY * 100}% ongoing.`);
   addPost(s, `Franchised a ${b?.name || 'business'} outlet — cash boost of $${fee.toLocaleString()}!`, 1.1);
+  // v11.49 — record franchise fee as income (cash injection from franchisee).
+  recordTx(s, { kind: 'income', asset: 'branch', ref: `${bizId}#${branchIdx}`, name: `Franchise fee: ${b?.name || bizId}`, qty: 1, unit: fee, amount: fee });
   return `Franchised! +$${fee.toLocaleString()} upfront (royalty ${FRANCHISE_ROYALTY * 100}% ongoing).`;
 }
 
@@ -1451,6 +1607,8 @@ export function acceptBizOffer(s: GameState, offer: BizOffer): string | null {
   if (offer.offer <= 0) return null; // deal dead
   const list = s.branches[offer.bizId];
   if (!list || offer.branchIdx < 0 || offer.branchIdx >= list.length) return null;
+  const br = list[offer.branchIdx];
+  const costBasis = br.paid; // original purchase price = realized P&L baseline
   s.money += offer.offer;
   // Remove the branch
   list.splice(offer.branchIdx, 1);
@@ -1461,6 +1619,9 @@ export function acceptBizOffer(s: GameState, offer: BizOffer): string | null {
   const b = BIZ.find(x => x.id === offer.bizId);
   pushLog(s, `Sold ${b?.name || offer.bizId} outlet to ${offer.buyerName} for $${offer.offer.toLocaleString()}.`);
   addPost(s, `Closed a deal — sold a ${b?.name || 'business'} outlet for $${offer.offer.toLocaleString()}.`, 1.2);
+  // v11.49 — record biz sale with realized P&L (sale price − original paid).
+  const pnl = offer.offer - costBasis;
+  recordTx(s, { kind: 'sell', asset: 'biz_sell', ref: offer.bizId, name: `Sold ${b?.name || offer.bizId}`, qty: 1, unit: offer.offer, amount: offer.offer, realizedPnL: pnl });
   return `Sold for $${offer.offer.toLocaleString()}!`;
 }
 
@@ -1518,6 +1679,7 @@ export function buyFarmLine(s: GameState, id: string): string | null {
   s.money -= l.cost; s.farm[l.id] = 1; s.farmBought[l.id] = s.day;
   addXp(s, 20);
   pushLog(s, `Farm expanded: ${l.name}.`);
+  recordTx(s, { kind: 'buy', asset: 'farm', ref: id, name: l.name, qty: 1, unit: l.cost, amount: -l.cost });
   return `${l.name} is now part of your farm!`;
 }
 export function buyFacLine(s: GameState, id: string): string | null {
@@ -1526,6 +1688,7 @@ export function buyFacLine(s: GameState, id: string): string | null {
   s.money -= l.cost; s.fac[l.id] = 1; s.facBought[l.id] = s.day;
   addXp(s, 20);
   pushLog(s, `Factory line: ${l.name}.`);
+  recordTx(s, { kind: 'buy', asset: 'fac', ref: id, name: l.name, qty: 1, unit: l.cost, amount: -l.cost });
   return `${l.name} built!${l.food ? ' Your farm supplies it (+30%).' : ''}`;
 }
 export function buyItem(s: GameState, id: string): string | null {
@@ -1533,26 +1696,44 @@ export function buyItem(s: GameState, id: string): string | null {
   s.money -= it.price; addLot(s, id);
   s.fame = s.fame + (it.lux >= 100 ? 3 : it.lux >= 30 ? 1 : 0);
   if (it.price >= 10000) addPost(s, `Just picked up a new ${it.name}. Life is good.`, it.lux >= 100 ? 2 : 1);
+  recordTx(s, { kind: 'buy', asset: 'lot', ref: id, name: it.name, qty: 1, unit: it.price, amount: -it.price });
   return 'Bought ' + it.name;
 }
 export function sellLot(s: GameState, idx: number): string | null {
   const l = s.lots[idx]; if (!l) return null;
-  const got = lotValue(s, l) * (1 - RESALE_FEE);
+  const gross = lotValue(s, l);
+  const got = gross * (1 - RESALE_FEE);
   s.money += got; s.lots.splice(idx, 1);
+  const fee = gross * RESALE_FEE;
+  const pnl = got - l.paid; // paid already accounts for purchase price + any repair costs
+  recordTx(s, { kind: 'sell', asset: 'lot', ref: l.id, name: ITEM_BY[l.id]?.name || 'Item', qty: 1, unit: got, amount: got, realizedPnL: pnl - fee });
   return 'Sold for ' + fmt(got);
 }
 export function trade(s: GameState, id: string, action: 'buy' | 'sell', qty: number): { ok: boolean; msg: string } {
   const p = s.prices[id]; const q = Math.max(1, Math.floor(qty || 1));
+  const stock = STOCKS.find(x => x.id === id);
+  const stockName = stock ? stock.name : id;
   if (action === 'buy') {
     const cost = p * q;
     if (s.money < cost) return { ok: false, msg: `Not enough cash for ${q} share${q > 1 ? 's' : ''}` };
     s.money -= cost; s.stk[id] = (s.stk[id] || 0) + q;
+    // v11.49 — weighted-average cost basis: add to total $ invested.
+    s.costBasis[id] = (s.costBasis[id] || 0) + cost;
+    recordTx(s, { kind: 'buy', asset: 'stock', ref: id, name: stockName, qty: q, unit: p, amount: -cost });
     return { ok: true, msg: `Bought ${q} \u00d7 ${id}` };
   }
   const held = s.stk[id] || 0; if (!held) return { ok: false, msg: 'Nothing to sell' };
   const n = Math.min(q, held);
-  s.money += p * n; s.stk[id] = held - n;
+  const proceeds = p * n;
+  s.money += proceeds; s.stk[id] = held - n;
   addXp(s, 4);
+  // v11.49 — realize P&L from the proportional cost basis being sold.
+  const totalBasis = s.costBasis[id] || 0;
+  const avgPerShare = held > 0 ? totalBasis / held : 0;
+  const soldBasis = avgPerShare * n;
+  s.costBasis[id] = Math.max(0, totalBasis - soldBasis);
+  const pnl = proceeds - soldBasis;
+  recordTx(s, { kind: 'sell', asset: 'stock', ref: id, name: stockName, qty: n, unit: p, amount: proceeds, realizedPnL: pnl });
   return { ok: true, msg: `Sold ${n} \u00d7 ${id} for ${fmt(p * n)}` };
 }
 export function joinClub(s: GameState, id: string): string | null {
@@ -1565,6 +1746,7 @@ export function joinClub(s: GameState, id: string): string | null {
   recomputeActiveClub(s);
   addXp(s, 30);
   pushLog(s, `Joined ${z.name}.`);
+  recordTx(s, { kind: 'expense', asset: 'bank', ref: id, name: `Join club: ${z.name}`, qty: 1, unit: z.fee, amount: -z.fee });
   return 'Welcome to the ' + z.name + '!';
 }
 // v10.5 — leave a club. No refund. Recomputes active.
@@ -1632,6 +1814,7 @@ export function foundClub(s: GameState, name: string): string | null {
   addXp(s, 60);
   pushLog(s, `Founded your own club: ${s.ownClub}.`);
   addPost(s, `Proud to announce ${s.ownClub} — a circle for people who build things.`, 1.5);
+  recordTx(s, { kind: 'expense', asset: 'bank', ref: 'found_club', name: `Found club: ${s.ownClub}`, qty: 1, unit: FOUND_COST, amount: -FOUND_COST });
   return `${s.ownClub} is founded!`;
 }
 export function hire(s: GameState, id: string): string | null {
@@ -1730,6 +1913,8 @@ export function travel(s: GameState, destId: string): string | null {
   s.travelLastDay = s.lastDay;
   addXp(s, dest.spirit);
   pushLog(s, `Travelled to ${dest.name} (${dest.days} days): spirit +${dest.spirit}, health +${dest.health}, fame +${dest.fame}.`);
+  // v11.49 — record travel as expense (leisure outflow).
+  recordTx(s, { kind: 'expense', asset: 'bank', ref: destId, name: `Travel: ${dest.name}`, qty: 1, unit: dest.cost, amount: -dest.cost });
   return `✈️ ${dest.name}: spirit +${dest.spirit}, health +${dest.health}${dest.fame ? `, fame +${dest.fame}` : ''}`;
 }
 export function travelReady(s: GameState, destId: string): boolean {
@@ -1769,6 +1954,8 @@ export function enrollLic(s: GameState, id: string): string | null {
   else s.study = course;
   const parallel = s.sideStudy === course;
   pushLog(s, `Enrolled: ${l.name}${parallel ? ' as a parallel course' : ''}.`);
+  // v11.49 — record licence tuition as expense.
+  recordTx(s, { kind: 'expense', asset: 'tuition', ref: id, name: `Licence: ${l.name}`, qty: 1, unit: l.cost, amount: -l.cost });
   return `Enrolled: ${l.name}${parallel ? ' (parallel course)' : ''}`;
 }
 
@@ -1817,12 +2004,31 @@ export function changeInterest(s: GameState, oldId: string, newId: string): stri
 }
 export function bankOp(s: GameState, op: 'dep' | 'wd' | 'loan' | 'repay', amt: number | 'all'): string | null {
   const maxLoan = Math.max(0, Math.floor(netWorth(s) * .5 - s.bank.loan));
-  if (op === 'dep') { const a = amt === 'all' ? Math.floor(s.money) : amt; if (a <= 0 || s.money < a) return null; s.money -= a; s.bank.dep += a; return 'Deposited ' + fmt(a); }
-  if (op === 'wd') { const a = amt === 'all' ? Math.floor(s.bank.dep) : amt; if (a <= 0 || s.bank.dep < a) return null; s.bank.dep -= a; s.money += a; return 'Withdrew ' + fmt(a); }
-  if (op === 'loan') { const a = amt === 'all' ? maxLoan : Math.min(amt, maxLoan); if (a <= 0) return null; s.bank.loan += a; s.money += a; return `Borrowed ${fmt(a)} at 6%/yr`; }
+  if (op === 'dep') {
+    const a = amt === 'all' ? Math.floor(s.money) : amt;
+    if (a <= 0 || s.money < a) return null;
+    s.money -= a; s.bank.dep += a;
+    recordTx(s, { kind: 'transfer', asset: 'bank', ref: 'dep', name: 'Deposit', qty: 1, unit: a, amount: -a });
+    return 'Deposited ' + fmt(a);
+  }
+  if (op === 'wd') {
+    const a = amt === 'all' ? Math.floor(s.bank.dep) : amt;
+    if (a <= 0 || s.bank.dep < a) return null;
+    s.bank.dep -= a; s.money += a;
+    recordTx(s, { kind: 'transfer', asset: 'bank', ref: 'wd', name: 'Withdraw', qty: 1, unit: a, amount: a });
+    return 'Withdrew ' + fmt(a);
+  }
+  if (op === 'loan') {
+    const a = amt === 'all' ? maxLoan : Math.min(amt, maxLoan);
+    if (a <= 0) return null;
+    s.bank.loan += a; s.money += a;
+    recordTx(s, { kind: 'transfer', asset: 'bank', ref: 'loan', name: 'Loan', qty: 1, unit: a, amount: a });
+    return `Borrowed ${fmt(a)} at 6%/yr`;
+  }
   const a = amt === 'all' ? Math.min(s.bank.loan, Math.floor(s.money)) : amt;
   if (a <= 0 || s.money < a) return null;
   s.money -= a; s.bank.loan = Math.max(0, s.bank.loan - a);
+  recordTx(s, { kind: 'transfer', asset: 'bank', ref: 'repay', name: 'Repay loan', qty: 1, unit: a, amount: -a });
   return 'Repaid ' + fmt(a);
 }
 // v11.2 — market research. Player pays a fee scaled by the modern era
@@ -1912,6 +2118,8 @@ export function donate(s: GameState, amt: number): string | null {
   }
   if (amt >= 10000) addPost(s, `Gave ${fmt(amt)} to charity today. Small acts, big ripples.`, 1.3);
   pushLog(s, `Donated ${fmt(amt)} to charity. Fame +${g}, karma +${ka}${infMsg}.`);
+  // v11.49 — record donation as expense (tax-deductible charity outflow).
+  recordTx(s, { kind: 'expense', asset: 'donate', ref: 'charity', name: 'Charity donation', qty: 1, unit: amt, amount: -amt });
   return `Donated ${fmt(amt)} \u00b7 fame +${g}${infMsg}`;
 }
 

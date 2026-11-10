@@ -1,13 +1,24 @@
 {
-  "version": "v11.48",
+  "version": "v11.49",
   "releasedAt": "2026-11-10",
-  "headline": "HuyenBao v11.48 — revert popup menu → inline nav bars (popup bị lỗi/khó dùng)",
-  "summary": "NAV REVERT. User reported the popup menus (v11.45) were buggy/confusing. Reverted to the simple inline horizontal nav bars (gnav + subnav) that work reliably. PinZone dashboard with SVG charts + no-scroll home tab are KEPT. Only the nav interaction changed: popup dropdowns → standard horizontal scroll pill buttons.",
+  "headline": "HuyenBao v11.49 — Portfolio Dashboard + Sleep Debt system",
+  "summary": "PORTFOLIO + SLEEP REWORK. New Portfolio tab (Finance group) shows Net worth, P&L (realized + unrealized), per-holding ROI, asset allocation donut, and a transaction ledger (last 200). Every cash-touching event (stocks, items, biz, gigs, bank, tuition, donations, travel) now records a transaction with cost-basis tracking for accurate realized P&L. Sleep system reworked: default drops from 8h to 6h per the user spec; sleep ≥ 7h now ACTIVELY RECOVERS health (was just slower decay); new 12h option for catch-up sleep; sleep debt accumulates when below 7h and is paid down at 2× rate above 7h; debt > 7 = -10% study, > 21 = -25% study + +20% decay + recovery blocked.",
   "features": [
-    "REVERT: popup menus → inline gnav + subnav horizontal bars (reliable, no bugs)",
-    "KEEP: PinZone dashboard with SVG donut + bar charts",
-    "KEEP: no-scroll home tab (More info popup for guide/news/ach/timeline/log)",
-    "KEEP: progressive disclosure + tutorial + dedup",
-    "Version bumped to v11.48"
+    "NEW: Portfolio tab in Finance group — Net worth, Total invested, Realized P&L, Unrealized P&L, Overall ROI, 30-day cash flow",
+    "NEW: Asset allocation donut chart (cash / savings / stocks / assets / biz)",
+    "NEW: Holdings table with per-asset ROI (stocks + lots combined, sorted by value)",
+    "NEW: Transaction ledger (last 200 txns, with kind/name/amount/realized P&L)",
+    "NEW: Transaction recording in trade(), buyItem(), sellLot(), bankOp(), doGig(), donate(), enrollLic(), foundClub(), joinClub(), travel(), openBranch(), openBranchCapital(), acceptBizOffer(), franchiseBranch(), buyFarmLine(), buyFacLine(), buySpace()",
+    "NEW: Weighted-average cost basis tracking per stock id (s.costBasis) — sells deduct proportional basis + record realized P&L",
+    "NEW: Sleep debt system (s.sleepDebt 0..35) — accumulates 1h per deficit-hour/day, pays down at 2h per surplus-hour/day",
+    "NEW: sleepHealthRecovery() — 7h+ sleep now actively heals (+0.05/day at 7h up to +0.50/day at 12h catch-up)",
+    "NEW: 12h option in sleep schedule (marked ✓ for catch-up)",
+    "NEW: Sleep-debt penalty: >7 debt = -10% study, >21 debt = -25% study + +20% decay + recovery blocked",
+    "NEW: PinZone shows sleep debt indicator (3 tiers: Rested / Tired / Exhausted) + recovery note",
+    "NEW: Health-change display now shows '+X%/day recovery' when sleeping ≥ 7h",
+    "CHANGE: default sleepHours drops from 8 → 6 (per user spec: +12% study / +15% decay trade-off)",
+    "CHANGE: sleepHealthMult kept positive (recovery handled separately to preserve the existing display formula)",
+    "24 new tests (160 → 184 total) covering sleep debt + portfolio calculations",
+    "Version bumped to v11.49"
   ]
 }

@@ -3,12 +3,15 @@ import test from 'node:test';
 import { ASSET_DEPRECIATION_RATE, DAY_MS, GIGS, YEAR_EVENTS } from './gameData';
 import {
   addPost, bankOp, bizMultiplier, begin, bizVal, checkAch, doGig, effYears, enrollDeg, enrollLic, fresh, gigPay,
-  lotValue, migrate, processDay, sleepHealthMult, studyPace, studyWorkMult,
+  lotValue, migrate, processDay, sleepHealthMult, sleepHealthRecovery, sleepDebtStudyMult, sleepDebtHealthMult, studyPace, studyWorkMult,
   SPACE_TRAVEL_COST, spaceIncome, startSpaceUpgrade, taxOf, tick, trade,
   doWell, effWellCd, wellLeft, wellReady, TREAT_COST, TREAT_CD, healthWarnings, hire, jobIncome, meets, POST_COOLDOWN_DAYS, studyTuition,
   // v11.2 — crisis + market research exports
   effEraBiz, effEraFac, effLoanRate, effRisk, effDemand, researchCost, researchMarket,
-  dateOf, worldYear, type GameState,
+  // v11.49 — Portfolio Dashboard helpers
+  recordTx, portfolioRealizedGains, portfolioUnrealizedGains, portfolioInvested, portfolioIncome, portfolioROI, stockROI, cashFlowLastDays,
+  buyItem, sellLot, buySpace,
+  dateOf, worldYear, type GameState, type Transaction,
 } from './engine';
 
 function seeded(seed: number): () => number {
@@ -905,3 +908,274 @@ test('v11.33: toggleFav adds and removes watchlist ids', () => {
   toggleFav(s, 'w-rolex');
   assert.deepEqual(s.favs, []);
 });
+
+// ================= v11.49 — PORTFOLIO DASHBOARD + SLEEP DEBT =================
+
+test('v11.49: fresh() defaults to 6h sleep (down from 8h) and zero debt + empty tx log', () => {
+  const s = fresh();
+  assert.equal(s.sleepHours, 6, 'default sleep is now 6h per the user spec');
+  assert.equal(s.sleepDebt, 0, 'sleep debt starts at 0');
+  assert.equal(s.txSeq, 0, 'tx sequence starts at 0');
+  assert.deepEqual(s.transactions, [], 'tx log starts empty');
+  assert.deepEqual(s.costBasis, {}, 'cost basis starts empty');
+});
+
+test('v11.49: sleepHealthMult keeps the v11.48 decay scale (4h=+45%, 6h=+15%, 7h=0%, 10h=-20%)', () => {
+  assert.equal(sleepHealthMult(4), 1.45);
+  assert.equal(sleepHealthMult(6), 1.15);
+  assert.equal(sleepHealthMult(7), 1.0);
+  assert.equal(sleepHealthMult(8), 1.0);
+  assert.equal(sleepHealthMult(10), 0.8);
+  // The test from v11 still holds: 4h worse than 8h.
+  assert.ok(sleepHealthMult(4) > sleepHealthMult(8));
+});
+
+test('v11.49: sleepHealthRecovery returns 0 below 7h, scales linearly above (8h=+0.10, 12h=+0.50)', () => {
+  assert.equal(sleepHealthRecovery(4), 0);
+  assert.equal(sleepHealthRecovery(6), 0);
+  assert.equal(sleepHealthRecovery(7), 0);
+  assert.equal(sleepHealthRecovery(8), 0.1);
+  assert.equal(sleepHealthRecovery(9), 0.2);
+  assert.equal(sleepHealthRecovery(10), 0.3);
+  assert.equal(sleepHealthRecovery(12), 0.5);
+});
+
+test('v11.49: processDay accumulates sleep debt at 1h per deficit-hour per day (4h sleep = +3 debt/day)', () => {
+  const s = fresh();
+  s.sleepHours = 4;
+  s.sleepDebt = 0;
+  processDay(s, 1, () => 0.5);
+  assert.equal(s.sleepDebt, 3, '4h sleep accrues 3h of debt (7-4)');
+});
+
+test('v11.49: processDay pays down sleep debt at 2h per surplus-hour per day (12h = -10 debt)', () => {
+  const s = fresh();
+  s.sleepHours = 12;
+  s.sleepDebt = 15; // pre-existing debt
+  processDay(s, 1, () => 0.5);
+  // 12h sleep = (12-7)*2 = 10 debt paid down
+  assert.equal(s.sleepDebt, 5, '12h sleep pays down 10h of debt (catch-up rate)');
+});
+
+test('v11.49: sleep debt is clamped to [0, 35]', () => {
+  const s = fresh();
+  s.sleepHours = 4;
+  s.sleepDebt = 0;
+  // Run 20 days at 4h sleep: 20 * 3 = 60, but clamp to 35
+  for (let i = 0; i < 20; i++) processDay(s, i + 1, () => 0.5);
+  assert.equal(s.sleepDebt, 35, 'sleep debt caps at 35 (5 days of 4h-shortfall)');
+});
+
+test('v11.49: sleepDebtStudyMult applies -10% penalty above 7 debt, -25% above 21', () => {
+  assert.equal(sleepDebtStudyMult(0), 1);
+  assert.equal(sleepDebtStudyMult(7), 1);
+  assert.equal(sleepDebtStudyMult(8), 0.9);
+  assert.equal(sleepDebtStudyMult(21), 0.9);
+  assert.equal(sleepDebtStudyMult(22), 0.75);
+  assert.equal(sleepDebtStudyMult(35), 0.75);
+});
+
+test('v11.49: sleepDebtHealthMult applies +20% decay penalty above 21 debt', () => {
+  assert.equal(sleepDebtHealthMult(0), 1);
+  assert.equal(sleepDebtHealthMult(21), 1);
+  assert.equal(sleepDebtHealthMult(22), 1.2);
+  assert.equal(sleepDebtHealthMult(35), 1.2);
+});
+
+test('v11.49: sleep at 7h+ actively recovers health when well-rested', () => {
+  const s = fresh();
+  s.sleepHours = 10;
+  s.health = 50;
+  s.sleepDebt = 0;
+  const before = s.health;
+  processDay(s, 1, () => 1); // rng=1 → max decay (0.75+1*0.5=1.25 multiplier)
+  // At 10h sleep: decay = ageDecay(0.015 for age<30) * mult(0.8) * 1.25 = 0.015
+  // Recovery = 0.30/day. Net = +0.285 (health gains).
+  assert.ok(s.health > before, '10h sleep with no debt should NET HEAL even at max rng');
+});
+
+test('v11.49: exhausted (>21 debt) blocks recovery even at 10h sleep', () => {
+  const s = fresh();
+  s.sleepHours = 10;
+  s.health = 50;
+  s.sleepDebt = 25; // exhausted
+  const before = s.health;
+  processDay(s, 1, () => 0); // rng=0 → min decay (0.75 multiplier)
+  // Decay = 0.015 * 0.8 * 1.2 (debt penalty) * 0.75 = 0.0108
+  // Recovery = 0 (blocked when debt > 21)
+  assert.ok(s.health < before, 'exhausted state blocks recovery even at 10h sleep');
+});
+
+test('v11.49: trade() buy records a transaction and tracks cost basis', () => {
+  const s = fresh();
+  s.money = 100_000;
+  const result = trade(s, 'TECH', 'buy', 10);
+  assert.equal(result.ok, true);
+  assert.equal(s.transactions.length, 1, 'one tx recorded');
+  const tx = s.transactions[0];
+  assert.equal(tx.kind, 'buy');
+  assert.equal(tx.asset, 'stock');
+  assert.equal(tx.qty, 10);
+  assert.equal(tx.amount, -s.prices['TECH'] * 10, 'amount is negative (cash outflow)');
+  assert.equal(s.costBasis['TECH'], s.prices['TECH'] * 10, 'cost basis = full purchase $');
+});
+
+test('v11.49: trade() sell records realized P&L and reduces cost basis proportionally', () => {
+  const s = fresh();
+  s.money = 100_000;
+  // Buy 10 shares at $230 each → cost basis = $2300
+  const origPrice = s.prices['TECH'];
+  trade(s, 'TECH', 'buy', 10);
+  assert.equal(s.costBasis['TECH'], origPrice * 10);
+  // Pump the price to 2× — sell 5 shares.
+  s.prices['TECH'] = origPrice * 2;
+  const result = trade(s, 'TECH', 'sell', 5);
+  assert.equal(result.ok, true);
+  // Two txns now: buy + sell.
+  assert.equal(s.transactions.length, 2);
+  const sellTx = s.transactions[1];
+  assert.equal(sellTx.kind, 'sell');
+  assert.equal(sellTx.qty, 5);
+  // Realized P&L = (sell price × qty) - (avg cost × qty) = (460*5) - (230*5) = 1150
+  assert.equal(sellTx.realizedPnL, origPrice * 5);
+  // Cost basis reduced by avg_per_share × qty sold = 230 × 5 = 1150
+  assert.equal(s.costBasis['TECH'], origPrice * 5);
+});
+
+test('v11.49: portfolioRealizedGains sums realizedPnL across all sell txns', () => {
+  const s = fresh();
+  s.money = 1_000_000;
+  // Stock round-trip: buy 10 at $230, sell 5 at $460 → P&L = $1150
+  const p0 = s.prices['TECH'];
+  trade(s, 'TECH', 'buy', 10);
+  s.prices['TECH'] = p0 * 2;
+  trade(s, 'TECH', 'sell', 5);
+  assert.equal(portfolioRealizedGains(s), p0 * 5);
+});
+
+test('v11.49: portfolioUnrealizedGains = current value - cost basis for open positions', () => {
+  const s = fresh();
+  s.money = 1_000_000;
+  const p0 = s.prices['TECH'];
+  trade(s, 'TECH', 'buy', 10); // cost basis = 10*p0
+  // Price doubles → unrealized = 20*p0 - 10*p0 = 10*p0
+  s.prices['TECH'] = p0 * 2;
+  assert.equal(portfolioUnrealizedGains(s), p0 * 10);
+});
+
+test('v11.49: portfolioInvested sums BUY outflows only (excludes transfers/income)', () => {
+  const s = fresh();
+  s.money = 1_000_000;
+  trade(s, 'TECH', 'buy', 10);
+  trade(s, 'OIL', 'buy', 5);
+  const totalBuy = s.prices['TECH'] * 10 + s.prices['OIL'] * 5;
+  assert.equal(portfolioInvested(s), totalBuy);
+});
+
+test('v11.49: portfolioROI = (realized + unrealized) / invested', () => {
+  const s = fresh();
+  s.money = 1_000_000;
+  const p0 = s.prices['TECH'];
+  trade(s, 'TECH', 'buy', 10); // invested = 10*p0
+  s.prices['TECH'] = p0 * 2;   // unrealized = 10*p0
+  // No sells → realized = 0; ROI = (0 + 10*p0) / (10*p0) = 1.0 = 100%
+  assert.equal(portfolioROI(s), 1.0);
+});
+
+test('v11.49: portfolioROI returns null when nothing invested (avoid div/0)', () => {
+  const s = fresh();
+  assert.equal(portfolioROI(s), null);
+});
+
+test('v11.49: buyItem + sellLot record txns with realized P&L', () => {
+  const s = fresh();
+  s.money = 1_000_000;
+  // Find any buyable item
+  const buyResult = buyItem(s, 'w-rolex');
+  assert.ok(buyResult, 'item buy succeeds');
+  assert.equal(s.transactions.length, 1);
+  assert.equal(s.transactions[0].kind, 'buy');
+  assert.equal(s.transactions[0].asset, 'lot');
+  // Sell it back
+  const sellResult = sellLot(s, 0);
+  assert.ok(sellResult);
+  assert.equal(s.transactions.length, 2);
+  assert.equal(s.transactions[1].kind, 'sell');
+  assert.equal(typeof s.transactions[1].realizedPnL, 'number');
+});
+
+test('v11.49: doGig records income transaction', () => {
+  const s = fresh();
+  s.money = 0;
+  s.social.followers = 0;
+  // 'ad' gig has no cooldown + no requirements
+  const result = doGig(s, 'ad');
+  assert.ok(result);
+  assert.equal(s.transactions.length, 1);
+  assert.equal(s.transactions[0].kind, 'income');
+  assert.equal(s.transactions[0].asset, 'gig');
+  assert.ok(s.transactions[0].amount > 0, 'income amount is positive');
+});
+
+test('v11.49: bankOp records transfer txns (deposit is outflow, withdrawal is inflow)', () => {
+  const s = fresh();
+  s.money = 100_000;
+  bankOp(s, 'dep', 10_000);
+  assert.equal(s.transactions.length, 1);
+  assert.equal(s.transactions[0].kind, 'transfer');
+  assert.equal(s.transactions[0].amount, -10_000, 'deposit = negative cash flow');
+  bankOp(s, 'wd', 5_000);
+  assert.equal(s.transactions.length, 2);
+  assert.equal(s.transactions[1].amount, 5_000, 'withdrawal = positive cash flow');
+});
+
+test('v11.49: cashFlowLastDays sums non-transfer amounts in the last N days', () => {
+  const s = fresh();
+  s.money = 1_000_000;
+  s.day = 100;
+  // Buy stock on day 100 → outflow
+  trade(s, 'TECH', 'buy', 10);
+  // Manually add an income txn from 50 days ago (outside window)
+  recordTx(s, { kind: 'income', asset: 'gig', ref: 'old', name: 'Old gig', qty: 1, unit: 500, amount: 500 });
+  s.transactions[s.transactions.length - 1].day = 50; // backdate
+  // 30-day window starting at day 100: only the buy (day 100) counts.
+  assert.equal(cashFlowLastDays(s, 30), -s.prices['TECH'] * 10);
+});
+
+test('v11.49: tx log caps at TX_CAP (200) by trimming oldest', async () => {
+  const { TX_CAP } = await import('./engine.js');
+  const s = fresh();
+  s.money = 100_000_000;
+  for (let i = 0; i < TX_CAP + 50; i++) {
+    recordTx(s, { kind: 'income', asset: 'gig', ref: `r${i}`, name: `gig${i}`, qty: 1, unit: 1, amount: 1 });
+  }
+  assert.equal(s.transactions.length, TX_CAP, 'log is capped at TX_CAP');
+  // Oldest trimmed: first kept tx should be the (50+1)th record.
+  assert.equal(s.transactions[0].ref, `r50`);
+});
+
+test('v11.49: migrate backfills sleep debt + tx log + cost basis for old saves', () => {
+  // Simulate a pre-v11.49 save missing the new fields.
+  const oldSave = fresh();
+  delete (oldSave as { sleepDebt?: number }).sleepDebt;
+  delete (oldSave as { txSeq?: number }).txSeq;
+  delete (oldSave as { transactions?: Transaction[] }).transactions;
+  delete (oldSave as { costBasis?: Record<string, number> }).costBasis;
+  const s = migrate(oldSave);
+  assert.equal(s.sleepDebt, 0);
+  assert.equal(s.txSeq, 0);
+  assert.deepEqual(s.transactions, []);
+  assert.deepEqual(s.costBasis, {});
+});
+
+test('v11.49: migrate preserves existing tx log + cost basis on save', () => {
+  const s = fresh();
+  s.money = 1_000_000;
+  trade(s, 'TECH', 'buy', 10);
+  const beforeCount = s.transactions.length;
+  const beforeBasis = s.costBasis['TECH'];
+  const migrated = migrate(s);
+  assert.equal(migrated.transactions.length, beforeCount);
+  assert.equal(migrated.costBasis['TECH'], beforeBasis);
+});
+

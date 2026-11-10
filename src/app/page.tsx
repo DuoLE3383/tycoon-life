@@ -1,5 +1,5 @@
 'use client';
-// HuyenBao v11.48 — React edition. Two-level grouped nav, a systems links map,
+// HuyenBao v11.49 — React edition. Two-level grouped nav, a systems links map,
 // gigs, levels, social, the cosmic frontier, EN/VI/中文, LLM oracle with
 // random kind dispatch (luck / setback / life-stage / story), pre-owned
 // market + social listings, a Hall of Fame tab, and a real player-to-player
@@ -40,8 +40,10 @@ import {
   negotiateRaise, quitJob,
   travel, travelReady, travelCooldownLeft,
   spaceUpgradeReady, startSpaceUpgrade, spaceUpgradeDays, spaceMultiplier, SPACE_TRAVEL_COST,
-  recordActivity, studyPace, sleepHealthMult, sleepHoursOptions,
-  gameOverTier, botRows, type AIEvent, type AIEventKind, type GameState,
+  recordActivity, studyPace, sleepHealthMult, sleepHealthRecovery, sleepHoursOptions, sleepDebtStudyMult, sleepDebtHealthMult,
+  gameOverTier, botRows, type AIEvent, type AIEventKind, type GameState, type Transaction, type TxKind, TX_CAP,
+  // v11.49 — Portfolio Dashboard helpers
+  recordTx, portfolioRealizedGains, portfolioUnrealizedGains, portfolioInvested, portfolioIncome, portfolioROI, stockROI, cashFlowLastDays,
   doWell, toggleDiet, wellReady, wellLeft, effWellCd, healthMult, healthState, healthWarnings, spiritState, decayPerYear,
   jobsOf, jobIncome, studyTuition, type Religion, RELIGIONS,
   spiritBizMult, cosmicMult, GYM_COST, GYM_CD, CHECKUP_COST, CHECKUP_CD, TREAT_COST, TREAT_CD, DIET_COST,
@@ -95,7 +97,7 @@ if (typeof window !== 'undefined') {
 // v11.8 — the bundled version. The /version.json file in /public is polled
 // every 5 minutes; if its version is newer than this, a "reload to update"
 // banner appears even in a running session (no F5 needed).
-const BUNDLED_VERSION = 'v11.48';
+const BUNDLED_VERSION = 'v11.49';
 const VERSION_POLL_MS = 5 * 60 * 1000;
 // v11.44 — 'what's new' modal now fires PER PATCH (not per major version).
 // The SEEN_KEY is derived from BUNDLED_VERSION so each new patch re-shows the
@@ -445,6 +447,7 @@ export default function Page() {
           {tab === 'chat' && <ChatView comm={comm} />}
           {tab === 'lboard' && <BoardView comm={comm} />}
           {tab === 'bank' && <BankTab s={s} act={act} />}
+          {tab === 'portfolio' && <PortfolioTab s={s} act={act} />}
           {tab === 'rank' && <RankTab s={s} board={rankBoard} setBoard={setRankBoard} />}
           {tab === 'power' && <PowerTab s={s} act={act} />}
           {tab === 'entity' && <EntityTab s={s} act={act} />}
@@ -560,7 +563,7 @@ function Header({ s, eraName }: { s: GameState; eraName: (y: number) => string }
     <header className="top">
       <div className="brand">
         <Art id="s-coin" className="logo" />
-        <div><h1><span className="mini">v11.48</span> HuyenBao</h1>
+        <div><h1><span className="mini">v11.49</span> HuyenBao</h1>
           <div className="mini">{s.started ? `${s.nation} · ${eraName(worldYear(s))}` : t('tagline')}</div></div>
       </div>
       {/* v11.46 — removed Cash/NW/Income from header (was duplicate of PinZone).
@@ -604,8 +607,12 @@ function PinZone({ s, t, onEdit, act, onNav }: { s: GameState; t: TFn; onEdit: (
     : t('notStudying');
   const xpPct = Math.min(100, Math.round(s.xp / xpNeed(s.level) * 100));
   // v11.42 — sleep + asset + income data (merged from HomeTab cards)
+  // v11.49 — also surface recovery rate at 7h+ (separate from decay mult).
   const healthChange = Math.round((sleepHealthMult(s.sleepHours) - 1) * 100);
-  const healthChangeText = `${healthChange > 0 ? '+' : ''}${healthChange}%`;
+  const recoveryRate = sleepHealthRecovery(s.sleepHours);
+  const healthChangeText = recoveryRate > 0
+    ? `+${(recoveryRate * 100).toFixed(0)}%/day recovery`
+    : `${healthChange > 0 ? '+' : ''}${healthChange}% decay`;
   const incRows: [string, number][] = [
     [t('inc.salary'), jobIncome(s)],
     [t('inc.biz'), bizIncome(s)],
@@ -676,9 +683,27 @@ function PinZone({ s, t, onEdit, act, onNav }: { s: GameState; t: TFn; onEdit: (
             <div className="pinzone-sleep">
               <label className="mini wl" htmlFor="sleep-hours-pin">{t('sleepSchedule')}</label>
               <select id="sleep-hours-pin" value={s.sleepHours} onChange={e => act(st => { st.sleepHours = Number(e.target.value); return t('sleepSet', '', { n: st.sleepHours }); })}>
-                {sleepHoursOptions.map(hours => <option key={hours} value={hours}>{hours}{t('sleepHourUnit')}</option>)}
+                {sleepHoursOptions.map(hours => <option key={hours} value={hours}>{hours}{t('sleepHourUnit')}{hours === 12 ? ' ✓' : ''}</option>)}
               </select>
               <span className="mini">{t('sleepEffects', '', { p: Math.round((studyPace(s.sleepHours) - 1) * 100), h: healthChangeText })}</span>
+              {/* v11.49 — sleep debt indicator: shows accumulated deficit + recovery hint */}
+              {s.sleepDebt > 0 && (
+                <div style={{ marginTop: 4, fontSize: 10, lineHeight: 1.3 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <span style={{ color: s.sleepDebt > 21 ? 'var(--brick)' : s.sleepDebt > 7 ? 'var(--warn, #c47b2c)' : 'var(--mute)' }}>
+                      {t('sleepDebt')}: {Math.round(s.sleepDebt)}h
+                    </span>
+                    <span className="tag" style={{
+                      fontSize: 9,
+                      background: s.sleepDebt > 21 ? 'var(--brick)' : s.sleepDebt > 7 ? 'var(--warn, #c47b2c)' : 'var(--mute)',
+                      color: '#fff',
+                    }}>
+                      {s.sleepDebt > 21 ? t('sleepDebt.high') : s.sleepDebt > 7 ? t('sleepDebt.mid') : t('sleepDebt.low')}
+                    </span>
+                  </div>
+                  <div style={{ color: 'var(--mute)' }}>{t('sleepDebtNote')}</div>
+                </div>
+              )}
             </div>
             {activeJobs.length > 0 && <span className="sub">{activeJobs.map(j => t('job.' + j.id, j.name)).join(' + ')}</span>}
             {activeStudies.length > 0 && <span className="sub">{studyTxt}</span>}
@@ -969,8 +994,12 @@ function HomeTab({ s, act, askAI, aiBusy, aiNote, eraName }: { s: GameState; act
     ? activeStudies.map(study => `${study.name} · ${Math.max(0, (study.end - s.day) / 365.25).toFixed(1)} ${t('years')}`).join(' · ')
     : t('notStudying');
   const xpPct = Math.min(100, Math.round(s.xp / xpNeed(s.level) * 100));
+  // v11.49 — surface recovery rate at 7h+ (separate from decay mult).
   const healthChange = Math.round((sleepHealthMult(s.sleepHours) - 1) * 100);
-  const healthChangeText = `${healthChange > 0 ? '+' : ''}${healthChange}%`;
+  const recoveryRate = sleepHealthRecovery(s.sleepHours);
+  const healthChangeText = recoveryRate > 0
+    ? `+${(recoveryRate * 100).toFixed(0)}%/day recovery`
+    : `${healthChange > 0 ? '+' : ''}${healthChange}% decay`;
   const timelineLocale = { en: 'en-US', vi: 'vi-VN', zh: 'zh-CN' }[lang];
   const incRows: [string, number][] = [
     [t('inc.salary'), jobIncome(s)],
@@ -3006,6 +3035,191 @@ function RelationsTab({ s, act }: { s: GameState; act: Act }) {
         );
       })}
       <p className="sub">{t('relations.note')}</p>
+    </>
+  );
+}
+
+// ================= v11.49 — PORTFOLIO DASHBOARD =================
+// Brings together P&L tracking, ROI per holding, asset allocation, and the
+// transaction ledger. Reads from s.transactions + s.costBasis which the
+// engine populates from every buy/sell/income/expense/transfer event.
+function PortfolioTab({ s }: { s: GameState; act: Act }) {
+  const { t, lang } = useT();
+  const nw = netWorth(s);
+  const realized = portfolioRealizedGains(s);
+  const unrealized = portfolioUnrealizedGains(s);
+  const invested = portfolioInvested(s);
+  const income = portfolioIncome(s);
+  const roi = portfolioROI(s);
+  const cashFlow = cashFlowLastDays(s, 30);
+  // Stock holdings with non-zero qty.
+  const stockHoldings = STOCKS.map(x => {
+    const qty = s.stk[x.id] || 0;
+    if (qty <= 0) return null;
+    const basis = s.costBasis[x.id] || 0;
+    const value = qty * s.prices[x.id];
+    const pnl = value - basis;
+    const roiPct = basis > 0 ? (pnl / basis) * 100 : 0;
+    return { id: x.id, name: t('stock.' + x.id, x.name), qty, basis, value, pnl, roiPct };
+  }).filter((h): h is NonNullable<typeof h> => !!h);
+  // Lot (item) holdings — current value vs `paid`.
+  const lotHoldings = s.lots.map((l, i) => {
+    const it = ITEM_BY[l.id];
+    if (!it) return null;
+    const value = lotValue(s, l);
+    const pnl = value - l.paid;
+    const roiPct = l.paid > 0 ? (pnl / l.paid) * 100 : 0;
+    return { idx: i, id: l.id, name: it.name, qty: 1, basis: l.paid, value, pnl, roiPct };
+  }).filter((h): h is NonNullable<typeof h> => !!h);
+  // All holdings combined for the table.
+  const allHoldings = [...stockHoldings, ...lotHoldings].sort((a, b) => b.value - a.value);
+  // Asset allocation breakdown for the donut chart.
+  const cashVal = Math.max(0, s.money);
+  const bankVal = Math.max(0, s.bank.dep);
+  const stkVal = stockVal(s);
+  const aVal = assetVal(s);
+  const bVal = bizVal(s);
+  const loanVal = Math.max(0, s.bank.loan);
+  const allocationSegs = [
+    { label: t('cash'), value: cashVal, color: 'var(--accent)' },
+    { label: t('savings'), value: bankVal, color: '#7d9484' },
+    { label: t('tab.markets'), value: stkVal, color: '#b3895f' },
+    { label: t('tab.assets'), value: aVal, color: '#a85f52' },
+    { label: t('tab.biz'), value: bVal, color: '#8d7f9b' },
+  ].filter(seg => seg.value > 0);
+  // Recent transactions (last 25 for display).
+  const recentTx = s.transactions.slice(-25).reverse();
+  const txKindLabel = (k: TxKind): string => ({
+    buy: t('pf.kindBuy'), sell: t('pf.kindSell'), income: t('pf.kindIncome'),
+    expense: t('pf.kindExpense'), transfer: t('pf.kindTransfer'), dividend: t('pf.kindDividend'),
+  }[k] || k);
+  const txSign = (k: TxKind, amount: number): string => {
+    if (k === 'sell' || k === 'income' || k === 'dividend') return '+' + fmt(amount);
+    if (k === 'transfer') return (amount >= 0 ? '+' : '') + fmt(amount);
+    return (amount >= 0 ? '+' : '') + fmt(amount);
+  };
+  const txColor = (k: TxKind, amount: number): string => {
+    if (k === 'sell' || k === 'income' || k === 'dividend') return 'var(--up)';
+    if (k === 'transfer') return amount >= 0 ? 'var(--up)' : 'var(--down)';
+    return amount >= 0 ? 'var(--up)' : 'var(--down)';
+  };
+  const pct = (n: number | null): string => n == null ? '—' : (n * 100).toFixed(1) + '%';
+  const pnlText = (n: number): { text: string; color: string } => ({
+    text: (n >= 0 ? '+' : '') + fmt(n),
+    color: n >= 0 ? 'var(--up)' : 'var(--down)',
+  });
+  const roiPctText = (n: number): { text: string; color: string } => ({
+    text: (n >= 0 ? '+' : '') + n.toFixed(1) + '%',
+    color: n >= 0 ? 'var(--up)' : 'var(--down)',
+  });
+  return (
+    <>
+      {/* Summary card */}
+      <div className="card" style={{ marginBottom: 10 }}>
+        <div className="lb"><span>{t('pf.netWorth')}</span><b>{fmt(nw)}</b></div>
+        <div className="lb"><span>{t('pf.invested')}</span><b>{fmt(invested)}</b></div>
+        <div className="lb"><span>{t('pf.income')}</span><b style={{ color: 'var(--up)' }}>+{fmt(income)}</b></div>
+        <div className="lb"><span>{t('pf.realized')}</span><b style={{ color: realized >= 0 ? 'var(--up)' : 'var(--down)' }}>{pnlText(realized).text}</b></div>
+        <div className="lb"><span>{t('pf.unrealized')}</span><b style={{ color: unrealized >= 0 ? 'var(--up)' : 'var(--down)' }}>{pnlText(unrealized).text}</b></div>
+        <div className="lb"><span>{t('pf.roi')}</span><b style={{ color: (roi ?? 0) >= 0 ? 'var(--up)' : 'var(--down)' }}>{pct(roi)}</b></div>
+        <div className="lb"><span>{t('pf.cashFlow30')}</span><b style={{ color: cashFlow >= 0 ? 'var(--up)' : 'var(--down)' }}>{(cashFlow >= 0 ? '+' : '') + fmt(cashFlow)}</b></div>
+        {loanVal > 0 && <div className="lb"><span style={{ color: 'var(--mute)' }}>Loan</span><b style={{ color: 'var(--brick)' }}>−{fmt(loanVal)}</b></div>}
+      </div>
+
+      {/* Allocation donut */}
+      {allocationSegs.length > 0 && (
+        <>
+          <h3>{t('pf.allocation')}</h3>
+          <div className="dash-chart-box" style={{ marginBottom: 10, display: 'flex', alignItems: 'center', gap: 12 }}>
+            <DonutChart segs={allocationSegs} size={120} />
+            <div style={{ flex: 1, minWidth: 0 }}>
+              {allocationSegs.map(seg => (
+                <div key={seg.label} className="lb">
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                    <span style={{ display: 'inline-block', width: 10, height: 10, borderRadius: 2, background: seg.color }} />
+                    {seg.label}
+                  </span>
+                  <b>{fmt(seg.value)}</b>
+                </div>
+              ))}
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* Holdings table */}
+      <h3>{t('pf.holdings')}</h3>
+      {allHoldings.length === 0 ? (
+        <p className="sub">{t('pf.noHoldings')}</p>
+      ) : (
+        <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+          <table style={{ width: '100%', fontSize: 12, borderCollapse: 'collapse' }}>
+            <thead>
+              <tr style={{ background: 'var(--paper2)', borderBottom: '1px solid var(--line)' }}>
+                <th style={{ textAlign: 'left', padding: '6px 8px' }}>{t('pf.asset')}</th>
+                <th style={{ textAlign: 'right', padding: '6px 8px' }}>{t('pf.qty')}</th>
+                <th style={{ textAlign: 'right', padding: '6px 8px' }}>{t('pf.cost')}</th>
+                <th style={{ textAlign: 'right', padding: '6px 8px' }}>{t('pf.value')}</th>
+                <th style={{ textAlign: 'right', padding: '6px 8px' }}>{t('pf.pnl')}</th>
+                <th style={{ textAlign: 'right', padding: '6px 8px' }}>{t('pf.roiCol')}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {allHoldings.slice(0, 20).map(h => {
+                const pnlInfo = pnlText(h.pnl);
+                const roiInfo = roiPctText(h.roiPct);
+                return (
+                  <tr key={h.id + (h as { idx?: number }).idx} style={{ borderBottom: '1px solid var(--line)' }}>
+                    <td style={{ padding: '6px 8px' }}>{h.name}</td>
+                    <td style={{ textAlign: 'right', padding: '6px 8px' }}>{h.qty}</td>
+                    <td style={{ textAlign: 'right', padding: '6px 8px' }}>{fmt(h.basis)}</td>
+                    <td style={{ textAlign: 'right', padding: '6px 8px' }}>{fmt(h.value)}</td>
+                    <td style={{ textAlign: 'right', padding: '6px 8px', color: pnlInfo.color, fontWeight: 600 }}>{pnlInfo.text}</td>
+                    <td style={{ textAlign: 'right', padding: '6px 8px', color: roiInfo.color, fontWeight: 600 }}>{roiInfo.text}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {/* Transaction ledger */}
+      <h3>{t('pf.txLog')} <span className="mini" style={{ fontWeight: 400 }}>· {s.transactions.length}/{TX_CAP}</span></h3>
+      {recentTx.length === 0 ? (
+        <p className="sub">{t('pf.empty')}</p>
+      ) : (
+        <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+          <table style={{ width: '100%', fontSize: 12, borderCollapse: 'collapse' }}>
+            <thead>
+              <tr style={{ background: 'var(--paper2)', borderBottom: '1px solid var(--line)' }}>
+                <th style={{ textAlign: 'left', padding: '6px 8px' }}>{t('pf.day')}</th>
+                <th style={{ textAlign: 'left', padding: '6px 8px' }}>{t('pf.kind')}</th>
+                <th style={{ textAlign: 'left', padding: '6px 8px' }}>{t('pf.asset')}</th>
+                <th style={{ textAlign: 'right', padding: '6px 8px' }}>{t('pf.amount')}</th>
+                <th style={{ textAlign: 'right', padding: '6px 8px' }}>{t('pf.pnl')}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {recentTx.map(tx => (
+                <tr key={tx.id} style={{ borderBottom: '1px solid var(--line)' }}>
+                  <td style={{ padding: '6px 8px', color: 'var(--mute)' }}>D{tx.day}</td>
+                  <td style={{ padding: '6px 8px' }}>
+                    <span className="tag" style={{ fontSize: 10 }}>{txKindLabel(tx.kind)}</span>
+                  </td>
+                  <td style={{ padding: '6px 8px' }}>{tx.name}{tx.qty > 1 ? ` ×${tx.qty}` : ''}</td>
+                  <td style={{ textAlign: 'right', padding: '6px 8px', color: txColor(tx.kind, tx.amount), fontWeight: 600 }}>{txSign(tx.kind, tx.amount)}</td>
+                  <td style={{ textAlign: 'right', padding: '6px 8px', color: (tx.realizedPnL || 0) >= 0 ? 'var(--up)' : 'var(--down)', fontWeight: 600 }}>
+                    {tx.realizedPnL != null ? pnlText(tx.realizedPnL).text : '—'}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+      {/* Suppress unused-lang warning (lang is used elsewhere via useT consumer pattern). */}
+      <span style={{ display: 'none' }}>{lang}</span>
     </>
   );
 }

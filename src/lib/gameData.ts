@@ -750,7 +750,7 @@ export const GROUPS: [string, string, string, [string, string, string][]][] = [
   // conceptually even though they're separate groups now.
   ['edu', 'Education', 't-cap', [['edu', 'Education', 't-cap']]],
   ['career', 'Career', 't-work', [['career', 'Career', 't-work']]],
-  ['finance', 'Finance', 't-bank', [['markets', 'Markets', 't-stock'], ['bank', 'Banking', 't-bank']]],
+  ['finance', 'Finance', 't-bank', [['markets', 'Markets', 't-stock'], ['bank', 'Banking', 't-bank'], ['portfolio', 'Portfolio', 'ic-pie']]],
   // v11.41 — Business group no longer carries Space; Space moves to the
   // Empire group (only relevant once the player is a super-entity).
   ['empire', 'Business', 't-biz', [['biz', 'Business', 't-biz']]],
