@@ -1,9 +1,9 @@
 # HuyenBao — reverse proxy cho mogul.huyenbao.com (Caddy)
 #
-# mogul.huyenbao.com = domain dành riêng cho ADMIN dashboard — đã ẩn (v11.32):
-#   /        → rewrite ngầm tới /adm (URL giữ nguyên — admin console)
-#   /adm     → admin console trực tiếp   |   /admin cũ → 404
-#   /game    → game đầy đủ có backend xã hội
+# mogul.huyenbao.com (v11.35) = domain GAME-FIRST — admin dashboard dời về /ads:
+#   /        → game đầy đủ có backend xã hội (mở domain vào là chơi)
+#   /ads     → admin dashboard toàn diện (7 tab)   |   /adm cũ → alias rewrite → /ads
+#   /game    → alias rewrite → /                    |   /admin → 404
 #   /api/*   → social + admin API (chặn bằng ADMIN_KEY)
 #
 # Cài: đặt file này thành /etc/caddy/Caddyfile (hoặc import vào file chính)

@@ -606,5 +606,7 @@ html[data-theme="dark"] .tgame .mcard{box-shadow:0 14px 46px rgba(0,0,0,.5)}
 .adm-editrow td{background:rgba(127,127,127,.06)}
 .adm-bcast{display:grid;gap:8px;margin:12px 0;border:1.5px dashed var(--line,#bbb);border-radius:12px;padding:12px}
 .adm-bcast .adm-btn{justify-self:start}
+.adm-sysrow td{background:rgba(193,152,76,.08)}
+.adm-sysrow .adm-nw{color:var(--gold,#c1984c)}
 @media (prefers-color-scheme: dark){.adm-input{background:#2a2723;color:#f4f1ea;border-color:#555}}
 

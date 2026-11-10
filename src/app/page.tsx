@@ -1,5 +1,5 @@
 'use client';
-// HuyenBao v11.34 — React edition. Two-level grouped nav, a systems links map,
+// HuyenBao v11.35 — React edition. Two-level grouped nav, a systems links map,
 // gigs, levels, social, the cosmic frontier, EN/VI/中文, LLM oracle with
 // random kind dispatch (luck / setback / life-stage / story), pre-owned
 // market + social listings, a Hall of Fame tab, and a real player-to-player
@@ -91,7 +91,7 @@ if (typeof window !== 'undefined') {
 // v11.8 — the bundled version. The /version.json file in /public is polled
 // every 5 minutes; if its version is newer than this, a "reload to update"
 // banner appears even in a running session (no F5 needed).
-const BUNDLED_VERSION = 'v11.34';
+const BUNDLED_VERSION = 'v11.35';
 const VERSION_POLL_MS = 5 * 60 * 1000;
 // v11.24 — 'what's new' modal is shown ONCE PER PLAYER per MAJOR version
 // (tycoon_seen_v11), not once per patch release. Previously the key was
@@ -526,7 +526,7 @@ function Header({ s, eraName }: { s: GameState; eraName: (y: number) => string }
     <header className="top">
       <div className="brand">
         <Art id="s-coin" className="logo" />
-        <div><h1><span className="mini">v11.34</span> HuyenBao</h1>
+        <div><h1><span className="mini">v11.35</span> HuyenBao</h1>
           <div className="mini">{s.started ? `${s.nation} · ${eraName(worldYear(s))}` : t('tagline')}</div></div>
       </div>
       <div><div className="mini">{t('cash')}</div><div id="tcash" style={{ color: s.money < 0 ? 'var(--brick)' : undefined }}>{fmt(s.money)}</div>

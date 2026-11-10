@@ -201,7 +201,9 @@ export function removeFriendship(uid: string, other: string): void {
 export function giftsFor(uid: string, limit = 40): ReturnType<typeof pubGift>[] {
   const rows = db().prepare('SELECT * FROM gifts WHERE from_uid = ? OR to_uid = ? ORDER BY id DESC LIMIT ?').all(uid, uid, limit) as GiftRow[];
   const names = profilesOf(rows.map(r => r.from_uid));
-  return rows.map(r => pubGift(r, names[r.from_uid]?.name));
+  // v11.35 — system gifts (from ADMIN_SYS_UID) have no player row; default to
+  // 'HuyenBao 📢' so the recipient sees a clean sender name.
+  return rows.map(r => pubGift(r, r.from_uid === ADMIN_SYS_UID ? 'HuyenBao 📢' : names[r.from_uid]?.name));
 }
 export function insertGift(fromUid: string, toUid: string, amount: number, note: string): ReturnType<typeof pubGift> | { banned: true } {
   const bannedRow = db().prepare('SELECT banned FROM players WHERE id = ?').get(fromUid) as { banned?: number } | undefined;
@@ -268,7 +270,9 @@ export function adminBroadcast(text: string): ReturnType<typeof pubMsg> {
 export function adminListGifts(limit = 100): ReturnType<typeof pubGift>[] {
   const rows = db().prepare('SELECT * FROM gifts ORDER BY id DESC LIMIT ?').all(limit) as GiftRow[];
   const names = profilesOf(rows.map(r => r.from_uid));
-  return rows.map(r => pubGift(r, names[r.from_uid]?.name));
+  // v11.35 — system gifts (from ADMIN_SYS_UID) have no player row; default the
+  // sender display name to 'HuyenBao 📢' so the admin log reads cleanly.
+  return rows.map(r => pubGift(r, r.from_uid === ADMIN_SYS_UID ? 'HuyenBao 📢' : names[r.from_uid]?.name));
 }
 export function adminDeleteGift(id: number): boolean {
   return db().prepare('DELETE FROM gifts WHERE id = ?').run(id).changes > 0;
@@ -281,6 +285,75 @@ export function adminClearMessages(): number {
   db().exec('DELETE FROM messages');
   db().exec("DELETE FROM sqlite_sequence WHERE name='messages'");
   return n;
+}
+
+// ---------------------------------------------------------------- v11.35 — comprehensive game control
+export function adminSendGift(toUidOrCode: string, amount: number, note: string): ReturnType<typeof pubGift> | null {
+  const d = db();
+  const recipient = d.prepare('SELECT * FROM players WHERE id = ? OR code = ?').get(toUidOrCode, toUidOrCode) as PlayerRow | undefined;
+  if (!recipient) return null;
+  const info = d.prepare('INSERT INTO gifts (from_uid, to_uid, amount, note, claimed, ts) VALUES (?,?,?,?,0,?)')
+    .run(ADMIN_SYS_UID, recipient.id, clampAmount(amount), clampStr(note, 120) || null, Date.now());
+  const row = d.prepare('SELECT * FROM gifts WHERE id = ?').get(info.lastInsertRowid) as GiftRow;
+  return pubGift(row, 'HuyenBao 📢');
+}
+
+export function adminResetLeaderboard(): number {
+  const r = db().prepare('UPDATE players SET nw = 0, level = 1').run();
+  return r.changes;
+}
+
+export function adminTopPlayers(limit = 50): { code: string; name: string; avatar: string; nw: number; level: number; last_seen: number }[] {
+  const n = Math.min(500, Math.max(1, Math.round(limit)));
+  return (db().prepare('SELECT code, name, avatar, nw, level, last_seen FROM players ORDER BY nw DESC, ts DESC LIMIT ?').all(n) as (PlayerRow & { last_seen: number })[])
+    .map(p => ({ code: p.code, name: p.name, avatar: p.avatar, nw: p.nw, level: p.level, last_seen: p.last_seen }));
+}
+
+export interface AdminSystemInfo {
+  ok: true; ts: number;
+  node: string; platform: string; arch: string;
+  uptimeSec: number; pid: number;
+  memory: { rssMb: number; heapUsedMb: number; heapTotalMb: number; externalMb: number };
+  env: { adminKeySet: boolean; socialDbPath: string; basePath: string; port: string };
+  db: { path: string; bytes: number; walBytes: number; shmBytes: number };
+  packageVersion: string;
+}
+export function adminSystemInfo(): AdminSystemInfo {
+  const mem = process.memoryUsage();
+  const dbPath = DB_PATH;
+  const dbBytes = fs.existsSync(dbPath) ? fs.statSync(dbPath).size : 0;
+  const walPath = dbPath + '-wal';
+  const shmPath = dbPath + '-shm';
+  const walBytes = fs.existsSync(walPath) ? fs.statSync(walPath).size : 0;
+  const shmBytes = fs.existsSync(shmPath) ? fs.statSync(shmPath).size : 0;
+  let packageVersion = 'unknown';
+  try {
+    const pj = JSON.parse(fs.readFileSync(path.join(process.cwd(), 'package.json'), 'utf8')) as { version?: string };
+    if (typeof pj.version === 'string') packageVersion = pj.version;
+  } catch { /* ignore */ }
+  return {
+    ok: true,
+    ts: Date.now(),
+    node: process.version,
+    platform: process.platform,
+    arch: process.arch,
+    uptimeSec: Math.round(process.uptime()),
+    pid: process.pid,
+    memory: {
+      rssMb: Math.round(mem.rss / 1024 / 1024),
+      heapUsedMb: Math.round(mem.heapUsed / 1024 / 1024),
+      heapTotalMb: Math.round(mem.heapTotal / 1024 / 1024),
+      externalMb: Math.round(mem.external / 1024 / 1024),
+    },
+    env: {
+      adminKeySet: !!process.env.ADMIN_KEY,
+      socialDbPath: dbPath,
+      basePath: process.env.NEXT_PUBLIC_BASE_PATH || '',
+      port: process.env.PORT || '3334',
+    },
+    db: { path: dbPath, bytes: dbBytes, walBytes, shmBytes },
+    packageVersion,
+  };
 }
 
 // ---------------------------------------------------------------- admin stats

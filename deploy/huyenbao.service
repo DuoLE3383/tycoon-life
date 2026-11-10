@@ -6,7 +6,7 @@
 #   sudo systemctl enable --now huyenbao
 #   journalctl -u huyenbao -f        # xem log
 #
-# LƯU Ý: điền ADMIN_KEY thật trước khi bật (biến môi trường cho /admin).
+# LƯU Ý: điền ADMIN_KEY thật trước khi bật (biến môi trường cho /ads).
 
 [Unit]
 Description=HuyenBao (tycoon-life) — Next.js production server

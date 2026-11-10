@@ -1,13 +1,16 @@
 {
-  "version": "v11.34",
+  "version": "v11.35",
   "releasedAt": "2026-11-10",
-  "headline": "HuyenBao v11.34 — quy ước màu nút: Bận=cam · Đang tiến hành=xanh · Bỏ/Huỷ=đỏ",
-  "summary": "BUTTON COLOR CONVENTION. The whole app now follows one visual language: orange (.busy) for slot-taken / processing / 'đang bận' states, green (.ongoing) for actively-in-progress / 'đang học' states, and red (.danger) for discard / cancel / withdraw / leave / rehome actions. New CSS classes .busy (amber, theme-aware) and .ongoing (sage) join the existing .danger; the disabled grey is shared so a disabled busy/cancel button still reads as 'not now'. The license + short-course enrol buttons now colour themselves dynamically — green while you're studying, orange when the slot is full. The 'Drop study slot', 'Withdraw from market', 'Leave club', 'Rehome pet' buttons plus both modal cancel controls (✕ header + 'Hủy' footer in PurchaseConfirm) flipped from neutral grey ghost to red danger so the destructive intent is unmistakable at a glance.",
+  "headline": "HuyenBao v11.35 — admin dashboard dời về /ads, mogul root về game, dashboard toàn diện 7 tab",
+  "summary": "ADMIN DASHBOARD RELOCATION. mogul.huyenbao.com/ is now GAME-FIRST. The comprehensive admin dashboard lives at /ads; old /adm and /game paths silently rewrite there. 7-tab operator cockpit: Tổng quan · Hệ thống · Người chơi · Trò chuyện · Quà tặng · Bảng XH · CSDL.",
   "features": [
-    "BUTTON CONVENTION: busy = orange (.busy), in-progress = green (.ongoing), discard/cancel = red (.danger)",
-    "NEW CSS classes .busy (amber, light #c2680a / dark #e89446) and .ongoing (sage) — theme-aware, share the disabled grey",
-    "ENROL buttons (license + short course) now colour themselves: green while studying, orange when slots are full",
-    "DISCARD BUTTONS TURNED RED: Drop study slot · Withdraw from market · Leave club · Rehome pet · modal ✕ · modal 'Hủy'",
-    "Version bumped to v11.34 at FRONT of app name"
+    "ROUTING PIVOT: mogul.huyenbao.com/ = game (native) · /game alias rewrite → / · /adm alias rewrite → /ads · /admin → 404",
+    "NEW PATH /ads — comprehensive admin dashboard (replaces /adm)",
+    "NEW TAB 'Hệ thống' — Node version, uptime, RSS/heap memory, ADMIN_KEY set?, port, SQLite main+WAL+SHM file sizes",
+    "NEW TAB 'Bảng XH' — top 50 leaderboard + destructive 'Reset toàn bộ' button",
+    "NEW 'send admin gift' inline on both Người chơi + Quà tặng tabs — gift any player by HB-code or UID, shows as 'HuyenBao 📢'",
+    "SYSTEM GIFTS TINTED GOLD in admin gift log (.adm-sysrow CSS)",
+    "NEW API: GET /api/admin/system · GET+POST /api/admin/leaderboard · POST /api/admin/gifts action='send'",
+    "Version bumped to v11.35"
   ]
 }
