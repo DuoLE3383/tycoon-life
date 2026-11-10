@@ -2,10 +2,10 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { ASSET_DEPRECIATION_RATE, DAY_MS, GIGS, YEAR_EVENTS } from './gameData';
 import {
-  bankOp, bizMultiplier, begin, bizVal, checkAch, effYears, enrollDeg, enrollLic, fresh, gigPay,
+  addPost, bankOp, bizMultiplier, begin, bizVal, checkAch, doGig, effYears, enrollDeg, enrollLic, fresh, gigPay,
   lotValue, migrate, processDay, sleepHealthMult, studyPace, studyWorkMult,
   SPACE_TRAVEL_COST, spaceIncome, startSpaceUpgrade, taxOf, tick, trade,
-  doWell, healthWarnings, hire, jobIncome, meets, studyTuition,
+  doWell, healthWarnings, hire, jobIncome, meets, POST_COOLDOWN_DAYS, studyTuition,
   // v11.2 — crisis + market research exports
   effEraBiz, effEraFac, effLoanRate, effRisk, effDemand, researchCost, researchMarket,
   dateOf, worldYear, type GameState,
@@ -558,4 +558,77 @@ test('v11.24: daily price walk moves prices + appends hist (market no longer fla
   const ratio = state.prices.TECH / startPrice;
   assert.ok(Math.abs(ratio - 1) > 0.001, `expected TECH to move, ratio=${ratio}`);
   assert.ok(ratio >= 0.25 && ratio <= 6, `expected TECH inside clamp band, ratio=${ratio}`);
+});
+
+// ---------- v11.26 — gigs drain health (work is tiring; ad gig = anti-spam) ----------
+
+test('v11.26: every gig drains health by its hp field and queues a toast', () => {
+  const state = fresh();
+  state.health = 100;
+  state.deg.business = 1;          // unlocks tutor ({any:1}) + consult ({deg:{business:1}})
+  state.social.followers = 1000;   // unlocks sponsored
+  const hpSum = GIGS.reduce((a, g) => a + (g.hp || 0), 0);
+  assert.ok(hpSum > 0, 'GIGS must define hp costs');
+  const before = state.money;
+  for (const g of GIGS) assert.ok(doGig(state, g.id), 'gig ' + g.id + ' should run');
+  assert.ok(Math.abs(state.health - (100 - hpSum)) < 1e-9, `health ${state.health} != ${100 - hpSum}`);
+  assert.ok(state.money > before);
+  assert.equal(state.pendingToasts.length, GIGS.length);
+});
+
+test('v11.26: watching an ad costs exactly 0.5 health and still pays', () => {
+  const state = fresh();
+  state.health = 80;
+  const pay = doGig(state, 'ad');
+  assert.ok(pay && pay.startsWith('+'));
+  assert.equal(state.health, 79.5);
+});
+
+test('v11.26: gig health floors at zero — a gig can never push health negative', () => {
+  const state = fresh();
+  state.health = 0.4;
+  assert.ok(doGig(state, 'ad'));
+  assert.equal(state.health, 0);
+});
+
+test('v11.26: spamming the no-cooldown ad gig drains health cumulatively (anti-spam valve)', () => {
+  const state = fresh();
+  state.health = 100;
+  for (let i = 0; i < 20; i++) assert.ok(doGig(state, 'ad'), 'ad watch ' + i);
+  assert.equal(state.health, 90);
+});
+
+test('v11.26: gig health toast carries the localised key when t() is injected', () => {
+  const state = fresh();
+  doGig(state, 'ad', k => k);
+  assert.equal(state.pendingToasts[0], '💢 gig.healthCost');
+  // without a t() the engine falls back to a plain readable string
+  const s2 = fresh();
+  doGig(s2, 'ad');
+  assert.equal(s2.pendingToasts[0], '💢 ad: health -0.5');
+});
+
+test('v11.26: grinding health to 0 ends the game with cause=health on the next day tick', () => {
+  const state = fresh();
+  begin(state, { name: 'Tycoon', byear: 1990, nation: 'United States', ints: [], tals: [] });
+  state.health = 0.2;
+  assert.ok(doGig(state, 'delivery'));
+  assert.equal(state.health, 0);
+  const out = tick(state, DAY_MS, () => 0.5);
+  assert.ok(state.over, 'game should be over at 0 health');
+  assert.equal(state.cause, 'health');
+  assert.ok(out.gameJustOver);
+});
+
+test('v11.20 regression: hype and charity posts still cost health, plain posts do not', () => {
+  const state = fresh();
+  state.health = 100;
+  addPost(state, 'plain update', 1);
+  assert.equal(state.health, 100);
+  state.lastDay += POST_COOLDOWN_DAYS;
+  addPost(state, 'hype', 1.6);
+  assert.ok(Math.abs(state.health - 99.4) < 1e-9, `health after hype = ${state.health}`);
+  state.lastDay += POST_COOLDOWN_DAYS;
+  addPost(state, 'charity', 1.4);
+  assert.ok(Math.abs(state.health - 99.1) < 1e-9, `health after charity = ${state.health}`);
 });

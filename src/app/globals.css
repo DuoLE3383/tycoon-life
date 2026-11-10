@@ -102,6 +102,8 @@ html[data-theme="light"] body{background:#e9e6df}
 .tgame .gig .art{width:38px;height:38px;border-radius:10px}
 .tgame .gig b{font-size:.92rem}
 .tgame .gig .pay{font-weight:750;font-variant-numeric:tabular-nums;color:var(--up)}
+/* v11.26 — gig health cost hint on the card (red, next to the +$ pay) */
+.tgame .gig .hppay{font-weight:600;font-variant-numeric:tabular-nums;color:var(--brick);opacity:.85;margin-left:5px}
 .tgame .up{color:var(--up)}.tgame .down{color:var(--dn)}
 .tgame .spark{width:90px;height:30px;flex:none}
 .tgame .feed{max-height:250px;overflow:auto;font-size:.88rem}

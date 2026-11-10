@@ -272,6 +272,9 @@ const D: Record<string, [string, string, string]> = {
   'gig.consult': ['Consulting call', 'Tư vấn chuyên môn', '付费咨询'],
   'gig.cooldown': ['Ready in {n}d', 'Sau {n} ngày', '{n} 天后可用'],
   'gig.need': ['Needs {x}', 'Cần {x}', '需要 {x}'],
+  // v11.26 — gigs drain health (the ad gig doubles as the anti-spam valve)
+  'gig.healthCost': ['{name} — the grind wears you down, health -{n}', '{name} — vất vả vì công việc, sức khoẻ -{n}', '{name}——辛苦的工作，健康 -{n}'],
+  'gig.hp': ['health -{n}', 'sức khoẻ -{n}', '健康 -{n}'],
   'oracle.ask': ['Ask the AI oracle for a life twist', 'Hỏi AI tiên tri một bước ngoặt', '向AI神谕索取人生转折'],
   'oracle.thinking': ['The oracle is thinking…', 'Tiên tri đang suy nghĩ…', '神谕思考中…'],
   'oracle.note': ['Writes a brand-new chapter of your life — different every time, never repeating. Random kind: luck / setback / life-stage pivot / story.', 'Viết một chương mới cho cuộc đời bạn — lần nào cũng khác, không bao giờ lặp. Loại ngẫu nhiên: may mắn / xui xẻo / bước ngoặt đời / truyện.', '为你的生命书写全新篇章 — 每次不同，绝不重复。随机类型：好运 / 厄运 / 人生转折 / 故事。'],

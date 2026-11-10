@@ -1,5 +1,5 @@
 'use client';
-// HuyenBao v11.25 — React edition. Two-level grouped nav, a systems links map,
+// HuyenBao v11.26 — React edition. Two-level grouped nav, a systems links map,
 // gigs, levels, social, the cosmic frontier, EN/VI/中文, LLM oracle with
 // random kind dispatch (luck / setback / life-stage / story), pre-owned
 // market + social listings, a Hall of Fame tab, and a real player-to-player
@@ -77,7 +77,7 @@ if (typeof window !== 'undefined') {
 // v11.8 — the bundled version. The /version.json file in /public is polled
 // every 5 minutes; if its version is newer than this, a "reload to update"
 // banner appears even in a running session (no F5 needed).
-const BUNDLED_VERSION = 'v11.25';
+const BUNDLED_VERSION = 'v11.26';
 const VERSION_POLL_MS = 5 * 60 * 1000;
 // v11.24 — 'what's new' modal is shown ONCE PER PLAYER per MAJOR version
 // (tycoon_seen_v11), not once per patch release. Previously the key was
@@ -510,7 +510,7 @@ function Header({ s, eraName }: { s: GameState; eraName: (y: number) => string }
     <header className="top">
       <div className="brand">
         <Art id="s-coin" className="logo" />
-        <div><h1><span className="mini">v11.25</span> HuyenBao</h1>
+        <div><h1><span className="mini">v11.26</span> HuyenBao</h1>
           <div className="mini">{s.started ? `${s.nation} · ${eraName(worldYear(s))}` : t('tagline')}</div></div>
       </div>
       <div><div className="mini">{t('cash')}</div><div id="tcash" style={{ color: s.money < 0 ? 'var(--brick)' : undefined }}>{fmt(s.money)}</div>
@@ -673,13 +673,13 @@ function HomeTab({ s, act, askAI, aiBusy, aiNote, eraName }: { s: GameState; act
           const left = s.gigs[g.id] != null ? Math.max(0, g.cd - (s.lastDay - s.gigs[g.id])) : 0;
           return (
             <button key={g.id} className="gig" data-gig={g.id} disabled={!ready}
-              onClick={() => act(st => doGig(st, g.id))}>
+              onClick={() => act(st => doGig(st, g.id, t))}>
               <Art id={g.icon} />
               <span><b>{t('gig.' + g.id, g.id)}</b>
                 <span className="sub" style={{ display: 'block' }}>
                   {!ready && lock ? t('gig.need', '', { x: lock })
                     : !ready ? t('gig.cooldown', '', { n: left })
-                      : <span className="pay">+{fmt(gigPay(s, g))}</span>}
+                      : <><span className="pay">+{fmt(gigPay(s, g))}</span>{g.hp ? <span className="hppay"> · {t('gig.hp', '', { n: g.hp })}</span> : null}</>}
                 </span></span>
             </button>
           );

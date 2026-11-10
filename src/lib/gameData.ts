@@ -710,16 +710,19 @@ export const GROUPS: [string, string, string, [string, string, string][]][] = [
 export const LEVEL_INCOME_BONUS = 0.02;   // +2% income per level above 1
 export const xpNeed = (lvl: number) => Math.round(120 * Math.pow(lvl, 1.55));
 
-export interface GigDef { id: string; base: number; cd: number; icon: string; minFollowers?: number; req?: Req }
+export interface GigDef { id: string; base: number; cd: number; icon: string; minFollowers?: number; req?: Req; hp?: number }
 // Quick ways to earn cash. 'ad' is always available (tiny) — yes, you get paid
 // to watch ads. Others pay more but have a cooldown measured in game days.
+// v11.26 — `hp` is the health every gig drains (work is tiring). The ad gig's
+// 0.5-per-watch doubles as an anti-spam valve: it has no cooldown, so an
+// all-day ad grind wears the player down (gym / checkup restore it).
 export const GIGS: GigDef[] = [
-  { id: 'ad', base: 15, cd: 0, icon: 'ic-play' },
-  { id: 'delivery', base: 60, cd: 1, icon: 'j-driver' },
-  { id: 'freelance', base: 150, cd: 2, icon: 'j-eng' },
-  { id: 'tutor', base: 130, cd: 2, icon: 'j-teach', req: { any: 1 } },
-  { id: 'sponsored', base: 80, cd: 4, icon: 't-social', minFollowers: 1000 },
-  { id: 'consult', base: 550, cd: 6, icon: 'j-mgr', req: { deg: { business: 1 } } }
+  { id: 'ad', base: 15, cd: 0, icon: 'ic-play', hp: 0.5 },
+  { id: 'delivery', base: 60, cd: 1, icon: 'j-driver', hp: 2 },
+  { id: 'freelance', base: 150, cd: 2, icon: 'j-eng', hp: 1.5 },
+  { id: 'tutor', base: 130, cd: 2, icon: 'j-teach', req: { any: 1 }, hp: 1.5 },
+  { id: 'sponsored', base: 80, cd: 4, icon: 't-social', minFollowers: 1000, hp: 1 },
+  { id: 'consult', base: 550, cd: 6, icon: 'j-mgr', req: { deg: { business: 1 } }, hp: 2 }
 ];
 
 export interface SpaceDef { id: string; name: string; since: number; lvl: number; cost: number; inc: number; art: string; desc: string }

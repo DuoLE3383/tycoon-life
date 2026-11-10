@@ -1,20 +1,15 @@
 {
-  "version": "v11.25",
+  "version": "v11.26",
   "releasedAt": "2026-11-10",
-  "headline": "HuyenBao v11.25 — Cộng đồng: chat + bạn bè + tặng quà + BXH toàn cầu (Supabase / demo 2 tab)",
-  "summary": "PLAYER-TO-PLAYER COMMUNITY. A new 'Cộng đồng / Community' group lands with three tabs: (1) Chat — global room with live presence (online list), realtime via Supabase, Enter-to-send, flood guard. (2) Bạn bè / Friends — add friends by player code (HB-XXXXXX), accept/decline requests, remove, and GIFT money to friends (deducted on send, claimed from the gift inbox); unread badge dot on the nav. (3) Bảng xếp hạng / Leaderboard — top 50 players by net worth with medals, own-row highlight, auto-sync while playing. BACKEND: when NEXT_PUBLIC_SUPABASE_URL + NEXT_PUBLIC_SUPABASE_ANON_KEY are set at build time, everything runs on Supabase (free Postgres) with anonymous auth + full Row Level Security (schema: /hb-supabase-schema.sql — players, messages, friend edges, gifts; every write scoped to its owner; realtime channel for chat + presence). Without env vars the game ships a zero-config demo mode: same-device tabs sync via BroadcastChannel + localStorage so two tabs can chat, friend and gift each other — and the Friends tab carries a built-in 5-step setup guide + downloadable SQL so switching to real multiplayer is copy-paste. Identity: display name + emoji avatar + player code, stored per browser.",
+  "headline": "HuyenBao v11.26 — Sức khoẻ bị hao mòn bởi mọi hành động: gigs (kể cả xem quảng cáo) giờ trừ sức khoẻ, chống spam lấy tiền",
+  "summary": "HEALTH COSTS FOR ACTIONS. Every gig now drains health by its own 'hp' cost — watching an ad costs 0.5, delivery 2 (physical), freelance/tutor 1.5, sponsored 1, consult 2. The ad gig has no cooldown, so its small per-watch cost doubles as the anti-spam valve: an all-day ad grind wears the player down and can no longer be farmed for free money. Each gig shows its cost on the card (red 'health -n' next to the +$ pay) and queues a localised toast (EN/VI/ZH) when performed. Health is floored at 0 — a gig alone can never push it negative; if health hits 0 the game still ends with cause=health on the next day tick. Recovery paths are unchanged: gym (+6, $80), checkup (+15, $600), pet walks, good sleep and diet. Also re-verified the whole health system with new regression tests: the v11.20 hype/charity post drain still works, plain posts cost nothing, and grinding yourself to 0 still ends the run.",
   "features": [
-    "COMMUNITY: new nav group 'Cộng đồng / Community / 社区' with 3 tabs — Chat, Bạn bè (Friends), Bảng xếp hạng (Leaderboard)",
-    "CHAT: global room, live online-presence list, auto-scroll, Enter to send, 280-char cap + 1.2s flood guard",
-    "FRIENDS: add by player code HB-XXXXXX (mutual requests auto-accept), accept/decline/remove, online dot per friend",
-    "GIFTS: send money to friends (deducted at send, claimed from inbox) — claim credits the local wallet via the standard act() pipeline",
-    "LEADERBOARD: top 50 by net worth, medals for top 3, own row highlighted, stats auto-push (30s throttle) while playing",
-    "NOTIFICATIONS: friend requests + unclaimed gifts toast in the background (45s sweep) and light up a red dot on the Friends nav tab",
-    "SUPABASE BACKEND: anonymous auth (stable per-browser identity) + RLS policies on 4 tables (players/messages/edges/gifts) — anon key is safe to expose",
-    "REALTIME: Supabase channel for chat INSERTs + presence sync; polling fallbacks (messages 30s, notifications 45s)",
-    "DEMO MODE (no env vars): BroadcastChannel + localStorage — two tabs on one device interact fully; setup guide + SQL download built into the Friends tab",
-    "IDENTITY: display name (≤24 chars) + 12 emoji avatars + unambiguous player code (no I/O/0/1), editable profile card",
-    "i18n: ~50 new strings × EN/VI/ZH, nav tooltips (ttab.*) included",
-    "Version bumped to v11.25 at FRONT of app name"
+    "GIGS COST HEALTH: ad 0.5 · delivery 2 · freelance 1.5 · tutor 1.5 · sponsored 1 · consult 2 per action",
+    "ANTI-SPAM: the no-cooldown ad gig now self-limits — 20 ad watches/day = -10 health",
+    "UI: gig cards show '· health -n' (red) next to the +$ pay when ready",
+    "TOASTS: '💢 {gig} — the grind wears you down, health -n' localised × EN/VI/ZH",
+    "SAFETY: gig drain floors at 0; death-by-health still only judged on the day tick",
+    "TESTS: 7 new regression tests — per-gig drain, exact ad cost, floor, cumulative spam, localised toast, death integration, v11.20 hype-post drain",
+    "Version bumped to v11.26 at FRONT of app name"
   ]
 }

@@ -299,12 +299,21 @@ export function gigPay(s: GameState, g: GigDef): number {
   if (s.ints.includes('sports') || s.tals.includes('hands')) pay *= 1.15;
   return Math.max(5, Math.round(pay));
 }
-export function doGig(s: GameState, id: string, rng: () => number = Math.random): string | null {
+export function doGig(s: GameState, id: string, t?: T, rng: () => number = Math.random): string | null {
   const g = GIGS.find(x => x.id === id); if (!g) return null;
   if (!gigReady(s, g)) return null;
   s.gigs[g.id] = s.lastDay;
   const pay = gigPay(s, g);
   s.money += pay; s.yIncome += pay;
+  // v11.26 — gigs are real work: each one now drains health by its `hp` cost
+  // (watching ads included — the ad gig has no cooldown, so its small cost is
+  // the anti-spam valve). Floored at 0: a gig alone can never push health
+  // negative; death-by-health is still only evaluated on the day tick.
+  if (g.hp && g.hp > 0) {
+    s.health = Math.max(0, s.health - g.hp);
+    const name = t ? t('gig.' + g.id, g.id) : g.id;
+    queueToast(s, '💢 ' + (t ? t('gig.healthCost', '', { name, n: g.hp }) : name + ': health -' + g.hp));
+  }
   addXp(s, g.id === 'ad' ? 4 : 10, rng);
   if (g.id !== 'ad' && rng() < 0.04) s.fame = s.fame + 1;
   return '+' + fmt(pay);
