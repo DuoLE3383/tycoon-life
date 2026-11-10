@@ -1,5 +1,5 @@
 'use client';
-// HuyenBao v11.39 — React edition. Two-level grouped nav, a systems links map,
+// HuyenBao v11.40 — React edition. Two-level grouped nav, a systems links map,
 // gigs, levels, social, the cosmic frontier, EN/VI/中文, LLM oracle with
 // random kind dispatch (luck / setback / life-stage / story), pre-owned
 // market + social listings, a Hall of Fame tab, and a real player-to-player
@@ -24,6 +24,7 @@ import {
   analyze, FIELDS, LICENSES, LIC_BY, LIC_FOR, STAGES, BIZ, FARM_LINES, FAC_LINES, ITEM_BY, ITEM_IMAGES, USED_IMAGES, STOCKS, ASSET_DEPRECIATION_RATE,
   CLUBS, JOBS, GIGS, SPACE_LINES, TABS, GROUPS, xpNeed, ITEMS, USED_MARKET, HALL_OF_FAME, itemRarity, RARITY_COLOR, RARITY_MULT, NPCS, NPC_BY, PETS, PET_BY, MAX_PETS, CREW_COST, SHORT_COURSES, SHORT_BY, BOTS, type Rarity, type FieldKey, type Req, type ItemDef, type UsedItem,
   RARE_ITEMS, RARE_IDS, itemGroup, type ItemGroup,
+  TRAVEL,
 } from '@/lib/gameData';
 import {
   fmt, taxOf, fresh, begin, tick, applyOffline, stageOf, worldYear, branchCount, bizCost, clubMult, branchNet, fameBonus, bizMultiplier,
@@ -37,6 +38,7 @@ import {
   franchiseBranch, negotiateBizSell, pushBizOffer, acceptBizOffer, type BizOffer,
   hire, enrollDeg, enrollLic, enrollShortCourse, dropStudySlot, changeInterest, bankOp, donate, applyEventChoice, applyAIChoice, currentEvent, studyWorkMult,
   negotiateRaise, quitJob,
+  travel, travelReady, travelCooldownLeft,
   spaceUpgradeReady, startSpaceUpgrade, spaceUpgradeDays, spaceMultiplier, SPACE_TRAVEL_COST,
   recordActivity, studyPace, sleepHealthMult, sleepHoursOptions,
   gameOverTier, botRows, type AIEvent, type AIEventKind, type GameState,
@@ -93,7 +95,7 @@ if (typeof window !== 'undefined') {
 // v11.8 — the bundled version. The /version.json file in /public is polled
 // every 5 minutes; if its version is newer than this, a "reload to update"
 // banner appears even in a running session (no F5 needed).
-const BUNDLED_VERSION = 'v11.39';
+const BUNDLED_VERSION = 'v11.40';
 const VERSION_POLL_MS = 5 * 60 * 1000;
 // v11.24 — 'what's new' modal is shown ONCE PER PLAYER per MAJOR version
 // (tycoon_seen_v11), not once per patch release. Previously the key was
@@ -537,7 +539,7 @@ function Header({ s, eraName }: { s: GameState; eraName: (y: number) => string }
     <header className="top">
       <div className="brand">
         <Art id="s-coin" className="logo" />
-        <div><h1><span className="mini">v11.39</span> HuyenBao</h1>
+        <div><h1><span className="mini">v11.40</span> HuyenBao</h1>
           <div className="mini">{s.started ? `${s.nation} · ${eraName(worldYear(s))}` : t('tagline')}</div></div>
       </div>
       <div><div className="mini">{t('cash')}</div><div id="tcash" style={{ color: s.money < 0 ? 'var(--brick)' : undefined }}>{fmt(s.money)}</div>
@@ -737,6 +739,57 @@ function GigsPopup({ s, act, t }: { s: GameState; act: Act; t: TFn }) {
   );
 }
 
+// ================= v11.40 — TRAVEL SECTION =================
+function TravelSection({ s, act, t }: { s: GameState; act: Act; t: TFn }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      <button className={'gigs-trigger'} style={{ background: 'linear-gradient(180deg,rgba(255,255,255,.12) 0%,rgba(255,255,255,0) 50%),var(--slate)', borderColor: 'var(--slate)', color: '#fff' }} onClick={() => setOpen(o => !o)}>
+        <Art id="i-jet" className="si" />
+        <span>{t('travel.title', 'Travel')}</span>
+      </button>
+      {open && (
+        <div className="modal-overlay" onClick={() => setOpen(false)}>
+          <div className="modal-box gigs-modal" onClick={e => e.stopPropagation()}>
+            <div className="modal-head">
+              <h2>✈️ {t('travel.title', 'Travel')}</h2>
+              <button className="modal-x" onClick={() => setOpen(false)} aria-label="Close">✕</button>
+            </div>
+            <div className="modal-body">
+              <p className="mini" style={{ marginBottom: 10 }}>{t('travel.intro', 'Take a trip to refresh your spirit and health.')}</p>
+              {TRAVEL.map(d => {
+                const ready = travelReady(s, d.id);
+                const cdLeft = travelCooldownLeft(s, d.id);
+                const locked = d.minLevel && s.level < d.minLevel;
+                return (
+                  <div key={d.id} className="card" style={{ marginBottom: 8, padding: 10 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                      <Art id={d.icon} />
+                      <div style={{ flex: 1 }}>
+                        <b>{t('travel.dest.' + d.id, d.nameVi)}</b>
+                        <div className="mini">{t('travel.days', '{n} days', { n: d.days })} · {fmt(d.cost)}</div>
+                      </div>
+                      <Btn ic="i-jet" label={t('travel.go', 'Travel')} kind={ready ? 'sageb' : 'ghost'} disabled={!ready}
+                        onClick={() => act(st => travel(st, d.id))} />
+                    </div>
+                    <div className="mini" style={{ marginTop: 4 }}>
+                      {t('travel.spiritBoost', 'Spirit +{n}', { n: d.spirit })}
+                      {' · '}{t('travel.healthBoost', 'Health +{n}', { n: d.health })}
+                      {d.fame > 0 && ' · ' + t('travel.fameBoost', 'Fame +{n}', { n: d.fame })}
+                      {locked && ` · 🔒 ${t('requires', 'Requires')} ${t('lvl', 'Lv')} ${d.minLevel}`}
+                      {!ready && !locked && cdLeft > 0 && ` · ⏳ ${cdLeft}d`}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+
 // ================= HOME =================
 function HomeTab({ s, act, askAI, aiBusy, aiNote, eraName }: { s: GameState; act: Act; askAI: () => void; aiBusy: boolean; aiNote: string; eraName: (y: number) => string }) {
   const { t, lang } = useT();
@@ -833,6 +886,9 @@ function HomeTab({ s, act, askAI, aiBusy, aiNote, eraName }: { s: GameState; act
       {/* v11.39 — gigs moved into a popup. A "Quick gigs" button in the header
           opens the popup; the button GLOWS when there are gigs ready to do. */}
       <GigsPopup s={s} act={act} t={t} />
+
+      {/* v11.40 — travel section. Shows destinations the player can visit. */}
+      <TravelSection s={s} act={act} t={t} />
 
       {/* v11.8 — manual "Ask AI" button removed. The oracle now fires only via
           the auto-popup effect (engine sets s.aiEvPending with ~3% chance/game-day).
@@ -1271,10 +1327,17 @@ function SpaceTab({ s, act }: { s: GameState; act: Act }) {
 function HealthTab({ s, act }: { s: GameState; act: Act }) {
   const { t } = useT();
   const hp = Math.round(s.health), stIdx = healthState(s.health);
-  const rows: { id: string; art: string; name: string; cost: number; cd: number; gain: number }[] = [
+  const rows: { id: string; art: string; name: string; cost: number; cd: number; gain: number; free?: boolean }[] = [
+    // v11.40 — free options first (rest + self-train), then paid gym/checkup/treat,
+    // then timed recovery (7-day + 30-day). Free options cost $0 so low-cash
+    // players can still recover health.
+    { id: 'rest', art: 'w-lotus', name: t('hp.rest', 'Rest'), cost: 0, cd: 1, gain: 3, free: true },
+    { id: 'selftrain', art: 'w-gym', name: t('hp.selftrain', 'Self-train'), cost: 0, cd: 1, gain: 4, free: true },
     { id: 'gym', art: 'w-gym', name: t('workout'), cost: GYM_COST, cd: GYM_CD, gain: 6 },
     { id: 'checkup', art: 'w-doc', name: t('checkup'), cost: CHECKUP_COST, cd: CHECKUP_CD, gain: 15 },
     { id: 'treat', art: 'w-treat', name: t('treat'), cost: TREAT_COST, cd: TREAT_CD, gain: 45 },
+    { id: 'rest7', art: 'w-lotus', name: t('hp.rest7', '7-day rest cure'), cost: 0, cd: 7, gain: 20, free: true },
+    { id: 'rest30', art: 'w-lotus', name: t('hp.rest30', '30-day sabbatical'), cost: 0, cd: 30, gain: 50, free: true },
   ];
   return (
     <>
@@ -1288,9 +1351,10 @@ function HealthTab({ s, act }: { s: GameState; act: Act }) {
       {rows.map(r => {
         const left = wellLeft(s, r.id), ready = wellReady(s, r.id), ecd = effWellCd(s, r.id);
         return <Row key={r.id} art={r.art} right={<Btn ic="ic-plus" dp={{ 'data-well': r.id }}
-          label={!ready && left > 0 ? t('gig.cooldown', '', { n: left }) : `${r.name} · ${fmt(r.cost)}`}
+          label={!ready && left > 0 ? t('gig.cooldown', '', { n: left }) : r.free ? `${r.name} · FREE` : `${r.name} · ${fmt(r.cost)}`}
+          kind={r.free ? 'sageb' : ''}
           disabled={!ready} onClick={() => act(st => doWell(st, r.id, t))} />}>
-          <b>{r.name}</b>
+          <b>{r.name}{r.free && <span className="tag" style={{ marginLeft: 6, background: 'var(--sage)', color: '#fff' }}>FREE</span>}</b>
           <span className="sub">
             +{r.gain} {t('health').toLowerCase()} · {t('gig.cooldown', '', { n: ecd })}
             {r.id === 'checkup' && ecd !== CHECKUP_CD ? ' ⚡' : ''}

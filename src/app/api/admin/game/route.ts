@@ -24,9 +24,18 @@ export function GET(req: Request) {
   const denied = adminGuard(req);
   if (denied) return denied;
   // Return the full item catalogue so the admin UI can render a picker.
+  // v11.40 — also return custom_items from the SQLite table (if it exists).
+  let custom: { id: string; name: string; cat: string; price: number; rarity: string; imageUrl: string }[] = [];
+  try {
+    const d = db();
+    d.exec(`CREATE TABLE IF NOT EXISTS custom_items (id TEXT PRIMARY KEY, name TEXT NOT NULL, cat TEXT NOT NULL DEFAULT 'Custom', brand TEXT, price REAL NOT NULL DEFAULT 1000, lux INTEGER NOT NULL DEFAULT 1, rate REAL NOT NULL DEFAULT 0, art TEXT NOT NULL DEFAULT 'ic-bag', rarity TEXT NOT NULL DEFAULT 'common', image_url TEXT NOT NULL, created_at TEXT NOT NULL)`);
+    custom = (d.prepare('SELECT id, name, cat, price, rarity, image_url FROM custom_items ORDER BY created_at DESC LIMIT 200').all() as { id: string; name: string; cat: string; price: number; rarity: string; image_url: string }[])
+      .map(r => ({ id: r.id, name: r.name, cat: r.cat, price: r.price, rarity: r.rarity, imageUrl: r.image_url }));
+  } catch { /* table not ready — return empty */ }
   return NextResponse.json({
     items: ITEMS.map(i => ({ id: i.id, name: i.name, cat: i.cat, price: i.price, rarity: i.rarity || 'common' })),
     rare: RARE_ITEMS.map(i => ({ id: i.id, name: i.name, cat: i.cat, price: i.price, rarity: i.rarity })),
+    custom,
   });
 }
 
@@ -45,7 +54,7 @@ export async function POST(req: Request) {
     // log the action; the real client-side application would require a new
     // social API + client hook. The admin can still SEE the item list (GET)
     // and the action is recorded for audit.
-    const validActions = ['grantItem', 'setMoney', 'setFame', 'setHealth', 'setSpirit', 'setLevel', 'triggerElection', 'advanceTime'];
+    const validActions = ['grantItem', 'setMoney', 'setFame', 'setHealth', 'setSpirit', 'setLevel', 'triggerElection', 'advanceTime', 'createItem'];
     if (!validActions.includes(action)) return NextResponse.json({ ok: false, error: 'bad-action' }, { status: 400 });
 
     // For grantItem, validate the itemId exists.
@@ -53,6 +62,45 @@ export async function POST(req: Request) {
       const itemId = String(b.itemId ?? '');
       const exists = [...ITEMS, ...RARE_ITEMS].some(i => i.id === itemId);
       if (!exists) return NextResponse.json({ ok: false, error: 'bad-itemId' }, { status: 400 });
+    }
+
+    // v11.40 — createItem: admin creates a custom item from a URL (image link).
+    // The item is stored in a new custom_items table; the client merges it into
+    // the runtime ITEM_BY on next load. The image URL is stored as-is — the
+    // client renders it directly (no server-side download needed).
+    if (action === 'createItem') {
+      const name = String(b.name ?? '').trim().slice(0, 60);
+      const cat = String(b.cat ?? 'Custom').trim().slice(0, 30);
+      const price = Math.max(1, Math.min(1e9, Math.round(Number(b.price) || 1000)));
+      const imageUrl = String(b.imageUrl ?? '').trim().slice(0, 500);
+      const brand = String(b.brand ?? '').trim().slice(0, 30);
+      if (!name) return NextResponse.json({ ok: false, error: 'bad-name' }, { status: 400 });
+      if (!imageUrl) return NextResponse.json({ ok: false, error: 'bad-url' }, { status: 400 });
+      // Validate URL format (must be http/https)
+      try { const u = new URL(imageUrl); if (!u.protocol.startsWith('http')) throw new Error('bad-proto'); } catch { return NextResponse.json({ ok: false, error: 'bad-url' }, { status: 400 }); }
+
+      // Generate a unique item id.
+      const itemId = 'custom-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 6);
+
+      // Ensure the custom_items table exists, then insert.
+      const d = db();
+      d.exec(`CREATE TABLE IF NOT EXISTS custom_items (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        cat TEXT NOT NULL DEFAULT 'Custom',
+        brand TEXT,
+        price REAL NOT NULL DEFAULT 1000,
+        lux INTEGER NOT NULL DEFAULT 1,
+        rate REAL NOT NULL DEFAULT 0,
+        art TEXT NOT NULL DEFAULT 'ic-bag',
+        rarity TEXT NOT NULL DEFAULT 'common',
+        image_url TEXT NOT NULL,
+        created_at TEXT NOT NULL
+      )`);
+      d.prepare('INSERT INTO custom_items (id, name, cat, brand, price, lux, rate, art, rarity, image_url, created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)')
+        .run(itemId, name, cat, brand || null, price, 1, 0, 'ic-bag', 'common', imageUrl, new Date().toISOString());
+
+      return NextResponse.json({ ok: true, itemId, name });
     }
 
     // Record the action in the messages table as a system note (audit trail).

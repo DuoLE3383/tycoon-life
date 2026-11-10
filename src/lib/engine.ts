@@ -9,7 +9,8 @@ import {
   BIZ, FARM_LINES, FAC_LINES, ITEM_BY, STOCKS, CLUBS, JOBS, BOTS,
   NPC_BY, PET_BY, MAX_PETS, CREW_COST, SHORT_BY,
   analyze, type FieldKey, type LineDef, type Req, type GigDef, type SpaceDef, type Rarity, RARITY_MULT, itemRarity, POST_TEMPLATES,
-  ITEM_IMAGES, USED_IMAGES, RARE_ITEMS, RARE_IDS
+  ITEM_IMAGES, USED_IMAGES, RARE_ITEMS, RARE_IDS,
+  TRAVEL,
 } from './gameData';
 // v11.3 — Power & influence system. Engine imports PowerState type + the
 // passive tick + advocacy helpers; PowerState lives on GameState below.
@@ -125,6 +126,8 @@ export interface GameState {
   jobExp: Record<string, number>;       // XP accumulated per job-id (resets on quit)
   jobContractEnd: number;               // day the current contract expires (0 = no contract)
   jobRaises: number;                    // total successful raises negotiated
+  // v11.40 — travel cooldown (last day a trip ended; gates the next trip).
+  travelLastDay: number;                // 0 = never travelled
   clubs: string[]; // v10.5 — multiple-club membership (s.club stays as the 'active' / highest-mult one)
   deg: Record<FieldKey, number>; lic: Record<string, boolean>; study: Study | null; sideStudy: Study | null;
   name: string; byear: number; nation: string; religion: Religion; ints: string[]; tals: string[]; topField: FieldKey | null;
@@ -260,6 +263,16 @@ export const WELL: WellDef[] = [
   { id: 'gym', cost: GYM_COST, cd: GYM_CD },
   { id: 'checkup', cost: CHECKUP_COST, cd: CHECKUP_CD },
   { id: 'treat', cost: TREAT_COST, cd: TREAT_CD },
+  // v11.40 — free health options: rest (sleep more, no cost) + self-train
+  // (bodyweight exercise at home, no gym fee). Both recover less than gym
+  // but cost $0 and have a 1-day cooldown.
+  { id: 'rest', cost: 0, cd: 1 },
+  { id: 'selftrain', cost: 0, cd: 1 },
+  // v11.40 — timed recovery: a 7-day or 30-day rest cure. Costs nothing but
+  // locks the action for the duration; at the end, health jumps up. The
+  // engine applies the bonus when the cooldown expires (see wellLeft check).
+  { id: 'rest7', cost: 0, cd: 7 },
+  { id: 'rest30', cost: 0, cd: 30 },
   { id: 'meditate', cost: 0, cd: 1 },
   { id: 'temple', cost: TEMPLE_COST, cd: TEMPLE_CD },
   { id: 'retreat', cost: RETREAT_COST, cd: RETREAT_CD },
@@ -317,6 +330,17 @@ export function doWell(s: GameState, id: string, t: T): string | null {
   if (id === 'gym') { s.health = Math.min(100, s.health + GYM_HP); addXp(s, 4); return t('hp.gymDone', '', { n: GYM_HP }); }
   if (id === 'checkup') { s.health = Math.min(100, s.health + CHECKUP_HP); addXp(s, 6); return t('hp.checkupDone', '', { n: CHECKUP_HP }); }
   if (id === 'treat') { s.health = Math.min(100, s.health + TREAT_HP); addXp(s, 10); return t('hp.treatDone', '', { n: TREAT_HP }); }
+  // v11.40 — free health options. Rest = sleep in (+3 hp, no cost, 1d cd).
+  // Self-train = bodyweight exercise at home (+4 hp, no cost, 1d cd). Both
+  // are weaker than gym (+6) but free — so low-cash players can still recover.
+  if (id === 'rest') { s.health = Math.min(100, s.health + 3); addXp(s, 1); return t('hp.restDone', '', { n: 3 }); }
+  if (id === 'selftrain') { s.health = Math.min(100, s.health + 4); addXp(s, 2); return t('hp.selftrainDone', '', { n: 4 }); }
+  // v11.40 — timed recovery: start a 7-day or 30-day rest cure. The health
+  // bonus is applied UPFRONT (so the player sees the gain immediately), but
+  // the cooldown locks the action for the full duration. This gives players
+  // a "take a week off to recover" option that costs nothing but time.
+  if (id === 'rest7') { s.health = Math.min(100, s.health + 20); addXp(s, 5); pushLog(s, '7-day rest cure — a full week of recovery.'); return t('hp.rest7Done', '', { n: 20 }); }
+  if (id === 'rest30') { s.health = Math.min(100, s.health + 50); addXp(s, 15); pushLog(s, '30-day sabbatical — a full month of deep recovery.'); return t('hp.rest30Done', '', { n: 50 }); }
   if (id === 'meditate') { s.spirit = Math.min(100, s.spirit + 4); s.karma += 1; addXp(s, 3); return t('sp.medDone', '', { n: 4 }); }
   if (id === 'temple') { s.spirit = Math.min(100, s.spirit + 6); s.karma += 5; addXp(s, 5); return t('sp.templeDone', '', { n: 6, k: 5 }); }
   if (id === 'retreat') { s.spirit = Math.min(100, s.spirit + 25); s.karma += 15; s.health = Math.min(100, s.health + 5); addXp(s, 30); pushLog(s, 'Silent retreat — ten days of stillness.'); return t('sp.retreatDone'); }
@@ -493,6 +517,7 @@ export function fresh(): GameState {
     farmBought: {}, facBought: {}, spaceBought: {}, spaceUpgrade: null, spaceTravel: false,
     lots: [], stk: {},     club: null, ownClub: null, job: null, sideJob: null,
     jobExp: {}, jobContractEnd: 0, jobRaises: 0,
+    travelLastDay: 0,
     deg: { business: 0, engineering: 0, medicine: 0, science: 0, arts: 0 }, lic: {}, study: null, sideStudy: null,
     name: 'Alex', byear: 1992, nation: 'Vietnam', religion: 'none', ints: [], tals: [], topField: null, started: false,
     avatar: '🧑',
@@ -559,6 +584,8 @@ export function migrate(raw: unknown): GameState {
   s.jobExp = s.jobExp && typeof s.jobExp === 'object' ? s.jobExp : {};
   s.jobContractEnd = typeof s.jobContractEnd === 'number' ? s.jobContractEnd : 0;
   s.jobRaises = typeof s.jobRaises === 'number' ? s.jobRaises : 0;
+  // v11.40 — travel cooldown backfill.
+  s.travelLastDay = typeof s.travelLastDay === 'number' ? s.travelLastDay : 0;
   s.aiEvPending = !!s.aiEvPending;
   s.shortCompleted = Array.isArray(s.shortCompleted) ? s.shortCompleted : [];
   // v11.17 — toast queue (backfill for old saves).
@@ -1682,6 +1709,44 @@ export function rollJobFiring(s: GameState, rng: () => number = Math.random): bo
   }
   return false;
 }
+// v11.40 — travel: take a trip to a destination. Costs cash + advances game
+// time by `days`; grants spirit + health + fame boosts. Cooldown per destination
+// prevents spamming. Returns a toast message.
+export function travel(s: GameState, destId: string): string | null {
+  const dest = TRAVEL.find(d => d.id === destId);
+  if (!dest) return null;
+  if (dest.minLevel && s.level < dest.minLevel) return `Requires level ${dest.minLevel}`;
+  if (s.money < dest.cost) return 'Not enough cash';
+  if (s.travelLastDay > 0 && s.lastDay - s.travelLastDay < dest.cd) {
+    const left = dest.cd - (s.lastDay - s.travelLastDay);
+    return `Trip cooldown: ${left} days left`;
+  }
+  s.money -= dest.cost;
+  s.lastDay += dest.days;
+  s.day += dest.days;
+  s.spirit = Math.min(100, s.spirit + dest.spirit);
+  s.health = Math.min(100, s.health + dest.health);
+  s.fame += dest.fame;
+  s.travelLastDay = s.lastDay;
+  addXp(s, dest.spirit);
+  pushLog(s, `Travelled to ${dest.name} (${dest.days} days): spirit +${dest.spirit}, health +${dest.health}, fame +${dest.fame}.`);
+  return `✈️ ${dest.name}: spirit +${dest.spirit}, health +${dest.health}${dest.fame ? `, fame +${dest.fame}` : ''}`;
+}
+export function travelReady(s: GameState, destId: string): boolean {
+  const dest = TRAVEL.find(d => d.id === destId);
+  if (!dest) return false;
+  if (dest.minLevel && s.level < dest.minLevel) return false;
+  if (s.money < dest.cost) return false;
+  if (s.travelLastDay > 0 && s.lastDay - s.travelLastDay < dest.cd) return false;
+  return true;
+}
+export function travelCooldownLeft(s: GameState, destId: string): number {
+  const dest = TRAVEL.find(d => d.id === destId);
+  if (!dest) return 0;
+  if (s.travelLastDay === 0) return 0;
+  return Math.max(0, dest.cd - (s.lastDay - s.travelLastDay));
+}
+
 export function enrollDeg(s: GameState, f: FieldKey): string | null {
   const field = FIELDS[f];
   if (!field || [s.study, s.sideStudy].filter(Boolean).length >= 2 ||

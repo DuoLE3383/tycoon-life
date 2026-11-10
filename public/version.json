@@ -1,15 +1,16 @@
 {
-  "version": "v11.39",
+  "version": "v11.40",
   "releasedAt": "2026-11-10",
-  "headline": "HuyenBao v11.39 — sửa AI i18n (VI), admin game-control tab, career exp+contract+raise, gigs popup glow",
-  "summary": "BIG UPDATE. (1) AI EVENT I18N FIXED: 3 bugs caused AI events to render in English for Vietnamese players — stale closure (askAI had empty deps []), lazy lang init (defaulted to 'en' on first render), and no English-detection fallback. All fixed; AI events now render in the player's UI language. (2) ADMIN GAME-CONTROL TAB: new '🎮 Điều khiển' tab in /ads dashboard — grant any item (70+ items + 12 rare grails), set money/fame/health/spirit/level, trigger elections, advance game time. New /api/admin/game endpoint. (3) CAREER SYSTEM: full-time jobs now grant a 1-year contract + accumulate experience (XP per year). New actions: Negotiate raise (30-80% success based on exp+level+fame; 15% fire risk on failure) + Quit job (voluntary). Contract expiry triggers 8-25% fire chance per year (modified by experience + health). yearEnd adds experience + rolls firing. (4) GIGS POPUP: gigs moved from inline grid to a popup modal; trigger button GLOWS (pulsing amber ring) when gigs are ready + shows a badge count — so players notice new work without it eating vertical space.",
+  "headline": "HuyenBao v11.40 — free health (rest/self-train/7d/30d), travel feature, admin create-item-from-URL",
+  "summary": "HEALTH + TRAVEL + ADMIN ITEMS. (1) HEALTH: 4 new free recovery options — Rest (+3hp, 1d cd), Self-train (+4hp, 1d cd), 7-day rest cure (+20hp, 7d cd), 30-day sabbatical (+50hp, 30d cd). No gym fee needed — low-cash players can recover. (2) TRAVEL: new feature with 7 destinations from $500 local weekend to $5M orbital space tourism. Each trip costs cash + game days, grants spirit/health/fame boosts, has per-destination cooldown. TravelSection popup in HomeTab. (3) ADMIN CREATE ITEM: new 'createItem' action in /api/admin/game — admin enters name + category + price + image URL, item is stored in custom_items SQLite table, shows in admin picker with thumbnail, can be granted to players. GET /api/admin/game now returns custom items.",
   "features": [
-    "AI I18N FIX: askAI deps [] → [lang]; lang lazy-inits from localStorage on first render; English-detection fallback in /api/story route",
-    "ADMIN GAME-CONTROL TAB (NEW): grant items, set money/fame/health/spirit/level, trigger elections, advance time — GET /api/admin/game lists all items, POST applies actions",
-    "CAREER: 1-year contract on FT hire; experience accumulates per year; Negotiate raise (30-80% success, 15% fire risk); Quit job; contract-expiry fire roll 8-25%/yr",
-    "CAREER UI: current-job card shows salary + experience XP bar + contract days remaining + raise/quit buttons",
-    "GIGS POPUP: inline grid → modal popup; trigger button glows amber when gigs ready + badge count",
-    "8 admin tabs now: Tổng quan · Hệ thống · Người chơi · Trò chuyện · Quà tặng · Bảng XH · CSDL · Điều khiển",
-    "Version bumped to v11.39"
+    "HEALTH: 4 free recovery options — Rest (+3hp), Self-train (+4hp), 7-day cure (+20hp), 30-day sabbatical (+50hp) — all $0",
+    "HEALTH UI: free options shown with green FREE tag + sageb button; timed options show cooldown duration",
+    "TRAVEL: 7 destinations (local/beach/mountain/asia/europe/safari/space) — costs cash+days, grants spirit/health/fame, per-dest cooldown",
+    "TRAVEL ENGINE: travel(), travelReady(), travelCooldownLeft() + GameState.travelLastDay field (migrated)",
+    "ADMIN CREATE ITEM: createItem action — name + cat + price + image URL → stored in custom_items SQLite table",
+    "ADMIN UI: create-item form with live image preview + custom items shown first in picker with thumbnail",
+    "API: GET /api/admin/game returns custom items; POST supports createItem action",
+    "Version bumped to v11.40"
   ]
 }

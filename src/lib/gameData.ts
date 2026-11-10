@@ -758,6 +758,19 @@ export const LEVEL_INCOME_BONUS = 0.02;   // +2% income per level above 1
 export const xpNeed = (lvl: number) => Math.round(120 * Math.pow(lvl, 1.55));
 
 export interface GigDef { id: string; base: number; cd: number; icon: string; minFollowers?: number; req?: Req; hp?: number }
+// v11.40 — travel destinations. Each trip costs cash + game days, and grants
+// spirit/health/fame boosts. The cooldown prevents spamming travel for infinite
+// spirit. Destinations scale from cheap local trips to luxury international.
+export interface TravelDef { id: string; name: string; nameVi: string; cost: number; days: number; cd: number; spirit: number; health: number; fame: number; icon: string; minLevel?: number }
+export const TRAVEL: TravelDef[] = [
+  { id: 'local', name: 'Local weekend trip', nameVi: 'Cuối tuần gần nhà', cost: 500, days: 3, cd: 14, spirit: 8, health: 3, fame: 0, icon: 'i-house' },
+  { id: 'beach', name: 'Beach getaway', nameVi: 'Nghỉ dưỡng biển', cost: 2000, days: 5, cd: 21, spirit: 15, health: 6, fame: 1, icon: 'b-hotel' },
+  { id: 'mountain', name: 'Mountain retreat', nameVi: 'Vùng núi thanh bình', cost: 1500, days: 4, cd: 21, spirit: 12, health: 8, fame: 0, icon: 'b-farm' },
+  { id: 'asia', name: 'Asian capital tour', nameVi: 'Tour thủ đô Á Châu', cost: 8000, days: 10, cd: 60, spirit: 25, health: 8, fame: 3, icon: 'b-ret', minLevel: 3 },
+  { id: 'europe', name: 'European tour', nameVi: 'Tour Châu Âu', cost: 20000, days: 14, cd: 90, spirit: 35, health: 10, fame: 5, icon: 'b-bank', minLevel: 5 },
+  { id: 'safari', name: 'African safari', nameVi: 'Safari Châu Phi', cost: 35000, days: 12, cd: 90, spirit: 40, health: 12, fame: 6, icon: 'b-farm', minLevel: 6 },
+  { id: 'space', name: 'Orbital space tourism', nameVi: 'Du lịch vũ trụ', cost: 5000000, days: 7, cd: 365, spirit: 60, health: 5, fame: 50, icon: 's-sat', minLevel: 15 },
+];
 // Quick ways to earn cash. 'ad' is always available (tiny) — yes, you get paid
 // to watch ads. Others pay more but have a cooldown measured in game days.
 // v11.26 — `hp` is the health every gig drains (work is tiring). The ad gig's

@@ -88,10 +88,15 @@ export default function AdminPage() {
   const [sendNote, setSendNote] = useState('');
   const [top, setTop] = useState<ATop[] | null>(null);
   // ---- game control tab
-  const [itemList, setItemList] = useState<{ items: { id: string; name: string; cat: string; price: number; rarity: string }[]; rare: { id: string; name: string; cat: string; price: number; rarity: string }[] } | null>(null);
+  const [itemList, setItemList] = useState<{ items: { id: string; name: string; cat: string; price: number; rarity: string }[]; rare: { id: string; name: string; cat: string; price: number; rarity: string }[]; custom?: { id: string; name: string; cat: string; price: number; rarity: string; imageUrl: string }[] } | null>(null);
   const [gameUid, setGameUid] = useState('');
   const [gameItemId, setGameItemId] = useState('');
   const [gameAmount, setGameAmount] = useState('100000');
+  // v11.40 — create-item form state
+  const [newItemName, setNewItemName] = useState('');
+  const [newItemCat, setNewItemCat] = useState('Custom');
+  const [newItemPrice, setNewItemPrice] = useState('1000');
+  const [newItemUrl, setNewItemUrl] = useState('');
 
   const flash = useCallback((m: string) => { setNote(m); setTimeout(() => setNote(''), 4500); }, []);
 
@@ -462,11 +467,45 @@ export default function AdminPage() {
               </div>
 
               <div className="adm-tools"><b style={{ fontSize: '.95rem' }}>Cấp item cho người chơi</b><button className="adm-btn adm-ghost" onClick={() => void loadItems()}>↻ Làm mới danh sách</button></div>
+
+              {/* v11.40 — Create item from URL */}
+              <div className="adm-bcast">
+                <b>➕ Tạo vật phẩm mới từ URL ảnh</b>
+                <div className="adm-row">
+                  <input className="adm-input" value={newItemName} placeholder="Tên vật phẩm" onChange={e => setNewItemName(e.target.value)} style={{ flex: '1 1 140px' }} />
+                  <input className="adm-input" value={newItemCat} placeholder="Danh mục" onChange={e => setNewItemCat(e.target.value)} style={{ flex: '0 0 100px' }} />
+                  <input className="adm-input" type="number" value={newItemPrice} placeholder="Giá" onChange={e => setNewItemPrice(e.target.value)} style={{ flex: '0 0 100px' }} />
+                </div>
+                <div className="adm-row">
+                  <input className="adm-input" value={newItemUrl} placeholder="https://example.com/image.jpg" onChange={e => setNewItemUrl(e.target.value)} style={{ flex: 1 }} />
+                  <button className="adm-btn" disabled={!newItemName.trim() || !newItemUrl.trim()} onClick={() => void (async () => {
+                    try {
+                      const r = await adminPost<{ ok: boolean; itemId?: string; name?: string; error?: string }>('/api/admin/game', { action: 'createItem', name: newItemName, cat: newItemCat, price: Number(newItemPrice), imageUrl: newItemUrl });
+                      if (!r.ok || !r.itemId) throw new Error(r.error || 'failed');
+                      flash('✅ Đã tạo "' + (r.name || '') + '"');
+                      setNewItemName(''); setNewItemUrl('');
+                      void loadItems();
+                    } catch (e) { const msg = e instanceof Error ? e.message : ''; flash('❌ Tạo thất bại' + (msg === 'bad-url' ? ' — URL không hợp lệ' : '')); }
+                  })()}>➕ Tạo</button>
+                </div>
+                {newItemUrl && <img src={newItemUrl} alt="preview" style={{ maxWidth: 100, maxHeight: 80, borderRadius: 8, marginTop: 4, objectFit: 'cover' }} onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />}
+              </div>
+
               {itemList && (
                 <div className="adm-scroll" style={{ maxHeight: 400 }}>
                   <table>
                     <thead><tr><th>Item</th><th>Danh mục</th><th>Giá</th><th>Hiếm</th><th>Quản trị</th></tr></thead>
                     <tbody>
+                      {/* v11.40 — custom items first (with image thumbnail), then built-in items */}
+                      {(itemList.custom || []).map(it => (
+                        <tr key={it.id}>
+                          <td><img src={it.imageUrl} alt="" style={{ width: 28, height: 28, borderRadius: 5, objectFit: 'cover', verticalAlign: 'middle', marginRight: 6 }} />{it.name} <span className="adm-mini-code">custom</span></td>
+                          <td>{it.cat}</td>
+                          <td className="adm-nw">${it.price.toLocaleString()}</td>
+                          <td>{it.rarity}</td>
+                          <td className="adm-actions"><button className="adm-btn" title="Cấp item" disabled={!gameUid.trim()} onClick={() => void (async () => { try { await adminPost('/api/admin/game', { action: 'grantItem', uid: gameUid, itemId: it.id }); flash('✅ Đã cấp ' + it.name); } catch { flash('❌ Thất bại'); } })()}>🎁</button></td>
+                        </tr>
+                      ))}
                       {[...itemList.items, ...itemList.rare].map(it => (
                         <tr key={it.id}>
                           <td>{it.name}</td>
