@@ -1,16 +1,15 @@
 {
-  "version": "v11.46",
+  "version": "v11.47",
   "releasedAt": "2026-11-10",
-  "headline": "HuyenBao v11.46 — progressive disclosure, sửa i18n leak, birth year input, tutorial, dedup",
-  "summary": "UX CLEANUP. (1) PROGRESSIVE DISCLOSURE: PinZone now hides advanced stats (net worth, income, job, degrees, fame, followers) until the player actually has them — new players see only Cash + Health + Spirit + Age + Level. (2) DEDUP: removed Cash/NetWorth/Income from the Header (was duplicate of PinZone). Asset chart legend hides empty segments (no more '—' rows). (3) TUTORIAL: new-player hint card with pulsing border appears when money < $500 + no income + no gigs done yet, directing them to 'Quick gigs'. (4) HOW TO PLAY MOVED TO TOP: the guide was buried at the bottom; now shows at the top of HomeTab, open by default for players under 25. (5) BIRTH YEAR INPUT: replaced the 100+ item dropdown with a number input (min/max validated). (6) I18N FIX: 'v11.birthDay' key was missing → leaked as literal text in character creation; now defined in EN/VI/ZH.",
+  "headline": "HuyenBao v11.47 — SVG biểu đồ donut + bar, home tab no-scroll, More info popup",
+  "summary": "CHARTS + NO-SCROLL. (1) REAL SVG CHARTS: donut chart for asset allocation (color-coded segments with center count) + bar chart for income breakdown (horizontal bars with labels + values). Both are inline SVG — no external deps. (2) HOME TAB NO-SCROLL: removed guide, world news, ecosystem, achievements, timeline, life log from the home tab body. All that content is now in a 'More' popup with 5 sections. Home tab body is now just: health alerts + tutorial hint + quick action buttons (gigs, travel, more) + AI note. The dashboard (PinZone) with charts is the main view — everything fits without scrolling. (3) COMPACT DASHBOARD: 3-column layout in PinZone — donut chart (assets) | bar chart (income) | quick info (sleep + job + rent). Removed redundant left-column bars (health/spirit/XP already in top stat pills).",
   "features": [
-    "PROGRESSIVE DISCLOSURE: hide NW/income/job/degrees/fame/followers until player has them",
-    "DEDUP: removed Cash/NW/Income from Header (only in PinZone now)",
-    "DEDUP: asset legend hides empty segments (no more '—' rows)",
-    "TUTORIAL: pulsing hint card for new players (money<$500 + no income + no gigs)",
-    "HOW TO PLAY: moved from bottom to top of HomeTab, open for age<25",
-    "BIRTH YEAR: 100+ dropdown → number input with validation",
-    "I18N FIX: v11.birthDay key added (was leaking as literal text)",
-    "Version bumped to v11.46"
+    "SVG DONUT CHART: asset allocation with color-coded segments + center count",
+    "SVG BAR CHART: income breakdown with horizontal bars + labels + values",
+    "HOME TAB NO-SCROLL: removed guide/news/eco/ach/timeline/log from body",
+    "MORE INFO POPUP: 5-section popup (Guide/News/Achievements/Timeline/Log) via 'More' button",
+    "COMPACT DASHBOARD: 3-column (donut | bars | info) replaces old 2-column (identity+bars | sleep+strip+rows)",
+    "REMOVED redundant left-column health/spirit/XP bars (already in top stat pills)",
+    "Version bumped to v11.47"
   ]
 }

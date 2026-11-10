@@ -715,6 +715,21 @@ html[data-theme="dark"] .tgame .ibtn.ghost{background:linear-gradient(180deg,#32
 .tgame .pinzone-assets.nav-link,.tgame .pinzone-income.nav-link{flex-direction:column;align-items:stretch;gap:0}
 .tgame .pinzone-assets.nav-link:hover,.tgame .pinzone-income.nav-link:hover{background:rgba(127,127,127,.04)}
 
+/* v11.47 — dashboard charts layout */
+.tgame .pinzone-v47{padding:8px 12px}
+.tgame .dash-charts{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin:6px 0 4px;padding-top:6px;border-top:1px solid var(--line)}
+.tgame .dash-chart-box{display:flex;flex-direction:column;gap:4px;padding:6px;border-radius:8px;background:rgba(127,127,127,.04);border:1px solid var(--line);min-height:0}
+.tgame .dash-chart-box.nav-link{text-align:left}
+.tgame .dash-chart-box .wl{font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.04em;opacity:.55}
+.tgame .dash-chart-wrap{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.tgame .dash-chart-legend{display:flex;flex-direction:column;gap:1px;font-size:.66rem}
+.tgame .dash-chart-legend .asset-leg-item{font-size:.66rem}
+.tgame .quick-actions{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin:4px 0}
+@media (max-width:700px){
+  .tgame .dash-charts{grid-template-columns:1fr;gap:6px}
+  .tgame .dash-chart-wrap{justify-content:center}
+}
+
 /* v11.46 — tutorial hint card for new players */
 .tgame .tutorial-hint{border:2px solid var(--accent);background:rgba(176,138,62,.08);border-radius:12px;padding:10px 14px;margin:8px 0;animation:tutPulse 2s ease-in-out infinite}
 .tgame .tutorial-hint b{font-size:.92rem;color:var(--accent)}
