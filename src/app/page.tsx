@@ -1,10 +1,16 @@
 'use client';
-// HuyenBao v11.28 — React edition. Two-level grouped nav, a systems links map,
+// HuyenBao v11.29 — React edition. Two-level grouped nav, a systems links map,
 // gigs, levels, social, the cosmic frontier, EN/VI/中文, LLM oracle with
 // random kind dispatch (luck / setback / life-stage / story), pre-owned
 // market + social listings, a Hall of Fame tab, and a real player-to-player
 // community (chat / friends / gifts / global leaderboard — Supabase or
 // same-device demo mode, see src/lib/social.ts).
+// v11.29 — health triage: the 30-day check-up lock melts away when health
+// collapses (30d → 7d under 60 → 1d under 35) plus a deep TREATMENT action
+// (+45 hp, $3,000, 5-day cd); the admin dashboard becomes a full console
+// (players edit/ban/delete, chat moderation + 📢 broadcast, gift log, SQLite
+// vacuum) behind /api/admin/*; npm start serves 0.0.0.0:3334 with deploy/
+// configs for the mogul.huyenbao.com reverse proxy.
 // v11.28 — timed marketplace: auctions (bids over days, may not sell) +
 // fixed-price listings, an Assets sub-menu (auction / used / rare / workshop
 // / shop), the Assets group moved up in the nav, and a pinned compact
@@ -31,9 +37,9 @@ import {
   spaceUpgradeReady, startSpaceUpgrade, spaceUpgradeDays, spaceMultiplier, SPACE_TRAVEL_COST,
   recordActivity, studyPace, sleepHealthMult, sleepHoursOptions,
   gameOverTier, botRows, type AIEvent, type AIEventKind, type GameState,
-  doWell, toggleDiet, wellReady, wellLeft, healthMult, healthState, healthWarnings, spiritState, decayPerYear,
+  doWell, toggleDiet, wellReady, wellLeft, effWellCd, healthMult, healthState, healthWarnings, spiritState, decayPerYear,
   jobsOf, jobIncome, studyTuition, type Religion, RELIGIONS,
-  spiritBizMult, cosmicMult, GYM_COST, GYM_CD, CHECKUP_COST, CHECKUP_CD, DIET_COST,
+  spiritBizMult, cosmicMult, GYM_COST, GYM_CD, CHECKUP_COST, CHECKUP_CD, TREAT_COST, TREAT_CD, DIET_COST,
   TEMPLE_COST, TEMPLE_CD, RETREAT_COST, RETREAT_CD, FAITH_PRACTICE_COST, FAITH_PRACTICE_CD,
   ACHIEVEMENTS, checkAch,
   buyUsedItem, sellUsed, usedItemValue, playerHallEntry, recordHallOnGameOver,
@@ -82,7 +88,7 @@ if (typeof window !== 'undefined') {
 // v11.8 — the bundled version. The /version.json file in /public is polled
 // every 5 minutes; if its version is newer than this, a "reload to update"
 // banner appears even in a running session (no F5 needed).
-const BUNDLED_VERSION = 'v11.28';
+const BUNDLED_VERSION = 'v11.29';
 const VERSION_POLL_MS = 5 * 60 * 1000;
 // v11.24 — 'what's new' modal is shown ONCE PER PLAYER per MAJOR version
 // (tycoon_seen_v11), not once per patch release. Previously the key was
@@ -517,7 +523,7 @@ function Header({ s, eraName }: { s: GameState; eraName: (y: number) => string }
     <header className="top">
       <div className="brand">
         <Art id="s-coin" className="logo" />
-        <div><h1><span className="mini">v11.28</span> HuyenBao</h1>
+        <div><h1><span className="mini">v11.29</span> HuyenBao</h1>
           <div className="mini">{s.started ? `${s.nation} · ${eraName(worldYear(s))}` : t('tagline')}</div></div>
       </div>
       <div><div className="mini">{t('cash')}</div><div id="tcash" style={{ color: s.money < 0 ? 'var(--brick)' : undefined }}>{fmt(s.money)}</div>
@@ -1066,6 +1072,7 @@ function HealthTab({ s, act }: { s: GameState; act: Act }) {
   const rows: { id: string; art: string; name: string; cost: number; cd: number; gain: number }[] = [
     { id: 'gym', art: 'w-gym', name: t('workout'), cost: GYM_COST, cd: GYM_CD, gain: 6 },
     { id: 'checkup', art: 'w-doc', name: t('checkup'), cost: CHECKUP_COST, cd: CHECKUP_CD, gain: 15 },
+    { id: 'treat', art: 'w-treat', name: t('treat'), cost: TREAT_COST, cd: TREAT_CD, gain: 45 },
   ];
   return (
     <>
@@ -1077,14 +1084,19 @@ function HealthTab({ s, act }: { s: GameState; act: Act }) {
         <div className="mini">{t('hp.state.' + stIdx)} · {t('hp.decay', '', { n: decayPerYear(s).toLocaleString('en-US') })}</div>
       </div>
       {rows.map(r => {
-        const left = wellLeft(s, r.id), ready = wellReady(s, r.id);
+        const left = wellLeft(s, r.id), ready = wellReady(s, r.id), ecd = effWellCd(s, r.id);
         return <Row key={r.id} art={r.art} right={<Btn ic="ic-plus" dp={{ 'data-well': r.id }}
           label={!ready && left > 0 ? t('gig.cooldown', '', { n: left }) : `${r.name} · ${fmt(r.cost)}`}
           disabled={!ready} onClick={() => act(st => doWell(st, r.id, t))} />}>
           <b>{r.name}</b>
-          <span className="sub">+{r.gain} {t('health').toLowerCase()} · {t('gig.cooldown', '', { n: r.cd })}</span>
+          <span className="sub">
+            +{r.gain} {t('health').toLowerCase()} · {t('gig.cooldown', '', { n: ecd })}
+            {r.id === 'checkup' && ecd !== CHECKUP_CD ? ' ⚡' : ''}
+          </span>
         </Row>;
       })}
+      <p className="sub">{t('hp.checkupDyn')}</p>
+      <p className="sub">{t('hp.treatInfo')}</p>
       <Row art="w-diet" right={<Btn ic={s.diet ? 'ic-check' : 'ic-plus'} label={s.diet ? 'ON' : 'OFF'} kind="ghost" onClick={() => act(st => toggleDiet(st, t))} />}>
         <b>{t('diet')}: {s.diet ? 'ON' : 'OFF'}</b>
         <span className="sub">{t('hp.dietInfo', '', { x: DIET_COST })}</span>

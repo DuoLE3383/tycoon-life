@@ -1,0 +1,38 @@
+# HuyenBao — systemd unit cho `npm start` trên VPS
+#
+# Cài:
+#   sudo cp deploy/huyenbao.service /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now huyenbao
+#   journalctl -u huyenbao -f        # xem log
+#
+# LƯU Ý: điền ADMIN_KEY thật trước khi bật (biến môi trường cho /admin).
+
+[Unit]
+Description=HuyenBao (tycoon-life) — Next.js production server
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+# Đổi thành thư mục chứa repo trên VPS
+WorkingDirectory=/opt/tycoon-life
+ExecStart=/usr/bin/npm start
+Restart=always
+RestartSec=3
+User=www-data
+Group=www-data
+Environment=NODE_ENV=production
+Environment=PORT=3334
+Environment=HOSTNAME=0.0.0.0
+# BẮT BUỘC cho admin dashboard — đổi thành chuỗi bí mật của bạn:
+Environment=ADMIN_KEY=doi-key-nay-thanh-bi-mat
+# Tuỳ chọn: đường dẫn file SQLite (mặc định: <repo>/data/social.db)
+#Environment=SOCIAL_DB_PATH=/var/lib/huyenbao/social.db
+
+# Hardening nhẹ
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

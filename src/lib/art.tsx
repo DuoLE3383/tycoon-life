@@ -81,6 +81,7 @@ export const ART_DEFS = `<svg width="0" height="0" style="position:absolute" ari
 <symbol id="w-heart" viewBox="0 0 24 24"><path d="M2.5 12h4l2-4 3.5 8 2.5-5 1.5 2h5.5"/><path d="M12 20.5s-6.6-4.4-8.5-8.3A4.8 4.8 0 0 1 12 8.6a4.8 4.8 0 0 1 8.5 3.6c-1.9 3.9-8.5 8.3-8.5 8.3z"/></symbol>
 <symbol id="w-gym" viewBox="0 0 24 24"><path d="M7 7v10M17 7v10M4 9.5v5M20 9.5v5M7 12h10"/></symbol>
 <symbol id="w-doc" viewBox="0 0 24 24"><rect x="5" y="4.5" width="14" height="16.5" rx="2"/><path d="M9 4.5V3h6v1.5M12 9.5v6M9 12.5h6"/></symbol>
+<symbol id="w-treat" viewBox="0 0 24 24"><path d="M12 5.5a4 4 0 0 1 4 4c0 2.8-2.6 5.2-4 8.5-1.4-3.3-4-5.7-4-8.5a4 4 0 0 1 4-4z"/><path d="M10.5 9.5h3M12 8v3"/></symbol>
 <symbol id="w-diet" viewBox="0 0 24 24"><path d="M12 7.5c-3-2-7 .2-7 4 0 3.8 2.9 7.5 5.4 7.5 1 0 1.1-.5 1.6-.5s.6.5 1.6.5c2.5 0 5.4-3.7 5.4-7.5 0-3.8-4-6-7-4z"/><path d="M12 7.5c0-2 1-3.6 2.6-4.3"/></symbol>
 <symbol id="w-lotus" viewBox="0 0 24 24"><path d="M12 19.5c-4.2 0-7.4-2.6-8.4-6.2 2.1.5 3.8.4 5.3-.6-2-2-2.6-5-1.6-8 1.5 1.6 3 3.2 4.7 5.8 1.7-2.6 3.2-4.2 4.7-5.8 1 3 .4 6-1.6 8 1.5 1 3.2 1.1 5.3.6-1 3.6-4.2 6.2-8.4 6.2z"/></symbol>
 <symbol id="w-temple" viewBox="0 0 24 24"><path d="M4 9.5c2.7-.5 5.2-2 8-4.8 2.8 2.8 5.3 4.3 8 4.8M6.5 9.8V19M17.5 9.8V19M4 19.5h16M10 19.5v-4.5h4v4.5"/></symbol>

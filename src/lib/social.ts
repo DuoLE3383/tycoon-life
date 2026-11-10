@@ -626,12 +626,15 @@ const sqliteApi = {
     const now = Date.now();
     if (now - lastSqlSend < 1200) return false; // light client-side flood guard
     lastSqlSend = now;
-    const r = await sqlFetch<{ ok: boolean; message?: SocMsg }>('/api/social/messages', { uid: sqlIdentity(), text });
-    if (r.ok && r.message && !st.messages.some(x => x.id === String(r.message!.id))) {
-      st.messages = [...st.messages, r.message].slice(-80);
-      bump();
-    }
-    return !!r.ok;
+    // v11.29 — a banned account gets HTTP 403 here; swallow it and fail quietly.
+    try {
+      const r = await sqlFetch<{ ok: boolean; message?: SocMsg }>('/api/social/messages', { uid: sqlIdentity(), text });
+      if (r.ok && r.message && !st.messages.some(x => x.id === String(r.message!.id))) {
+        st.messages = [...st.messages, r.message].slice(-80);
+        bump();
+      }
+      return !!r.ok;
+    } catch { return false; }
   },
   async addFriendByCode(raw: string): Promise<AddResult> {
     if (!st.me) return 'fail';
@@ -652,14 +655,18 @@ const sqliteApi = {
   },
   async sendGift(to: string, amount: number, note: string) {
     if (!st.me || !(amount > 0) || amount > SOC_GIFT_MAX || to === st.me.id) return false;
-    const r = await sqlFetch<{ ok: boolean }>('/api/social/gifts', { uid: sqlIdentity(), action: 'send', to, amount, note });
-    if (r.ok) await sqlRefreshAll();
-    return !!r.ok;
+    try {
+      const r = await sqlFetch<{ ok: boolean }>('/api/social/gifts', { uid: sqlIdentity(), action: 'send', to, amount, note });
+      if (r.ok) await sqlRefreshAll();
+      return !!r.ok;
+    } catch { return false; } // v11.29 — banned senders get 403
   },
   async claimGift(id: string) {
-    const r = await sqlFetch<{ ok: boolean }>('/api/social/gifts', { uid: sqlIdentity(), action: 'claim', id: Number(id) });
-    if (r.ok) await sqlRefreshAll();
-    return !!r.ok;
+    try {
+      const r = await sqlFetch<{ ok: boolean }>('/api/social/gifts', { uid: sqlIdentity(), action: 'claim', id: Number(id) });
+      if (r.ok) await sqlRefreshAll();
+      return !!r.ok;
+    } catch { return false; }
   },
   async refreshAll() { await sqlRefreshAll(); },
   async pollNotifications() {

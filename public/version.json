@@ -1,19 +1,20 @@
 {
-  "version": "v11.28",
+  "version": "v11.29",
   "releasedAt": "2026-11-10",
-  "headline": "HuyenBao v11.28 — Đấu giá & rao bán THEO THỜI GIAN (có thể không bán được!) + menu Tài sản đưa lên đầu + tổng quan ghim cùng tuổi",
-  "summary": "TIMED MARKETPLACE + ASSETS FIRST. The instant auction is GONE: putting an item up now TAKES TIME — AUCTIONS run 4–7 game-days with bids rolling in one by one (the hammer can land above the ask in a bidding war) while fixed-price LISTINGS run 8–12 days with steadier odds; both can find NO buyer, in which case the item comes back and the upfront fee (3% auction / 1.5% listing) is forfeited. Items live at the market while listed (removed from inventory, still counted in net worth) and you can withdraw early. The exact sell chance is shown before you commit: 1−(1−p)^days, scaled by rarity — legendary draws watchers, common barely sells. The Assets tab is now a 5-section menu (Auction house / Used market / Rare items / Workshop / Shop) with live badges, and the Assets GROUP moved up to slot 2 in the main nav right after Character. The v11.27 attention strip (cash / net worth / income-per-year / health + warnings) merged with the age card into one COMPACT PINNED bar (position:sticky) that follows you on every tab. Full EN/VI/ZH localisation including auction-result toasts. 8 new engine tests cover the timed marketplace.",
+  "headline": "HuyenBao v11.29 — Khỏe yếu thì ĐƯỢC khám & chữa trị ngay (hết khoá 30 ngày cứng) + Admin dashboard quản trị toàn diện + npm start port 3334 cho mogul.huyenbao.com",
+  "summary": "HEALTH TRIAGE + FULL ADMIN CONSOLE. The doctor check-up no longer hard-locks you for 30 days: its cooldown now adapts to your health — 30 days when you're fine, 7 days under 60, and just 1 day under 35 (⚡ shown when the urgent rate applies). A new deep MEDICAL TREATMENT action (Chữa trị) heals +45 for $3,000 on a 5-day cooldown for when you're truly weak. The /admin dashboard grew from read-only stats into a full console with 5 tabs: Overview (players / online / banned / messages / gifts / DB size), Players (search, inline edit of name/avatar/level/net-worth, ban & unban, permanent delete), Chat (delete a message, wipe all of a user, broadcast 📢 system announcements), Gifts (log + delete) and DB (VACUUM, wipe chat). All /api/admin/* routes share a timing-safe ADMIN_KEY guard; banned accounts are blocked from chat & gifts server-side with a schema migration (players.banned). `npm start` now serves 0.0.0.0:3334 to match the mogul.huyenbao.com reverse proxy, and deploy/ ships Caddy + nginx configs, a systemd unit and a step-by-step VPS guide.",
   "features": [
-    "AUCTION: put items up for 4–7 days — per-day bid rolls, hammer can exceed the ask (bidding war), 3% upfront fee, no buyer = fee lost + item returned",
-    "LISTING: fixed-price sale for 8–12 days — steadier odds (p×0.75/day), 1.5% upfront fee, sells exactly at the ask",
-    "SELL CHANCE PREVIEW: exact 1−(1−p)^days shown per item before committing (legendary ~71% on a 5-day auction vs common ~43%)",
-    "MARKET JOBS: items leave the inventory while listed, keep counting toward net worth at their ordinary value, withdrawable anytime (fee forfeited)",
-    "LIVE JOBS UI: countdown in days, best bid so far, exact sell chance, one-tap withdraw",
-    "ASSETS SUB-MENU: Auction house / Used market / Rare items / Workshop / Shop with count badges; rare section shows your collectibles + all rare/legendary catalogue items",
-    "NAV: Assets group moved UP to slot 2 (right after Character) per UX feedback",
-    "PINNED OVERVIEW: age card + attention strip merged into one compact sticky bar (cash / net worth / income / health chips + warning line + slim life track) visible on every tab",
-    "TOASTS: auction/listing results localised EN/VI/ZH (up for auction, sold with bids, no buyer, withdrawn)",
-    "TESTS: 8 new engine tests for the timed marketplace; 151 tests total",
-    "Version bumped to v11.28 at FRONT of app name"
+    "CHECKUP TRIAGE: cooldown 30d → 7d when health < 60 → 1d when health < 35 (no more dying while waiting out a routine visit)",
+    "NEW ACTION — TREATMENT (Chữa trị): +45 health, $3,000, 5-day cooldown, own icon, EN/VI/ZH localised",
+    "ADMIN CONSOLE: 5 tabs (Tổng quan / Người chơi / Trò chuyện / Quà tặng / CSDL) at /admin",
+    "PLAYERS ADMIN: search by name or HB-code, inline edit name/avatar/level/net worth, ban/unban, permanent delete (cascades chat/edges/gifts)",
+    "CHAT MODERATION: delete single messages, wipe everything by a user, broadcast 📢 HuyenBao system announcements into global chat",
+    "BAN ENFORCEMENT: banned players rejected server-side on chat & gifts (403), silent graceful handling in the client",
+    "GIFTS LOG: last 100 transfers with sender/receiver/amount/note/claim state, deletable",
+    "DB MAINTENANCE: VACUUM compaction + destructive chat wipe (double-confirmed)",
+    "SECURITY: shared timing-safe ADMIN_KEY guard for every /api/admin/* route, fail-closed when the env var is missing",
+    "DEPLOY: npm start = next start -H 0.0.0.0 -p 3334; deploy/ has Caddyfile.mogul, nginx-mogul.conf, huyenbao.service (systemd) and a VPS guide",
+    "TESTS: engine tests for adaptive checkup + treatment; socialDb tests for ban/unban, moderation, broadcast, admin stats",
+    "Version bumped to v11.29 at FRONT of app name"
   ]
 }

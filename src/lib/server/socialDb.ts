@@ -13,7 +13,7 @@ import Database from 'better-sqlite3';
 import fs from 'node:fs';
 import path from 'node:path';
 
-export interface PlayerRow { id: string; code: string; name: string; avatar: string; level: number; nw: number; ts: number; last_seen: number }
+export interface PlayerRow { id: string; code: string; name: string; avatar: string; level: number; nw: number; ts: number; last_seen: number; banned?: number }
 export interface MsgRow { id: number; uid: string; name: string; avatar: string; text: string; created_at: string }
 export interface EdgeRow { id: number; a: string; b: string; status: string; ts: number }
 export interface GiftRow { id: number; from_uid: string; to_uid: string; amount: number; note: string | null; claimed: number; ts: number }
@@ -68,6 +68,10 @@ export function db(): Database.Database {
     CREATE INDEX IF NOT EXISTS idx_edges_b ON friend_edges(b);
     CREATE INDEX IF NOT EXISTS idx_gifts_to ON gifts(to_uid);
   `);
+  // v11.29 — migration: the banned flag arrived after the first release of
+  // this schema; ALTER it in for older database files.
+  const cols = (d.prepare('PRAGMA table_info(players)').all() as { name: string }[]).map(c => c.name);
+  if (!cols.includes('banned')) d.exec('ALTER TABLE players ADD COLUMN banned INTEGER NOT NULL DEFAULT 0');
   _db = d;
   return d;
 }
@@ -160,9 +164,12 @@ export function listMessages(limit = 80): ReturnType<typeof pubMsg>[] {
   const rows = db().prepare('SELECT * FROM messages ORDER BY id DESC LIMIT ?').all(limit) as MsgRow[];
   return rows.reverse().map(pubMsg);
 }
-export function insertMessage(uid: string, text: string): { ok: true; row: ReturnType<typeof pubMsg> } | { ok: false; flood: true } {
+export type InsertResult = { ok: true; row: ReturnType<typeof pubMsg> } | { ok: false; flood: true } | { ok: false; banned: true };
+export function insertMessage(uid: string, text: string): InsertResult {
   const d = db();
   const p = getPlayer(uid);
+  const bannedRow = d.prepare('SELECT banned FROM players WHERE id = ?').get(uid) as { banned?: number } | undefined;
+  if (bannedRow?.banned) return { ok: false, banned: true };
   const last = d.prepare('SELECT created_at FROM messages WHERE uid = ? ORDER BY id DESC LIMIT 1').get(uid) as { created_at: string } | undefined;
   if (last && Date.now() - Date.parse(last.created_at) < 1200) return { ok: false, flood: true };
   const info = d.prepare('INSERT INTO messages (uid, name, avatar, text, created_at) VALUES (?,?,?,?,?)')
@@ -196,7 +203,9 @@ export function giftsFor(uid: string, limit = 40): ReturnType<typeof pubGift>[] 
   const names = profilesOf(rows.map(r => r.from_uid));
   return rows.map(r => pubGift(r, names[r.from_uid]?.name));
 }
-export function insertGift(fromUid: string, toUid: string, amount: number, note: string): ReturnType<typeof pubGift> {
+export function insertGift(fromUid: string, toUid: string, amount: number, note: string): ReturnType<typeof pubGift> | { banned: true } {
+  const bannedRow = db().prepare('SELECT banned FROM players WHERE id = ?').get(fromUid) as { banned?: number } | undefined;
+  if (bannedRow?.banned) return { banned: true };
   const info = db().prepare('INSERT INTO gifts (from_uid, to_uid, amount, note, claimed, ts) VALUES (?,?,?,?,0,?)')
     .run(fromUid, toUid, clampAmount(amount), clampStr(note, 120) || null, Date.now());
   const row = db().prepare('SELECT * FROM gifts WHERE id = ?').get(info.lastInsertRowid) as GiftRow;
@@ -207,10 +216,77 @@ export function claimGift(id: number, uid: string): boolean {
   return r.changes > 0;
 }
 
+// ---------------------------------------------------------------- v11.29 admin control
+export interface AdminPlayerRow {
+  id: string; code: string; name: string; avatar: string; level: number; nw: number;
+  ts: number; last_seen: number; banned: number;
+}
+export function listPlayersAdmin(q: string, limit = 200): AdminPlayerRow[] {
+  const like = '%' + q.replace(/[%_]/g, '').trim() + '%';
+  const rows = like === '%%'
+    ? db().prepare('SELECT * FROM players ORDER BY last_seen DESC LIMIT ?').all(limit) as AdminPlayerRow[]
+    : db().prepare('SELECT * FROM players WHERE name LIKE ? OR code LIKE ? ORDER BY last_seen DESC LIMIT ?').all(like, like, limit) as AdminPlayerRow[];
+  return rows;
+}
+export function adminUpdatePlayer(uid: string, patch: { name?: string; avatar?: string; level?: number; nw?: number }): ReturnType<typeof pubPlayer> | undefined {
+  const ex = db().prepare('SELECT * FROM players WHERE id = ?').get(uid) as PlayerRow | undefined;
+  if (!ex) return undefined;
+  db().prepare('UPDATE players SET name=?, avatar=?, level=?, nw=? WHERE id=?')
+    .run(patch.name !== undefined ? (clampStr(patch.name, 24) || ex.name) : ex.name,
+      patch.avatar !== undefined ? clampEmoji(patch.avatar) : ex.avatar,
+      patch.level !== undefined ? clampInt(patch.level, 1, 999) : ex.level,
+      patch.nw !== undefined ? clampAmount(patch.nw) : ex.nw,
+      uid);
+  return pubPlayer(db().prepare('SELECT * FROM players WHERE id = ?').get(uid) as PlayerRow);
+}
+export function adminSetBanned(uid: string, banned: boolean): boolean {
+  const r = db().prepare('UPDATE players SET banned = ? WHERE id = ?').run(banned ? 1 : 0, uid);
+  return r.changes > 0;
+}
+export function adminDeletePlayer(uid: string): void {
+  const d = db();
+  d.prepare('DELETE FROM players WHERE id = ?').run(uid);
+  d.prepare('DELETE FROM messages WHERE uid = ?').run(uid);
+  d.prepare('DELETE FROM friend_edges WHERE a = ? OR b = ?').run(uid, uid);
+  d.prepare('DELETE FROM gifts WHERE from_uid = ? OR to_uid = ?').run(uid, uid);
+}
+export function adminListMessages(limit = 120): ReturnType<typeof pubMsg>[] {
+  return (db().prepare('SELECT * FROM messages ORDER BY id DESC LIMIT ?').all(limit) as MsgRow[]).map(pubMsg);
+}
+export function adminDeleteMessage(id: number): boolean {
+  return db().prepare('DELETE FROM messages WHERE id = ?').run(id).changes > 0;
+}
+export function adminDeleteMessagesByUser(uid: string): number {
+  return db().prepare('DELETE FROM messages WHERE uid = ?').run(uid).changes;
+}
+export const ADMIN_SYS_UID = 'hb-system';
+export function adminBroadcast(text: string): ReturnType<typeof pubMsg> {
+  const info = db().prepare('INSERT INTO messages (uid, name, avatar, text, created_at) VALUES (?,?,?,?,?)')
+    .run(ADMIN_SYS_UID, 'HuyenBao', '📢', clampStr(text, 280), new Date().toISOString());
+  return pubMsg(db().prepare('SELECT * FROM messages WHERE id = ?').get(info.lastInsertRowid) as MsgRow);
+}
+export function adminListGifts(limit = 100): ReturnType<typeof pubGift>[] {
+  const rows = db().prepare('SELECT * FROM gifts ORDER BY id DESC LIMIT ?').all(limit) as GiftRow[];
+  const names = profilesOf(rows.map(r => r.from_uid));
+  return rows.map(r => pubGift(r, names[r.from_uid]?.name));
+}
+export function adminDeleteGift(id: number): boolean {
+  return db().prepare('DELETE FROM gifts WHERE id = ?').run(id).changes > 0;
+}
+export function adminVacuum(): void {
+  db().exec('VACUUM');
+}
+export function adminClearMessages(): number {
+  const n = (db().prepare('SELECT COUNT(*) AS n FROM messages').get() as { n: number }).n;
+  db().exec('DELETE FROM messages');
+  db().exec("DELETE FROM sqlite_sequence WHERE name='messages'");
+  return n;
+}
+
 // ---------------------------------------------------------------- admin stats
 export interface AdminStats {
   ok: true; ts: number; dbPath: string; dbBytes: number;
-  players: number; online: number; messages: number; messages24h: number;
+  players: number; banned: number; online: number; messages: number; messages24h: number;
   gifts: number; gifts24h: number; edges: number; acceptedEdges: number;
   top: { code: string; name: string; avatar: string; nw: number; level: number }[];
 }
@@ -226,6 +302,7 @@ export function adminStats(): AdminStats {
     dbPath: DB_PATH,
     dbBytes,
     players: count('SELECT COUNT(*) AS n FROM players'),
+    banned: count('SELECT COUNT(*) AS n FROM players WHERE banned = 1'),
     online: onlinePlayers().length,
     messages: count('SELECT COUNT(*) AS n FROM messages'),
     messages24h: count('SELECT COUNT(*) AS n FROM messages WHERE created_at > ?', new Date(dayAgo).toISOString()),

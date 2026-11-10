@@ -7,7 +7,7 @@
     "dev": "next dev -p 3000",
     "build": "next build",
     "build:static": "node scripts/static-build.mjs",
-    "start": "next start -p 3333",
+    "start": "next start -H 0.0.0.0 -p 3334",
     "lint": "eslint .",
     "test": "tsx --test src/lib/engine.test.ts src/lib/power.test.ts src/lib/empire.test.ts src/lib/zodiac.test.ts src/lib/phongthuy.test.ts src/lib/tarot.test.ts src/lib/server/socialDb.test.ts",
     "typecheck": "tsc --noEmit"

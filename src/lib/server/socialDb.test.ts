@@ -118,6 +118,7 @@ test('v11.27: gifts — server enforces friendship, claim works exactly once', (
   S.addEdge('gifter-a-11', 'gifter-b-22');
   S.acceptEdge(S.edgeBetween('gifter-a-11', 'gifter-b-22')!.id);
   const g = S.insertGift('gifter-a-11', 'gifter-b-22', 5000, 'chúc may mắn');
+  if (!g || 'banned' in g) throw new Error('gift insert must succeed for a non-banned sender');
   assert.equal(g.from, 'gifter-a-11');
   assert.equal(g.to, 'gifter-b-22');
   assert.equal(g.claimed, false);
@@ -156,4 +157,53 @@ test('v11.27: presence window + leaderboard + admin stats shape', () => {
   assert.ok(st.dbBytes >= 0);
   assert.ok(Array.isArray(st.top) && st.top.length >= 1);
   assert.ok(st.messages24h <= st.messages);
+});
+
+// v11.29 — admin console backend: bans, moderation, maintenance
+test('v11.29: admin ban blocks chat & gifts, unban restores them', () => {
+  if (!S) return; // bun runtime cannot load better-sqlite3 — see setup
+  S.upsertPlayer('bannable-111', { name: 'Baddy' });
+  S.upsertPlayer('victim--111', { name: 'Victim' });
+  S.addEdge('bannable-111', 'victim--111');
+  S.acceptEdge(S.edgeBetween('bannable-111', 'victim--111')!.id);
+  S.insertMessage('bannable-111', 'trước khi bị cấm');
+  assert.equal(S.adminSetBanned('bannable-111', true), true);
+  assert.deepEqual(S.insertMessage('bannable-111', 'spam sau khi cấm'), { ok: false, banned: true });
+  assert.deepEqual(S.insertGift('bannable-111', 'victim--111', 100, 'hi'), { banned: true });
+  assert.equal(S.adminSetBanned('bannable-111', false), true);
+  S.db().prepare('UPDATE messages SET created_at = ? WHERE uid = ?')
+    .run(new Date(Date.now() - 1300).toISOString(), 'bannable-111');
+  assert.equal(S.insertMessage('bannable-111', 'đã được mở khoá').ok, true);
+});
+
+test('v11.29: admin — search/update players, moderate chat, broadcast, delete', () => {
+  if (!S) return; // bun runtime cannot load better-sqlite3 — see setup
+  S.upsertPlayer('adminq-a-111', { name: 'AliceSearch', nw: 500 });
+  S.upsertPlayer('adminq-b-222', { name: 'BobSearch', nw: 900 });
+  // search by name fragment
+  const found = S.listPlayersAdmin('Search');
+  assert.ok(found.length >= 2);
+  assert.ok(typeof found[0].banned === 'number', 'admin rows carry the banned flag');
+  // edit profile fields
+  const up = S.adminUpdatePlayer('adminq-a-111', { name: 'Alice Renamed', level: 7, nw: 77777 });
+  assert.equal(up?.name, 'Alice Renamed');
+  assert.equal(up?.level, 7);
+  assert.equal(up?.nw, 77777);
+  // delete a single message
+  S.insertMessage('adminq-b-222', 'tin sẽ bị xoá');
+  const list = S.adminListMessages(5);
+  assert.ok(list.length >= 1);
+  assert.equal(S.adminDeleteMessage(Number(list[0].id)), true);
+  // broadcast lands in chat under the system identity
+  const bc = S.adminBroadcast('Bảo trì server 2h sáng');
+  assert.equal(bc.name, 'HuyenBao');
+  assert.equal(bc.avatar, '📢');
+  assert.equal(bc.uid, S.ADMIN_SYS_UID);
+  // stats count banned players
+  assert.equal(S.adminSetBanned('adminq-b-222', true), true);
+  const st = S.adminStats();
+  assert.ok(st.banned >= 1);
+  // deleting a player wipes their profile, chat, edges and gifts
+  S.adminDeletePlayer('adminq-a-111');
+  assert.equal(S.getPlayer('adminq-a-111'), undefined);
 });

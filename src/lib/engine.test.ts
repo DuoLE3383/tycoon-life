@@ -5,7 +5,7 @@ import {
   addPost, bankOp, bizMultiplier, begin, bizVal, checkAch, doGig, effYears, enrollDeg, enrollLic, fresh, gigPay,
   lotValue, migrate, processDay, sleepHealthMult, studyPace, studyWorkMult,
   SPACE_TRAVEL_COST, spaceIncome, startSpaceUpgrade, taxOf, tick, trade,
-  doWell, healthWarnings, hire, jobIncome, meets, POST_COOLDOWN_DAYS, studyTuition,
+  doWell, effWellCd, wellLeft, wellReady, TREAT_COST, TREAT_CD, healthWarnings, hire, jobIncome, meets, POST_COOLDOWN_DAYS, studyTuition,
   // v11.2 — crisis + market research exports
   effEraBiz, effEraFac, effLoanRate, effRisk, effDemand, researchCost, researchMarket,
   dateOf, worldYear, type GameState,
@@ -156,6 +156,52 @@ test('health warnings recommend rest, sleep, and diet according to current state
   state.sleepHours = 8;
   state.diet = true;
   assert.deepEqual(healthWarnings(state), []);
+});
+
+// v11.29 — the 30-day check-up lock must melt away when health collapses.
+test('v11.29: check-up cooldown adapts to health — urgent care within a day', () => {
+  const state = fresh();
+  begin(state, { name: 'Test', byear: 1992, nation: 'Vietnam', ints: [], tals: [] });
+  state.money = 10_000;
+  // healthy → routine 30-day cooldown
+  state.health = 80;
+  assert.equal(effWellCd(state, 'checkup'), 30);
+  doWell(state, 'checkup', k => k); // 80 + 15 = 95
+  assert.equal(state.health, 95);
+  assert.equal(wellLeft(state, 'checkup'), 30);
+  assert.equal(wellReady(state, 'checkup'), false);
+  // run down (<60) → cooldown shrinks to 7 days
+  state.health = 55;
+  assert.equal(effWellCd(state, 'checkup'), 7);
+  assert.equal(wellLeft(state, 'checkup'), 7);
+  state.lastDay += 7;
+  assert.equal(wellReady(state, 'checkup'), true);
+  doWell(state, 'checkup', k => k); // 55 + 15 = 70
+  assert.equal(state.health, 70);
+  // critical (<35) → the doctor sees you every single day
+  state.health = 20;
+  assert.equal(effWellCd(state, 'checkup'), 1);
+  assert.equal(wellLeft(state, 'checkup'), 1);
+  state.lastDay += 1;
+  assert.equal(wellReady(state, 'checkup'), true);
+  doWell(state, 'checkup', k => k); // 20 + 15 = 35
+  assert.equal(state.health, 35);
+});
+
+test('v11.29: medical treatment heals deep and keeps its own short cooldown', () => {
+  const state = fresh();
+  begin(state, { name: 'Test', byear: 1992, nation: 'Vietnam', ints: [], tals: [] });
+  state.money = 10_000;
+  state.health = 30;
+  const r = doWell(state, 'treat', k => k);
+  assert.equal(r, 'hp.treatDone');
+  assert.equal(state.health, 75, 'treatment heals +45');
+  assert.equal(state.money, 10_000 - TREAT_COST);
+  assert.equal(wellLeft(state, 'treat'), TREAT_CD);
+  state.lastDay += TREAT_CD - 1;
+  assert.equal(wellReady(state, 'treat'), false);
+  state.lastDay += 1;
+  assert.equal(wellReady(state, 'treat'), true);
 });
 
 test('primary and evening courses complete independently', () => {

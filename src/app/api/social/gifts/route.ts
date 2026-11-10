@@ -40,7 +40,8 @@ export async function POST(req: Request) {
       // version trusted the client; on a self-hosted server we can be strict).
       const fr = edgeBetween(uid, to);
       if (!fr || fr.status !== 'accepted') return NextResponse.json({ ok: false, error: 'not-friends' }, { status: 403 });
-      insertGift(uid, to, amount, clampStr(b.note, 120));
+      const g = insertGift(uid, to, amount, clampStr(b.note, 120));
+      if (g && 'banned' in g) return NextResponse.json({ ok: false, error: 'banned' }, { status: 403 }); // v11.29
       return NextResponse.json({ ok: true });
     }
 

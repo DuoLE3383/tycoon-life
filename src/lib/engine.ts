@@ -231,6 +231,9 @@ export interface GameState {
 export type T = (k: string, f?: string, v?: Record<string, string | number>) => string;
 export const GYM_COST = 80, GYM_CD = 2, GYM_HP = 6;
 export const CHECKUP_COST = 600, CHECKUP_CD = 30, CHECKUP_HP = 15;
+// v11.29 — deep medical treatment: the "I'm really weak, fix me NOW" option.
+// Expensive and a long-ish cooldown, but heals far more than a check-up.
+export const TREAT_COST = 3000, TREAT_CD = 5, TREAT_HP = 45;
 export const DIET_COST = 6;
 export const TEMPLE_COST = 500, TEMPLE_CD = 3;
 export const RETREAT_COST = 8000, RETREAT_CD = 60;
@@ -239,21 +242,31 @@ export const FAITH_PRACTICE_COST = 250, FAITH_PRACTICE_CD = 7;
 export const WELL: WellDef[] = [
   { id: 'gym', cost: GYM_COST, cd: GYM_CD },
   { id: 'checkup', cost: CHECKUP_COST, cd: CHECKUP_CD },
+  { id: 'treat', cost: TREAT_COST, cd: TREAT_CD },
   { id: 'meditate', cost: 0, cd: 1 },
   { id: 'temple', cost: TEMPLE_COST, cd: TEMPLE_CD },
   { id: 'retreat', cost: RETREAT_COST, cd: RETREAT_CD },
   { id: 'faithPractice', cost: FAITH_PRACTICE_COST, cd: FAITH_PRACTICE_CD },
 ];
 export const wellDef = (id: string) => WELL.find(w => w.id === id);
+// v11.29 — the doctor check-up no longer locks you out for 30 straight days
+// while your health is collapsing. The cooldown adapts to how weak you are:
+//   health ≥ 60 → 30d (routine), 35–59 → 7d (run down), < 35 → 1d (urgent).
+// Every other well action keeps its static cooldown.
+export const effWellCd = (s: GameState, id: string): number => {
+  const w = wellDef(id); if (!w) return 0;
+  if (id === 'checkup') return s.health < 35 ? 1 : s.health < 60 ? 7 : CHECKUP_CD;
+  return w.cd;
+};
 export const wellReady = (s: GameState, id: string) => {
   const w = wellDef(id); if (!w) return false;
   const last = s.well[id];
-  return (last == null || s.lastDay - last >= w.cd) && s.money >= w.cost;
+  return (last == null || s.lastDay - last >= effWellCd(s, id)) && s.money >= w.cost;
 };
 export const wellLeft = (s: GameState, id: string) => {
   const w = wellDef(id); if (!w) return 0;
   const last = s.well[id];
-  return last == null ? 0 : Math.max(0, w.cd - (s.lastDay - last));
+  return last == null ? 0 : Math.max(0, effWellCd(s, id) - (s.lastDay - last));
 };
 export const healthMult = (s: GameState) => 0.7 + 0.3 * (s.health / 100);
 export const sleepHealthMult = (hours: number) => hours < 7
@@ -286,6 +299,7 @@ export function doWell(s: GameState, id: string, t: T): string | null {
   if (w.cost) s.money -= w.cost;
   if (id === 'gym') { s.health = Math.min(100, s.health + GYM_HP); addXp(s, 4); return t('hp.gymDone', '', { n: GYM_HP }); }
   if (id === 'checkup') { s.health = Math.min(100, s.health + CHECKUP_HP); addXp(s, 6); return t('hp.checkupDone', '', { n: CHECKUP_HP }); }
+  if (id === 'treat') { s.health = Math.min(100, s.health + TREAT_HP); addXp(s, 10); return t('hp.treatDone', '', { n: TREAT_HP }); }
   if (id === 'meditate') { s.spirit = Math.min(100, s.spirit + 4); s.karma += 1; addXp(s, 3); return t('sp.medDone', '', { n: 4 }); }
   if (id === 'temple') { s.spirit = Math.min(100, s.spirit + 6); s.karma += 5; addXp(s, 5); return t('sp.templeDone', '', { n: 6, k: 5 }); }
   if (id === 'retreat') { s.spirit = Math.min(100, s.spirit + 25); s.karma += 15; s.health = Math.min(100, s.health + 5); addXp(s, 30); pushLog(s, 'Silent retreat — ten days of stillness.'); return t('sp.retreatDone'); }
