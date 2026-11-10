@@ -1,18 +1,13 @@
 {
-  "version": "v11.33",
+  "version": "v11.34",
   "releasedAt": "2026-11-10",
-  "headline": "HuyenBao v11.33 — Assets tái struct 7 mục (BĐS · Cao cấp · Bình dân · Tài sản · Đấu giá & Chợ · Đồ hiếm · Workshop) + ⭐ theo dõi + đấu giá tranh mua đồ hiếm + sửa checkbox 'lỗi từ thời nào' + menu không tràn + bộ màu Emerald & Champagne + info nhân vật ghép lên status bar",
-  "summary": "ASSET REGROUP + REAL RARITY. The Assets tab was rebuilt into 7 player-requested sections: Real estate, Luxury (lux>=15), Everyday goods, My assets (the collection grouped houses/wheels/collection/goods), Auction & Market (favourites watchlist + scheduled auctions + live bidding + pre-owned market), Grails and Workshop. Twelve auction-only grails (Ferrari 250 GTO, Pink Star diamond, Gutenberg leaf, T-Rex skeleton, Picasso...) NEVER appear in shops: each is announced 10-28 days ahead, then goes LIVE for 5-9 days where NPC collectors raise the top bid every 2 days, the player can be OUTBID, winning charges their bid, and losing costs nothing. A star toggle on every row/tile builds a watchlist with live values shown in the auction house. The forever-broken intro checkbox finally got a real control (visible card + 22px custom tick, dark-theme safe). Menus can no longer overflow the screen (scroll-snap + edge fade + overflow-x clip). The whole app was recoloured: Emerald & Champagne light palette and Midnight Emerald dark palette. The pinned status bar now carries the character essentials always-visible: job, education count and level with a mini XP bar.",
+  "headline": "HuyenBao v11.34 — quy ước màu nút: Bận=cam · Đang tiến hành=xanh · Bỏ/Huỷ=đỏ",
+  "summary": "BUTTON COLOR CONVENTION. The whole app now follows one visual language: orange (.busy) for slot-taken / processing / 'đang bận' states, green (.ongoing) for actively-in-progress / 'đang học' states, and red (.danger) for discard / cancel / withdraw / leave / rehome actions. New CSS classes .busy (amber, theme-aware) and .ongoing (sage) join the existing .danger; the disabled grey is shared so a disabled busy/cancel button still reads as 'not now'. The license + short-course enrol buttons now colour themselves dynamically — green while you're studying, orange when the slot is full. The 'Drop study slot', 'Withdraw from market', 'Leave club', 'Rehome pet' buttons plus both modal cancel controls (✕ header + 'Hủy' footer in PurchaseConfirm) flipped from neutral grey ghost to red danger so the destructive intent is unmistakable at a glance.",
   "features": [
-    "ASSETS REGROUPED: 7 sections — Bất Động Sản / Đồ Cao Cấp / Đồ Bình Dân / Tài Sản / Đấu Giá & Chợ / Đồ Hiếm / Workshop",
-    "12 AUCTION-ONLY GRAILS with real estimates ($1.9M-$80M): announced 10-28d ahead, live 5-9d, NPC bids escalate every 2 days, player can be outbid",
-    "REAL RARITY: grails are delisted from every shop catalogue — the hammer is the only way in; winning delivers mint condition + 25 XP",
-    "FAVOURITES: star toggle on every row/tile; watchlist block in the auction house with live values + status (scheduled / live / listed)",
-    "CHECKUP FOR THE UI: the v11.10 disclaimer checkbox is finally a proper control — visible card, custom 22px tick, dark-theme safe",
-    "MENU OVERFLOW KILLED: scroll-snap + right-edge fade mask + overflow-x clip on the game root",
-    "RECOLOUR: 'Emerald & Champagne' (light) + 'Midnight Emerald' (dark) — jade success, coral danger, champagne-gold accents",
-    "PINNED STATUS BAR UPGRADED: job, education and level+mini-XP always visible next to age/cash/net-worth/health",
-    "TESTS: rare-auction lifecycle (schedule → live → bid → win → pay) + NPC strike-back + favourites; 158 tests green",
-    "Version bumped to v11.33 at FRONT of app name"
+    "BUTTON CONVENTION: busy = orange (.busy), in-progress = green (.ongoing), discard/cancel = red (.danger)",
+    "NEW CSS classes .busy (amber, light #c2680a / dark #e89446) and .ongoing (sage) — theme-aware, share the disabled grey",
+    "ENROL buttons (license + short course) now colour themselves: green while studying, orange when slots are full",
+    "DISCARD BUTTONS TURNED RED: Drop study slot · Withdraw from market · Leave club · Rehome pet · modal ✕ · modal 'Hủy'",
+    "Version bumped to v11.34 at FRONT of app name"
   ]
 }

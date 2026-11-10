@@ -11,6 +11,7 @@
   --brick:#c0473c; --brickBg:#f8e8e5;
   --slate:#5b7285;
   --gold:#b08a3e; /* champagne-gold — rarity & grail accents */
+  --amber:#c2680a; --amberInk:#fff8ec; /* v11.34 — busy-state orange */
   --up:#2f7a52; --dn:#b8544a;
   min-height:100vh;
   background:linear-gradient(180deg,var(--paper) 0%,var(--paper2) 100%);
@@ -90,8 +91,17 @@ html[data-theme="light"] body{background:#e2e7df}
 .tgame .ibtn.danger:hover:not(:disabled){background:#9c4a42}
 .tgame .ibtn.sageb{background:var(--sage);color:#fff}
 .tgame .ibtn.sageb:hover:not(:disabled){background:#527d61}
+/* v11.34 — button-state convention:
+   .busy    ORANGE  — slot taken / processing / "đang bận"
+   .ongoing GREEN   — actively studying / "đang tiến hành"
+   .danger  RED     — discard / cancel / withdraw / leave / rehome
+   (the disabled state stays neutral grey in all cases) */
+.tgame .ibtn.busy{background:var(--amber);color:var(--amberInk);border-color:var(--amber)}
+.tgame .ibtn.busy:hover:not(:disabled){background:color-mix(in srgb,var(--amber) 85%,#000)}
+.tgame .ibtn.ongoing{background:var(--sage);color:#fff;border-color:var(--sage)}
+.tgame .ibtn.ongoing:hover:not(:disabled){background:color-mix(in srgb,var(--sage) 85%,#000)}
 .tgame .ibtn:disabled{background:var(--paper2);color:var(--faint);border-color:var(--line);box-shadow:none;cursor:not-allowed}
-.tgame .ibtn.ghost:disabled,.tgame .ibtn.danger:disabled,.tgame .ibtn.sageb:disabled{background:var(--paper2)}
+.tgame .ibtn.ghost:disabled,.tgame .ibtn.danger:disabled,.tgame .ibtn.sageb:disabled,.tgame .ibtn.busy:disabled,.tgame .ibtn.ongoing:disabled{background:var(--paper2);color:var(--faint);border-color:var(--line)}
 .tgame .ghost{background:var(--card);color:var(--ink);border:1px solid var(--line2);border-radius:999px;padding:6px 14px;font-weight:650}
 .tgame .ghost:hover{background:var(--paper)}
 .tgame .tsmall{font-size:.8rem;padding:5px 12px}
@@ -398,6 +408,7 @@ html[data-theme="dark"] .tgame{
   --sage:#7bb894; --sageBg:#1d3128;
   --brick:#d98177; --brickBg:#3c2523;
   --slate:#8ba6bd; --gold:#d9b45c;
+  --amber:#e89446; --amberInk:#231405;
   --up:#8cc7a2; --dn:#e0a196;
 }
 html[data-theme="dark"] .tgame .heroimg{filter:brightness(.8) saturate(.92)}

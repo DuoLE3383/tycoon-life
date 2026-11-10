@@ -1,5 +1,5 @@
 'use client';
-// HuyenBao v11.33 — React edition. Two-level grouped nav, a systems links map,
+// HuyenBao v11.34 — React edition. Two-level grouped nav, a systems links map,
 // gigs, levels, social, the cosmic frontier, EN/VI/中文, LLM oracle with
 // random kind dispatch (luck / setback / life-stage / story), pre-owned
 // market + social listings, a Hall of Fame tab, and a real player-to-player
@@ -91,7 +91,7 @@ if (typeof window !== 'undefined') {
 // v11.8 — the bundled version. The /version.json file in /public is polled
 // every 5 minutes; if its version is newer than this, a "reload to update"
 // banner appears even in a running session (no F5 needed).
-const BUNDLED_VERSION = 'v11.33';
+const BUNDLED_VERSION = 'v11.34';
 const VERSION_POLL_MS = 5 * 60 * 1000;
 // v11.24 — 'what's new' modal is shown ONCE PER PLAYER per MAJOR version
 // (tycoon_seen_v11), not once per patch release. Previously the key was
@@ -526,7 +526,7 @@ function Header({ s, eraName }: { s: GameState; eraName: (y: number) => string }
     <header className="top">
       <div className="brand">
         <Art id="s-coin" className="logo" />
-        <div><h1><span className="mini">v11.33</span> HuyenBao</h1>
+        <div><h1><span className="mini">v11.34</span> HuyenBao</h1>
           <div className="mini">{s.started ? `${s.nation} · ${eraName(worldYear(s))}` : t('tagline')}</div></div>
       </div>
       <div><div className="mini">{t('cash')}</div><div id="tcash" style={{ color: s.money < 0 ? 'var(--brick)' : undefined }}>{fmt(s.money)}</div>
@@ -875,7 +875,7 @@ function EduTab({ s, act }: { s: GameState; act: Act }) {
           <h3>{t('v11.dropTitle')}</h3>
           {studies.map(study => {
             const slot = study === s.study ? 'study' : 'sideStudy';
-            return <Row key={slot} art="ic-x" right={<Btn ic="ic-x" label={t('v11.drop')} kind="ghost" onClick={() => act(st => dropStudySlot(st, slot))} />}>
+            return <Row key={slot} art="ic-x" right={<Btn ic="ic-x" label={t('v11.drop')} kind="danger" onClick={() => act(st => dropStudySlot(st, slot))} />}>
               <b>{study.name}</b>
               <span className="sub">{Math.max(0, (study.end - s.day) / 365.25).toFixed(1)} {t('years')} {t('remaining')}</span>
             </Row>;
@@ -889,7 +889,8 @@ function EduTab({ s, act }: { s: GameState; act: Act }) {
         const done = s.shortCompleted?.includes(c.id);
         const studying = studies.some(course => course.kind === 'lic' && course.id === c.id);
         const busy = slotsFull;
-        return <Row key={c.id} art={c.art} right={<Btn ic={done ? 'ic-check' : 'ic-cap'} label={done ? t('done') : studying ? t('inProgress') : busy ? t('busy') : s.money < c.cost ? t('needLicence') : t('enroll')} disabled={done || !!studying || busy || s.money < c.cost} onClick={() => act(st => enrollShortCourse(st, c.id))} />}>
+        const kind: 'busy' | 'ongoing' | undefined = studying ? 'ongoing' : busy ? 'busy' : undefined;
+        return <Row key={c.id} art={c.art} right={<Btn ic={done ? 'ic-check' : 'ic-cap'} kind={kind} label={done ? t('done') : studying ? t('inProgress') : busy ? t('busy') : s.money < c.cost ? t('needLicence') : t('enroll')} disabled={done || !!studying || busy || s.money < c.cost} onClick={() => act(st => enrollShortCourse(st, c.id))} />}>
           <b>{c.name}</b>
           <span className="sub">{fmt(c.cost)} {t('fee')} · {t('dayCourse', '', { n: c.days })} · {t('field.' + c.field, FIELDS[c.field].name)}</span>
           <span className="mini" style={{ display: 'block', marginTop: 2 }}>{c.blurb}</span>
@@ -917,7 +918,8 @@ function EduTab({ s, act }: { s: GameState; act: Act }) {
         const studying = studies.some(course => course.kind === 'lic' && course.id === l.id);
         const busy = slotsFull;
         const label = owned ? t('done') : studying ? t('inProgress') : busy ? t('busy') : s.money < l.cost ? t('needLicence') : t('enroll');
-        return <Row key={l.id} art={l.art} right={<Btn ic={owned ? 'ic-check' : 'ic-cap'} label={owned ? t('done') : label} disabled={owned || !!studying || busy || s.money < l.cost}
+        const kind: 'busy' | 'ongoing' | undefined = studying ? 'ongoing' : busy ? 'busy' : undefined;
+        return <Row key={l.id} art={l.art} right={<Btn ic={owned ? 'ic-check' : 'ic-cap'} kind={kind} label={owned ? t('done') : label} disabled={owned || !!studying || busy || s.money < l.cost}
           onClick={() => act(st => enrollLic(st, l.id))} />}>
           <b>{t('lic.' + l.id, l.name)}</b><span className="sub">{fmt(l.cost)} {t('fee')} · {t('dayCourse', '', { n: l.days })} · {t('neededFor')} {Object.keys(LIC_FOR).filter(k => LIC_FOR[k] === l.id).join(', ')}</span>
           {studies.length === 1 && <span className="sub" style={{ display: 'block' }}>{t('parallelStudyNote')}</span>}
@@ -2117,7 +2119,7 @@ function AssetsTab({ s, act, curCat, setCurCat }: { s: GameState; act: Act; curC
           {s.mkt.map((j, ji) => {
             const left = Math.max(0, Math.ceil(j.endDay - s.day));
             const chance = Math.round(sellChanceOf(j.rarity, j.kind, Math.max(1, Math.round(j.endDay - j.startDay))) * 100);
-            return <Row key={'j' + ji} art={j.art} image={j.img} right={<Btn ic="ic-x" label={t('mkt.withdraw')} kind="ghost" onClick={() => act(st => cancelMarketJob(st, ji, t))} />}>
+            return <Row key={'j' + ji} art={j.art} image={j.img} right={<Btn ic="ic-x" label={t('mkt.withdraw')} kind="danger" onClick={() => act(st => cancelMarketJob(st, ji, t))} />}>
               <b>{j.brand ? <span className="bchip" style={{ background: j.c }}>{j.brand}</span> : null}{j.name} <span className="rarity-chip" data-rarity={j.rarity} style={{ '--rc': RARITY_COLOR[j.rarity] } as React.CSSProperties}>{t('rarity.' + j.rarity)}</span></b>
               <span className="sub">{j.kind === 'auction' ? '🔨 ' + t('mkt.onAuction') : '🏷 ' + t('mkt.onListing')} · {t('mkt.ask')} <b>{fmt(j.ask)}</b></span>
               <span className="mini" style={{ display: 'block', marginTop: 2 }}>
@@ -2252,7 +2254,7 @@ function PurchaseConfirm({ s, pending, onConfirm, onCancel }: { s: GameState; pe
       <div className="mcard" style={{ maxWidth: 460 }}>
         <div className="mhead">
           <h2>{t('buy.title')} · <span className="mini">{isNew ? t('buy.new') : t('buy.used')}</span></h2>
-          <button className="ibtn ghost" onClick={onCancel}><Ic id="ic-x" className="bsi" /><span>✕</span></button>
+          <button className="ibtn danger" onClick={onCancel}><Ic id="ic-x" className="bsi" /><span>✕</span></button>
         </div>
         {/* photo + name + rarity */}
         <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start', marginBottom: 10 }}>
@@ -2280,7 +2282,7 @@ function PurchaseConfirm({ s, pending, onConfirm, onCancel }: { s: GameState; pe
         </>}
         {/* confirm / cancel buttons */}
         <div className="trade" style={{ marginTop: 12, justifyContent: 'flex-end', gap: 8 }}>
-          <button className="ibtn ghost" onClick={onCancel}><span>{t('buy.cancel')}</span></button>
+          <button className="ibtn danger" onClick={onCancel}><span>{t('buy.cancel')}</span></button>
           <button className="tbuy" disabled={!canAfford || locked} onClick={onConfirm}>
             <span>{locked ? t('buy.locked') : canAfford ? t('buy.confirm') : t('buy.insufficient')}</span>
           </button>
@@ -2486,7 +2488,7 @@ function ClubTab({ s, act }: { s: GameState; act: Act }) {
       {CLUBS.map(c => {
         const mine = s.clubs.includes(c.id), ok = nw >= c.min;
         return <Row key={c.id} art={c.art} right={<div className="trade">
-          {mine ? <Btn ic="ic-x" label={t('clubs.leave')} kind="ghost" onClick={() => act(st => leaveClub(st, c.id))} /> : null}
+          {mine ? <Btn ic="ic-x" label={t('clubs.leave')} kind="danger" onClick={() => act(st => leaveClub(st, c.id))} /> : null}
           <Btn ic={mine ? 'ic-check' : 'ic-crown'} label={mine ? t('member') : !ok ? t('minNw') + ' ' + fmt(c.min) : t('join') + ' · ' + fmt(c.fee)} disabled={mine || !ok || s.money < c.fee} onClick={() => act(st => joinClub(st, c.id))} />
         </div>}>
           <b>{t('club.' + c.id, c.name)}{mine ? ' · ' + t('member') : ''}</b><span className="sub">{t('minNw')} {fmt(c.min)} · {t('fee')} {fmt(c.fee)} · {t('inc.biz')} ×{c.mult}</span>
@@ -2530,7 +2532,7 @@ function PetsTab({ s, act }: { s: GameState; act: Act }) {
               <Btn ic="ic-bag" label={t('pets.feed') + ' ' + fmt(Math.round(def.upkeep * 0.5))} kind="ghost" disabled={s.money < Math.round(def.upkeep * 0.5)} onClick={() => act(st => careForPet(st, idx, 'feed'))} />
               <Btn ic="ic-heart" label={t('pets.play')} kind="ghost" onClick={() => act(st => careForPet(st, idx, 'play'))} />
               {(pet.typeId === 'dog' || pet.typeId === 'horse') && <Btn ic="ic-paw" label={t('pets.walk')} kind="ghost" onClick={() => act(st => careForPet(st, idx, 'walk'))} />}
-              <Btn ic="ic-x" label={t('pets.rehome')} kind="ghost" onClick={() => act(st => abandonPet(st, idx))} />
+              <Btn ic="ic-x" label={t('pets.rehome')} kind="danger" onClick={() => act(st => abandonPet(st, idx))} />
             </div>}>
               <b>{pet.name} <span className="tag">{def.name}</span></b>
               <div className="famewrap" style={{ marginTop: 6 }}>
