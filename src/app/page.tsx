@@ -1,5 +1,5 @@
 'use client';
-// HuyenBao v11.53 — React edition. Two-level grouped nav, a systems links map,
+// HuyenBao v11.54 — React edition. Two-level grouped nav, a systems links map,
 // gigs, levels, social, the cosmic frontier, EN/VI/中文, LLM oracle with
 // random kind dispatch (luck / setback / life-stage / story), pre-owned
 // market + social listings, a Hall of Fame tab, and a real player-to-player
@@ -100,7 +100,7 @@ if (typeof window !== 'undefined') {
 // v11.8 — the bundled version. The /version.json file in /public is polled
 // every 5 minutes; if its version is newer than this, a "reload to update"
 // banner appears even in a running session (no F5 needed).
-const BUNDLED_VERSION = 'v11.53';
+const BUNDLED_VERSION = 'v11.54';
 const VERSION_POLL_MS = 5 * 60 * 1000;
 // v11.44 — 'what's new' modal now fires PER PATCH (not per major version).
 // The SEEN_KEY is derived from BUNDLED_VERSION so each new patch re-shows the
@@ -437,7 +437,7 @@ export default function Page() {
           })()}
         </div>
         <main id="tview" key={tab} className="enter">
-          {tab === 'home' && <HomeTab s={s} act={act} askAI={askAI} aiBusy={aiBusy} aiNote={t(aiNoteKey)} eraName={eraName} />}
+          {tab === 'home' && <HomeTab s={s} act={act} askAI={askAI} aiBusy={aiBusy} aiNote={t(aiNoteKey)} eraName={eraName} onNav={(k: string) => { setTab(k); setLastTab(lt => ({ ...lt, [activeGroup]: k })); }} />}
           {tab === 'career' && <CareerTab s={s} act={act} />}
           {tab === 'edu' && <EduTab s={s} act={act} />}
           {tab === 'biz' && <BizTab s={s} act={act} />}
@@ -460,7 +460,7 @@ export default function Page() {
           {tab === 'power' && <PowerTab s={s} act={act} />}
           {tab === 'entity' && <EntityTab s={s} act={act} />}
           {tab === 'fame' && <FameTab s={s} />}
-          {tab === 'links' && <LinksTab s={s} />}
+          {tab === 'links' && <LinksTab s={s} onNav={(k: string) => { setTab(k); setLastTab(lt => ({ ...lt, [activeGroup]: k })); }} />}
         </main>
         <footer className="mini tfoot">
           {/* v11.10 — persistent legal disclaimer, visible on every tab */}
@@ -597,7 +597,7 @@ function Header({ s, eraName }: { s: GameState; eraName: (y: number) => string }
     <header className="top">
       <div className="brand">
         <Art id="s-coin" className="logo" />
-        <div><h1><span className="mini">v11.53</span> HuyenBao</h1>
+        <div><h1><span className="mini">v11.54</span> HuyenBao</h1>
           <div className="mini">{s.started ? `${s.nation} · ${eraName(worldYear(s))}` : t('tagline')}</div></div>
       </div>
       {/* v11.46 — removed Cash/NW/Income from header (was duplicate of PinZone).
@@ -1030,7 +1030,7 @@ function TravelSection({ s, act, t }: { s: GameState; act: Act; t: TFn }) {
 }
 
 // ================= HOME =================
-function HomeTab({ s, act, askAI, aiBusy, aiNote, eraName }: { s: GameState; act: Act; askAI: () => void; aiBusy: boolean; aiNote: string; eraName: (y: number) => string }) {
+function HomeTab({ s, act, askAI, aiBusy, aiNote, eraName, onNav }: { s: GameState; act: Act; askAI: () => void; aiBusy: boolean; aiNote: string; eraName: (y: number) => string; onNav: (k: string) => void }) {
   const { t, lang } = useT();
   const y = worldYear(s), era = eraOf(y), news = ALLNEWS[y] || [];
   const activeJobs = jobsOf(s);
@@ -1082,7 +1082,7 @@ function HomeTab({ s, act, askAI, aiBusy, aiNote, eraName }: { s: GameState; act
       <div className="quick-actions">
         <GigsPopup s={s} act={act} t={t} />
         <TravelSection s={s} act={act} t={t} />
-        <MoreInfoPopup s={s} t={t} lang={lang} eraName={eraName} y={y} news={news} timelineLocale={timelineLocale} />
+        <MoreInfoPopup s={s} t={t} lang={lang} eraName={eraName} y={y} news={news} timelineLocale={timelineLocale} onNav={onNav} />
       </div>
 
       {aiBusy && <p className="sub">{t('oracle.thinking')}</p>}
@@ -1094,9 +1094,9 @@ function HomeTab({ s, act, askAI, aiBusy, aiNote, eraName }: { s: GameState; act
 // ================= v11.47 — MORE INFO POPUP =================
 // Consolidates guide, world news, ecosystem, achievements, timeline, life log
 // into ONE popup so the home tab doesn't scroll. Accessible via a "More" button.
-function MoreInfoPopup({ s, t, lang, eraName, y, news, timelineLocale }: {
+function MoreInfoPopup({ s, t, lang, eraName, y, news, timelineLocale, onNav }: {
   s: GameState; t: TFn; lang: string; eraName: (y: number) => string; y: number;
-  news: string[]; timelineLocale: string;
+  news: string[]; timelineLocale: string; onNav: (k: string) => void;
 }) {
   const [open, setOpen] = useState(false);
   const [section, setSection] = useState<'guide' | 'news' | 'ach' | 'timeline' | 'log'>('guide');
@@ -1126,9 +1126,15 @@ function MoreInfoPopup({ s, t, lang, eraName, y, news, timelineLocale }: {
               </div>
               {section === 'guide' && (
                 <div>
+                  {/* v11.54 — guide images are now clickable: tap one to jump
+                      straight to the Business tab to start that venture. */}
                   <div className="imgs">
-                    {[['/img/cafe.jpg', 'biz.cafe'], ['/img/farm.jpg', 'biz.farm'], ['/img/factory.jpg', 'biz.fac'], ['/img/tech.jpg', 'biz.tech'], ['/img/hotel.jpg', 'biz.hotel']].map(([src, k]) => (
-                      <div key={src} className="imcard"><img src={asset(src)} alt={t(k)} loading="lazy" /><span>{t(k)}</span></div>
+                    {[['/img/cafe.jpg', 'biz.cafe', 'biz'], ['/img/farm.jpg', 'biz.farm', 'biz'], ['/img/factory.jpg', 'biz.fac', 'biz'], ['/img/tech.jpg', 'biz.tech', 'biz'], ['/img/hotel.jpg', 'biz.hotel', 'biz']].map(([src, k, link]) => (
+                      <button key={src} className="imcard nav-link" style={{ cursor: 'pointer', border: 'none', background: 'none', padding: 0, textAlign: 'left' }}
+                        onClick={() => { close(); onNav(link); }}>
+                        <img src={asset(src)} alt={t(k)} loading="lazy" />
+                        <span>{t(k)} <span className="mini" style={{ color: 'var(--accent)', fontWeight: 700 }}>→</span></span>
+                      </button>
                     ))}
                   </div>
                   <p className="sub">{t('guide.1')}</p><p className="sub">{t('guide.2')}</p><p className="sub">{t('guide.3')}</p>
@@ -4223,8 +4229,16 @@ const LEDGES: LEdge[] = [
 ];
 const cut = (x: string, n = 21) => (x.length > n ? x.slice(0, n - 1) + '…' : x);
 
-function LinksTab({ s }: { s: GameState }) {
+function LinksTab({ s, onNav }: { s: GameState; onNav?: (k: string) => void }) {
   const { t } = useT();
+  // v11.54 — map each systems-map node to a tab id so the SVG nodes are
+  // clickable. Tapping a node navigates to the relevant tab.
+  const nodeLink: Record<string, string> = {
+    edu: 'edu', job: 'career', biz: 'biz', space: 'space',
+    health: 'health', level: 'home', club: 'club', fame: 'fame',
+    spirit: 'spirit', social: 'social', bank: 'bank', charity: 'bank',
+    income: 'finance-overview',
+  };
   const box = (id: string) => LNODES.find(n => n.id === id)!;
   const cx = (n: { id: string; x: number; y: number; w?: number }) => n.x + (n.w || NW) / 2;
   const path = ([a, b, , d]: LEdge): string => {
@@ -4291,7 +4305,9 @@ function LinksTab({ s }: { s: GameState }) {
         </defs>
         {LEDGES.map((e, i) => <path key={i} className={'ln-e' + (e[2] ? '' : ' ind')} d={path(e)} markerEnd={`url(#${e[2] ? 'lnA' : 'lnB'})`} />)}
         {LNODES.map(n => (
-          <g key={n.id} className={'ln-node' + (n.id === 'income' ? ' big' : '')}>
+          <g key={n.id} className={'ln-node' + (n.id === 'income' ? ' big' : '') + (onNav ? ' clickable' : '')}
+            onClick={onNav ? () => onNav(nodeLink[n.id] || 'home') : undefined}
+            style={onNav ? { cursor: 'pointer' } : undefined}>
             <rect x={n.x} y={n.y} width={n.w || NW} height={n.id === 'income' ? IH : NH} rx="13" />
             <text x={cx(n)} y={n.y + (n.id === 'income' ? 24 : 21)} className="ln-name">{t(LKEY[n.id], LKEY[n.id])}</text>
             <text x={cx(n)} y={n.y + (n.id === 'income' ? 44 : 40)} className="ln-val">{val(n.id)}</text>

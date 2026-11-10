@@ -1328,6 +1328,15 @@ test('v11.53: expenseBreakdown includes living cost + any active category', () =
   assert.ok(expWithDiet.some(e => e.id === 'diet'), 'diet expense when diet active');
 });
 
+test('v11.54: expenseBreakdown kids row links to home tab (was broken "life" group id)', () => {
+  const s = fresh();
+  s.kids = 1;
+  const exp = expenseBreakdown(s);
+  const kidsRow = exp.find(e => e.id === 'kids');
+  assert.ok(kidsRow, 'kids expense row present when player has kids');
+  assert.equal(kidsRow!.link, 'home', 'kids row links to home tab (not the broken "life" group id)');
+});
+
 test('v11.53: assetBreakdown returns sorted (largest first) active assets', () => {
   const s = fresh();
   // Fresh state: only cash (if any) shows.

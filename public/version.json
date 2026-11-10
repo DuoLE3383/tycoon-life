@@ -1,24 +1,17 @@
 {
-  "version": "v11.53",
+  "version": "v11.54",
   "releasedAt": "2026-11-10",
-  "headline": "HuyenBao v11.53 — Finance Overview tab + popup overlap fix",
-  "summary": "FINANCE DASHBOARD + BUGFIX. New 'Overview' tab in the Finance group gives a complete financial picture: cash flow summary (income/expenses/net per year + per month), income sources table, expense items table, assets table, liabilities table — every row is clickable and navigates to the relevant tab (career/biz/social/bank/markets/assets/edu/health). A priority-sorted action-suggestion list flags concrete things to do ('idle cash — deposit to savings', 'loan costs $X/yr — repay', 'health critical — rest', etc). Also fixes the toast-over-modal bug from v11.50 (toast z-index lowered 300→150 so open modals cover the toast instead of vice versa) and the gigs popup collapsing to 1 column on mobile (now forced 2 columns + tighter row padding).",
+  "headline": "HuyenBao v11.54 — navigation audit + Guide popup clickable + mobile compact",
+  "summary": "NAVIGATION FIX PASS. Audited every clickable element in the app and fixed broken links. The Finance Overview 'Kids' expense row was linking to 'life' (a GROUP id, not a tab id) — clicking it showed a blank screen; now links to 'home'. The MoreInfoPopup Guide section had 5 static business images that didn't navigate — now each image is a button that closes the popup and jumps to the Business tab. The LinksTab systems-map SVG nodes were display-only — now every node (edu/job/biz/space/health/level/club/fame/spirit/social/bank/charity/income) is clickable and navigates to its corresponding tab. Mobile Guide popup display tightened: 2-column image grid (was auto-fill), smaller images (62px vs 92px), tighter text, horizontal-scrolling section tabs.",
   "features": [
-    "FIX: toast z-index lowered 300 → 150 so OPEN MODALS cover the toast. Previously a toast firing while a modal was open (e.g. gigs popup) would cover the modal content — confusing because the user clicked a modal button and wants to see the modal, not the result toast. Now the toast sits behind the modal backdrop; still visible above page content when no modal is open.",
-    "FIX: gigs popup grid forced to 2 columns on mobile (was collapsing to 1 column because minmax(180px,1fr) only fit 1 col on a ~348px modal content area). Tighter gig row padding + smaller icon + smaller fonts on mobile so all gigs fit without scrolling.",
-    "NEW: Finance Overview tab — entry tab of the Finance group (Overview → Markets → Banking → Portfolio)",
-    "NEW: Cash flow summary card — income / expenses / net per year + per month, color-coded green/red",
-    "NEW: Income sources table — salary / business / social / space / pension / bank interest, each row clickable → relevant tab",
-    "NEW: Expense items table — living / asset upkeep / tuition / loan interest / business costs / diet / kids, each row clickable",
-    "NEW: Assets table — cash / savings / stocks / items / business value, each row clickable → relevant tab",
-    "NEW: Liabilities table — loan row clickable → Banking tab to repay",
-    "NEW: Action suggestions engine — financeActions() returns priority-sorted list of {id, priority, text, link} tuples",
-    "NEW: 8 action types — deficit (high) / repay loan (high if interest > $5K/yr) / deposit idle cash (medium) / finish study (medium) / review portfolio (low) / start business (low) / expand biz (low) / health critical (high)",
-    "NEW: Action cards with priority tag (red/orange/gray) + clickable → navigates to the relevant tab",
-    "NEW: engine helpers — yearExpenses(), incomeBreakdown(), expenseBreakdown(), assetBreakdown(), financeActions()",
-    "NEW: 6 tests covering the finance helpers (194 → 200 total)",
-    "NEW: i18n keys for fo.* (title, cashFlow, income, expenses, net, perYear, perMonth, incomeSources, expenseItems, assets, liabilities, netWorth, actions, noActions, priorityHigh/Medium/Low, tapHint, viewTab)",
-    "Mobile: Finance Overview tables stack to 1 column on narrow screens (was 2)",
-    "Version bumped to v11.53"
+    "FIX: Finance Overview 'Kids' expense row link 'life' → 'home' (was a GROUP id, not a tab id — clicking showed blank screen)",
+    "NEW: MoreInfoPopup Guide section images are now clickable buttons — tap a business image to close the popup + jump to the Business tab",
+    "NEW: LinksTab systems-map SVG nodes are now clickable — every node (edu/job/biz/space/health/level/club/fame/spirit/social/bank/charity/income) navigates to its corresponding tab",
+    "NEW: LinksTab hover effect on clickable nodes (accent-color glow on the rect)",
+    "NEW: onNav prop threaded through HomeTab → MoreInfoPopup + LinksTab so all clickable elements can navigate",
+    "NEW: ln.sub i18n updated to mention 'Tap any node to jump to its tab' (EN/VI/中文)",
+    "FIX: Guide popup mobile display tightened — 2-column image grid (was auto-fill minmax 120px), smaller images (62px vs 92px), tighter text (font-size .78rem), horizontal-scrolling section tabs",
+    "NEW: 1 test for the kids-row link fix (200 → 201 total)",
+    "Version bumped to v11.54"
   ]
 }

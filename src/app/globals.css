@@ -421,6 +421,11 @@ html[data-theme="dark"] .tgame #ttoast{box-shadow:0 0 0 4px rgba(251,191,36,.14)
 .tgame .lnmap .ln-val{font-size:11px;fill:var(--mute);text-anchor:middle;font-variant-numeric:tabular-nums}
 .tgame .lnmap .ln-node.big .ln-name{font-size:13.5px}
 .tgame .lnmap .ln-node.big .ln-val{font-size:12.5px;font-weight:750;fill:var(--up)}
+/* v11.54 — clickable systems-map nodes: hover lifts the rect so users see
+   they can tap to navigate. Works on desktop hover + touch (via :active). */
+.tgame .lnmap .ln-node.clickable rect{transition:stroke .15s,filter .15s}
+.tgame .lnmap .ln-node.clickable:hover rect{stroke:var(--accent);filter:drop-shadow(0 0 6px rgba(202,138,4,.35))}
+.tgame .lnmap .ln-node.clickable:active rect{filter:drop-shadow(0 0 8px rgba(202,138,4,.5))}
 
 /* ===== dark theme — "Midnight Emerald": deep green-black night shift ===== */
 html[data-theme="dark"]{color-scheme:dark}
@@ -860,6 +865,16 @@ html[data-theme="dark"] .tgame .cash-chip.low{color:#f87171;border-color:rgba(24
   .tgame .fo-grid{grid-template-columns:1fr !important}
   .tgame .fo-row:hover{background:rgba(127,127,127,.06)}
   .tgame .fo-row:active{background:rgba(127,127,127,.12)}
+  /* v11.54 — Guide popup compact on mobile: smaller images, tighter text,
+     so the 5 biz images + 7 guide paragraphs fit without exessive scroll. */
+  .tgame .imgs{grid-template-columns:repeat(2,1fr);gap:5px}
+  .tgame .imgs .imcard img{height:62px}
+  .tgame .imgs .imcard span{font-size:.72rem;padding:4px 6px}
+  .tgame .modal-body .sub{font-size:.78rem;line-height:1.45;margin:4px 0}
+  /* Section tabs inside MoreInfoPopup: scroll horizontally on mobile. */
+  .tgame .modal-body .nav-popups{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none}
+  .tgame .modal-body .nav-popups::-webkit-scrollbar{display:none}
+  .tgame .modal-body .nav-popup-btn{flex:none;white-space:nowrap}
 }
 
 /* v11.37 — legacy pinzone-v37 (kept for reference, no longer used) */

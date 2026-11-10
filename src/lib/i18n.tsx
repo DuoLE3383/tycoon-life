@@ -296,7 +296,7 @@ const D: Record<string, [string, string, string]> = {
   'grp.world': ['Empire', 'Đế chế', '帝国'],
   'tab.links': ['Systems', 'Hệ thống', '系统'],
   'tagline': ['Build an empire before you turn 90', 'Dựng đế chế trước tuổi 90', '在 90 岁前打造你的帝国'],
-  'ln.sub': ['Solid arrow = direct effect · dashed = indirect. Everything updates live.', 'Mũi tên liền = tác động trực tiếp · nét đứt = gián tiếp. Tất cả cập nhật trực tiếp.', '实线箭头 = 直接影响 · 虚线 = 间接影响。数值实时更新。'],
+  'ln.sub': ['Solid arrow = direct effect · dashed = indirect. Tap any node to jump to its tab. Everything updates live.', 'Mũi tên liền = tác động trực tiếp · nét đứt = gián tiếp. Chạm vào ô bất kỳ để nhảy tới tab liên quan. Tất cả cập nhật trực tiếp.', '实线箭头 = 直接影响 · 虚线 = 间接影响。点击任意节点跳转到对应标签。数值实时更新。'],
   'ln.direct': ['Direct', 'Trực tiếp', '直接'],
   'ln.indirect': ['Indirect', 'Gián tiếp', '间接'],
   'ln.income': ['Income / yr', 'Thu nhập / năm', '年收入'],

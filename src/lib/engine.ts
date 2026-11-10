@@ -954,7 +954,7 @@ export const expenseBreakdown = (s: GameState): ExpenseItem[] => {
   const bizC = bizCosts(s);
   if (bizC > 0) out.push({ id: 'bizCosts', label: 'Business costs', amount: bizC, link: 'biz' });
   if (s.diet) out.push({ id: 'diet', label: 'Diet', amount: DIET_COST * 12, link: 'health' });
-  if (s.kids > 0) out.push({ id: 'kids', label: 'Kids', amount: s.kids * 400 * 12, link: 'life' });
+  if (s.kids > 0) out.push({ id: 'kids', label: 'Kids', amount: s.kids * 400 * 12, link: 'home' });
   return out.sort((a, b) => b.amount - a.amount);
 };
 // v11.53 — Finance Overview: asset breakdown by category.
