@@ -124,6 +124,10 @@ export interface GameState {
   clubs: string[]; // v10.5 — multiple-club membership (s.club stays as the 'active' / highest-mult one)
   deg: Record<FieldKey, number>; lic: Record<string, boolean>; study: Study | null; sideStudy: Study | null;
   name: string; byear: number; nation: string; religion: Religion; ints: string[]; tals: string[]; topField: FieldKey | null;
+  // v11.36 — player-chosen emoji avatar. Default '🧑' at game start; editable
+  // via the new Edit Profile modal (PinZone ✏️ button). Stored as a short
+  // string (1-2 code points) so it renders in the pinned bar + social tabs.
+  avatar: string;
   // v11.6 — gender + birth month (drives zodiac) + psychic tarot state.
   // gender is cosmetic + minor dialogue tweaks; birthMonth (1-12) sets the
   // zodiac sign at game start (stored as `zodiac` for easy access);
@@ -486,6 +490,7 @@ export function fresh(): GameState {
     lots: [], stk: {},     club: null, ownClub: null, job: null, sideJob: null,
     deg: { business: 0, engineering: 0, medicine: 0, science: 0, arts: 0 }, lic: {}, study: null, sideStudy: null,
     name: 'Alex', byear: 1992, nation: 'Vietnam', religion: 'none', ints: [], tals: [], topField: null, started: false,
+    avatar: '🧑',
     gender: 'nonbinary', birthMonth: 1, birthDay: 15, zodiac: 'capricorn', psychic: freshPsychic(),
     bank: { dep: 0, loan: 0 }, fame: 0, donated: 0, yIncome: 0, yTax: 0,
     prices: {}, hist: {}, eraBiz: 1, eraFac: 1,
@@ -574,6 +579,8 @@ export function migrate(raw: unknown): GameState {
   // 'nonbinary', birthMonth to 1 (Jan), zodiac to 'capricorn'.
   if (!RELIGIONS.includes(s.religion)) s.religion = 'none';
   s.gender = (s.gender === 'male' || s.gender === 'female' || s.gender === 'nonbinary') ? s.gender : 'nonbinary';
+  // v11.36 — avatar backfill for old saves.
+  s.avatar = typeof s.avatar === 'string' && s.avatar.trim() ? s.avatar.trim().slice(0, 8) : '🧑';
   s.birthMonth = Number.isFinite(s.birthMonth) && s.birthMonth >= 1 && s.birthMonth <= 12 ? s.birthMonth : 1;
   // v11.19 — birthDay backfill for old saves.
   s.birthDay = Number.isFinite(s.birthDay) && s.birthDay >= 1 && s.birthDay <= 31 ? s.birthDay : 15;
@@ -621,10 +628,12 @@ export function migrate(raw: unknown): GameState {
   STOCKS.forEach(x => { if (s.prices[x.id] == null) { s.prices[x.id] = x.p; s.hist[x.id] = [x.p]; } });
   return s;
 }
-export function begin(s: GameState, opts: { name: string; byear: number; nation: string; religion?: Religion; ints: string[]; tals: string[]; gender?: Gender; birthMonth?: number; birthDay?: number }) {
+export function begin(s: GameState, opts: { name: string; byear: number; nation: string; religion?: Religion; ints: string[]; tals: string[]; gender?: Gender; birthMonth?: number; birthDay?: number; avatar?: string }) {
   const a = analyze(opts.ints, opts.tals);
   Object.assign(s, fresh(), { started: true });
   s.name = opts.name.slice(0, 24) || 'Alex';
+  // v11.36 — player-chosen emoji avatar. Default by gender if not provided.
+  s.avatar = (opts.avatar || '').trim().slice(0, 8) || (opts.gender === 'male' ? '👨' : opts.gender === 'female' ? '👩' : '🧑');
   s.byear = opts.byear; s.nation = opts.nation; s.religion = opts.religion || 'none';
   s.ints = [...opts.ints]; s.tals = [...opts.tals]; s.topField = a.top;
   // v11.6 — gender + birth month + zodiac. Birth month drives the zodiac

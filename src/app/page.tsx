@@ -1,5 +1,5 @@
 'use client';
-// HuyenBao v11.35 — React edition. Two-level grouped nav, a systems links map,
+// HuyenBao v11.36 — React edition. Two-level grouped nav, a systems links map,
 // gigs, levels, social, the cosmic frontier, EN/VI/中文, LLM oracle with
 // random kind dispatch (luck / setback / life-stage / story), pre-owned
 // market + social listings, a Hall of Fame tab, and a real player-to-player
@@ -91,7 +91,7 @@ if (typeof window !== 'undefined') {
 // v11.8 — the bundled version. The /version.json file in /public is polled
 // every 5 minutes; if its version is newer than this, a "reload to update"
 // banner appears even in a running session (no F5 needed).
-const BUNDLED_VERSION = 'v11.35';
+const BUNDLED_VERSION = 'v11.36';
 const VERSION_POLL_MS = 5 * 60 * 1000;
 // v11.24 — 'what's new' modal is shown ONCE PER PLAYER per MAJOR version
 // (tycoon_seen_v11), not once per patch release. Previously the key was
@@ -109,6 +109,8 @@ export default function Page() {
   const curSubs = (GROUPS.find(g => g[0] === activeGroup) || GROUPS[0])[3];
   const [rankBoard, setRankBoard] = useState<'all' | 'young' | 'industry' | 'nation'>('all');
   const [curCat, setCurCat] = useState<string | null>(null);
+  // v11.36 — edit-profile modal state. Opened from PinZone ✏️ button.
+  const [editingProfile, setEditingProfile] = useState(false);
   // v11.19 — toast queue. Previously a single toast slot: rapid showToast()
   // calls would overwrite each other and the player saw only the last one.
   // Now toasts are queued; each shows for its full duration before the next
@@ -371,7 +373,7 @@ export default function Page() {
       <div dangerouslySetInnerHTML={{ __html: ART_DEFS }} />
       <div className="wrap">
         <Header s={s} eraName={eraName} />
-        <PinZone s={s} t={t} />
+        <PinZone s={s} t={t} onEdit={() => setEditingProfile(true)} />
         <nav role="tablist" className="tnav gnav" aria-label="Sections">
           {GROUPS.map(([gid, gn, gic, subs]) => (
             <button key={gid} role="tab" aria-selected={activeGroup === gid} data-g={gid}
@@ -424,6 +426,7 @@ export default function Page() {
           </button>
         </footer>
       </div>
+      {editingProfile && <EditProfileModal s={s} act={act} onClose={() => setEditingProfile(false)} />}
 
       {toast && <div id="ttoast" key={toast.id} className="on">{toast.msg}</div>}
 
@@ -526,7 +529,7 @@ function Header({ s, eraName }: { s: GameState; eraName: (y: number) => string }
     <header className="top">
       <div className="brand">
         <Art id="s-coin" className="logo" />
-        <div><h1><span className="mini">v11.35</span> HuyenBao</h1>
+        <div><h1><span className="mini">v11.36</span> HuyenBao</h1>
           <div className="mini">{s.started ? `${s.nation} · ${eraName(worldYear(s))}` : t('tagline')}</div></div>
       </div>
       <div><div className="mini">{t('cash')}</div><div id="tcash" style={{ color: s.money < 0 ? 'var(--brick)' : undefined }}>{fmt(s.money)}</div>
@@ -552,7 +555,7 @@ function Header({ s, eraName }: { s: GameState; eraName: (y: number) => string }
 // numbers that matter stay visible on every tab while the player scrolls.
 // Warnings only render when something actually needs attention — no permanent
 // "all good" banner eating vertical space.
-function PinZone({ s, t }: { s: GameState; t: TFn }) {
+function PinZone({ s, t, onEdit }: { s: GameState; t: TFn; onEdit: () => void }) {
   const a = s.age, st = stageOf(a), pct = (a - START) / (END_AGE - START) * 100;
   const p = (x: number) => ((x - START) / (END_AGE - START) * 100).toFixed(2) + '%';
   const d = new Date(Date.UTC(s.byear + 18, 8, 1) + Math.floor(s.lastDay) * 864e5);
@@ -567,7 +570,7 @@ function PinZone({ s, t }: { s: GameState; t: TFn }) {
   return (
     <section className="card age pinzone" data-life={healthState(s.health)}>
       <div className="agehead">
-        <b>{s.name} · {t('age')} {Math.floor(a)}</b>
+        <span className="avchip" data-tip={t('edit.profile', 'Edit profile')}>{s.avatar}</span><b>{s.name}</b> <button className="pin-edit" onClick={onEdit} title={t('edit.profile', 'Edit profile')} aria-label={t('edit.profile', 'Edit profile')}>✏️</button> <span className="sep">·</span> {t('age')} {Math.floor(a)}
         <span className="tag dark">{t('stage.' + STAGES.indexOf(st), st.name)}</span>
         <span className="mini">{dstr}</span>
         <span className="pchip" data-tip={t('cash')}><Ic id="s-coin" className="bsi" />{fmt(s.money)}</span>
@@ -587,6 +590,70 @@ function PinZone({ s, t }: { s: GameState; t: TFn }) {
       </div>
       <div className="ms">{marks.map(([m, lb]) => <span key={lb + m} style={{ left: p(m) }}>{lb}</span>)}</div>
     </section>
+  );
+}
+
+// ================= v11.36 — EDIT PROFILE MODAL =================
+// Player can change their avatar emoji + name at any time. Opened from the
+// PinZone ✏️ button. Changes are applied immediately via `act()` and persist
+// to localStorage via the normal save cycle.
+const AVATAR_CHOICES = [
+  '🧑','👨','👩','👦','👧','🧒','👶','🧓','👴','👵',
+  '🐯','🦁','🐺','🦊','🐻','🐼','🐨','🐮','🐷','🐸',
+  '🦉','🦅','🐲','🦄','🐱','🐶','🐰','🐭','🦁','🐴',
+  '👑','🦸','🦹','🧙','🧛','🧟','🤖','👽','👻','🎭',
+];
+function EditProfileModal({ s, act, onClose }: { s: GameState; act: Act; onClose: () => void }) {
+  const { t } = useT();
+  const [name, setName] = useState(s.name);
+  const [avatar, setAvatar] = useState(s.avatar);
+  const save = () => {
+    const trimmed = name.trim().slice(0, 24);
+    act(st => {
+      st.name = trimmed || st.name;
+      st.avatar = avatar;
+      return t('edit.saved', '✅ Profile updated');
+    });
+    onClose();
+  };
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal-box edit-modal" onClick={e => e.stopPropagation()}>
+        <div className="modal-head">
+          <h2>✏️ {t('edit.profile', 'Edit profile')}</h2>
+          <button className="modal-x" onClick={onClose} aria-label="Close">✕</button>
+        </div>
+        <div className="modal-body">
+          <div className="edit-preview">
+            <span className="edit-preview-av">{avatar}</span>
+            <div>
+              <b className="big">{name.trim() || s.name}</b>
+              <div className="mini">{t('edit.preview', 'Preview')}</div>
+            </div>
+          </div>
+          <label className="field">
+            <span>{t('edit.name', 'Name')}</span>
+            <input type="text" value={name} maxLength={24} placeholder={s.name}
+              onChange={e => setName(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') save(); }} />
+          </label>
+          <label className="field">
+            <span>{t('edit.avatar', 'Avatar')}</span>
+            <div className="avatar-picker">
+              {AVATAR_CHOICES.map(em => (
+                <button key={em} type="button" className={'av-opt' + (em === avatar ? ' on' : '')}
+                  onClick={() => setAvatar(em)}>{em}</button>
+              ))}
+            </div>
+          </label>
+        </div>
+        <div className="modal-foot">
+          <button className="btn-ghost" onClick={onClose}>{t('edit.cancel', 'Cancel')}</button>
+          <button className="btn-primary" onClick={save} disabled={!name.trim() || (name.trim() === s.name && avatar === s.avatar)}>
+            {t('edit.save', 'Save')}
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -620,30 +687,29 @@ function HomeTab({ s, act, askAI, aiBusy, aiNote, eraName }: { s: GameState; act
   ];
   return (
     <>
-      {/* v11.28 — the v11.27 attention strip moved into the pinned PinZone at
-          the top of the page so the four key numbers + warnings are visible on
-          every tab. HomeTab no longer duplicates it. */}
-      <div className="card hero">
+      {/* v11.36 — hero card redesigned. PinZone (sticky, above) already shows
+          name/age/stage/cash/NW/income/health/spirit/job/level — so this card
+          no longer duplicates that. It's now a compact IDENTITY strip: large
+          avatar + edit button, plus the details PinZone doesn't carry
+          (knowledge, study, rent, zodiac, gender) and the health/spirit BARS
+          (PinZone only shows the numbers). */}
+      <div className="card hero hero-v36">
         <div className="heroimg" style={{ backgroundImage: 'url(' + asset('/img/hero-city-v10.jpg') + ')' }} aria-hidden="true" />
         <div className="herobody">
-          <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
-            <Art id={stageOf(s.age).art} />
-            <div>
-              <b className="big">{s.name}, {t('stage.' + STAGES.indexOf(stageOf(s.age)), stageOf(s.age).name)}</b>
-              <div className="sub">{activeJobs.length ? t('workingAs', '', {
-                j: activeJobs.map(job => t('job.' + job.id, job.name)).join(' · '),
-                s: fmt(jobIncome(s))
-              }) : t('notEmployed')}</div>
-              <div className="sub">{t('knowledge')}: {knowledgeText(s)}</div>
-              <div className="sub">{t('study')}: {studyTxt}</div>
-              <div className="sub">{t('rentBills')}: {fmt((living(Math.floor(s.age)) + upkeep(s) + studyTuition(s)) / 12)}{t('perMonth')}</div>
+          <div className="hero-id">
+            <span className="hero-av">{s.avatar}</span>
+            <div className="hero-id-info">
+              <b className="big">{s.name}</b>
+              <span className="sub">{activeJobs.length ? t('workingAs', '', { j: activeJobs.map(job => t('job.' + job.id, job.name)).join(' · '), s: fmt(jobIncome(s)) }) : t('notEmployed')}</span>
+              <span className="sub">{t('knowledge')}: {knowledgeText(s)}</span>
+              <span className="sub">{t('study')}: {studyTxt}</span>
+              <span className="sub">{t('rentBills')}: {fmt((living(Math.floor(s.age)) + upkeep(s) + studyTuition(s)) / 12)}{t('perMonth')}</span>
             </div>
           </div>
-          <div className="mini" style={{ marginTop: 10 }}>{t('level')} {s.level} · {s.xp}/{xpNeed(s.level)} XP · +{((s.level - 1) * 2).toFixed(0)}% {t('inc.total').toLowerCase()}</div>
-          <div className="xpbar"><i style={{ width: xpPct + '%' }} /></div>
-          <div className="wbars">
-            <div className="wrow"><span className="mini wl">{t('health')}</span><div className="wbar"><i style={{ width: s.health + '%', background: s.health < 40 ? 'var(--brick)' : 'var(--sage)' }} /></div><span className="mini">{Math.round(s.health)}/100</span></div>
-            <div className="wrow"><span className="mini wl">{t('spirit')}</span><div className="wbar"><i style={{ width: s.spirit + '%', background: 'var(--slate)' }} /></div><span className="mini">{Math.round(s.spirit)}/100</span></div>
+          <div className="hero-bars">
+            <div className="wrow"><span className="mini wl">{t('health')}</span><div className="wbar"><i style={{ width: s.health + '%', background: s.health < 40 ? 'var(--brick)' : 'var(--sage)' }} /></div><span className="mini">{Math.round(s.health)}</span></div>
+            <div className="wrow"><span className="mini wl">{t('spirit')}</span><div className="wbar"><i style={{ width: s.spirit + '%', background: 'var(--slate)' }} /></div><span className="mini">{Math.round(s.spirit)}</span></div>
+            <div className="wrow"><span className="mini wl">XP</span><div className="wbar"><i style={{ width: xpPct + '%', background: 'var(--gold)' }} /></div><span className="mini">{s.level}</span></div>
           </div>
         </div>
       </div>

@@ -1,16 +1,15 @@
 {
-  "version": "v11.35",
+  "version": "v11.36",
   "releasedAt": "2026-11-10",
-  "headline": "HuyenBao v11.35 — admin dashboard dời về /ads, mogul root về game, dashboard toàn diện 7 tab",
-  "summary": "ADMIN DASHBOARD RELOCATION. mogul.huyenbao.com/ is now GAME-FIRST. The comprehensive admin dashboard lives at /ads; old /adm and /game paths silently rewrite there. 7-tab operator cockpit: Tổng quan · Hệ thống · Người chơi · Trò chuyện · Quà tặng · Bảng XH · CSDL.",
+  "headline": "HuyenBao v11.36 — nhóm menu + pin, gộp tổng quan + nhân vật, edit profile (avatar + tên)",
+  "summary": "UI REDESIGN + EDIT PROFILE. The PinZone sticky bar now shows the player's emoji avatar + a ✏️ edit button that opens a new Edit Profile modal — pick from 40 emoji avatars (people, animals, fantasy) + rename the character anytime. HomeTab hero card redesigned to stop duplicating PinZone info: it's now a compact identity strip (large avatar + name + job/study/rent) with health/spirit/XP bars, since PinZone already carries the numbers. Nav menus (gnav + subnav) stay horizontal-scroll on ALL screen sizes — no more wrapping that eats vertical space on mobile.",
   "features": [
-    "ROUTING PIVOT: mogul.huyenbao.com/ = game (native) · /game alias rewrite → / · /adm alias rewrite → /ads · /admin → 404",
-    "NEW PATH /ads — comprehensive admin dashboard (replaces /adm)",
-    "NEW TAB 'Hệ thống' — Node version, uptime, RSS/heap memory, ADMIN_KEY set?, port, SQLite main+WAL+SHM file sizes",
-    "NEW TAB 'Bảng XH' — top 50 leaderboard + destructive 'Reset toàn bộ' button",
-    "NEW 'send admin gift' inline on both Người chơi + Quà tặng tabs — gift any player by HB-code or UID, shows as 'HuyenBao 📢'",
-    "SYSTEM GIFTS TINTED GOLD in admin gift log (.adm-sysrow CSS)",
-    "NEW API: GET /api/admin/system · GET+POST /api/admin/leaderboard · POST /api/admin/gifts action='send'",
-    "Version bumped to v11.35"
+    "EDIT PROFILE: new modal with 40-emoji avatar picker + name field, opened from PinZone ✏️ button",
+    "NEW GameState.avatar field (emoji string, default 🧑/👨/👩 by gender) — migrated for old saves",
+    "PINZONE: avatar emoji + ✏️ edit button next to character name",
+    "HOMETAB REDESIGN: hero card no longer duplicates PinZone — compact identity strip + health/spirit/XP bars only",
+    "NAV NO-OVERFLOW: gnav + subnav use horizontal scroll on mobile too (was: wrap to multiple lines = vertical space waste)",
+    "ENGINE: begin() accepts optional avatar; migrate() backfills avatar for old saves",
+    "Version bumped to v11.36"
   ]
 }
