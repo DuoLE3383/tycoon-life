@@ -1,5 +1,5 @@
 'use client';
-// HuyenBao v11.41 — React edition. Two-level grouped nav, a systems links map,
+// HuyenBao v11.42 — React edition. Two-level grouped nav, a systems links map,
 // gigs, levels, social, the cosmic frontier, EN/VI/中文, LLM oracle with
 // random kind dispatch (luck / setback / life-stage / story), pre-owned
 // market + social listings, a Hall of Fame tab, and a real player-to-player
@@ -95,7 +95,7 @@ if (typeof window !== 'undefined') {
 // v11.8 — the bundled version. The /version.json file in /public is polled
 // every 5 minutes; if its version is newer than this, a "reload to update"
 // banner appears even in a running session (no F5 needed).
-const BUNDLED_VERSION = 'v11.41';
+const BUNDLED_VERSION = 'v11.42';
 const VERSION_POLL_MS = 5 * 60 * 1000;
 // v11.24 — 'what's new' modal is shown ONCE PER PLAYER per MAJOR version
 // (tycoon_seen_v11), not once per patch release. Previously the key was
@@ -382,7 +382,7 @@ export default function Page() {
             so the menu never scrolls away. Width is constrained so it never
             overflows the sides. */}
         <div className="sticky-header">
-          <PinZone s={s} t={t} onEdit={() => setEditingProfile(true)} />
+          <PinZone s={s} t={t} onEdit={() => setEditingProfile(true)} act={act} />
           <nav role="tablist" className="tnav gnav" aria-label="Sections">
             {GROUPS.map(([gid, gn, gic, subs]) => {
               // v11.41 — hide the Space sub-tab in the Empire group until the
@@ -555,7 +555,7 @@ function Header({ s, eraName }: { s: GameState; eraName: (y: number) => string }
     <header className="top">
       <div className="brand">
         <Art id="s-coin" className="logo" />
-        <div><h1><span className="mini">v11.41</span> HuyenBao</h1>
+        <div><h1><span className="mini">v11.42</span> HuyenBao</h1>
           <div className="mini">{s.started ? `${s.nation} · ${eraName(worldYear(s))}` : t('tagline')}</div></div>
       </div>
       <div><div className="mini">{t('cash')}</div><div id="tcash" style={{ color: s.money < 0 ? 'var(--brick)' : undefined }}>{fmt(s.money)}</div>
@@ -581,7 +581,7 @@ function Header({ s, eraName }: { s: GameState; eraName: (y: number) => string }
 // numbers that matter stay visible on every tab while the player scrolls.
 // Warnings only render when something actually needs attention — no permanent
 // "all good" banner eating vertical space.
-function PinZone({ s, t, onEdit }: { s: GameState; t: TFn; onEdit: () => void }) {
+function PinZone({ s, t, onEdit, act }: { s: GameState; t: TFn; onEdit: () => void; act: Act }) {
   const { t: _t } = useT();
   const a = s.age, st = stageOf(a), pct = (a - START) / (END_AGE - START) * 100;
   const p = (x: number) => ((x - START) / (END_AGE - START) * 100).toFixed(2) + '%';
@@ -592,15 +592,39 @@ function PinZone({ s, t, onEdit }: { s: GameState; t: TFn; onEdit: () => void })
   const warns: string[] = healthWarnings(s).map(w => 'att.' + w);
   if (s.money < 0) warns.push('att.debt');
   if (yi < 0) warns.push('att.negative');
-  // v11.37 — character details that PinZone now carries (moved from the old hero card)
   const activeJobs = jobsOf(s);
   const activeStudies = [s.study, s.sideStudy].filter((study): study is NonNullable<typeof study> => !!study);
   const studyTxt = activeStudies.length
     ? activeStudies.map(study => `${study.name} · ${Math.max(0, (study.end - s.day) / 365.25).toFixed(1)} ${t('years')}`).join(' · ')
     : t('notStudying');
   const xpPct = Math.min(100, Math.round(s.xp / xpNeed(s.level) * 100));
+  // v11.42 — sleep + asset + income data (merged from HomeTab cards)
+  const healthChange = Math.round((sleepHealthMult(s.sleepHours) - 1) * 100);
+  const healthChangeText = `${healthChange > 0 ? '+' : ''}${healthChange}%`;
+  const incRows: [string, number][] = [
+    [t('inc.salary'), jobIncome(s)],
+    [t('inc.biz'), bizIncome(s)],
+    [t('inc.social'), socialIncome(s)],
+    [t('inc.space'), spaceIncome(s)],
+    [t('inc.pension'), s.age >= RETIRE ? 18000 : 0],
+  ];
+  const cash = Math.max(0, s.money);
+  const stocks = Math.max(0, stockVal(s));
+  const property = Math.max(0, assetVal(s));
+  const biz = Math.max(0, bizVal(s));
+  const bank = Math.max(0, s.bank.dep);
+  const used = s.used.reduce((acc, u) => acc + usedItemValue(s, u), 0);
+  const totalAssets = Math.max(1, cash + stocks + property + biz + bank + used);
+  const assetSegs: [string, number, string][] = [
+    [t('asset.cash'), cash, '#d4a55a'],
+    [t('asset.stocks'), stocks, '#4a9d7f'],
+    [t('asset.property'), property, '#5b8ab0'],
+    [t('asset.biz'), biz, '#b8704a'],
+    [t('asset.bank'), bank, '#8a7ab5'],
+    [t('asset.used'), used, '#c46b5e'],
+  ];
   return (
-    <section className="card age pinzone pinzone-v37" data-life={healthState(s.health)}>
+    <section className="card age pinzone pinzone-v42" data-life={healthState(s.health)}>
       <div className="agehead">
         <span className="avchip" data-tip={t('edit.profile', 'Edit profile')}>{s.avatar}</span><b>{s.name}</b> <button className="pin-edit" onClick={onEdit} title={t('edit.profile', 'Edit profile')} aria-label={t('edit.profile', 'Edit profile')}>✏️</button> <span className="sep">·</span> {t('age')} {Math.floor(a)}
         <span className="tag dark">{t('stage.' + STAGES.indexOf(st), st.name)}</span>
@@ -615,21 +639,54 @@ function PinZone({ s, t, onEdit }: { s: GameState; t: TFn; onEdit: () => void })
         <span className="pchip" data-tip={`Lv ${s.level} · ${s.xp}/${xpNeed(s.level)} XP`}>⭐ {t('lvl')} {s.level}<span className="pinbar"><i style={{ width: Math.min(100, Math.round(s.xp / xpNeed(s.level) * 100)) + '%' }} /></span></span>
         <span className="mini">{t('fame')} {s.fame} · {t('followers')} {s.social.followers.toLocaleString()}</span>
       </div>
-      {/* v11.37 — merged character detail row + progress bars (was a separate hero card in HomeTab).
-          One card = the pinned status bar AND the identity detail + bars. The life-themed
-          gradient strip replaces the old hero-city photo (which was a random skyline unrelated
-          to the life-simulation content). */}
-      <div className="pinzone-detail">
-        <div className="pinzone-info">
-          <span className="sub">{activeJobs.length ? t('workingAs', '', { j: activeJobs.map(job => t('job.' + job.id, job.name)).join(' · '), s: fmt(jobIncome(s)) }) : t('notEmployed')}</span>
-          <span className="sub">{t('knowledge')}: {knowledgeText(s)}</span>
-          <span className="sub">{t('study')}: {studyTxt}</span>
-          <span className="sub">{t('rentBills')}: {fmt((living(Math.floor(s.age)) + upkeep(s) + studyTuition(s)) / 12)}{t('perMonth')}</span>
+      {/* v11.42 — merged dashboard: character detail + bars + sleep + asset chart + income.
+          Everything the player needs at a glance, in ONE pinned card. */}
+      <div className="pinzone-grid">
+        {/* Left column: identity + bars */}
+        <div className="pinzone-col">
+          <div className="pinzone-info">
+            <span className="sub">{activeJobs.length ? t('workingAs', '', { j: activeJobs.map(job => t('job.' + job.id, job.name)).join(' · '), s: fmt(jobIncome(s)) }) : t('notEmployed')}</span>
+            <span className="sub">{t('knowledge')}: {knowledgeText(s)}</span>
+            <span className="sub">{t('study')}: {studyTxt}</span>
+            <span className="sub">{t('rentBills')}: {fmt((living(Math.floor(s.age)) + upkeep(s) + studyTuition(s)) / 12)}{t('perMonth')}</span>
+          </div>
+          <div className="pinzone-bars">
+            <div className="wrow"><span className="mini wl">{t('health')}</span><div className="wbar"><i style={{ width: s.health + '%', background: s.health < 40 ? 'var(--brick)' : 'var(--sage)' }} /></div><span className="mini">{Math.round(s.health)}</span></div>
+            <div className="wrow"><span className="mini wl">{t('spirit')}</span><div className="wbar"><i style={{ width: s.spirit + '%', background: 'var(--slate)' }} /></div><span className="mini">{Math.round(s.spirit)}</span></div>
+            <div className="wrow"><span className="mini wl">XP</span><div className="wbar"><i style={{ width: xpPct + '%', background: 'var(--gold)' }} /></div><span className="mini">{s.level}</span></div>
+          </div>
         </div>
-        <div className="pinzone-bars">
-          <div className="wrow"><span className="mini wl">{t('health')}</span><div className="wbar"><i style={{ width: s.health + '%', background: s.health < 40 ? 'var(--brick)' : 'var(--sage)' }} /></div><span className="mini">{Math.round(s.health)}</span></div>
-          <div className="wrow"><span className="mini wl">{t('spirit')}</span><div className="wbar"><i style={{ width: s.spirit + '%', background: 'var(--slate)' }} /></div><span className="mini">{Math.round(s.spirit)}</span></div>
-          <div className="wrow"><span className="mini wl">XP</span><div className="wbar"><i style={{ width: xpPct + '%', background: 'var(--gold)' }} /></div><span className="mini">{s.level}</span></div>
+        {/* Right column: sleep + asset chart + income */}
+        <div className="pinzone-col">
+          {/* Sleep schedule */}
+          <div className="pinzone-sleep">
+            <label className="mini wl" htmlFor="sleep-hours-pin">{t('sleepSchedule')}</label>
+            <select id="sleep-hours-pin" value={s.sleepHours} onChange={e => act(st => { st.sleepHours = Number(e.target.value); return t('sleepSet', '', { n: st.sleepHours }); })}>
+              {sleepHoursOptions.map(hours => <option key={hours} value={hours}>{hours}{t('sleepHourUnit')}</option>)}
+            </select>
+            <span className="mini">{t('sleepEffects', '', { p: Math.round((studyPace(s.sleepHours) - 1) * 100), h: healthChangeText })}</span>
+          </div>
+          {/* Asset breakdown chart */}
+          <div className="pinzone-assets">
+            <div className="lb"><span className="mini wl">{t('netWorth')}</span><b>{fmt(netWorth(s))}</b></div>
+            <div className="asset-bar" role="img" aria-label={t('assetBreakdown')}>
+              {assetSegs.map(([label, v, color]) => v > 0 && (
+                <div key={label} className="asset-seg" style={{ width: (v / totalAssets * 100).toFixed(2) + '%', background: color }} title={`${label}: ${fmt(v)}`} />
+              ))}
+            </div>
+            <div className="asset-legend">
+              {assetSegs.map(([label, v, color]) => (
+                <span key={label} className="asset-leg-item"><span className="sw" style={{ background: color }} />{label} <b>{v > 0 ? fmt(v) : '—'}</b></span>
+              ))}
+            </div>
+          </div>
+          {/* Income breakdown */}
+          <div className="pinzone-income">
+            <div className="lb"><span className="mini wl">{t('incomeBreakdown')}</span><b className={yi >= 0 ? 'up' : 'down'}>{yi >= 0 ? '+' : ''}{fmt(yi)}{t('perYear')}</b></div>
+            {incRows.filter(([, v]) => v > 0).map(([k, v]) => (
+              <div key={k} className="lb"><span className="mini">{k}</span><span className="up">+{fmt(v)}</span></div>
+            ))}
+          </div>
         </div>
       </div>
       {warns.length > 0 && <div className="att-warn pin" role="status">⚠ {warns.map(w => t(w)).join(' · ')}</div>}
@@ -842,65 +899,9 @@ function HomeTab({ s, act, askAI, aiBusy, aiNote, eraName }: { s: GameState; act
           gigs. This removes the duplicate info the user complained about. */}
       <HealthAlerts s={s} />
 
-      <div className="card" style={{ marginBottom: 10 }}>
-        <div className="field" style={{ marginBottom: 4 }}>
-          <label htmlFor="sleep-hours">{t('sleepSchedule')}</label>
-          <select id="sleep-hours" value={s.sleepHours} onChange={e => act(st => {
-            st.sleepHours = Number(e.target.value);
-            return t('sleepSet', '', { n: st.sleepHours });
-          })}>
-            {sleepHoursOptions.map(hours => <option key={hours} value={hours}>{hours} {t('sleepHourUnit')}</option>)}
-          </select>
-        </div>
-        <span className="mini">{t('sleepEffects', '', {
-          p: Math.round((studyPace(s.sleepHours) - 1) * 100),
-          h: healthChangeText
-        })}</span>
-      </div>
-
-      <div className="card" style={{ marginBottom: 10 }}>
-        <div className="lb"><span>{t('worth')} · {t('netWorth')}</span><b>{fmt(netWorth(s))}</b></div>
-        {/* v10.5 — color-coded asset breakdown bar (per design image 3) */}
-        {(() => {
-          const cash = Math.max(0, s.money);
-          const stocks = Math.max(0, stockVal(s));
-          const property = Math.max(0, assetVal(s));
-          const biz = Math.max(0, bizVal(s));
-          const bank = Math.max(0, s.bank.dep);
-          const used = s.used.reduce((a, u) => a + usedItemValue(s, u), 0);
-          const total = Math.max(1, cash + stocks + property + biz + bank + used);
-          const segs: [string, number, string, string][] = [
-            [t('asset.cash'), cash, '#c9a070', fmt(cash)],
-            [t('asset.stocks'), stocks, '#5b8a72', fmt(stocks)],
-            [t('asset.property'), property, '#6a7d92', fmt(property)],
-            [t('asset.biz'), biz, '#9c6a4a', fmt(biz)],
-            [t('asset.bank'), bank, '#7a6a8e', fmt(bank)],
-            [t('asset.used'), used, '#a3524a', fmt(used)],
-          ];
-          return (
-            <div style={{ marginTop: 8, marginBottom: 8 }}>
-              <div className="asset-bar" role="img" aria-label={t('assetBreakdown')}>
-                {segs.map(([label, v, color]) => (
-                  v > 0 && (
-                    <div key={label} className="asset-seg" style={{ width: (v / total * 100).toFixed(2) + '%', background: color }}
-                      title={`${label}: ${fmt(v)}`} />
-                  )
-                ))}
-              </div>
-              <div className="asset-legend">
-                {segs.map(([label, v, color, txt]) => (
-                  <span key={label} className="asset-leg-item"><span className="sw" style={{ background: color }} />{label} <b>{v > 0 ? txt : '—'}</b></span>
-                ))}
-              </div>
-            </div>
-          );
-        })()}
-        <div className="lb" style={{ marginTop: 8 }}><span><b>{t('incomeBreakdown')}</b></span><b>+{fmt(yearIncome(s))}{t('perYear')}</b></div>
-        {incRows.map(([k, v]) => v > 0 ? <div key={k} className="lb"><span>{k}</span><span className="up">+{fmt(v)}</span></div> : null)}
-      </div>
-
-      {/* v11.39 — gigs moved into a popup. A "Quick gigs" button in the header
-          opens the popup; the button GLOWS when there are gigs ready to do. */}
+      {/* v11.42 — sleep schedule + asset breakdown + income breakdown cards
+          have been MERGED into PinZone (the sticky dashboard above). HomeTab
+          no longer duplicates them. The gigs popup + travel section remain. */}
       <GigsPopup s={s} act={act} t={t} />
 
       {/* v11.40 — travel section. Shows destinations the player can visit. */}

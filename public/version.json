@@ -1,18 +1,17 @@
 {
-  "version": "v11.41",
+  "version": "v11.42",
   "releasedAt": "2026-11-10",
-  "headline": "HuyenBao v11.41 — sticky dashboard+menu, tách học vấn/sự nghiệp, gộp xã hội+cộng đồng, ẩn vũ trụ, sửa icon đế chế",
-  "summary": "MENU RESTRUCTURE. (1) STICKY HEADER: PinZone + gnav + subnav merged into ONE sticky block — menu never scrolls away, never overflows sides. Max-width narrowed 920px→860px. (2) EDUCATION SPLIT from Career: Education = degrees/licences/courses; Career = jobs + experience + contracts + raise. Experience feeds Workshop repair. (3) SPACE HIDDEN: Cosmic tab now lives in Empire group, hidden until player reaches 'empire' entity tier (interstellar). (4) SOCIAL+COMMUNITY MERGED: one 'Network' group with 6 sub-tabs — Social/Relations/Clubs (AI NPCs) + Friends/Chat/Leaderboard (real players). (5) EMPIRE ICON FIXED: was cup (t-rank), now building (b-corp) = empire/conglomerate visual. (6) EMPIRE GUIDANCE: new 'Your path to empire' card in EntityTab explains current tier + what to do next + why each threshold matters, in EN/VI/ZH.",
+  "headline": "HuyenBao v11.42 — gộp sleep+asset+income vào dashboard PinZone, thiết kế lại 2 cột dễ đọc",
+  "summary": "DASHBOARD MERGE. The sleep schedule + asset breakdown chart + income breakdown (the 3 cards the user showed in the screenshot) are now MERGED into the PinZone sticky dashboard. Everything the player needs at a glance is in ONE pinned card. New 2-column grid layout: left column = character identity + health/spirit/XP bars; right column = sleep schedule dropdown + asset breakdown bar chart with color-coded legend + income breakdown rows. Asset chart colors improved: gold (cash), teal (stocks), blue (property), bronze (business), purple (bank), coral (collectibles) — distinct, readable, color-blind-friendly. Removed the 3 duplicate cards from HomeTab. Mobile: 2-column grid collapses to 1 column.",
   "features": [
-    "STICKY HEADER: PinZone + gnav + subnav in one pinned block (position:sticky, max-width:860px, blur backdrop)",
-    "NARROWER: .wrap max-width 920px→860px so content doesn't spread too wide",
-    "EDUCATION SPLIT: separate 'edu' group (was inside 'growth' with Career)",
-    "CAREER SEPARATE: 'career' group with experience + contracts + raise (experience feeds Workshop)",
-    "SPACE HIDDEN: Cosmic tab in Empire group, gated behind entityTierOf(s)==='empire'||'federation'",
-    "NETWORK MERGED: Social+Community → one 'network' group (6 sub-tabs: Social/Relations/Clubs/Friends/Chat/Leaderboard)",
-    "EMPIRE ICON: t-rank cup → b-corp building (empire/conglomerate visual)",
-    "EMPIRE GUIDANCE: 'Your path to empire' card with tier-specific what-to-do + next-tier progress",
-    "i18n: empire.guide.* + empire.next/ready + tab.space/entity + grp.edu/career in EN/VI/ZH",
-    "Version bumped to v11.41"
+    "MERGED: sleep schedule + asset breakdown + income breakdown into PinZone sticky dashboard",
+    "2-COLUMN GRID: left = identity + bars; right = sleep + asset chart + income",
+    "ASSET CHART COLORS: gold/teal/blue/bronze/purple/coral — distinct, readable, color-blind-friendly",
+    "SLEEP: dropdown inline in PinZone (was separate card in HomeTab)",
+    "INCOME: compact rows with green +amounts (was separate card)",
+    "REMOVED: 3 duplicate cards from HomeTab (sleep, asset, income)",
+    "MOBILE: 2-column grid collapses to 1 column under 700px",
+    "PinZone now accepts `act` prop (for sleep schedule change)",
+    "Version bumped to v11.42"
   ]
 }

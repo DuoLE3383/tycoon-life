@@ -695,20 +695,41 @@ html[data-theme="dark"] .tgame .ibtn.ghost{background:linear-gradient(180deg,#32
 /* v11.37 — biz-actions row (franchise + sell buttons per business) */
 .tgame .biz-actions .ibtn{min-width:auto;padding:5px 11px;font-size:.78rem}
 
-/* ================= v11.37 — merged PinZone (status bar + detail + bars) ================= */
-.tgame .pinzone-v37{padding:9px 12px 10px}
-.tgame .pinzone-detail{display:flex;gap:14px;align-items:stretch;margin:7px 0 5px;padding-top:7px;border-top:1px solid var(--line)}
-.tgame .pinzone-info{flex:1 1 200px;display:flex;flex-direction:column;gap:1px;min-width:0}
-.tgame .pinzone-info .sub{font-size:.78rem;opacity:.72;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.tgame .pinzone-bars{flex:0 0 200px;display:flex;flex-direction:column;gap:3px}
+/* ================= v11.42 — merged PinZone (dashboard + sleep + asset chart + income) ================= */
+.tgame .pinzone-v42{padding:9px 12px 10px}
+.tgame .pinzone-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:7px 0 5px;padding-top:7px;border-top:1px solid var(--line)}
+.tgame .pinzone-col{display:flex;flex-direction:column;gap:6px;min-width:0}
+.tgame .pinzone-info{display:flex;flex-direction:column;gap:1px}
+.tgame .pinzone-info .sub{font-size:.76rem;opacity:.72;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tgame .pinzone-bars{display:flex;flex-direction:column;gap:3px}
 .tgame .pinzone-bars .wrow{display:flex;align-items:center;gap:6px;font-size:.74rem}
 .tgame .pinzone-bars .wl{width:42px;flex:none;font-weight:600;opacity:.6}
 .tgame .pinzone-bars .wbar{flex:1;height:6px;border-radius:4px;background:rgba(127,127,127,.15);overflow:hidden}
 .tgame .pinzone-bars .wbar i{display:block;height:100%;border-radius:4px;transition:width .3s ease}
+/* v11.42 — sleep schedule in PinZone */
+.tgame .pinzone-sleep{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.tgame .pinzone-sleep select{width:auto;flex:0 0 auto;padding:3px 8px;font-size:.76rem;border-radius:6px}
+.tgame .pinzone-sleep .mini{font-size:.7rem;opacity:.6}
+/* v11.42 — asset chart in PinZone */
+.tgame .pinzone-assets .lb{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:3px}
+.tgame .pinzone-assets .lb b{font-size:.88rem;font-variant-numeric:tabular-nums}
+.tgame .pinzone-assets .asset-bar{display:flex;height:8px;border-radius:5px;overflow:hidden;background:rgba(127,127,127,.1);margin-bottom:4px}
+.tgame .pinzone-assets .asset-seg{height:100%;transition:width .3s ease}
+.tgame .pinzone-assets .asset-legend{display:flex;flex-wrap:wrap;gap:3px 8px}
+.tgame .pinzone-assets .asset-leg-item{display:inline-flex;align-items:center;gap:3px;font-size:.68rem;opacity:.75}
+.tgame .pinzone-assets .asset-leg-item .sw{display:inline-block;width:9px;height:9px;border-radius:2px;flex:none}
+.tgame .pinzone-assets .asset-leg-item b{font-weight:650;font-variant-numeric:tabular-nums}
+/* v11.42 — income breakdown in PinZone */
+.tgame .pinzone-income .lb{display:flex;justify-content:space-between;align-items:baseline;font-size:.72rem}
+.tgame .pinzone-income .lb b{font-size:.82rem}
+.tgame .pinzone-income .up{color:var(--up)}
 @media (max-width:700px){
-  .tgame .pinzone-detail{flex-direction:column;gap:8px}
-  .tgame .pinzone-bars{flex:1 1 auto;width:100%}
+  .tgame .pinzone-grid{grid-template-columns:1fr;gap:8px}
   .tgame .pinzone-info .sub{white-space:normal}
-  .tgame .pinzone-v37{padding:7px 10px 8px}
+  .tgame .pinzone-v42{padding:7px 10px 8px}
 }
+
+/* v11.37 — legacy pinzone-v37 (kept for reference, no longer used) */
+.tgame .pinzone-v37{padding:9px 12px 10px}
+.tgame .pinzone-detail{display:flex;gap:14px;align-items:stretch;margin:7px 0 5px;padding-top:7px;border-top:1px solid var(--line)}
 
