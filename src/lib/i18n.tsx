@@ -858,11 +858,11 @@ const D: Record<string, [string, string, string]> = {
   'sleepSet': ['Sleep set to {n} hours per day', 'Đã đặt ngủ {n} giờ mỗi ngày', '已设为每天睡眠 {n} 小时'],
   'sleepEffects': ['Study pace +{p}% · daily health-loss change {h}', 'Tốc độ học +{p}% · thay đổi mức giảm sức khoẻ mỗi ngày {h}', '学习速度 +{p}% · 每日健康损耗变化 {h}'],
   // v11.49 — sleep-debt indicators (sleepDebt tracks accumulated deficit).
-  'sleepDebt': ['Sleep debt', 'Nợ ngủ', '睡眠负债'],
+  'sleepDebt': ['Lack of Sleep', 'Thiếu Ngủ', '睡眠不足'],
   'sleepDebt.low': ['Rested', 'Đã nghỉ đầy đủ', '已充分休息'],
   'sleepDebt.mid': ['Tired (-10% study)', 'Mệt (học -10%)', '疲倦（学习 -10%）'],
   'sleepDebt.high': ['Exhausted (-25% study, +20% decay)', 'Kiệt sức (học -25%, sức khoẻ -20%)', '精疲力竭（学习 -25%，健康 -20%）'],
-  'sleepDebtNote': ['Sleep ≥ 7h to recover debt. 12h = catch-up.', 'Ngủ ≥ 7h để giảm nợ. 12h = ngủ bù.', '睡满 7 小时减少负债。12 小时 = 补觉。'],
+  'sleepDebtNote': ['Sleep ≥ 7h to recover debt. 12h = catch-up.', 'Ngủ ≥ 7h để nghỉ ngơi đủ. 12h = ngủ bù.', '睡满 7 小时减少负债。12 小时 = 补觉。'],
   'sleepRecovering': ['recovering', 'đang phục hồi', '恢复中'],
   'dailyTimeline': ['Daily timeline', 'Dòng thời gian mỗi ngày', '每日时间线'],
   'timelineNote': ['Shows the last 45 in-game days, including routine and player actions.', 'Hiển thị 45 ngày gần nhất trong game, gồm sinh hoạt và hành động của bạn.', '显示最近 45 个游戏日的日常安排与玩家行动。'],
