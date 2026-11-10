@@ -1,5 +1,5 @@
 'use client';
-// v11.30 — HuyenBao admin dashboard, full game-management console (VPS).
+// v11.31 — HuyenBao admin dashboard, full game-management console (VPS).
 //
 // Tabs:
 //   📊 Tổng quan  — live server stats + top-10 net worth
@@ -484,7 +484,7 @@ export default function AdminPage() {
       )}
 
       <footer className="adm-foot">
-        <span>{phase === 'live' && stats ? 'Cập nhật lúc ' + new Date(stats.ts).toLocaleTimeString('vi-VN') + (tab === 'overview' ? ' · tự refresh 10s' : '') : 'HuyenBao v11.30'}</span>
+        <span>{phase === 'live' && stats ? 'Cập nhật lúc ' + new Date(stats.ts).toLocaleTimeString('vi-VN') + (tab === 'overview' ? ' · tự refresh 10s' : '') : 'HuyenBao v11.31'}</span>
         <a href={gameHref} className="adm-back">← Về game</a>
       </footer>
     </div>

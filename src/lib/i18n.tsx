@@ -279,8 +279,7 @@ const D: Record<string, [string, string, string]> = {
   // v11.26 — gigs drain health (the ad gig doubles as the anti-spam valve)
   'gig.healthCost': ['{name} — the grind wears you down, health -{n}', '{name} — vất vả vì công việc, sức khoẻ -{n}', '{name}——辛苦的工作，健康 -{n}'],
   'gig.hp': ['health -{n}', 'sức khoẻ -{n}', '健康 -{n}'],
-  // v11.27 — sqlite server mode + dashboard attention + market extras
-  'soc.sqlite': ['Server mode — self-hosted SQLite on this VPS. Everyone playing on this server shares the chat, friends, gifts and leaderboard.', 'Chế độ máy chủ — SQLite tự host trên VPS này. Mọi người chơi trên server dùng chung chat, bạn bè, tặng quà và bảng xếp hạng.', '服务器模式 — 本VPS上的自托管 SQLite。本服务器的所有玩家共享聊天、好友、送礼与排行榜。'],
+  // v11.27 — dashboard attention (v11.31 removed the unused sqlite banner key)
   'att.critical': ['Health CRITICAL (<20) — see a doctor now!', 'Sức khoẻ NGUY HIỂM (<20) — khám bệnh ngay!', '健康危急（<20）——立刻就医！'],
   'att.low': ['Health low — rest and eat well', 'Sức khoẻ thấp — nghỉ ngơi, ăn uống đủ đầy', '健康偏低——注意休息与饮食'],
   'att.recover': ['Health under 60 — recovery recommended', 'Sức khoẻ dưới 60 — nên phục hồi', '健康低于60——建议恢复'],

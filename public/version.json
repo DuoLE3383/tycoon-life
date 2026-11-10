@@ -1,15 +1,12 @@
 {
-  "version": "v11.30",
+  "version": "v11.31",
   "releasedAt": "2026-11-10",
-  "headline": "HuyenBao v11.30 — mogul.huyenbao.com giờ là domain riêng cho ADMIN dashboard (mở trang chủ → thẳng bảng điều khiển quản trị)",
-  "summary": "ADMIN-FIRST DOMAIN. mogul.huyenbao.com is now dedicated to the game-management console: opening the root URL lands you straight on /admin (302 via the new Next.js 16 src/proxy.ts, host-aware), /api/* social + admin endpoints are untouched, and the full game (with the SQLite social backend) remains playable at /game as an escape hatch. The admin footer's 'Về game' link now points to /game when browsed on the mogul domain and to / everywhere else. Any other host — huyenbao.com, localhost, LAN IP, dev — is completely unaffected. The proxy file uses the Next 16 proxy.ts convention (replaces deprecated middleware.ts) and is automatically skipped by the static GitHub Pages build because that build's pageExtensions only include .tsx.",
+  "headline": "HuyenBao v11.31 — gỡ banner «🗄 Chế độ máy chủ» khỏi trang chủ (chế độ SQLite sống im lặng như Supabase)",
+  "summary": "QUIET SERVER MODE. The green '🗄 Chế độ máy chủ — SQLite tự host trên VPS này…' banner that sat on top of the community views (chat / friends / leaderboard) on the self-hosted VPS is gone. Live backends now render no banner at all — Supabase mode already behaved this way, SQLite mode now matches. Players just see the community features working. The error banner (⚠ connection problem, with retry) and the demo-mode setup guide (🧪, only when no backend exists) are untouched. The now-unused soc.sqlite i18n string was removed from all three languages.",
   "features": [
-    "mogul.huyenbao.com/ → 302 → /admin — the admin console IS the front door of the domain",
-    "NEW src/proxy.ts (Next 16 proxy convention, host-based): mogul host root → /admin, mogul /game → rewrite to the game, every other host untouched",
-    "ESCAPE HATCH: /game serves the full game with the SQLite social backend on the mogul domain",
-    "Admin footer 'Về game' link is domain-aware (/game on mogul, / elsewhere)",
-    "STATIC-SAFE: proxy.ts is a .ts file and the GitHub Pages build only enables .tsx page extensions → silently excluded",
-    "deploy/ README now documents the URL map (/, /admin, /game, /api/*); Caddy + nginx configs annotated (Host header must be preserved)",
-    "Version bumped to v11.30 at FRONT of app name"
+    "Community banner removed for sqlite mode — same as supabase, live backends are silent",
+    "Error banner (⚠ + retry) and demo setup guide (🧪) unchanged",
+    "Dead i18n key soc.sqlite removed (EN/VI/ZH)",
+    "Version bumped to v11.31 at FRONT of app name"
   ]
 }

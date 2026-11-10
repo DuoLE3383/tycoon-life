@@ -16,7 +16,8 @@ const hm = (ts: number) => {
   try { return new Date(ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }); } catch { return ''; }
 };
 
-// banner shown on top of every community view
+// banner shown on top of every community view — v11.31: live modes (supabase
+// and self-hosted sqlite) render NO banner at all; only error / demo explain.
 function SocBanner({ comm }: { comm: Comm }) {
   const { t } = useT();
   if (comm.error) {
@@ -27,16 +28,7 @@ function SocBanner({ comm }: { comm: Comm }) {
       </div>
     );
   }
-  if (comm.mode === 'supabase') return null;
-  if (comm.mode === 'sqlite') {
-    // v11.27 — self-hosted SQLite backend detected: everyone on this server
-    // shares the same chat/friends/gifts/leaderboard. No setup guide needed.
-    return (
-      <div className="soc-banner ok">
-        <span>🗄 {t('soc.sqlite')}</span>
-      </div>
-    );
-  }
+  if (comm.mode === 'supabase' || comm.mode === 'sqlite') return null;
   return (
     <details className="fold soc-setup">
       <summary>🧪 {t('soc.demo')}</summary>
