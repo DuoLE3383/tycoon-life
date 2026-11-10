@@ -1,18 +1,15 @@
 {
-  "version": "v11.37",
+  "version": "v11.38",
   "releasedAt": "2026-11-10",
-  "headline": "HuyenBao v11.37 — 3D buttons, merged hero+pinzone, compact menu, 10 new businesses + franchise/sell, 7 new gigs",
-  "summary": "UI POLISH + CONTENT EXPANSION. Buttons now have stronger 3D depth (gradient + multi-layer shadow + hover lift + press sink). The separate hero card and PinZone are now ONE merged sticky card — no more duplicate info. Menu shrunk (gnav .95rem→.82rem, subnav .82rem→.74rem) and the degenerate single-sub subnav is hidden (fixes the Assets 2-level bug). 10 new business types added (street food, gym, salon, restaurant, logistics, clinic, school, realestate, esports, franchise network) + 2 new biz mechanics: FRANCHISE (convert a branch to franchised for upfront cash + 10% royalty) and NEGOTIATE SELL (NPC buyer makes offer, push for more at 25% walk risk). 7 new gigs (busk, petcare, photoshoot, coding, medical, endorsement, speaking) spanning arts/engineering/medicine/fame gates. Button colour convention gaps fixed: bank Withdraw, asset Sell, Relations argue now red (.danger).",
+  "headline": "HuyenBao v11.38 — sửa 3D button (color-mix→rgba), thu nhỏ button + menu",
+  "summary": "BUTTON FIX. v11.37's 3D buttons used color-mix() which rendered FLAT in some browsers — now rebuilt with plain rgba() gradients that render everywhere. The 3D effect is now visible: top-highlight gradient + solid bottom-rim shadow + drop shadow on every button (.ibtn, .gig, nav tabs). Hover lifts -1px, press sinks +1px. Buttons also smaller: .ibtn padding 6px→5px, font .86rem→.8rem, min-width 104px→92px, border-radius 999px→10px (sharper). .gig buttons get 3D too (were flat cards). Nav tabs shrunk more: gnav .82rem→.78rem, subnav .74rem→.7rem.",
   "features": [
-    "3D BUTTONS: all .ibtn get gradient bg + 3-layer shadow (bottom rim + drop + inset highlight); hover lifts -1px, press sinks +2px",
-    "MERGED HERO+PINZONE: hero-v36 card removed; PinZone now carries the character detail row (job/study/rent) + health/spirit/XP bars in one sticky card",
-    "COMPACT MENU: gnav 10px→6px padding, .95rem→.82rem font; subnav 6px→4px padding, .82rem→.74rem font — fits more tabs in less space",
-    "ASSETS 2-LEVEL FIX: page-level subnav hidden when active group has only 1 sub (Assets was degenerate — 1 button above the internal 7-section nav)",
-    "10 NEW BUSINESSES: street food, gym, salon, restaurant, logistics, clinic, school, realestate, esports, franchise network — spans Services/Health/Education/Real Estate/Franchise industries",
-    "FRANCHISE mechanic: convert a branch to franchised — get 1.8× paid value upfront, 10% ongoing royalty (branch income reduced)",
-    "NEGOTIATE SELL mechanic: NPC buyer offers 70-100% of branch value; push for +10-20% (75% accept, 25% walk); accept to cash out",
-    "7 NEW GIGS: busk (arts), petcare, photoshoot (fame), coding (engineering), medical (medicine), endorsement (10K followers), speaking (5K followers + 2 degrees)",
-    "BUTTON COLOUR FIXES: bank Withdraw ×3, asset Sell ×2, Relations argue — all now red (.danger) per convention",
-    "Version bumped to v11.37"
+    "3D BUTTON FIX: replaced color-mix() with plain rgba() — renders in ALL browsers (was flat in some)",
+    "3D on .gig buttons: gig cards now have gradient + rim shadow + hover lift (were flat)",
+    "3D on nav tabs: gnav active tab gets gold gradient + rim shadow",
+    "SMALLER BUTTONS: .ibtn padding 6px→5px, font .86rem→.8rem, min-width 104px→92px, radius 999px→10px",
+    "SMALLER GIG: .gig padding 10px→8px, icon 38px→34px, title .92rem→.85rem",
+    "SMALLER NAV: gnav .82rem→.78rem padding 6px→5px; subnav .74rem→.7rem padding 4px→3px",
+    "Version bumped to v11.38"
   ]
 }

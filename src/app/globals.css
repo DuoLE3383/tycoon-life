@@ -82,39 +82,41 @@ html[data-theme="light"] body{background:#e2e7df}
 .tgame .tile{display:flex;align-items:center;gap:12px;width:100%;padding:10px;border-radius:14px;background:var(--card);border:1px solid var(--line);text-align:left;transition:border-color .2s}
 .tgame .tile:hover{border-color:var(--accent)}
 .tgame .tile .art{width:48px;height:48px}
-/* v11.37 — stronger 3D button effect on ALL buttons. Every clickable gets a
-   multi-layer shadow (top highlight + bottom drop + inset rim) so buttons
-   read as raised objects. Hover lifts them; press sinks them. */
-.tgame .ibtn{display:inline-flex;align-items:center;gap:7px;border:1px solid transparent;border-radius:999px;padding:6px 14px;font-weight:700;font-size:.86rem;color:var(--accentInk);background:linear-gradient(180deg,color-mix(in srgb,var(--accent) 115%,#fff 0%),var(--accent));box-shadow:0 2px 0 color-mix(in srgb,var(--accent) 70%,#000),0 4px 10px rgba(60,55,40,.22),inset 0 1px 0 rgba(255,255,255,.25);min-width:104px;justify-content:center;font-variant-numeric:tabular-nums;transition:background .2s,transform .1s,box-shadow .12s}
-.tgame .ibtn:hover:not(:disabled){background:var(--accent2);box-shadow:0 3px 0 color-mix(in srgb,var(--accent2) 70%,#000),0 7px 16px rgba(60,55,40,.28),inset 0 1px 0 rgba(255,255,255,.3);transform:translateY(-1px)}
-.tgame .ibtn:active:not(:disabled){transform:translateY(2px);box-shadow:0 0 0 color-mix(in srgb,var(--accent) 70%,#000),0 1px 3px rgba(60,55,40,.2),inset 0 1px 3px rgba(0,0,0,.18)}
-.tgame .ibtn.ghost{background:linear-gradient(180deg,var(--card),color-mix(in srgb,var(--card) 92%,#000));color:var(--ink);border-color:var(--line2);box-shadow:0 2px 0 rgba(60,55,40,.10),0 3px 7px rgba(60,55,40,.10),inset 0 1px 0 rgba(255,255,255,.5)}
-.tgame .ibtn.ghost:hover:not(:disabled){background:var(--paper);box-shadow:0 3px 0 rgba(60,55,40,.10),0 6px 12px rgba(60,55,40,.14),inset 0 1px 0 rgba(255,255,255,.6);transform:translateY(-1px)}
-.tgame .ibtn.danger{background:linear-gradient(180deg,color-mix(in srgb,var(--brick) 115%,#fff),var(--brick));color:#fff;box-shadow:0 2px 0 color-mix(in srgb,var(--brick) 70%,#000),0 4px 10px rgba(192,71,60,.28),inset 0 1px 0 rgba(255,255,255,.22)}
-.tgame .ibtn.danger:hover:not(:disabled){background:#9c4a42;box-shadow:0 3px 0 #6e2f29,0 7px 16px rgba(192,71,60,.34),inset 0 1px 0 rgba(255,255,255,.28);transform:translateY(-1px)}
-.tgame .ibtn.sageb{background:linear-gradient(180deg,color-mix(in srgb,var(--sage) 115%,#fff),var(--sage));color:#fff;box-shadow:0 2px 0 color-mix(in srgb,var(--sage) 70%,#000),0 4px 10px rgba(46,125,84,.28),inset 0 1px 0 rgba(255,255,255,.22)}
-.tgame .ibtn.sageb:hover:not(:disabled){background:#527d61;box-shadow:0 3px 0 #34583f,0 7px 16px rgba(46,125,84,.34),inset 0 1px 0 rgba(255,255,255,.28);transform:translateY(-1px)}
+/* v11.38 — 3D buttons rebuilt. v11.37 used color-mix() which rendered flat
+   in some browsers; now we use plain rgba() + stronger contrast. Every
+   button gets a visible top-highlight gradient + a solid bottom rim shadow
+   + a drop shadow. Hover lifts -1px; press sinks +1px and loses the rim.
+   Buttons are also smaller (padding + font reduced across the board). */
+.tgame .ibtn{display:inline-flex;align-items:center;gap:6px;border:1px solid transparent;border-radius:10px;padding:5px 12px;font-weight:700;font-size:.8rem;color:var(--accentInk);background:linear-gradient(180deg,rgba(255,255,255,.15) 0%,rgba(255,255,255,0) 50%),var(--accent);box-shadow:0 3px 0 rgba(80,60,20,.6),0 4px 10px rgba(0,0,0,.25),inset 0 1px 0 rgba(255,255,255,.15);min-width:92px;justify-content:center;font-variant-numeric:tabular-nums;transition:background .15s,transform .08s,box-shadow .1s}
+.tgame .ibtn:hover:not(:disabled){background:linear-gradient(180deg,rgba(255,255,255,.2) 0%,rgba(255,255,255,0) 50%),var(--accent2);box-shadow:0 4px 0 rgba(80,60,20,.6),0 6px 14px rgba(0,0,0,.3),inset 0 1px 0 rgba(255,255,255,.2);transform:translateY(-2px)}
+.tgame .ibtn:active:not(:disabled){transform:translateY(1px);box-shadow:0 1px 0 rgba(80,60,20,.6),0 1px 3px rgba(0,0,0,.2),inset 0 1px 3px rgba(0,0,0,.25)}
+.tgame .ibtn.ghost{background:linear-gradient(180deg,rgba(255,255,255,.6) 0%,rgba(255,255,255,0) 45%),var(--card);color:var(--ink);border-color:var(--line2);box-shadow:0 2px 0 rgba(60,55,40,.15),0 2px 5px rgba(60,55,40,.10),inset 0 1px 0 rgba(255,255,255,.7)}
+.tgame .ibtn.ghost:hover:not(:disabled){background:linear-gradient(180deg,rgba(255,255,255,.7) 0%,rgba(255,255,255,0) 45%),var(--paper);box-shadow:0 3px 0 rgba(60,55,40,.15),0 4px 8px rgba(60,55,40,.14),inset 0 1px 0 rgba(255,255,255,.8);transform:translateY(-1px)}
+.tgame .ibtn.danger{background:linear-gradient(180deg,rgba(255,255,255,.25) 0%,rgba(255,255,255,0) 45%),var(--brick);color:#fff;box-shadow:0 2px 0 rgba(110,30,25,.6),0 3px 8px rgba(192,71,60,.3),inset 0 1px 0 rgba(255,255,255,.25)}
+.tgame .ibtn.danger:hover:not(:disabled){background:linear-gradient(180deg,rgba(255,255,255,.3) 0%,rgba(255,255,255,0) 45%),#9c4a42;box-shadow:0 3px 0 rgba(110,30,25,.6),0 5px 12px rgba(192,71,60,.36),inset 0 1px 0 rgba(255,255,255,.3);transform:translateY(-1px)}
+.tgame .ibtn.sageb{background:linear-gradient(180deg,rgba(255,255,255,.25) 0%,rgba(255,255,255,0) 45%),var(--sage);color:#fff;box-shadow:0 2px 0 rgba(20,60,35,.6),0 3px 8px rgba(46,125,84,.3),inset 0 1px 0 rgba(255,255,255,.25)}
+.tgame .ibtn.sageb:hover:not(:disabled){background:linear-gradient(180deg,rgba(255,255,255,.3) 0%,rgba(255,255,255,0) 45%),#527d61;box-shadow:0 3px 0 rgba(20,60,35,.6),0 5px 12px rgba(46,125,84,.36),inset 0 1px 0 rgba(255,255,255,.3);transform:translateY(-1px)}
 /* v11.34 — button-state convention:
    .busy    ORANGE  — slot taken / processing / "đang bận"
    .ongoing GREEN   — actively studying / "đang tiến hành"
    .danger  RED     — discard / cancel / withdraw / leave / rehome
    (the disabled state stays neutral grey in all cases) */
-.tgame .ibtn.busy{background:linear-gradient(180deg,color-mix(in srgb,var(--amber) 115%,#fff),var(--amber));color:var(--amberInk);border-color:var(--amber);box-shadow:0 2px 0 color-mix(in srgb,var(--amber) 70%,#000),0 4px 10px rgba(194,104,10,.28),inset 0 1px 0 rgba(255,255,255,.25)}
-.tgame .ibtn.busy:hover:not(:disabled){background:color-mix(in srgb,var(--amber) 85%,#000);box-shadow:0 3px 0 color-mix(in srgb,var(--amber) 70%,#000),0 7px 16px rgba(194,104,10,.34),inset 0 1px 0 rgba(255,255,255,.3);transform:translateY(-1px)}
-.tgame .ibtn.ongoing{background:linear-gradient(180deg,color-mix(in srgb,var(--sage) 115%,#fff),var(--sage));color:#fff;border-color:var(--sage);box-shadow:0 2px 0 color-mix(in srgb,var(--sage) 70%,#000),0 4px 10px rgba(46,125,84,.28),inset 0 1px 0 rgba(255,255,255,.25)}
-.tgame .ibtn.ongoing:hover:not(:disabled){background:color-mix(in srgb,var(--sage) 85%,#000);box-shadow:0 3px 0 color-mix(in srgb,var(--sage) 70%,#000),0 7px 16px rgba(46,125,84,.34),inset 0 1px 0 rgba(255,255,255,.3);transform:translateY(-1px)}
+.tgame .ibtn.busy{background:linear-gradient(180deg,rgba(255,255,255,.25) 0%,rgba(255,255,255,0) 45%),var(--amber);color:var(--amberInk);border-color:var(--amber);box-shadow:0 2px 0 rgba(90,40,5,.55),0 3px 8px rgba(194,104,10,.3),inset 0 1px 0 rgba(255,255,255,.3)}
+.tgame .ibtn.busy:hover:not(:disabled){background:linear-gradient(180deg,rgba(255,255,255,.3) 0%,rgba(255,255,255,0) 45%),#a85a08;box-shadow:0 3px 0 rgba(90,40,5,.55),0 5px 12px rgba(194,104,10,.36),inset 0 1px 0 rgba(255,255,255,.35);transform:translateY(-1px)}
+.tgame .ibtn.ongoing{background:linear-gradient(180deg,rgba(255,255,255,.25) 0%,rgba(255,255,255,0) 45%),var(--sage);color:#fff;border-color:var(--sage);box-shadow:0 2px 0 rgba(20,60,35,.6),0 3px 8px rgba(46,125,84,.3),inset 0 1px 0 rgba(255,255,255,.25)}
+.tgame .ibtn.ongoing:hover:not(:disabled){background:linear-gradient(180deg,rgba(255,255,255,.3) 0%,rgba(255,255,255,0) 45%),#256b48;box-shadow:0 3px 0 rgba(20,60,35,.6),0 5px 12px rgba(46,125,84,.36),inset 0 1px 0 rgba(255,255,255,.3);transform:translateY(-1px)}
 .tgame .ibtn:disabled{background:var(--paper2);color:var(--faint);border-color:var(--line);box-shadow:none;cursor:not-allowed}
 .tgame .ibtn.ghost:disabled,.tgame .ibtn.danger:disabled,.tgame .ibtn.sageb:disabled,.tgame .ibtn.busy:disabled,.tgame .ibtn.ongoing:disabled{background:var(--paper2);color:var(--faint);border-color:var(--line)}
 .tgame .ghost{background:var(--card);color:var(--ink);border:1px solid var(--line2);border-radius:999px;padding:6px 14px;font-weight:650}
 .tgame .ghost:hover{background:var(--paper)}
 .tgame .tsmall{font-size:.8rem;padding:5px 12px}
 .tgame .gigs{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:8px}
-.tgame .gig{display:flex;align-items:center;gap:10px;width:100%;padding:10px;border-radius:14px;background:var(--card);border:1px solid var(--line);text-align:left;transition:border-color .2s,transform .1s}
-.tgame .gig:hover:not(:disabled){border-color:var(--accent)}
-.tgame .gig:active:not(:disabled){transform:translateY(1px)}
-.tgame .gig:disabled{opacity:.55;cursor:not-allowed}
-.tgame .gig .art{width:38px;height:38px;border-radius:10px}
-.tgame .gig b{font-size:.92rem}
+.tgame .gig{display:flex;align-items:center;gap:9px;width:100%;padding:8px 10px;border-radius:11px;background:linear-gradient(180deg,rgba(255,255,255,.12) 0%,rgba(255,255,255,0) 50%),var(--card);border:1px solid var(--line2);text-align:left;transition:border-color .15s,transform .08s,box-shadow .1s;box-shadow:0 3px 0 rgba(0,0,0,.35),0 4px 10px rgba(0,0,0,.25),inset 0 1px 0 rgba(255,255,255,.1)}
+.tgame .gig:hover:not(:disabled){border-color:var(--accent);box-shadow:0 4px 0 rgba(80,60,20,.5),0 6px 14px rgba(0,0,0,.3),inset 0 1px 0 rgba(255,255,255,.15);transform:translateY(-2px)}
+.tgame .gig:active:not(:disabled){transform:translateY(1px);box-shadow:0 1px 0 rgba(0,0,0,.3),0 1px 3px rgba(0,0,0,.2),inset 0 1px 3px rgba(0,0,0,.2)}
+.tgame .gig:disabled{opacity:.45;cursor:not-allowed;box-shadow:none}
+.tgame .gig .art{width:34px;height:34px;border-radius:9px}
+.tgame .gig b{font-size:.85rem}
 .tgame .gig .pay{font-weight:750;font-variant-numeric:tabular-nums;color:var(--up)}
 /* v11.26 — gig health cost hint on the card (red, next to the +$ pay) */
 .tgame .gig .hppay{font-weight:600;font-variant-numeric:tabular-nums;color:var(--brick);opacity:.85;margin-left:5px}
@@ -378,15 +380,15 @@ html[data-theme="light"] body{background:#e2e7df}
    - Level 2 active: subtle dark bg + gold border + gold text (less prominent)
    - Divider line between the two rows
    - Level 1: bigger, bolder; Level 2: smaller, muted */
-.tgame .gnav{padding-bottom:5px;border-bottom:1px solid var(--line);margin-bottom:1px}
-.tgame .gnav button{font-weight:700;padding:6px 11px;font-size:.82rem;border-width:1px}
+.tgame .gnav{padding-bottom:4px;border-bottom:1px solid var(--line);margin-bottom:1px}
+.tgame .gnav button{font-weight:700;padding:5px 10px;font-size:.78rem;border-width:1px}
 /* Level 1 active = gold accent bg + dark text (stands out from Level 2) */
-.tgame .gnav button[aria-selected="true"]{background:linear-gradient(180deg,color-mix(in srgb,var(--accent) 112%,#fff),var(--accent));border-color:var(--accent);color:var(--accentInk);font-weight:780;box-shadow:0 2px 0 color-mix(in srgb,var(--accent) 70%,#000),0 3px 8px rgba(200,160,40,.22),inset 0 1px 0 rgba(255,255,255,.25);transform:translateY(-1px)}
-.tgame .gnav button:hover:not([aria-selected="true"]){transform:translateY(-1px);box-shadow:0 2px 5px rgba(60,55,40,.12)}
-.tgame .subnav{padding-top:4px;padding-bottom:6px}
-.tgame .subnav button{padding:4px 9px;font-size:.74rem;font-weight:550;color:var(--mute)}
+.tgame .gnav button[aria-selected="true"]{background:linear-gradient(180deg,rgba(255,255,255,.25) 0%,rgba(255,255,255,0) 45%),var(--accent);border-color:var(--accent);color:var(--accentInk);font-weight:750;box-shadow:0 2px 0 rgba(80,60,20,.5),0 2px 6px rgba(200,160,40,.25),inset 0 1px 0 rgba(255,255,255,.3)}
+.tgame .gnav button:hover:not([aria-selected="true"]){transform:translateY(-1px);box-shadow:0 2px 0 rgba(60,55,40,.15),0 2px 5px rgba(60,55,40,.1)}
+.tgame .subnav{padding-top:3px;padding-bottom:5px}
+.tgame .subnav button{padding:3px 8px;font-size:.7rem;font-weight:550;color:var(--mute)}
 /* Level 2 active = subtle: muted bg + gold border + gold text (NOT gold bg) */
-.tgame .subnav button[aria-selected="true"]{background:var(--paper2);border-color:var(--accent);color:var(--accent);font-weight:720;box-shadow:0 1px 3px rgba(200,160,40,.15)}
+.tgame .subnav button[aria-selected="true"]{background:var(--paper2);border-color:var(--accent);color:var(--accent);font-weight:700;box-shadow:0 1px 2px rgba(200,160,40,.15)}
 .tgame .subnav button:hover{color:var(--ink);border-color:var(--line2)}
 
 /* ===== v9 — systems links map ===== */
@@ -419,6 +421,14 @@ html[data-theme="dark"] .tgame{
 html[data-theme="dark"] .tgame .heroimg{filter:brightness(.8) saturate(.92)}
 html[data-theme="dark"] .tgame .imcard img{filter:brightness(.82) saturate(.9)}
 html[data-theme="dark"] .tgame .mcard{box-shadow:0 14px 46px rgba(0,0,0,.5)}
+/* v11.38 — dark-mode 3D button overrides. Dark mode card bg is #1c2521 on a
+   #0d1210 page — the contrast is too low for shadows to read. Lift the card
+   bg lighter and use stronger shadows so the 3D depth is visible. */
+html[data-theme="dark"] .tgame .gig{background:linear-gradient(180deg,#324035 0%,#222d27 100%);border-color:#3e4d44;box-shadow:0 4px 0 #080c0a,0 6px 16px rgba(0,0,0,.5),inset 0 1px 0 rgba(255,255,255,.08),inset 0 -1px 0 rgba(0,0,0,.3)}
+html[data-theme="dark"] .tgame .gig:hover:not(:disabled){background:linear-gradient(180deg,#3a4a3d 0%,#283329 100%);box-shadow:0 5px 0 #080c0a,0 8px 20px rgba(0,0,0,.55),inset 0 1px 0 rgba(255,255,255,.12),inset 0 -1px 0 rgba(0,0,0,.3);transform:translateY(-2px)}
+html[data-theme="dark"] .tgame .ibtn{box-shadow:0 4px 0 rgba(0,0,0,.55),0 5px 12px rgba(0,0,0,.4),inset 0 1px 0 rgba(255,255,255,.2),inset 0 -1px 0 rgba(0,0,0,.2)}
+html[data-theme="dark"] .tgame .ibtn:hover:not(:disabled){box-shadow:0 5px 0 rgba(0,0,0,.55),0 7px 16px rgba(0,0,0,.45),inset 0 1px 0 rgba(255,255,255,.25),inset 0 -1px 0 rgba(0,0,0,.2)}
+html[data-theme="dark"] .tgame .ibtn.ghost{background:linear-gradient(180deg,#324035 0%,#222d27 100%);box-shadow:0 3px 0 #080c0a,0 4px 10px rgba(0,0,0,.35),inset 0 1px 0 rgba(255,255,255,.06),inset 0 -1px 0 rgba(0,0,0,.25)}
 
 /* ===== wellbeing bars (health / spirit) ===== */
 .tgame .wbars{display:grid;gap:5px;margin-top:10px}
