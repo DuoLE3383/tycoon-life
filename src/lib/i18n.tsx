@@ -359,6 +359,16 @@ const D: Record<string, [string, string, string]> = {
   // v11.55 — new structured warnings for the PinZone banner.
   'att.lowCash': ['Cash below $1K — earn or withdraw from savings', 'Tiền mặt dưới $1K — kiếm tiền hoặc rút từ tiết kiệm', '现金不足 $1K——需赚钱或从储蓄提款'],
   'att.highLoan': ['Loan is high (>30% of net worth) — repay to reduce interest', 'Vay cao (>30% tài sản) — trả bớt để giảm lãi', '贷款偏高（>净资产30%）——还款以减利息'],
+  // v11.57 — time acceleration + banking credit + wellbeing fixes.
+  'speed.label': ['Time speed', 'Tốc độ thời gian', '时间倍速'],
+  'speed.tip': ['×{n} game speed', '×{n} tốc độ game', '×{n} 游戏速度'],
+  'bank.creditBreakdown': ['Credit limit breakdown', 'Chi tiết hạn mức vay', '贷款额度明细'],
+  'bank.baseCredit': ['Base (50% of net worth)', 'Cơ bản (50% tài sản ròng)', '基础（净资产50%）'],
+  'bank.incomeCredit': ['Income credit (30% of yearly income)', 'Hạn mức theo thu nhập (30% thu nhập năm)', '收入信用（年收入30%）'],
+  'bank.existingLoan': ['Existing loan', 'Khoản vay hiện tại', '现有贷款'],
+  'bank.available': ['Available to borrow', 'Có thể vay thêm', '可借额度'],
+  'bank.incomeCreditNote': ['Having a job or business income increases your borrowing power.', 'Có việc làm hoặc thu nhập doanh nghiệp sẽ tăng hạn mức vay.', '有工作或经营收入可提升贷款额度。'],
+  'well.freeNote': ['Free actions (rest, self-train, meditate) always available — even in debt.', 'Hành động miễn phí (nghỉ, tự tập, thiền) luôn dùng được — kể cả khi âm tiền.', '免费行动（休息、自练、冥想）即使负债也可使用。'],
   'att.allgood': ['Everything looks good — keep building!', 'Mọi thứ đều ổn — cứ xây dựng tiếp!', '一切正常——继续发展！'],
   'mk.portfolio': ['Portfolio', 'Danh mục', '投资组合'],
   'mk.holdings': ['Stock holdings worth {n}', 'Giá trị cổ phiếu đang giữ: {n}', '持有股票价值：{n}'],

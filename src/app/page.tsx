@@ -1,5 +1,5 @@
 'use client';
-// HuyenBao v11.56 — React edition. Two-level grouped nav, a systems links map,
+// HuyenBao v11.57 — React edition. Two-level grouped nav, a systems links map,
 // gigs, levels, social, the cosmic frontier, EN/VI/中文, LLM oracle with
 // random kind dispatch (luck / setback / life-stage / story), pre-owned
 // market + social listings, a Hall of Fame tab, and a real player-to-player
@@ -43,10 +43,11 @@ import {
   spaceUpgradeReady, startSpaceUpgrade, spaceUpgradeDays, spaceMultiplier, SPACE_TRAVEL_COST,
   recordActivity, studyPace, sleepHealthMult, sleepHealthRecovery, sleepHoursOptions, sleepDebtStudyMult, sleepDebtHealthMult,
   gameOverTier, botRows, type AIEvent, type AIEventKind, type GameState, type Transaction, type TxKind, TX_CAP,
-  // v11.49 — Portfolio Dashboard helpers
+  // v11.49 — Portfolio Dashboard helpers + v11.53 Finance Overview helpers
   recordTx, portfolioRealizedGains, portfolioUnrealizedGains, portfolioInvested, portfolioIncome, portfolioROI, stockROI, cashFlowLastDays,
-  // v11.53 — Finance Overview helpers (SAVE_RATE/LOAN_RATE already imported from gameData above)
   yearExpenses, incomeBreakdown, expenseBreakdown, assetBreakdown, financeActions, type IncomeSource, type ExpenseItem, type AssetItem, type FinanceAction,
+  // v11.57 — banking credit breakdown
+  maxLoanOf,
   doWell, toggleDiet, wellReady, wellLeft, effWellCd, healthMult, healthState, healthWarnings, spiritState, decayPerYear,
   jobsOf, jobIncome, studyTuition, type Religion, RELIGIONS,
   spiritBizMult, cosmicMult, GYM_COST, GYM_CD, CHECKUP_COST, CHECKUP_CD, TREAT_COST, TREAT_CD, DIET_COST,
@@ -100,7 +101,7 @@ if (typeof window !== 'undefined') {
 // v11.8 — the bundled version. The /version.json file in /public is polled
 // every 5 minutes; if its version is newer than this, a "reload to update"
 // banner appears even in a running session (no F5 needed).
-const BUNDLED_VERSION = 'v11.56';
+const BUNDLED_VERSION = 'v11.57';
 const VERSION_POLL_MS = 5 * 60 * 1000;
 // v11.44 — 'what's new' modal now fires PER PATCH (not per major version).
 // The SEEN_KEY is derived from BUNDLED_VERSION so each new patch re-shows the
@@ -145,6 +146,14 @@ export default function Page() {
   // v11.44 — dynamic content from version.json (headline + features array).
   const [whatsNewContent, setWhatsNewContent] = useState<{ headline: string; features: string[] } | null>(null);
   const [reloadPrompt, setReloadPrompt] = useState<{ version: string; headline: string } | null>(null);
+  // v11.57 — time acceleration: x1 / x10 / x50 when playing online. Multiplies
+  // the elapsed real-time before passing to tick(), so at x10 each real second
+  // = 10 game-seconds, at x50 = 50 game-seconds. Default x1.
+  const [speed, setSpeed] = useState<1 | 10 | 50>(1);
+  // Ref mirror so the game-loop useEffect (which captures `speed` at mount)
+  // always reads the current value without re-creating the interval.
+  const speedRef = useRef(speed);
+  useEffect(() => { speedRef.current = speed; }, [speed]);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // v11.44 — Show the "what's new" modal on first load if not seen yet.
@@ -284,7 +293,11 @@ export default function Page() {
       // real away-duration on return. Previously hidden time was simply paused.
       if (document.hidden) { return; }
       const now = Date.now();
-      const res = tick(st, now - last, Math.random, t);
+      // v11.57 — apply speed multiplier to the elapsed time. At x10, each
+      // real second advances 10 game-seconds; at x50, 50. This lets players
+      // fast-forward through calm periods (studying, waiting for a degree).
+      const elapsed = (now - last) * speedRef.current;
+      const res = tick(st, elapsed, Math.random, t);
       last = now;
       // Refresh lastSeen while actively playing so offline only counts real
       // away time (not the gap between 250ms ticks).
@@ -401,7 +414,7 @@ export default function Page() {
     <div className={'tgame life-' + healthState(s.health)}>
       <div dangerouslySetInnerHTML={{ __html: ART_DEFS }} />
       <div className="wrap">
-        <Header s={s} eraName={eraName} />
+        <Header s={s} eraName={eraName} speed={speed} setSpeed={setSpeed} />
         {/* v11.48 — reverted to simple inline nav bars (popups were buggy/confusing).
             PinZone dashboard stays; nav is back to horizontal scroll pills. */}
         <div className="sticky-header">
@@ -576,7 +589,7 @@ function useReqLabel() {
   return (req?: Req) => (req && Object.keys(req).length ? reqText(req) : t('noReq'));
 }
 
-function Header({ s, eraName }: { s: GameState; eraName: (y: number) => string }) {
+function Header({ s, eraName, speed, setSpeed }: { s: GameState; eraName: (y: number) => string; speed: 1 | 10 | 50; setSpeed: (s: 1 | 10 | 50) => void }) {
   const { t, lang, setLang } = useT();
   const xpPct = Math.min(100, Math.round(s.xp / xpNeed(s.level) * 100));
   const [theme, setTheme] = useState<'dark' | 'light'>('dark');
@@ -597,7 +610,7 @@ function Header({ s, eraName }: { s: GameState; eraName: (y: number) => string }
     <header className="top">
       <div className="brand">
         <Art id="s-coin" className="logo" />
-        <div><h1><span className="mini">v11.56</span> HuyenBao</h1>
+        <div><h1><span className="mini">v11.57</span> HuyenBao</h1>
           <div className="mini">{s.started ? `${s.nation} · ${eraName(worldYear(s))}` : t('tagline')}</div></div>
       </div>
       {/* v11.46 — removed Cash/NW/Income from header (was duplicate of PinZone).
@@ -612,6 +625,18 @@ function Header({ s, eraName }: { s: GameState; eraName: (y: number) => string }
           onClick={flipTheme} aria-label={t('theme')} title={t('theme')}>
           <Ic id={theme === 'dark' ? 'ic-sun' : 'ic-moon'} className="bsi" />
         </button>
+        {/* v11.57 — time acceleration control: x1 / x10 / x50. Only visible
+            when the game has started (no point accelerating the intro screen). */}
+        {s.started && !s.over && (
+          <span className="speed-ctrl" role="group" aria-label={t('speed.label', 'Time speed')}>
+            {([1, 10, 50] as const).map(sp => (
+              <button key={sp} aria-pressed={speed === sp} data-speed={sp}
+                onClick={() => setSpeed(sp)} title={t('speed.tip', '', { n: sp })}>
+                {sp === 1 ? '▶' : `×${sp}`}
+              </button>
+            ))}
+          </span>
+        )}
       </div>
     </header>
   );
@@ -3657,7 +3682,9 @@ function FinanceOverviewTab({ s, onNav }: { s: GameState; act: Act; onNav: (k: s
 // ================= BANK =================
 function BankTab({ s, act }: { s: GameState; act: Act }) {
   const { t } = useT();
-  const maxLoan = Math.max(0, Math.floor(netWorth(s) * .5 - s.bank.loan));
+  // v11.57 — use the new maxLoanOf helper that includes income-based credit.
+  const loanInfo = maxLoanOf(s);
+  const maxLoan = loanInfo.total;
   let marginal = 0; { let lo = 0; for (const [hi, rate] of TAX_BRACKETS) { if (s.yIncome > lo) marginal = rate; lo = hi; } }
   const fameTxt = s.fame >= 1000 ? t('fameIconic') : s.fame >= 300 ? t('fameHousehold') : s.fame >= 100 ? t('fameFamous') : s.fame >= 25 ? t('fameWell') : s.fame > 0 ? t('fameGetting') : t('fameLevels');
   return (
@@ -3668,6 +3695,17 @@ function BankTab({ s, act }: { s: GameState; act: Act }) {
         <div className="lb"><span>{t('incomeYear')}</span><b>{fmt(s.yIncome)}</b></div>
         <div className="lb"><span>{t('bracket', '', { x: '$' + TAX_FREE.toLocaleString() })}</span><b>{(marginal * 100).toFixed(0)}{t('marginal')}</b></div>
         <div className="lb"><span>{t('lastTax')}</span><b>{fmt(s.yTax)}</b></div>
+        {/* v11.57 — credit limit breakdown showing base + income credit */}
+        <div className="lb" style={{ flexDirection: 'column', alignItems: 'stretch', gap: 4, padding: '8px 13px' }}>
+          <span className="mini" style={{ fontWeight: 700, opacity: .8 }}>{t('bank.creditBreakdown')}</span>
+          <span className="mini"><span style={{ opacity: .6 }}>{t('bank.baseCredit')}:</span> <b>{fmt(loanInfo.base)}</b></span>
+          {loanInfo.incomeCredit > 0 && (
+            <span className="mini" style={{ color: 'var(--sage)' }}><span style={{ opacity: .6 }}>{t('bank.incomeCredit')}:</span> <b>+{fmt(loanInfo.incomeCredit)}</b></span>
+          )}
+          <span className="mini"><span style={{ opacity: .6 }}>{t('bank.existingLoan')}:</span> <b style={{ color: 'var(--brick)' }}>−{fmt(loanInfo.existing)}</b></span>
+          <span className="mini" style={{ fontWeight: 700 }}><span style={{ opacity: .6 }}>{t('bank.available')}:</span> <b style={{ color: 'var(--accent)' }}>{fmt(loanInfo.total)}</b></span>
+          {loanInfo.incomeCredit > 0 && <span className="mini" style={{ opacity: .55, fontStyle: 'italic' }}>{t('bank.incomeCreditNote')}</span>}
+        </div>
       </div>
       <h3>{t('savings')}</h3>
       <Row art="ic-coins" right={<div className="trade">

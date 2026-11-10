@@ -281,14 +281,17 @@ export interface GameState {
 
 // ---------- wellbeing: body & mind ----------
 export type T = (k: string, f?: string, v?: Record<string, string | number>) => string;
-export const GYM_COST = 80, GYM_CD = 2, GYM_HP = 6;
-export const CHECKUP_COST = 600, CHECKUP_CD = 30, CHECKUP_HP = 15;
+// v11.57 — paid wellbeing cooldowns increased (user request: "ở phần có phí
+// hãy tăng thêm thời gian"). Free actions unchanged. This makes free options
+// (rest/selftrain/meditate) more valuable relative to paid ones.
+export const GYM_COST = 80, GYM_CD = 3, GYM_HP = 6;          // was cd=2
+export const CHECKUP_COST = 600, CHECKUP_CD = 45, CHECKUP_HP = 15;  // was cd=30
 // v11.29 — deep medical treatment: the "I'm really weak, fix me NOW" option.
 // Expensive and a long-ish cooldown, but heals far more than a check-up.
-export const TREAT_COST = 3000, TREAT_CD = 5, TREAT_HP = 45;
+export const TREAT_COST = 3000, TREAT_CD = 8, TREAT_HP = 45;  // was cd=5
 export const DIET_COST = 6;
-export const TEMPLE_COST = 500, TEMPLE_CD = 3;
-export const RETREAT_COST = 8000, RETREAT_CD = 60;
+export const TEMPLE_COST = 500, TEMPLE_CD = 5;               // was cd=3
+export const RETREAT_COST = 8000, RETREAT_CD = 90;            // was cd=60
 export interface WellDef { id: string; cost: number; cd: number }
 export const FAITH_PRACTICE_COST = 250, FAITH_PRACTICE_CD = 7;
 export const WELL: WellDef[] = [
@@ -323,7 +326,10 @@ export const effWellCd = (s: GameState, id: string): number => {
 export const wellReady = (s: GameState, id: string) => {
   const w = wellDef(id); if (!w) return false;
   const last = s.well[id];
-  return (last == null || s.lastDay - last >= effWellCd(s, id)) && s.money >= w.cost;
+  // v11.57 — free actions (cost === 0) skip the money check entirely so they
+  // work even when cash is negative. Was `s.money >= w.cost` which blocked
+  // rest/selftrain/meditate when the player was in debt.
+  return (last == null || s.lastDay - last >= effWellCd(s, id)) && (w.cost === 0 || s.money >= w.cost);
 };
 export const wellLeft = (s: GameState, id: string) => {
   const w = wellDef(id); if (!w) return 0;
@@ -2283,8 +2289,22 @@ export function changeInterest(s: GameState, oldId: string, newId: string): stri
   pushLog(s, `Pivoted interest: ${oldId} → ${newId}. Re-evaluated strongest field.`);
   return `Pivoted: ${oldId} → ${newId}`;
 }
+// v11.57 — loan limit helper for the BankTab UI. Returns the max borrowable
+// amount + the breakdown (base NW credit + income credit − existing loan).
+export function maxLoanOf(s: GameState): { total: number; base: number; incomeCredit: number; existing: number } {
+  const yi = yearIncome(s);
+  const incomeCredit = yi > 0 ? Math.floor(yi * 0.3) : 0;
+  const base = Math.floor(netWorth(s) * 0.5);
+  const existing = s.bank.loan;
+  return { total: Math.max(0, base + incomeCredit - existing), base, incomeCredit, existing };
+}
 export function bankOp(s: GameState, op: 'dep' | 'wd' | 'loan' | 'repay', amt: number | 'all'): string | null {
-  const maxLoan = Math.max(0, Math.floor(netWorth(s) * .5 - s.bank.loan));
+  // v11.57 — loan limit now includes income-based credit: players with a
+  // job or business income can borrow more. Base = NW * 0.5, income bonus
+  // = yearIncome * 0.3 (about 3 months of income as extra credit line).
+  const yi = yearIncome(s);
+  const incomeCredit = yi > 0 ? Math.floor(yi * 0.3) : 0;
+  const maxLoan = Math.max(0, Math.floor(netWorth(s) * .5 + incomeCredit - s.bank.loan));
   if (op === 'dep') {
     const a = amt === 'all' ? Math.floor(s.money) : amt;
     if (a <= 0 || s.money < a) return null;

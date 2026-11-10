@@ -1,18 +1,19 @@
 {
-  "version": "v11.56",
+  "version": "v11.57",
   "releasedAt": "2026-11-11",
-  "headline": "HuyenBao v11.56 — toast moved to bottom + used items in buy catalogue",
-  "summary": "POPUP OVERLAP FIX + USED ITEMS. The toast notification was at top-center (z-index 150) which overlapped the sticky PinZone dashboard (z-index 40) — the user kept reporting this as 'đè popup'. Now the toast is at BOTTOM-center, away from the dashboard. Also raised old-style .modal z-index 50 → 250 so EventModal/GameOver/WhatsNew (which use .modal.on, not .modal-overlay) cover the toast too. Second feature: used items from the pre-owned market are now shown IN the buy catalogue (bds/lux/budget sections) — cheaper than new, with condition pill + age + discount % + a 'Buy + repair in Workshop' hint. Previously used items were only in the Auctions tab.",
+  "headline": "HuyenBao v11.57 — toast corner fix + free wellbeing bugfix + time x10/x50 + income-based loans",
+  "summary": "MULTI-FIX. (1) Toast moved to top-right CORNER (was bottom-center, still overlapping gigs popup footer). Now compact + z-index 300 above modal — visible without covering centered modal content. (2) BUGFIX: free wellbeing actions (rest, self-train, meditate, rest7, rest30) were blocked when cash was negative because `wellReady` checked `s.money >= w.cost` even for cost=0 actions. Now free actions skip the money check — always available, even in debt. (3) Paid wellbeing cooldowns increased (gym 2→3, checkup 30→45, treat 5→8, temple 3→5, retreat 60→90 days). (4) Banking: loan limit now includes income-based credit — base = 50% of net worth + 30% of yearly income. A player with $30K NW + $30K income can now borrow $24K (was $15K). Credit breakdown shown in BankTab. (5) Time acceleration: x1 / x10 / x50 speed control in the header — fast-forward through calm periods (studying, waiting for a degree).",
   "features": [
-    "FIX: toast moved top-center → bottom-center so it never covers the sticky PinZone dashboard (was the persistent 'đè popup' complaint across v11.50-v11.55)",
-    "FIX: old-style .modal z-index raised 50 → 250 so EventModal/GameOver/WhatsNew cover the toast (was below toast z-index 150)",
-    "FIX: toast animation now slides from bottom (was from top)",
-    "FIX: mobile toast position adjusted to bottom with safe-area inset",
-    "NEW: used items from USED_MARKET now shown in the buy catalogue (bds/lux/budget sections) — not just in the Auctions tab",
-    "NEW: each used item tile shows brand + name + condition pill + age + ask price + discount % + '🔧 Buy + repair in Workshop' hint",
-    "NEW: used items are era-filtered (since <= current year) + exclude ones the player already owns",
-    "NEW: used.buyNote i18n explains the value proposition: buy cheaper, repair in Workshop to restore value",
-    "NEW: used.repairHint i18n: 'Buy + repair in Workshop' (EN/VI/中文)",
-    "Version bumped to v11.56"
+    "FIX: toast moved bottom-center → top-right CORNER (compact, z-index 300 above modal). No longer covers gigs popup content.",
+    "FIX: free wellbeing actions (rest/selftrain/meditate/rest7/rest30) now work when cash is negative — was blocked by `s.money >= w.cost` check even for cost=0",
+    "CHANGE: paid wellbeing cooldowns increased — gym 2→3d, checkup 30→45d, treat 5→8d, temple 3→5d, retreat 60→90d",
+    "NEW: banking loan limit includes income-based credit — base 50% NW + 30% yearly income",
+    "NEW: maxLoanOf(s) helper returns {total, base, incomeCredit, existing} for the BankTab breakdown",
+    "NEW: BankTab shows credit limit breakdown card (base + income credit − existing loan = available)",
+    "NEW: time acceleration control in header — x1 (▶) / x10 / x50. Multiplies elapsed real-time before passing to tick()",
+    "NEW: speedRef mirrors speed state so the game-loop useEffect reads current value without re-creating the interval",
+    "NEW: speed-ctrl CSS class — compact pill button group, accent color when active",
+    "NEW: i18n keys for speed.label, speed.tip, bank.creditBreakdown, bank.baseCredit, bank.incomeCredit, bank.existingLoan, bank.available, bank.incomeCreditNote, well.freeNote (EN/VI/中文)",
+    "Version bumped to v11.57"
   ]
 }

@@ -170,12 +170,12 @@ test('v11.29: check-up cooldown adapts to health — urgent care within a day', 
   const state = fresh();
   begin(state, { name: 'Test', byear: 1992, nation: 'Vietnam', ints: [], tals: [] });
   state.money = 10_000;
-  // healthy → routine 30-day cooldown
+  // healthy → routine 45-day cooldown (v11.57: was 30, increased per user request)
   state.health = 80;
-  assert.equal(effWellCd(state, 'checkup'), 30);
+  assert.equal(effWellCd(state, 'checkup'), 45);
   doWell(state, 'checkup', k => k); // 80 + 15 = 95
   assert.equal(state.health, 95);
-  assert.equal(wellLeft(state, 'checkup'), 30);
+  assert.equal(wellLeft(state, 'checkup'), 45);
   assert.equal(wellReady(state, 'checkup'), false);
   // run down (<60) → cooldown shrinks to 7 days
   state.health = 55;
