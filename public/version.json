@@ -1,15 +1,13 @@
 {
-  "version": "v11.47",
+  "version": "v11.48",
   "releasedAt": "2026-11-10",
-  "headline": "HuyenBao v11.47 — SVG biểu đồ donut + bar, home tab no-scroll, More info popup",
-  "summary": "CHARTS + NO-SCROLL. (1) REAL SVG CHARTS: donut chart for asset allocation (color-coded segments with center count) + bar chart for income breakdown (horizontal bars with labels + values). Both are inline SVG — no external deps. (2) HOME TAB NO-SCROLL: removed guide, world news, ecosystem, achievements, timeline, life log from the home tab body. All that content is now in a 'More' popup with 5 sections. Home tab body is now just: health alerts + tutorial hint + quick action buttons (gigs, travel, more) + AI note. The dashboard (PinZone) with charts is the main view — everything fits without scrolling. (3) COMPACT DASHBOARD: 3-column layout in PinZone — donut chart (assets) | bar chart (income) | quick info (sleep + job + rent). Removed redundant left-column bars (health/spirit/XP already in top stat pills).",
+  "headline": "HuyenBao v11.48 — revert popup menu → inline nav bars (popup bị lỗi/khó dùng)",
+  "summary": "NAV REVERT. User reported the popup menus (v11.45) were buggy/confusing. Reverted to the simple inline horizontal nav bars (gnav + subnav) that work reliably. PinZone dashboard with SVG charts + no-scroll home tab are KEPT. Only the nav interaction changed: popup dropdowns → standard horizontal scroll pill buttons.",
   "features": [
-    "SVG DONUT CHART: asset allocation with color-coded segments + center count",
-    "SVG BAR CHART: income breakdown with horizontal bars + labels + values",
-    "HOME TAB NO-SCROLL: removed guide/news/eco/ach/timeline/log from body",
-    "MORE INFO POPUP: 5-section popup (Guide/News/Achievements/Timeline/Log) via 'More' button",
-    "COMPACT DASHBOARD: 3-column (donut | bars | info) replaces old 2-column (identity+bars | sleep+strip+rows)",
-    "REMOVED redundant left-column health/spirit/XP bars (already in top stat pills)",
-    "Version bumped to v11.47"
+    "REVERT: popup menus → inline gnav + subnav horizontal bars (reliable, no bugs)",
+    "KEEP: PinZone dashboard with SVG donut + bar charts",
+    "KEEP: no-scroll home tab (More info popup for guide/news/ach/timeline/log)",
+    "KEEP: progressive disclosure + tutorial + dedup",
+    "Version bumped to v11.48"
   ]
 }

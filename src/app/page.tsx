@@ -1,5 +1,5 @@
 'use client';
-// HuyenBao v11.47 — React edition. Two-level grouped nav, a systems links map,
+// HuyenBao v11.48 — React edition. Two-level grouped nav, a systems links map,
 // gigs, levels, social, the cosmic frontier, EN/VI/中文, LLM oracle with
 // random kind dispatch (luck / setback / life-stage / story), pre-owned
 // market + social listings, a Hall of Fame tab, and a real player-to-player
@@ -95,7 +95,7 @@ if (typeof window !== 'undefined') {
 // v11.8 — the bundled version. The /version.json file in /public is polled
 // every 5 minutes; if its version is newer than this, a "reload to update"
 // banner appears even in a running session (no F5 needed).
-const BUNDLED_VERSION = 'v11.47';
+const BUNDLED_VERSION = 'v11.48';
 const VERSION_POLL_MS = 5 * 60 * 1000;
 // v11.44 — 'what's new' modal now fires PER PATCH (not per major version).
 // The SEEN_KEY is derived from BUNDLED_VERSION so each new patch re-shows the
@@ -393,15 +393,39 @@ export default function Page() {
       <div dangerouslySetInnerHTML={{ __html: ART_DEFS }} />
       <div className="wrap">
         <Header s={s} eraName={eraName} />
-        {/* v11.45 — PinZone is now the MAIN dashboard (no-scroll). Nav is
-            popup menus. The whole top is compact + pinned. */}
+        {/* v11.48 — reverted to simple inline nav bars (popups were buggy/confusing).
+            PinZone dashboard stays; nav is back to horizontal scroll pills. */}
         <div className="sticky-header">
           <PinZone s={s} t={t} onEdit={() => setEditingProfile(true)} act={act} onNav={(k: string) => { setTab(k); setLastTab(lt => ({ ...lt, [activeGroup]: k })); }} />
-          {/* v11.45 — nav replaced with popup menus. Each group is a dropdown
-              button; clicking opens a popup with the group's sub-tabs. */}
-          <NavPopups s={s} t={t} activeGroup={activeGroup} tab={tab} onNav={(gid: string, k: string) => {
-            setTab(k); setLastTab(lt => ({ ...lt, [gid]: k }));
-          }} comm={comm} />
+          <nav role="tablist" className="tnav gnav" aria-label="Sections">
+            {GROUPS.map(([gid, gn, gic, subs]) => {
+              const visibleSubs = gid === 'world' ? subs.filter(([k]) => k !== 'space' || entityTierOf(s) === 'empire' || entityTierOf(s) === 'federation') : subs;
+              return (
+                <button key={gid} role="tab" aria-selected={activeGroup === gid} data-g={gid}
+                  onClick={() => setTab(lastTab[gid] || visibleSubs[0][0])}>
+                  {Ic({ id: gic, className: 'si navsi' })}{t('grp.' + gid, gn)}
+                </button>
+              );
+            })}
+          </nav>
+          {(() => {
+            const visibleSubs = activeGroup === 'world'
+              ? curSubs.filter(([k]) => k !== 'space' || entityTierOf(s) === 'empire' || entityTierOf(s) === 'federation')
+              : curSubs;
+            if (visibleSubs.length <= 1) return null;
+            return (
+              <nav role="tablist" className="tnav subnav" aria-label="Sub-sections">
+                {visibleSubs.map(([k, n, ic]) => (
+                  <button key={k} role="tab" aria-selected={tab === k} data-t={k}
+                    data-tip={t('ttab.' + k, '')}
+                    onClick={() => { setTab(k); setLastTab(lt => ({ ...lt, [activeGroup]: k })); }}>
+                    {Ic({ id: ic, className: 'si navsi' })}{t('tab.' + k, n)}
+                    {k === 'friends' && comm.ready && (comm.incoming.length > 0 || comm.unclaimedGifts.length > 0) && <span className="navdot" />}
+                  </button>
+                ))}
+              </nav>
+            );
+          })()}
         </div>
         <main id="tview" key={tab} className="enter">
           {tab === 'home' && <HomeTab s={s} act={act} askAI={askAI} aiBusy={aiBusy} aiNote={t(aiNoteKey)} eraName={eraName} />}
@@ -536,7 +560,7 @@ function Header({ s, eraName }: { s: GameState; eraName: (y: number) => string }
     <header className="top">
       <div className="brand">
         <Art id="s-coin" className="logo" />
-        <div><h1><span className="mini">v11.47</span> HuyenBao</h1>
+        <div><h1><span className="mini">v11.48</span> HuyenBao</h1>
           <div className="mini">{s.started ? `${s.nation} · ${eraName(worldYear(s))}` : t('tagline')}</div></div>
       </div>
       {/* v11.46 — removed Cash/NW/Income from header (was duplicate of PinZone).
