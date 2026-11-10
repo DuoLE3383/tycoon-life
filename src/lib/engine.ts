@@ -9,7 +9,7 @@ import {
   BIZ, FARM_LINES, FAC_LINES, ITEM_BY, STOCKS, CLUBS, JOBS, BOTS,
   NPC_BY, PET_BY, MAX_PETS, CREW_COST, SHORT_BY,
   analyze, type FieldKey, type LineDef, type Req, type GigDef, type SpaceDef, type Rarity, RARITY_MULT, itemRarity, POST_TEMPLATES,
-  ITEM_IMAGES, USED_IMAGES
+  ITEM_IMAGES, USED_IMAGES, RARE_ITEMS, RARE_IDS
 } from './gameData';
 // v11.3 — Power & influence system. Engine imports PowerState type + the
 // passive tick + advocacy helpers; PowerState lives on GameState below.
@@ -159,6 +159,15 @@ export interface GameState {
   // net worth at its `est` estimate, so listing something doesn't nuke the
   // player's balance sheet.
   mkt: MarketJob[];
+  // v11.33 — favourites watchlist (item ids the player stars to track).
+  favs: string[];
+  // v11.33 — the rare-auction circuit. Grail pieces (RARE_ITEMS) never appear
+  // in shops: they are ANNOUNCED (rareUp, bidding opens in N days), then go
+  // LIVE (rareLive) where NPC collectors raise the price every couple of days
+  // and the player must outbid them before the window closes. One live lot at
+  // a time; at most two scheduled at once.
+  rareUp: { id: string; atDay: number }[];
+  rareLive: { id: string; endDay: number; bid: number; leader: 'npc' | 'you'; my: number } | null;
   hall: { name: string; nation: string; era: string; industry: string; peakNetWorth: string; note: string; livedTo: number; tier: string } | null;
   // v10.5 — reincarnation ledger. Each entry is a past life recorded at the
   // moment of reincarnation (not at game over — game over only writes s.hall).
@@ -485,7 +494,7 @@ export function fresh(): GameState {
     level: 1, xp: 0, gigs: {}, space: {}, social: { followers: 0, posts: [] },
     health: 92, spirit: 18, karma: 0, diet: false, well: {}, cause: null,
     sleepHours: 8, timeline: [], ach: [],
-    used: [], mkt: [], hall: null, pastLives: [], relations: {}, pets: [], clubs: [], aiEvPending: false, shortCompleted: [],
+    used: [], mkt: [], favs: [], rareUp: [], rareLive: null, hall: null, pastLives: [], relations: {}, pets: [], clubs: [], aiEvPending: false, shortCompleted: [],
     pendingToasts: [],
     crisis: null, shocks: [], lastResearchDay: 0, researchBrief: null,
     bizRnd: null, spiritGainToday: null,
@@ -527,6 +536,10 @@ export function migrate(raw: unknown): GameState {
   s.used = Array.isArray(s.used) ? s.used : [];
   // v11.28 — timed marketplace jobs backfill for old saves.
   s.mkt = Array.isArray(s.mkt) ? s.mkt : [];
+  // v11.33 — favourites + rare-auction circuit backfill for old saves.
+  s.favs = Array.isArray(s.favs) ? s.favs : [];
+  s.rareUp = Array.isArray(s.rareUp) ? s.rareUp : [];
+  s.rareLive = s.rareLive && typeof s.rareLive === 'object' ? s.rareLive : null;
   s.hall = s.hall || null;
   s.pastLives = Array.isArray(s.pastLives) ? s.pastLives : [];
   s.relations = s.relations && typeof s.relations === 'object' ? s.relations : {};
@@ -1947,6 +1960,107 @@ export function resolveMarket(s: GameState, t?: T, rng: () => number = Math.rand
   }
 }
 
+// ================= v11.33 — RARE AUCTION CIRCUIT =================
+// Grail pieces surface RANDOMLY (~once every ~70 game days), are announced
+// 10–28 days ahead (toast + auction-house schedule), then go LIVE for 5–9
+// days. While live, NPC collectors raise the highest bid every 2 days, and
+// if the player has bid they can be OUTBID — a real bidding war with a real
+// chance of losing. Winning charges the player's bid and delivers the piece
+// in mint condition; being outbid (or not paying) loses nothing but the lot.
+const RARE_SPAWN_P = 1 / 70;
+const RARE_NOTICE_DAYS: [number, number] = [10, 28];
+const RARE_LIVE_DAYS: [number, number] = [5, 9];
+
+export function tickRareAuctions(s: GameState, t?: T, rng: () => number = Math.random): void {
+  if (s.over) { s.rareUp = s.rareUp || []; return; }
+  s.rareUp = Array.isArray(s.rareUp) ? s.rareUp : [];
+  // 1) schedule a new grail announcement (never one the player already owns)
+  if (!s.rareLive && s.rareUp.length < 2 && rng() < RARE_SPAWN_P) {
+    const owned = new Set([...s.lots.map(l => l.id), ...s.used.map(u => u.baseId)]);
+    const pool = RARE_ITEMS.filter(r => !owned.has(r.id) && !s.rareUp.some(u => u.id === r.id));
+    if (pool.length) {
+      const pick = pool[Math.floor(rng() * pool.length)];
+      const lead = RARE_NOTICE_DAYS[0] + Math.floor(rng() * (RARE_NOTICE_DAYS[1] - RARE_NOTICE_DAYS[0] + 1));
+      s.rareUp.push({ id: pick.id, atDay: s.day + lead });
+      queueToast(s, t
+        ? t('rare.soon', '', { name: pick.name, n: lead, x: fmt(pick.price) })
+        : `Rare auction announced: ${pick.name} — bidding opens in ${lead} days.`);
+      pushLog(s, `Auction house: ${pick.name} — bids open in ${lead} days (est ${fmt(pick.price)}).`);
+    }
+  }
+  // 2) move due announcements to the live block (one at a time)
+  if (!s.rareLive && s.rareUp.length) {
+    const due = s.rareUp.findIndex(u => s.day >= u.atDay);
+    if (due > -1) {
+      const { id, atDay } = s.rareUp.splice(due, 1)[0];
+      const it = ITEM_BY[id];
+      const open = Math.round(it.price * (0.5 + rng() * 0.2));
+      const days = RARE_LIVE_DAYS[0] + Math.floor(rng() * (RARE_LIVE_DAYS[1] - RARE_LIVE_DAYS[0] + 1));
+      s.rareLive = { id, endDay: s.day + days, bid: open, leader: 'npc', my: 0 };
+      queueToast(s, t
+        ? t('rare.open', '', { name: it.name, x: fmt(open), n: days })
+        : `BIDDING OPEN: ${it.name} — opening bid ${fmt(open)}, ${days} days left.`);
+      pushLog(s, `Rare auction LIVE: ${it.name}, opening ${fmt(open)} (${days}d). Late by ${s.day - atDay}d.`);
+    }
+  }
+  // 3) while live: NPC war-chest escalates every 2 days, may outbid the player
+  const L = s.rareLive;
+  if (L && s.day < L.endDay && s.day % 2 === 0) {
+    const it = ITEM_BY[L.id];
+    if (L.leader === 'npc') {
+      L.bid = Math.round(L.bid * (1.03 + rng() * 0.06));
+    } else if (rng() < 0.45) {
+      L.bid = Math.round(L.my * (1.04 + rng() * 0.08));
+      L.leader = 'npc';
+      queueToast(s, t
+        ? t('rare.outbid', '', { name: it.name, x: fmt(L.bid) })
+        : `Outbid! NPC raised ${it.name} to ${fmt(L.bid)}.`);
+    }
+  }
+  // 4) hammer falls
+  if (L && s.day >= L.endDay) {
+    const it = ITEM_BY[L.id];
+    if (L.leader === 'you' && s.money >= L.my) {
+      s.money -= L.my;
+      s.lots.push({ id: L.id, paid: L.my, day: s.day, condition: 100, condDay: s.day });
+      addXp(s, 25, rng);
+      addPost(s, `Won ${it.name} at auction for ${fmt(L.my)} after a bidding war. It's MINE.`, 2.4, rng);
+      queueToast(s, t
+        ? t('rare.won', '', { name: it.name, x: fmt(L.my) })
+        : `🏆 WON: ${it.name} for ${fmt(L.my)}! Delivered in mint condition.`);
+      pushLog(s, `Auction WON: ${it.name} — hammer ${fmt(L.my)}.`);
+    } else {
+      const lost = L.leader === 'you'
+        ? (t ? t('rare.cantPay', '', { name: it.name }) : `Won ${it.name} but couldn't pay — lot forfeited.`)
+        : (t ? t('rare.lost', '', { name: it.name, x: fmt(L.bid) }) : `Lost the auction: ${it.name} went for ${fmt(L.bid)}.`);
+      queueToast(s, lost);
+      pushLog(s, `Auction lost: ${it.name} (${L.leader === 'you' ? 'payment failed' : 'NPC hammer ' + fmt(L.bid)}).`);
+    }
+    s.rareLive = null;
+  }
+}
+// Place (or raise) the player's bid on the live rare lot. Must beat the
+// current high bid by at least 5%. Cash is only charged when the hammer
+// falls in the player's favour.
+export function placeBidRare(s: GameState, amount: number, t?: T): string | null {
+  const L = s.rareLive; if (!L) return null;
+  const it = ITEM_BY[L.id];
+  const min = Math.ceil(L.bid * 1.05);
+  if (!Number.isFinite(amount) || amount < min) {
+    return t ? t('rare.bidLow', '', { x: fmt(min) }) : `Bid too low — minimum ${fmt(min)}.`;
+  }
+  if (s.money < amount) return t ? t('rare.noCash', '', { x: fmt(amount) }) : 'Not enough cash for that bid.';
+  L.my = Math.round(amount);
+  L.leader = 'you';
+  pushLog(s, `Bid ${fmt(L.my)} on ${it.name}.`);
+  return t ? t('rare.bidOk', '', { name: it.name, x: fmt(L.my) }) : `Bid placed: ${fmt(L.my)} on ${it.name}.`;
+}
+// v11.33 — favourites: star an item id to track it in the watchlist.
+export function toggleFav(s: GameState, id: string): void {
+  const i = (s.favs || []).indexOf(id);
+  if (i > -1) s.favs.splice(i, 1); else s.favs.push(id);
+}
+
 // Repair/restore workshop — costs cash + skill check.
 // Player's relevant skill (engineering degree lvl × 25 + licence bonus)
 // raises the condition restored. Mistakes cost a small additional condition
@@ -2351,6 +2465,9 @@ export function tick(s: GameState, dtMs: number, rng: () => number = Math.random
   // window closed. Runs after the day loop so results land the moment the
   // clock passes endDay; t is threaded through for localised toasts.
   if (s.mkt.length) resolveMarket(s, t, rng);
+  // v11.33 — the rare-auction circuit: schedule grail announcements, open
+  // live bidding, escalate NPC bids, resolve the hammer (see above).
+  tickRareAuctions(s, t, rng);
   while (Math.floor(s.age) > s.lastYr && !s.over) { s.lastYr++; yearEnd(s, s.lastYr, rng); }
   if (s.age >= END_AGE && !s.over) { s.age = END_AGE; s.over = true; s.cause = 'age'; out.gameJustOver = true; }
   if (!s.over && s.health <= 0) { s.over = true; s.cause = 'health'; out.gameJustOver = true; }

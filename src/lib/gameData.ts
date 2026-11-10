@@ -478,7 +478,38 @@ export function itemRarity(it: { rarity?: Rarity; lux: number }): Rarity {
   if (l >= 10) return 'uncommon';
   return 'common';
 }
-export const ITEM_BY = Object.fromEntries(ITEMS.map(i => [i.id, i]));
+// ================= v11.33 — RARE LOOTS (auction-only grails) =================
+// "Đồ hiếm thật, giá trị thật": these pieces NEVER appear in any shop
+// catalogue — the only way to own one is the scheduled RARE AUCTION where
+// NPC collectors bid against the player (see tickRareAuctions in engine.ts).
+// They still live in ITEM_BY so owned lots / resale / repair all work.
+export const RARE_ITEMS: ItemDef[] = [
+  { id: 'rg-goldenegg', cat: 'Collectibles', name: 'Fabergé egg (gold & diamonds)', c: '#d4a017', price: 3200000, lux: 5200, rate: .08, art: 'i-coin', rarity: 'legendary' },
+  { id: 'rg-gto', cat: 'Classic car', brand: 'Ferrari', name: '250 GTO \'62', c: '#dc2626', price: 48000000, lux: 15000, rate: .09, art: 'i-lambo', rarity: 'legendary' },
+  { id: 'rg-pinkstar', cat: 'Jewelry', name: 'Pink Star diamond (59.6 ct)', c: '#ec4899', price: 71000000, lux: 18000, rate: .08, art: 'i-ring', rarity: 'legendary' },
+  { id: 'rg-bible', cat: 'Collectibles', name: 'First-edition Gutenberg leaf', c: '#7c2d12', price: 8500000, lux: 6000, rate: .07, art: 'i-stamp', rarity: 'legendary' },
+  { id: 'rg-picasso', cat: 'Art', name: 'Picasso "Femme assise"', c: '#0ea5e9', price: 69500000, lux: 17000, rate: .08, art: 'i-art', rarity: 'legendary' },
+  { id: 'rg-trex', cat: 'Collectibles', name: 'T-Rex skeleton (museum grade)', c: '#57534e', price: 31800000, lux: 12000, rate: .07, art: 'i-vase', rarity: 'legendary' },
+  { id: 'rg-moonrock', cat: 'Collectibles', name: 'Certified lunar meteorite', c: '#64748b', price: 2800000, lux: 4800, rate: .06, art: 'i-coin', rarity: 'legendary' },
+  { id: 'rg-jersey', cat: 'Collectibles', name: 'Match-worn World Cup jersey', c: '#16a34a', price: 9300000, lux: 7000, rate: .06, art: 'i-shirt', rarity: 'legendary' },
+  { id: 'rg-tulip', cat: 'Collectibles', name: "Semper Augustus tulip bulb (1637)", c: '#be185d', price: 1900000, lux: 3900, rate: .12, art: 'i-vase', rarity: 'legendary' },
+  { id: 'rg-wittelsbach', cat: 'Jewelry', name: 'Wittelsbach-Graff blue diamond', c: '#1d4ed8', price: 80000000, lux: 20000, rate: .08, art: 'i-ring', rarity: 'legendary' },
+  { id: 'rg-f1', cat: 'Classic car', name: 'Formula 1 championship car', c: '#f59e0b', price: 18500000, lux: 9000, rate: .07, art: 'i-bike', rarity: 'legendary' },
+  { id: 'rg-strad2', cat: 'Collectibles', name: 'Guarneri "del Gesù" violin', c: '#92400e', price: 16400000, lux: 8500, rate: .08, art: 'i-violin', rarity: 'legendary' },
+];
+export const RARE_IDS = new Set(RARE_ITEMS.map(i => i.id));
+export const ITEM_BY = Object.fromEntries([...ITEMS, ...RARE_ITEMS].map(i => [i.id, i]));
+
+// v11.33 — the three BUY catalogue groups requested by players:
+//   'bds'    Bất động sản — all Property
+//   'lux'    Đồ cao cấp   — luxury tier (lux score >= 15)
+//   'budget' Đồ bình dân  — everyday goods (lux < 15)
+// Rare/legendary grails above are NOT in ITEMS so they never show here.
+export type ItemGroup = 'bds' | 'lux' | 'budget';
+export function itemGroup(it: { cat: string; lux: number }): ItemGroup {
+  if (it.cat === 'Property') return 'bds';
+  return it.lux >= 15 ? 'lux' : 'budget';
+}
 
 // v11.18 — real-world item photos. Mapped by item id; falls back to the SVG
 // <Art> icon when no photo is available. Photos are compressed to ~800px wide.

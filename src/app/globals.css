@@ -1,26 +1,27 @@
 @import "tailwindcss";
 
-/* ===== Tycoon Life v8 — neutral, calm design system ===== */
-/* Warm paper background, ink text, bronze accent, sage success, brick danger. */
+/* ===== Tycoon Life v11.33 — "Emerald & Champagne" design system ===== */
+/* Deep-ink emerald surfaces, champagne-gold accent, jade success, coral danger. */
 
 .tgame{
-  --paper:#f2f0eb; --paper2:#e9e6df; --card:#ffffff; --line:#e2ded4; --line2:#d3cec1;
-  --ink:#33302a; --mute:#78725f; --faint:#a49e8d;
-  --accent:#8a7a5f; --accent2:#77684f; --accentInk:#fdfcf9;
-  --sage:#5f8d6e; --sageBg:#e8efe7;
-  --brick:#b3564d; --brickBg:#f4e6e3;
-  --slate:#6b7f8e;
-  --gold:#8a7a5f; /* kept for legacy var references */
-  --up:#4f7d5f; --dn:#a3524a;
+  --paper:#eef1ec; --paper2:#e2e7df; --card:#fcfdfb; --line:#dde2d8; --line2:#c8cfc0;
+  --ink:#20261f; --mute:#67715f; --faint:#96a08c;
+  --accent:#b08a3e; --accent2:#93702f; --accentInk:#fffdf4;
+  --sage:#2e7d54; --sageBg:#e3f0e7;
+  --brick:#c0473c; --brickBg:#f8e8e5;
+  --slate:#5b7285;
+  --gold:#b08a3e; /* champagne-gold — rarity & grail accents */
+  --up:#2f7a52; --dn:#b8544a;
   min-height:100vh;
   background:linear-gradient(180deg,var(--paper) 0%,var(--paper2) 100%);
   color:var(--ink);
   font:16px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,"Noto Sans",sans-serif;
   padding:env(safe-area-inset-top,0px) 0 env(safe-area-inset-bottom,0px);
   transition:background .25s ease,color .25s ease;
+  overflow-x:clip; /* v11.33 — nothing may push the page sideways; sticky-safe */
 }
-html[data-theme="dark"] body{background:#101114}
-html[data-theme="light"] body{background:#e9e6df}
+html[data-theme="dark"] body{background:#0d1210}
+html[data-theme="light"] body{background:#e2e7df}
 .tgame *{box-sizing:border-box}
 .tgame button{font:inherit;cursor:pointer;color:inherit}
 .tgame input,.tgame select{font:inherit;width:100%;padding:9px 12px;border-radius:10px;border:1px solid var(--line2);background:var(--card);color:var(--ink)}
@@ -55,9 +56,9 @@ html[data-theme="light"] body{background:#e9e6df}
 .tgame .ms span{position:absolute;transform:translateX(-50%);white-space:nowrap}
 .tgame .ms span:first-child{transform:none}
 .tgame .ms span:last-child{transform:translateX(-100%)}
-.tgame .tnav{display:flex;gap:6px;overflow-x:auto;padding:2px 0 10px;scrollbar-width:none}
+.tgame .tnav{display:flex;gap:6px;overflow-x:auto;padding:2px 0 10px;scrollbar-width:none;scroll-snap-type:x proximity;-webkit-mask-image:linear-gradient(90deg,#000 calc(100% - 20px),rgba(0,0,0,0));mask-image:linear-gradient(90deg,#000 calc(100% - 20px),rgba(0,0,0,0))}
 .tgame .tnav::-webkit-scrollbar{display:none}
-.tgame .tnav button{display:flex;align-items:center;gap:6px;padding:8px 13px;border-radius:999px;border:1px solid var(--line);background:var(--card);white-space:nowrap;color:var(--mute);font-weight:600;transition:background .2s,color .2s,border-color .2s}
+.tgame .tnav button{display:flex;align-items:center;gap:6px;padding:8px 13px;border-radius:999px;border:1px solid var(--line);background:var(--card);white-space:nowrap;color:var(--mute);font-weight:600;transition:background .2s,color .2s,border-color .2s;scroll-snap-align:start}
 .tgame .tnav button:hover{color:var(--ink);border-color:var(--line2)}
 .tgame .tnav button[aria-selected="true"]{background:var(--ink);border-color:var(--ink);color:var(--paper);font-weight:700}
 .tgame .si{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;flex:none}
@@ -387,17 +388,17 @@ html[data-theme="light"] body{background:#e9e6df}
 .tgame .lnmap .ln-node.big .ln-name{font-size:13.5px}
 .tgame .lnmap .ln-node.big .ln-val{font-size:12.5px;font-weight:750;fill:var(--up)}
 
-/* ===== dark theme — same neutral system, night-shifted ===== */
+/* ===== dark theme — "Midnight Emerald": deep green-black night shift ===== */
 html[data-theme="dark"]{color-scheme:dark}
-html[data-theme="dark"] .tgame .modal{background:rgba(6,7,10,.62)}
+html[data-theme="dark"] .tgame .modal{background:rgba(4,8,7,.66)}
 html[data-theme="dark"] .tgame{
-  --paper:#17181d; --paper2:#1f2127; --card:#232630; --line:#343846; --line2:#434857;
-  --ink:#e9e7e1; --mute:#a3a199; --faint:#7d7b73;
-  --accent:#a8946f; --accent2:#c1ab81; --accentInk:#191813;
-  --sage:#6f9c80; --sageBg:#243129;
-  --brick:#c9716a; --brickBg:#3a2725;
-  --slate:#8ba2b8; --gold:#a8946f;
-  --up:#85b394; --dn:#cf8d84;
+  --paper:#111715; --paper2:#171f1c; --card:#1c2521; --line:#2b3731; --line2:#3a4941;
+  --ink:#e9eee6; --mute:#9fae9e; --faint:#75826f;
+  --accent:#d9b45c; --accent2:#c9a244; --accentInk:#231c09;
+  --sage:#7bb894; --sageBg:#1d3128;
+  --brick:#d98177; --brickBg:#3c2523;
+  --slate:#8ba6bd; --gold:#d9b45c;
+  --up:#8cc7a2; --dn:#e0a196;
 }
 html[data-theme="dark"] .tgame .heroimg{filter:brightness(.8) saturate(.92)}
 html[data-theme="dark"] .tgame .imcard img{filter:brightness(.82) saturate(.9)}
@@ -523,6 +524,29 @@ html[data-theme="dark"] .tgame .mcard{box-shadow:0 14px 46px rgba(0,0,0,.5)}
 
 /* SQLite server-mode community banner */
 .tgame .soc-banner.ok{background:var(--sageBg)}
+
+/* ================= v11.33 — regrouped assets · favourites · grails · ack ================= */
+/* ⭐ favourite star — appears in every asset row/tile title */
+.tgame .favbtn{border:0;background:transparent;color:var(--faint);font-size:.95rem;line-height:1;padding:1px 4px;border-radius:7px;cursor:pointer;transition:color .15s,transform .15s;vertical-align:middle}
+.tgame .favbtn:hover{color:var(--gold);transform:scale(1.18)}
+.tgame .favbtn.on{color:var(--gold);text-shadow:0 0 7px rgba(217,180,92,.5)}
+/* live grail auction card — champagne glow; sage when the player leads */
+.tgame .rare-live{border:1.5px solid var(--gold);box-shadow:0 0 0 1px rgba(176,138,62,.18),0 6px 18px rgba(40,35,25,.12);margin-bottom:10px}
+.tgame .rare-live[data-lead="you"]{border-color:var(--sage)}
+.tgame .rare-tile{opacity:.94}
+.tgame .rare-tile .tile-photo{opacity:.92}
+/* tiny XP bar inside the pinned status bar level chip */
+.tgame .pinbar{width:46px;height:6px;border-radius:999px;background:var(--paper2);overflow:hidden;display:inline-block;margin-left:5px;vertical-align:middle}
+.tgame .pinbar i{display:block;height:100%;background:var(--accent);border-radius:999px;transition:width .5s ease}
+/* the forever-broken disclaimer checkbox — finally a real control:
+   visible card, 22px custom tick, dark-theme safe, big touch target */
+.tgame .ack{display:flex;gap:10px;align-items:flex-start;margin:4px 0 12px;padding:10px 12px;background:var(--card);border:1px solid var(--line);border-radius:12px;cursor:pointer;text-align:left}
+.tgame .ack:has(.ackbox:checked){border-color:var(--accent)}
+.tgame .ackbox{appearance:none;-webkit-appearance:none;width:22px;height:22px;flex:none;margin:1px 0 0;border-radius:7px;border:2px solid var(--line2);background:var(--paper2);display:inline-grid;place-content:center;cursor:pointer;transition:background .15s,border-color .15s}
+.tgame .ackbox::before{content:'';width:11px;height:11px;transform:scale(0);transition:transform .15s;clip-path:polygon(14% 44%,0 65%,50% 100%,100% 16%,80% 0,43% 62%);background:var(--accentInk)}
+.tgame .ackbox:checked{background:var(--accent);border-color:var(--accent)}
+.tgame .ackbox:checked::before{transform:scale(1)}
+.tgame .ackbox:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 
 /* ================= v11.27 — /admin dashboard ================= */
 .admpage{max-width:980px;margin:0 auto;padding:26px 16px 64px;font-family:inherit;line-height:1.5}

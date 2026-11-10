@@ -1,5 +1,5 @@
 'use client';
-// HuyenBao v11.32 — React edition. Two-level grouped nav, a systems links map,
+// HuyenBao v11.33 — React edition. Two-level grouped nav, a systems links map,
 // gigs, levels, social, the cosmic frontier, EN/VI/中文, LLM oracle with
 // random kind dispatch (luck / setback / life-stage / story), pre-owned
 // market + social listings, a Hall of Fame tab, and a real player-to-player
@@ -23,6 +23,7 @@ import {
   SAVE_RATE, LOAN_RATE, TAX_FREE, TAX_BRACKETS, ALLNEWS, eraOf, NATIONS, NAME_POOLS, INTERESTS, TALENTS, PATHS,
   analyze, FIELDS, LICENSES, LIC_BY, LIC_FOR, STAGES, BIZ, FARM_LINES, FAC_LINES, ITEM_BY, ITEM_IMAGES, USED_IMAGES, STOCKS, ASSET_DEPRECIATION_RATE,
   CLUBS, JOBS, GIGS, SPACE_LINES, TABS, GROUPS, xpNeed, ITEMS, USED_MARKET, HALL_OF_FAME, itemRarity, RARITY_COLOR, RARITY_MULT, NPCS, NPC_BY, PETS, PET_BY, MAX_PETS, CREW_COST, SHORT_COURSES, SHORT_BY, BOTS, type Rarity, type FieldKey, type Req, type ItemDef, type UsedItem,
+  RARE_ITEMS, RARE_IDS, itemGroup, type ItemGroup,
 } from '@/lib/gameData';
 import {
   fmt, taxOf, fresh, begin, tick, applyOffline, stageOf, worldYear, branchCount, bizCost, clubMult, branchNet, fameBonus, bizMultiplier,
@@ -44,6 +45,8 @@ import {
   ACHIEVEMENTS, checkAch,
   buyUsedItem, sellUsed, usedItemValue, playerHallEntry, recordHallOnGameOver,
   putUpAuction, postSaleListing, cancelMarketJob, sellChanceOf, AUCTION_DAYS, LISTING_DAYS, AUCTION_FEE, LISTING_FEE, marketVal,
+  // v11.33 — rare-auction circuit + favourites
+  placeBidRare, toggleFav,
   repairLot, repairUsed, repairSkill, repairCost,
   choiceRisk, type ChoiceRisk,
   creativePost,
@@ -88,7 +91,7 @@ if (typeof window !== 'undefined') {
 // v11.8 — the bundled version. The /version.json file in /public is polled
 // every 5 minutes; if its version is newer than this, a "reload to update"
 // banner appears even in a running session (no F5 needed).
-const BUNDLED_VERSION = 'v11.32';
+const BUNDLED_VERSION = 'v11.33';
 const VERSION_POLL_MS = 5 * 60 * 1000;
 // v11.24 — 'what's new' modal is shown ONCE PER PLAYER per MAJOR version
 // (tycoon_seen_v11), not once per patch release. Previously the key was
@@ -523,7 +526,7 @@ function Header({ s, eraName }: { s: GameState; eraName: (y: number) => string }
     <header className="top">
       <div className="brand">
         <Art id="s-coin" className="logo" />
-        <div><h1><span className="mini">v11.32</span> HuyenBao</h1>
+        <div><h1><span className="mini">v11.33</span> HuyenBao</h1>
           <div className="mini">{s.started ? `${s.nation} · ${eraName(worldYear(s))}` : t('tagline')}</div></div>
       </div>
       <div><div className="mini">{t('cash')}</div><div id="tcash" style={{ color: s.money < 0 ? 'var(--brick)' : undefined }}>{fmt(s.money)}</div>
@@ -572,6 +575,11 @@ function PinZone({ s, t }: { s: GameState; t: TFn }) {
         <span className={'pchip ' + (yi >= 0 ? 'up' : 'down')} data-tip={t('inc.total', 'Income/yr')}><Ic id="t-stock" className="bsi" />{yi >= 0 ? '+' : ''}{fmt(yi)}{t('perYear')}</span>
         <span className="hpill" data-life={healthState(s.health)}><Ic id="w-heart" className="bsi" />{Math.round(s.health)}</span>
         <span className="hpill"><Ic id="w-lotus" className="bsi" />{Math.round(s.spirit)}</span>
+        {/* v11.33 — the Character-panel essentials merged into the pinned
+            status bar so they are ALWAYS visible: job, education, level+XP. */}
+        {jobsOf(s).length > 0 && <span className="pchip" data-tip={t('pin.job')}><Ic id="t-work" className="bsi" />{jobsOf(s).map(j => t('job.' + j.id, j.name)).join(' + ')}</span>}
+        {Object.values(s.deg || {}).reduce((a, b) => a + b, 0) > 0 && <span className="pchip" data-tip={t('degrees')}>🎓 {Object.values(s.deg || {}).reduce((a, b) => a + b, 0)}</span>}
+        <span className="pchip" data-tip={`Lv ${s.level} · ${s.xp}/${xpNeed(s.level)} XP`}>⭐ {t('lvl')} {s.level}<span className="pinbar"><i style={{ width: Math.min(100, Math.round(s.xp / xpNeed(s.level) * 100)) + '%' }} /></span></span>
         <span className="mini">{t('fame')} {s.fame} · {t('followers')} {s.social.followers.toLocaleString()}</span></div>
       {warns.length > 0 && <div className="att-warn pin" role="status">⚠ {warns.map(w => t(w)).join(' · ')}</div>}
       <div className="track slim" style={{ background: `linear-gradient(90deg,#8fae9b 0 ${p(22)},#c9b68e ${p(22)} ${p(26)},#c08a80 ${p(26)} ${p(RETIRE)},#9b93a8 ${p(RETIRE)})` }}>
@@ -1838,29 +1846,30 @@ function TarotSpreadPanel({ act }: { act: Act }) {
   );
 }
 
-// ================= ASSETS (was ShopTab) =================
-// v11.28 — reorganised into a 5-section sub-menu so every asset concern has
-// a home: AUCTION (timed auction house + fixed-price listings — items leave
-// your inventory for a few game-days, bids roll in, and the sale can fall
-// through), USED (pre-owned market + your second-hand pieces), RARE (the
-// rare/legendary collectibles you own + the ones for sale), WORKSHOP (repair
-// & restore) and SHOP (the full new-item catalogue). The Assets GROUP also
-// moved up to slot 2 in the main nav this version.
-type AssetSec = 'auction' | 'used' | 'rare' | 'workshop' | 'shop';
+// ================= ASSETS (v11.33 — regrouped) =================
+// Player-requested structure replacing the old 5-section menu:
+//   🏠 BẤT ĐỘNG SẢN   — buy / sell / auction (Property)
+//   💎 ĐỒ CAO CẤP     — buy / sell / auction (luxury tier, lux ≥ 15)
+//   👕 ĐỒ BÌNH DÂN    — everyday goods (lux < 15)
+//   📦 TÀI SẢN        — the collection: houses, wheels, collectibles, goods
+//   🔨 ĐẤU GIÁ & CHỢ  — favourites watchlist, scheduled auctions, live rare
+//                       bidding + the pre-owned market
+//   🌟 ĐỒ HIẾM        — auction-only grails: announced ahead, then a REAL
+//                       bidding war (NPCs raise the price, you can be outbid)
+//   🔧 WORKSHOP       — repair & restore (unchanged)
+// Every row and tile carries a ⭐ favourite toggle; favourites are tracked in
+// the auction-house watchlist with their live market values.
+type AssetSec = 'bds' | 'lux' | 'budget' | 'own' | 'auction' | 'rare' | 'workshop';
 
-const CATART: Record<string, string> = { 'Sport bike': 'i-bike', 'Phone': 'i-phone', 'Watch': 'i-watch', 'Jewelry': 'i-ring', 'Suit': 'i-suit', 'Car': 'i-lambo', 'Property': 'i-house', 'Yacht': 'i-yacht', 'Private jet': 'i-jet', 'Art': 'i-art', 'Collectibles': 'i-coin' };
+const CATART: Record<string, string> = { 'Sport bike': 'i-bike', 'Phone': 'i-phone', 'Watch': 'i-watch', 'Jewelry': 'i-ring', 'Suit': 'i-suit', 'Car': 'i-lambo', 'Property': 'i-house', 'Yacht': 'i-yacht', 'Private jet': 'i-jet', 'Art': 'i-art', 'Collectibles': 'i-coin', 'Sneakers': 'i-shoe', 'Handbag': 'i-handbag', 'Audio': 'i-sound', 'Camera': 'i-cam', 'Classic car': 'i-lambo' };
 
 function AssetsTab({ s, act, curCat, setCurCat }: { s: GameState; act: Act; curCat: string | null; setCurCat: (c: string | null) => void }) {
   const { t } = useT();
-  const [sec, setSec] = useState<AssetSec>('auction');
-  // v11.20 — sort categories by minimum item price ascending (easiest → hardest).
-  const cats = [...new Set(ITEMS.map(i => i.cat))].sort((a, b) => {
-    const loA = Math.min(...ITEMS.filter(i => i.cat === a).map(i => i.price));
-    const loB = Math.min(...ITEMS.filter(i => i.cat === b).map(i => i.price));
-    return loA - loB;
-  });
+  const [sec, setSec] = useState<AssetSec>('bds');
   // v11.18 — pending purchase confirmation modal (unchanged this version).
   const [pendingBuy, setPendingBuy] = useState<{ kind: 'new'; item: ItemDef } | { kind: 'used'; used: UsedItem } | null>(null);
+  // v11.33 — draft amount for the live rare-auction bid box.
+  const [bidDraft, setBidDraft] = useState('');
   // Surface 6 used listings, shuffled deterministically by the current
   // game-year so the listings rotate as the player ages.
   const y = worldYear(s);
@@ -1877,21 +1886,31 @@ function AssetsTab({ s, act, curCat, setCurCat }: { s: GameState; act: Act; curC
 
   const condTxtOf = (c: number) => c >= 80 ? 'mint' : c >= 60 ? 'good' : c >= 40 ? 'fair' : 'rough';
   const rareIds = ['rare', 'legendary'];
-  const rareLots = s.lots.map((l, i) => ({ l, i })).filter(({ l }) => rareIds.includes(itemRarity(ITEM_BY[l.id])));
-  const rareUsed = s.used.map((u, i) => ({ u, i })).filter(({ u }) => rareIds.includes(itemRarity(u)));
+  // v11.33 — favourites + group membership helpers.
+  const favOn = (id: string) => (s.favs || []).includes(id);
+  const favBtn = (id: string) => (
+    <button className={'favbtn' + (favOn(id) ? ' on' : '')} title={t('fav.toggle')} aria-pressed={favOn(id)}
+      onClick={() => act(st => { toggleFav(st, id); return null; })}>★</button>
+  );
+  const ownLots = (g: ItemGroup) => s.lots.map((l, i) => ({ l, i })).filter(({ l }) => itemGroup(ITEM_BY[l.id]) === g);
+  const ownUsed = (g: ItemGroup) => s.used.map((u, i) => ({ u, i })).filter(({ u }) => itemGroup({ cat: u.cat, lux: u.lux }) === g);
   const repLots = s.lots.map((l, i) => ({ l, i })).filter(({ l }) => (l.condition == null ? 100 : l.condition) < 100);
   const repUsed = s.used.map((u, i) => ({ u, i })).filter(({ u }) => u.condition < 100);
+  const rareLots = s.lots.map((l, i) => ({ l, i })).filter(({ l }) => rareIds.includes(itemRarity(ITEM_BY[l.id])) || RARE_IDS.has(l.id));
+  const rareUsed = s.used.map((u, i) => ({ u, i })).filter(({ u }) => rareIds.includes(itemRarity(u)) || RARE_IDS.has(u.baseId));
 
   const secs: [AssetSec, string, string, number][] = [
-    ['auction', 'ic-up', 'astsec.auction', s.mkt.length],
-    ['used', 'ic-coins', 'astsec.used', s.used.length],
-    ['rare', 'ic-star', 'astsec.rare', rareLots.length + rareUsed.length],
+    ['bds', 'i-house', 'astsec.bds', ownLots('bds').length],
+    ['lux', 'i-ring', 'astsec.lux', ownLots('lux').length + ownUsed('lux').length],
+    ['budget', 'i-shoe', 'astsec.budget', ownLots('budget').length + ownUsed('budget').length],
+    ['own', 'ic-bag', 'astsec.own', s.lots.length + s.used.length],
+    ['auction', 'ic-up', 'astsec.auction', s.mkt.length + (s.rareUp || []).length + (s.rareLive ? 1 : 0)],
+    ['rare', 'ic-star', 'astsec.rare', (s.rareUp || []).length + (s.rareLive ? 1 : 0) + rareLots.length + rareUsed.length],
     ['workshop', 'ic-check', 'astsec.workshop', repLots.length + repUsed.length],
-    ['shop', 'ic-bag', 'astsec.shop', 0],
   ];
 
   // ---- shared row renderers (called as plain functions, not components) ----
-  const lotRow = (l: GameState['lots'][number], idx: number, mode: 'auction' | 'rare' | 'workshop') => {
+  const lotRow = (l: GameState['lots'][number], idx: number, mode: 'sell' | 'workshop') => {
     const it = ITEM_BY[l.id], v = lotValue(s, l), resale = v * (1 - RESALE_FEE);
     const rar = itemRarity(it);
     const cond = l.condition == null ? 100 : l.condition;
@@ -1905,7 +1924,7 @@ function AssetsTab({ s, act, curCat, setCurCat }: { s: GameState; act: Act; curC
       </>}
       {mode === 'workshop' && cond < 100 && <Btn ic="ic-check" label={t('workshop.repair') + ' ' + fmt(repCost)} kind="ghost" disabled={s.money < repCost} onClick={() => act(st => repairLot(st, idx))} />}
     </div>}>
-      <b>{it.brand ? <span className="bchip" style={{ background: it.c }}>{it.brand}</span> : null}{it.name} <span className="rarity-chip" data-rarity={rar} style={{ '--rc': RARITY_COLOR[rar] } as React.CSSProperties}>{t('rarity.' + rar)}</span></b>
+      <b>{favBtn(l.id)}{it.brand ? <span className="bchip" style={{ background: it.c }}>{it.brand}</span> : null}{it.name} <span className="rarity-chip" data-rarity={rar} style={{ '--rc': RARITY_COLOR[rar] } as React.CSSProperties}>{t('rarity.' + rar)}</span></b>
       <span className="sub">
         {mode === 'workshop'
           ? <span className="cond-pill" data-cond={condTxtOf(cond)}>{t('used.cond')} {cond} · {condTxtOf(cond)}</span>
@@ -1916,7 +1935,7 @@ function AssetsTab({ s, act, curCat, setCurCat }: { s: GameState; act: Act; curC
       </span>}
     </Row>;
   };
-  const usedRow = (u: GameState['used'][number], idx: number, mode: 'auction' | 'rare' | 'workshop') => {
+  const usedRow = (u: GameState['used'][number], idx: number, mode: 'sell' | 'workshop') => {
     const v = usedItemValue(s, u), resale = v * (1 - RESALE_FEE);
     const rar = itemRarity(u);
     const ask = Math.round(v * RARITY_MULT[rar] * 1.4);
@@ -1929,7 +1948,7 @@ function AssetsTab({ s, act, curCat, setCurCat }: { s: GameState; act: Act; curC
       </>}
       {mode === 'workshop' && u.condition < 100 && <Btn ic="ic-check" label={t('workshop.repair') + ' ' + fmt(repCost)} kind="ghost" disabled={s.money < repCost} onClick={() => act(st => repairUsed(st, idx))} />}
     </div>}>
-      <b>{u.brand ? <span className="bchip" style={{ background: u.c }}>{u.brand}</span> : null}{u.name} <span className="rarity-chip" data-rarity={rar} style={{ '--rc': RARITY_COLOR[rar] } as React.CSSProperties}>{t('rarity.' + rar)}</span></b>
+      <b>{favBtn(u.baseId)}{u.brand ? <span className="bchip" style={{ background: u.c }}>{u.brand}</span> : null}{u.name} <span className="rarity-chip" data-rarity={rar} style={{ '--rc': RARITY_COLOR[rar] } as React.CSSProperties}>{t('rarity.' + rar)}</span></b>
       <span className="sub">
         <span className="cond-pill" data-cond={condTxtOf(u.condition)}>{t('used.cond')} {u.condition} · {condTxtOf(u.condition)}</span>
         {' · '}{t('used.age', '', { n: u.ageYears })} · {t('paid')} {fmt(u.paid)} · {t('worthNow')} {fmt(v)}
@@ -1941,9 +1960,105 @@ function AssetsTab({ s, act, curCat, setCurCat }: { s: GameState; act: Act; curC
     </Row>;
   };
 
+  // ---- buy-catalogue section (shared by bds / lux / budget) ----
+  const groupSec = (g: ItemGroup) => {
+    const items = ITEMS.filter(i => itemGroup(i) === g);
+    const cats = [...new Set(items.map(i => i.cat))].sort((a, b) => {
+      const loA = Math.min(...items.filter(i => i.cat === a).map(i => i.price));
+      const loB = Math.min(...items.filter(i => i.cat === b).map(i => i.price));
+      return loA - loB;
+    });
+    const mine = [...ownLots(g).map(({ l, i }) => ({ l, i })), ...ownUsed(g).map(({ u, i }) => ({ u, i }))];
+    return <>
+      <p className="sub">{t('agroup.sub.' + g)}</p>
+      {mine.length > 0 && <>
+        <h3>{t('astsec.have')}</h3>
+        {ownLots(g).map(({ l, i }) => lotRow(l, i, 'sell'))}
+        {ownUsed(g).map(({ u, i }) => usedRow(u, i, 'sell'))}
+      </>}
+      <h3>{t('astsec.buy')} · {t('agroup.' + g)}</h3>
+      <p className="mini" style={{ opacity: .65, marginBottom: 6 }}>{t('cat.sortedNote')}</p>
+      <div className="grid">
+        {cats.map(c => {
+          const list = items.filter(i => i.cat === c);
+          const lo = Math.min(...list.map(i => i.price)), hi = Math.max(...list.map(i => i.price));
+          const need = LIC_FOR[c], have = !need || s.lic[need];
+          const crewCat = CREW_COST[c] || 0;
+          const lockedHint = need && !have ? t('cat.lockedHint', '', { req: t('lic.' + need, LIC_BY[need]?.name || need) }) : '';
+          return <button key={c} className="tile" onClick={() => setCurCat(c)} disabled={!!lockedHint}>
+            <Art id={CATART[c] || 'ic-bag'} />
+            <span>
+              <b>{favBtn(list[0].id)}{t('cat.' + c, c)}</b>
+              <span className="sub" style={{ display: 'block' }}>{list.length} {t('items')} · {fmt(lo)} – {fmt(hi)}{crewCat ? ' · ' + t('v11.crewOptional') : ''}</span>
+              {lockedHint ? (
+                <span className="mini" style={{ display: 'block', marginTop: 2, color: 'var(--brick)' }}>
+                  <Ic id="ic-lock" className="bsi" /> {lockedHint}
+                </span>
+              ) : need && have ? (
+                <span className="mini" style={{ display: 'block', marginTop: 2, color: 'var(--sage)' }}>✓ {t('lic.' + need, LIC_BY[need]?.name || need)}</span>
+              ) : null}
+            </span>
+          </button>;
+        })}
+      </div>
+      <p className="sub">{t('tapCategory')}</p>
+    </>;
+  };
+
+  // ---- v11.33 — live rare lot + schedule renderers (auction & rare sections) ----
+  const rareLiveBlock = () => {
+    const L = s.rareLive; if (!L) return null;
+    const it = ITEM_BY[L.id];
+    const min = Math.ceil(L.bid * 1.05);
+    const left = Math.max(0, Math.ceil(L.endDay - s.day));
+    return <div className="card rare-live" data-lead={L.leader}>
+      <div className="mhead" style={{ marginBottom: 4 }}>
+        <h2 style={{ margin: 0, fontSize: '1.05rem' }}>🔨 {t('auction.liveTitle')}</h2>
+        <span className="rarity-chip" data-rarity="legendary" style={{ '--rc': RARITY_COLOR.legendary } as React.CSSProperties}>{t('rarity.legendary')}</span>
+      </div>
+      <b style={{ fontSize: '1.02rem' }}>{it.brand ? <span className="bchip" style={{ background: it.c }}>{it.brand}</span> : null}{it.name}</b>
+      <span className="sub" style={{ display: 'block', marginTop: 2 }}>
+        {t('auction.curBid')}: <b>{fmt(L.bid)}</b> · {t('auction.minBid')}: {fmt(min)} · ⏳ {t('mkt.daysLeft', '', { n: left })}
+      </span>
+      <span className="mini" style={{ display: 'block', marginTop: 2 }}>
+        {L.leader === 'you' ? '⭐ ' + t('auction.youLead', '', { x: fmt(L.my) }) : '🤝 ' + t('auction.npcLead')}
+      </span>
+      <div className="trade" style={{ justifyContent: 'flex-start', marginTop: 8 }}>
+        <input className="qty" style={{ width: 130 }} inputMode="numeric" value={bidDraft} placeholder={String(min)}
+          onChange={e => setBidDraft(e.target.value.replace(/[^\d]/g, ''))} />
+        <button className="ibtn" disabled={!(Number(bidDraft) >= min) || s.money < Number(bidDraft)}
+          onClick={() => { act(st => placeBidRare(st, Math.floor(Number(bidDraft)), t)); setBidDraft(''); }}>
+          <Ic id="ic-up" className="bsi" /><span>{t('auction.place')}</span>
+        </button>
+      </div>
+      <span className="mini" style={{ display: 'block', marginTop: 4, opacity: .7 }}>{t('auction.bidNote')}</span>
+    </div>;
+  };
+  const rareSchedBlock = () => (s.rareUp || []).length === 0 ? null : <>
+    <h3>📅 {t('auction.sched')}</h3>
+    {(s.rareUp || []).map((u, i) => {
+      const it = ITEM_BY[u.id];
+      const left = Math.max(0, Math.ceil(u.atDay - s.day));
+      return <Row key={u.id + i} art={it.art} image={ITEM_IMAGES[u.id]} right={<span className="tag dark">{t('auction.in', '', { n: left })}</span>}>
+        <b>{favBtn(u.id)}{it.name}</b>
+        <span className="sub">{t('auction.est')}: ~{fmt(it.price)} · {t('rare.galleryNote')}</span>
+      </Row>;
+    })}
+  </>;
+
+  // ---- v11.33 — TÀI SẢN buckets (houses / wheels / collection / goods) ----
+  const isHouseCat = (c: string) => c === 'Property';
+  const isWheelCat = (c: string) => c === 'Car' || c === 'Classic car' || c === 'Sport bike';
+  const isCollCat = (c: string) => c === 'Art' || c === 'Collectibles';
+  const ownRowsFor = (pred: (cat: string) => boolean) => <>
+    {s.lots.map((l, i) => ({ l, i })).filter(({ l }) => pred(ITEM_BY[l.id].cat)).map(({ l, i }) => lotRow(l, i, 'sell'))}
+    {s.used.map((u, i) => ({ u, i })).filter(({ u }) => pred(u.cat)).map(({ u, i }) => usedRow(u, i, 'sell'))}
+  </>;
+  const ownAllEmpty = s.lots.length === 0 && s.used.length === 0;
+
   return (
     <>
-      {/* ---- v11.28: 5-section asset menu ---- */}
+      {/* ---- v11.33: 7-section asset menu ---- */}
       <div className="tnav asec" role="tablist" aria-label="Asset sections">
         {secs.map(([k, ic, key, n]) => (
           <button key={k} role="tab" aria-selected={sec === k} onClick={() => setSec(k)}>
@@ -1952,9 +2067,51 @@ function AssetsTab({ s, act, curCat, setCurCat }: { s: GameState; act: Act; curC
         ))}
       </div>
 
-      {/* ================= AUCTION HOUSE ================= */}
+      {/* ================= BẤT ĐỘNG SẢN / CAO CẤP / BÌNH DÂN ================= */}
+      {sec === 'bds' && groupSec('bds')}
+      {sec === 'lux' && groupSec('lux')}
+      {sec === 'budget' && groupSec('budget')}
+
+      {/* ================= TÀI SẢN (the collection) ================= */}
+      {sec === 'own' && <>
+        <div className="grid" style={{ marginBottom: 10 }}>
+          <div className="tile" style={{ cursor: 'default' }}>
+            <Art id="ic-bag" /><span><b>{s.lots.length + s.used.length}</b><span className="sub" style={{ display: 'block' }}>{t('own.items')}</span></span>
+          </div>
+          <div className="tile" style={{ cursor: 'default' }}>
+            <Art id="t-bank" /><span><b>{fmt(assetVal(s))}</b><span className="sub" style={{ display: 'block' }}>{t('own.total')}</span></span>
+          </div>
+          <div className="tile" style={{ cursor: 'default' }}>
+            <Art id="ic-up" /><span><b>{fmt(marketVal(s))}</b><span className="sub" style={{ display: 'block' }}>{t('own.inMarket')}</span></span>
+          </div>
+        </div>
+        {ownAllEmpty ? <p className="sub">{t('own.none')}</p> : <>
+          <h3>🏠 {t('own.houses')}</h3>{ownRowsFor(isHouseCat)}
+          <h3>🚗 {t('own.wheels')}</h3>{ownRowsFor(isWheelCat)}
+          <h3>🖼 {t('own.collection')}</h3>{ownRowsFor(isCollCat)}
+          <h3>👔 {t('own.goods')}</h3>{ownRowsFor(c => !isHouseCat(c) && !isWheelCat(c) && !isCollCat(c))}
+        </>}
+      </>}
+
+      {/* ================= ĐẤU GIÁ & CHỢ ================= */}
       {sec === 'auction' && <>
         <p className="sub">{t('mkt.how', '', { a: AUCTION_DAYS[0] + '–' + AUCTION_DAYS[1], l: LISTING_DAYS[0] + '–' + LISTING_DAYS[1] })}</p>
+        {/* ⭐ favourites watchlist */}
+        {(s.favs || []).length > 0 && <>
+          <h3>⭐ {t('fav.watch')}</h3>
+          {(s.favs || []).map(id => {
+            const it = ITEM_BY[id]; if (!it) return null;
+            const lot = s.lots.find(l => l.id === id);
+            const v = lot ? lotValue(s, lot) : it.price;
+            const up = s.rareUp?.some(u => u.id === id), live = s.rareLive?.id === id, listed = s.mkt.some(j => ('src' in j.item ? j.item.id : (j.item as { baseId?: string }).baseId) === id);
+            return <Row key={id} art={it.art} image={ITEM_IMAGES[id]} right={<button className="ibtn ghost tsmall" onClick={() => act(st => { toggleFav(st, id); return null; })}>{t('fav.remove')}</button>}>
+              <b>{it.brand ? <span className="bchip" style={{ background: it.c }}>{it.brand}</span> : null}{it.name}</b>
+              <span className="sub">{t('worthNow')} <b>{fmt(v)}</b>{live ? ' · 🔨 ' + t('auction.liveTitle') : up ? ' · 📅 ' + t('auction.sched') : listed ? ' · 🏷 ' + t('mkt.onListing') : ''}</span>
+            </Row>;
+          })}
+        </>}
+        {rareSchedBlock()}
+        {rareLiveBlock()}
         {s.mkt.length > 0 && <>
           <h3>{t('mkt.active')}</h3>
           {s.mkt.map((j, ji) => {
@@ -1969,17 +2126,7 @@ function AssetsTab({ s, act, curCat, setCurCat }: { s: GameState; act: Act; curC
             </Row>;
           })}
         </>}
-        <h3>{t('mkt.sellTitle')}</h3>
-        {s.lots.length === 0 && s.used.length === 0 && <p className="sub">{t('mkt.nothingToSell')}</p>}
-        {s.lots.map((l, idx) => lotRow(l, idx, 'auction'))}
-        {s.used.map((u, idx) => usedRow(u, idx, 'auction'))}
-      </>}
-
-      {/* ================= USED MARKET ================= */}
-      {sec === 'used' && <>
-        <h3>{t('used.mine')}</h3>
-        {s.used.length === 0 ? <p className="sub">{t('mkt.noUsed')}</p> : s.used.map((u, idx) => usedRow(u, idx, 'auction'))}
-        <h3>{t('used.title')}</h3>
+        <h3>🛍 {t('used.title')}</h3>
         <p className="sub">{t('used.sub')}</p>
         <div className="grid">
           {usedShown.length === 0
@@ -2004,28 +2151,31 @@ function AssetsTab({ s, act, curCat, setCurCat }: { s: GameState; act: Act; curC
         </div>
       </>}
 
-      {/* ================= RARE / COLLECTIBLES ================= */}
+      {/* ================= ĐỒ HIẾM (auction-only grails) ================= */}
       {sec === 'rare' && <>
-        <p className="sub">{t('rare.sub')}</p>
+        <p className="sub">{t('rare.sub2')}</p>
+        {rareLiveBlock()}
+        {rareSchedBlock()}
         <h3>{t('rare.mine')}</h3>
         {rareLots.length === 0 && rareUsed.length === 0 ? <p className="sub">{t('rare.none')}</p> : <>
-          {rareLots.map(({ l, i }) => lotRow(l, i, 'rare'))}
-          {rareUsed.map(({ u, i }) => usedRow(u, i, 'rare'))}
+          {rareLots.map(({ l, i }) => lotRow(l, i, 'sell'))}
+          {rareUsed.map(({ u, i }) => usedRow(u, i, 'sell'))}
         </>}
-        <h3>{t('rare.catalogue')}</h3>
+        <h3>{t('rare.gallery')}</h3>
+        <p className="mini" style={{ opacity: .65, marginBottom: 6 }}>{t('rare.galleryNote')}</p>
         <div className="grid">
-          {ITEMS.filter(i => rareIds.includes(itemRarity(i))).map(i => {
-            const irar = itemRarity(i);
-            return <button key={i.id} className="tile" disabled={s.money < i.price} onClick={() => setPendingBuy({ kind: 'new', item: i })}>
+          {RARE_ITEMS.map(i => (
+            <div key={i.id} className="tile rare-tile" style={{ cursor: 'default' }}>
               {ITEM_IMAGES[i.id]
                 ? <img className="tile-photo" src={asset(ITEM_IMAGES[i.id])} alt={i.name} loading="lazy" />
                 : <Art id={i.art} />}
               <span>
-                <b>{i.brand ? <span className="bchip" style={{ background: i.c }}>{i.brand}</span> : null}{i.name} <span className="rarity-chip" data-rarity={irar} style={{ '--rc': RARITY_COLOR[irar] } as React.CSSProperties}>{t('rarity.' + irar)}</span></b>
-                <span className="sub" style={{ display: 'block' }}>{fmt(i.price)} · +{i.lux} {t('status')}</span>
+                <b>{favBtn(i.id)}{i.brand ? <span className="bchip" style={{ background: i.c }}>{i.brand}</span> : null}{i.name}</b>
+                <span className="sub" style={{ display: 'block' }}>{t('auction.est')}: ~{fmt(i.price)}</span>
+                <span className="mini" style={{ display: 'block', color: 'var(--gold)' }}>🔨 {t('rare.only')}</span>
               </span>
-            </button>;
-          })}
+            </div>
+          ))}
         </div>
       </>}
 
@@ -2036,36 +2186,6 @@ function AssetsTab({ s, act, curCat, setCurCat }: { s: GameState; act: Act; curC
           {repLots.map(({ l, i }) => lotRow(l, i, 'workshop'))}
           {repUsed.map(({ u, i }) => usedRow(u, i, 'workshop'))}
         </>}
-      </>}
-
-      {/* ================= SHOP (new-item catalogue) ================= */}
-      {sec === 'shop' && <>
-        <h3>{t('catalogue')}</h3>
-        <p className="mini" style={{ opacity: .65, marginBottom: 6 }}>{t('cat.sortedNote')}</p>
-        <div className="grid">
-          {cats.map(c => {
-            const list = ITEMS.filter(i => i.cat === c);
-            const lo = Math.min(...list.map(i => i.price)), hi = Math.max(...list.map(i => i.price));
-            const need = LIC_FOR[c], have = !need || s.lic[need];
-            const crewCat = CREW_COST[c] || 0;
-            const lockedHint = need && !have ? t('cat.lockedHint', '', { req: t('lic.' + need, LIC_BY[need]?.name || need) }) : '';
-            return <button key={c} className="tile" onClick={() => setCurCat(c)} disabled={!!lockedHint}>
-              <Art id={CATART[c] || 'ic-bag'} />
-              <span>
-                <b>{t('cat.' + c, c)}</b>
-                <span className="sub" style={{ display: 'block' }}>{list.length} {t('items')} · {fmt(lo)} – {fmt(hi)}{crewCat ? ' · ' + t('v11.crewOptional') : ''}</span>
-                {lockedHint ? (
-                  <span className="mini" style={{ display: 'block', marginTop: 2, color: 'var(--brick)' }}>
-                    <Ic id="ic-lock" className="bsi" /> {lockedHint}
-                  </span>
-                ) : need && have ? (
-                  <span className="mini" style={{ display: 'block', marginTop: 2, color: 'var(--sage)' }}>✓ {t('lic.' + need, LIC_BY[need]?.name || need)}</span>
-                ) : null}
-              </span>
-            </button>;
-          })}
-        </div>
-        <p className="sub">{t('tapCategory')}</p>
       </>}
 
       {curCat && (
@@ -2079,7 +2199,7 @@ function AssetsTab({ s, act, curCat, setCurCat }: { s: GameState; act: Act; curC
               const crew = CREW_COST[curCat] || 0;
               const crewNow = crew > 0 ? ((curCat === 'Yacht' && s.lic['boat']) || (curCat === 'Private jet' && s.lic['pilot']) ? Math.round(crew / 2) : crew) : 0;
               return <Row key={i.id} art={i.art} image={ITEM_IMAGES[i.id]} right={<Btn ic={locked ? 'ic-lock' : 'ic-bag'} label={locked ? t('needLicence') : fmt(i.price)} disabled={!!locked || s.money < i.price} onClick={() => setPendingBuy({ kind: 'new', item: i })} />}>
-                <b>{i.brand ? <span className="bchip" style={{ background: i.c }}>{i.brand}</span> : null}{i.name} <span className="rarity-chip" data-rarity={irar} style={{ '--rc': RARITY_COLOR[irar] } as React.CSSProperties}>{t('rarity.' + irar)}</span></b>
+                <b>{favBtn(i.id)}{i.brand ? <span className="bchip" style={{ background: i.c }}>{i.brand}</span> : null}{i.name} <span className="rarity-chip" data-rarity={irar} style={{ '--rc': RARITY_COLOR[irar] } as React.CSSProperties}>{t('rarity.' + irar)}</span></b>
                 <span className="sub">+{i.lux} {t('status')} · {t('loses', '', { n: (Math.abs(Math.min(i.rate, ASSET_DEPRECIATION_RATE)) * 100).toFixed(0) })} · {t('upkeep')} {fmt(i.price * 0.02)}{t('perYear')}</span>
                 {crew > 0 && <span className="mini" style={{ display: 'block', marginTop: 2 }}>{t('v11.crewCost', '', { x: fmt(crewNow) })}{crewNow < crew ? ` (${t('v11.crewHalved')})` : ''}</span>}
               </Row>;
@@ -3388,9 +3508,12 @@ function Intro({ onBegin }: { onBegin: (o: { name: string; byear: number; nation
             <div className="mini" style={{ textTransform: 'uppercase', letterSpacing: '.4px' }}>{t('v11.firstStep')}</div>
             <p style={{ margin: '4px 0 0', fontSize: '.92rem' }}>{suggestion}</p>
           </div>
-          {/* v11.10 — mandatory disclaimer acknowledgment before starting a life */}
-          <label style={{ display: 'flex', gap: 8, alignItems: 'flex-start', margin: '4px 0 12px', padding: '8px 10px', background: 'rgba(0,0,0,0.04)', borderRadius: 6, cursor: 'pointer', textAlign: 'left' }}>
-            <input type="checkbox" checked={ack} onChange={e => setAck(e.target.checked)} style={{ marginTop: 3, flexShrink: 0 }} />
+          {/* v11.10 — mandatory disclaimer acknowledgment before starting a life.
+              v11.33 — finally restyled: the old bare checkbox floated invisible
+              on the dark theme (rgba(0,0,0,.04) label on dark bg) and looked
+              broken forever. Now a proper card + custom checkbox. */}
+          <label className="ack">
+            <input type="checkbox" className="ackbox" checked={ack} onChange={e => setAck(e.target.checked)} />
             <span className="mini"><b>{t('disc.title')}.</b> {t('disc.ack')}</span>
           </label>
           <div className="trade">

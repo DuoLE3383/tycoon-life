@@ -819,3 +819,84 @@ test('v11.28: sellChanceOf is the exact binomial chance of >=1 buyer over the wi
   assert.ok(sellChanceOf('common', 'auction', 4) < sellChanceOf('legendary', 'auction', 4));
   assert.ok(sellChanceOf('common', 'auction', 1) > 0);
 });
+
+// ================= v11.33 — rare-auction circuit + favourites =================
+import { placeBidRare, tickRareAuctions, toggleFav } from './engine.js';
+import { RARE_ITEMS } from './gameData.js';
+
+test('v11.33: rare auction — schedule, go live, win the bidding war, pay, own it', () => {
+  const s = fresh();
+  s.started = true;
+  s.rareUp = [{ id: RARE_ITEMS[0].id, atDay: s.day + 3 }];
+  s.money = 500_000_000;
+  // advance past the announcement day: the schedule must convert to a live lot
+  s.day += 10;
+  tickRareAuctions(s, undefined, seeded(7));
+  const live1 = s.rareLive as NonNullable<GameState['rareLive']>;
+  assert.ok(live1, 'due announcement must open a live lot');
+  assert.equal(live1.id, RARE_ITEMS[0].id);
+  // the scheduler may have already queued the NEXT grail announcement in the
+  // same tick (cap 2) — that is intended behaviour, just never 3+
+  assert.ok(s.rareUp.length <= 2);
+  assert.equal(live1.leader, 'npc');
+  const L = live1;
+  // a bid below current*1.05 is rejected
+  assert.ok(placeBidRare(s, L.bid, undefined)!.toLowerCase().includes('low'));
+  assert.equal(live1.leader, 'npc');
+  // a proper bid takes the lead without moving cash
+  const min = Math.ceil(L.bid * 1.05);
+  assert.ok(typeof placeBidRare(s, min, undefined) === 'string');
+  assert.equal(live1.leader, 'you');
+  assert.equal(live1.my, min);
+  assert.equal(s.money, 500_000_000, 'no cash moves until the hammer falls');
+  // hammer day — the leading player wins and pays exactly their bid
+  s.day = live1.endDay;
+  const before = s.money;
+  tickRareAuctions(s, undefined, seeded(11));
+  assert.equal(s.rareLive, null, 'lot resolved');
+  assert.equal(s.money, before - min, 'winning charges the final bid');
+  assert.ok(s.lots.some(l => l.id === RARE_ITEMS[0].id && l.condition === 100));
+});
+
+test('v11.33: rare auction — NPC can strike back and you lose nothing but the lot', () => {
+  const s = fresh();
+  s.started = true;
+  s.money = 5_000_000;
+  const it = RARE_ITEMS[2];
+  // player leads; find a seed where the first even-day tick outbids them
+  s.day = 100; // even → the NPC war-chest acts on this tick
+  s.rareLive = { id: it.id, endDay: s.day + 10, bid: 1_000_000, leader: 'you', my: 900_000 };
+  let outbid = false;
+  for (let seed = 0; seed < 200 && !outbid; seed++) {
+    const trial: GameState = { ...s, rareLive: { id: it.id, endDay: 110, bid: 1_000_000, leader: 'you', my: 900_000 } };
+    tickRareAuctions(trial, undefined, seeded(seed));
+    outbid = (trial.rareLive as NonNullable<GameState['rareLive']>).leader === 'npc';
+    if (seed === 199 && !outbid) break;
+  }
+  // (a seeded rng <0.45 always exists within 200 tries)
+  assert.ok(outbid, 'NPC outbid must be reachable');
+  // rerun with a working seed deterministically: brute-force on real state
+  for (let seed = 0; seed < 200; seed++) {
+    s.rareLive = { id: it.id, endDay: 110, bid: 1_000_000, leader: 'you', my: 900_000 };
+    tickRareAuctions(s, undefined, seeded(seed));
+    if ((s.rareLive as NonNullable<GameState['rareLive']>).leader === 'npc') break;
+  }
+  const live2 = s.rareLive as NonNullable<GameState['rareLive']>;
+  assert.equal(live2.leader, 'npc');
+  assert.ok(live2.bid > 900_000, 'NPC raised above the player bid');
+  assert.equal(s.money, 5_000_000, 'outbid costs nothing yet');
+  // hammer falls with the NPC leading — the player pays nothing, owns nothing
+  s.day = live2.endDay;
+  tickRareAuctions(s, undefined, seeded(3));
+  assert.equal(s.rareLive, null);
+  assert.equal(s.money, 5_000_000, 'losing the auction costs nothing');
+  assert.ok(!s.lots.some(l => l.id === it.id));
+});
+
+test('v11.33: toggleFav adds and removes watchlist ids', () => {
+  const s = fresh();
+  toggleFav(s, 'w-rolex');
+  assert.deepEqual(s.favs, ['w-rolex']);
+  toggleFav(s, 'w-rolex');
+  assert.deepEqual(s.favs, []);
+});
