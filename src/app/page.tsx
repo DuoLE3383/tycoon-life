@@ -1,5 +1,5 @@
 'use client';
-// HuyenBao v11.50 — React edition. Two-level grouped nav, a systems links map,
+// HuyenBao v11.51 — React edition. Two-level grouped nav, a systems links map,
 // gigs, levels, social, the cosmic frontier, EN/VI/中文, LLM oracle with
 // random kind dispatch (luck / setback / life-stage / story), pre-owned
 // market + social listings, a Hall of Fame tab, and a real player-to-player
@@ -98,7 +98,7 @@ if (typeof window !== 'undefined') {
 // v11.8 — the bundled version. The /version.json file in /public is polled
 // every 5 minutes; if its version is newer than this, a "reload to update"
 // banner appears even in a running session (no F5 needed).
-const BUNDLED_VERSION = 'v11.50';
+const BUNDLED_VERSION = 'v11.51';
 const VERSION_POLL_MS = 5 * 60 * 1000;
 // v11.44 — 'what's new' modal now fires PER PATCH (not per major version).
 // The SEEN_KEY is derived from BUNDLED_VERSION so each new patch re-shows the
@@ -594,7 +594,7 @@ function Header({ s, eraName }: { s: GameState; eraName: (y: number) => string }
     <header className="top">
       <div className="brand">
         <Art id="s-coin" className="logo" />
-        <div><h1><span className="mini">v11.50</span> HuyenBao</h1>
+        <div><h1><span className="mini">v11.51</span> HuyenBao</h1>
           <div className="mini">{s.started ? `${s.nation} · ${eraName(worldYear(s))}` : t('tagline')}</div></div>
       </div>
       {/* v11.46 — removed Cash/NW/Income from header (was duplicate of PinZone).
@@ -2425,7 +2425,9 @@ const CATART: Record<string, string> = { 'Sport bike': 'i-bike', 'Phone': 'i-pho
 
 function AssetsTab({ s, act, curCat, setCurCat }: { s: GameState; act: Act; curCat: string | null; setCurCat: (c: string | null) => void }) {
   const { t } = useT();
-  const [sec, setSec] = useState<AssetSec>('bds');
+  // v11.51 — default to 'own' (currently held assets) so the tab opens on the
+  // player's portfolio instead of the buy catalogue. Was 'bds'.
+  const [sec, setSec] = useState<AssetSec>('own');
   // v11.18 — pending purchase confirmation modal (unchanged this version).
   const [pendingBuy, setPendingBuy] = useState<{ kind: 'new'; item: ItemDef } | { kind: 'used'; used: UsedItem } | null>(null);
   // v11.33 — draft amount for the live rare-auction bid box.
@@ -2459,11 +2461,14 @@ function AssetsTab({ s, act, curCat, setCurCat }: { s: GameState; act: Act; curC
   const rareLots = s.lots.map((l, i) => ({ l, i })).filter(({ l }) => rareIds.includes(itemRarity(ITEM_BY[l.id])) || RARE_IDS.has(l.id));
   const rareUsed = s.used.map((u, i) => ({ u, i })).filter(({ u }) => rareIds.includes(itemRarity(u)) || RARE_IDS.has(u.baseId));
 
+  // v11.51 — reordered: 'own' (currently held assets) first so players see
+  // their portfolio immediately, then the buy-catalogue groups, then auctions
+  // + rare + workshop (the action panels). Was bds → lux → budget → own.
   const secs: [AssetSec, string, string, number][] = [
+    ['own', 'ic-bag', 'astsec.own', s.lots.length + s.used.length],
     ['bds', 'i-house', 'astsec.bds', ownLots('bds').length],
     ['lux', 'i-ring', 'astsec.lux', ownLots('lux').length + ownUsed('lux').length],
     ['budget', 'i-shoe', 'astsec.budget', ownLots('budget').length + ownUsed('budget').length],
-    ['own', 'ic-bag', 'astsec.own', s.lots.length + s.used.length],
     ['auction', 'ic-up', 'astsec.auction', s.mkt.length + (s.rareUp || []).length + (s.rareLive ? 1 : 0)],
     ['rare', 'ic-star', 'astsec.rare', (s.rareUp || []).length + (s.rareLive ? 1 : 0) + rareLots.length + rareUsed.length],
     ['workshop', 'ic-check', 'astsec.workshop', repLots.length + repUsed.length],

@@ -1,22 +1,20 @@
 {
-  "version": "v11.50",
+  "version": "v11.51",
   "releasedAt": "2026-11-10",
-  "headline": "HuyenBao v11.50 — UX fixes + Power intro + NPC reactions + Brand customization",
-  "summary": "UX + FEATURE PASS. Popups now close with Esc and click-outside (EditProfile, GigsPopup, MoreInfo, TravelSection, BizOffer, BrandEditor, WhatsNew). Cash display bigger + glowing gold chip. Toast longer (4.5-12s) + pulsing glow ring + raised z-index above modals. Power tab finally has a 'What is Power?' intro card explaining the 5 tiers + 4 influence sources + 3 things you can do. AI events now auto-post as rumors to the social feed, with NPC friends + rivals reacting based on friendship level (sentiment-colored comments). Franchise gets a clear economics explainer card (upfront fee = 1.8× branch value, 10% ongoing royalty). New brand customization: rename + re-logo each biz chain you own.",
+  "headline": "HuyenBao v11.51 — mobile layout fixes + Assets tab reordered (owned first)",
+  "summary": "MOBILE UX PASS. Tooltips (the stuck 'phong thuy +2' popup) now only show on hover-capable devices — touch screens no longer leave them open after a tap. Modal popups tightened for mobile (padding 16px → 6px, max-width 100%, smaller header/body padding, full-width footer buttons). Asset section tabs scroll horizontally on mobile instead of wrapping. Cash chip + PinZone chips shrink to fit narrow screens. Biz-actions buttons go full-width on mobile. Toast font/padding reduced on mobile so long notifications don't dominate. Assets tab reordered: 'Owned' is now the first section (was 4th, after bds/lux/budget), and the tab opens on the player's portfolio by default instead of the buy catalogue.",
   "features": [
-    "FIX: Esc-to-close on all dismissible popups (EditProfile, GigsPopup, MoreInfo, TravelSection, BizOffer, BrandEditor, WhatsNew)",
-    "FIX: click-outside already worked on modal-overlay popups; verified + cleaned up handlers",
-    "ENHANCE: cash display in PinZone upgraded from pchip → cash-chip class (1.02rem font, gold border, soft glow, low-cash warning turns red)",
-    "ENHANCE: toast duration raised 3.5-8s → 4.5-12s; pulsing accent-color glow ring; z-index 200 → 300 (above modals); bigger font + padding",
-    "NEW: Power tab intro card — 'What is Power?' elevator pitch + 4 influence sources (charity/club/board/media) + 5-tier ladder + 3 things you can do (advocacy/transparency/election) + charity tip",
-    "NEW: AI events auto-post to social feed as rumor headlines (kind-aware: 📈 luck / 📉 badluck / 🔄 lifestage / 📰 story)",
-    "NEW: NPC reactions on AI-event posts — friends (friendship > 50) comment supportive (green), rivals (< 0) snark (red), neutral acks (muted)",
-    "NEW: generateNpcReactions() picks up to 3 commenters from s.relations, one per sentiment bucket",
-    "NEW: Post.reactions field on the social post shape for rendering NPC comments under the post",
-    "NEW: Franchise explainer card in BizTab — clear economics (1.8× upfront, 10% royalty) + when-to-use tip",
-    "NEW: Brand customization — setBizBrand() + bizBrandOf() engine helpers; brands map on GameState",
-    "NEW: BrandEditorModal — name input + emoji logo input + 24 suggested emojis; per-biz; reset-to-default option",
-    "NEW: Brand displays on the biz row (logo + custom name + ★ tag), survives save migration",
-    "Version bumped to v11.50"
+    "FIX: tooltips wrapped in @media (hover: hover) — touch devices no longer show the stuck popup after a tap (was the 'phong thuy +2' tooltip bug)",
+    "FIX: modal-overlay padding tightened 16px → 6px on mobile so popups fill more screen",
+    "FIX: modal-box + gigs-modal max-width forced to 100% on mobile (was 440px / 560px, could overflow)",
+    "FIX: modal-head/body/foot padding reduced on mobile; footer buttons go full-width with flex:1",
+    "FIX: asset-section tabs (.asec) scroll horizontally on mobile like gnav/subnav (no more 2-row wrap)",
+    "FIX: cash-chip + pchip + hpill shrink on mobile so PinZone agehead fits better",
+    "FIX: biz-actions buttons go full-width on mobile (flex:1, wrap cleanly)",
+    "FIX: toast font + padding reduced on mobile so long notifications don't dominate the screen",
+    "FIX: avatar-picker 5 cols on narrow screens (was 6, cramped); edit-preview avatar smaller",
+    "REORDER: Assets tab sections now: Own → Real estate → Luxury → Budget → Auctions → Rare → Workshop (was bds → lux → budget → own → ...)",
+    "REORDER: Assets tab default section is now 'own' (player's portfolio) instead of 'bds' (buy catalogue)",
+    "Version bumped to v11.51"
   ]
 }
