@@ -74,7 +74,7 @@ export type { ZodiacSign, Gender, ZodiacDef, PsychicState } from './zodiac';
 
 export const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
-export interface Branch { r: number; mood: number; paid: number; day: number }
+export interface Branch { r: number; mood: number; paid: number; day: number; franchised?: boolean }
 export interface Study { kind: 'deg' | 'lic'; field?: FieldKey; lvl?: number; id?: string; name: string; end: number; tuition: number }
 export interface DayTimeline { day: number; entries: string[] }
 export interface AIChoice { l: string; cost?: number; money?: number; fame?: number; out?: string; kind?: AIEventKind; decline?: number; dropout?: { slot: 'study' | 'sideStudy' }; liquidate?: { biz: string; n: number }; risk?: 'safe' | 'medium' | 'high' }
@@ -696,7 +696,11 @@ export const bizMultiplier = (s: GameState) => Math.min(
 );
 export const bizIncome = (s: GameState) => { // annual
   let ann = 0;
-  BIZ.forEach(b => (s.branches[b.id] || []).forEach(br => { ann += b.inc * REG_MULT[br.r % REG_MULT.length] * br.mood - b.base / 24; }));
+  BIZ.forEach(b => (s.branches[b.id] || []).forEach(br => {
+    // v11.37 — franchised branches pay a 10% royalty to the franchisee
+    const royalty = br.franchised ? (1 - FRANCHISE_ROYALTY) : 1;
+    ann += b.inc * REG_MULT[br.r % REG_MULT.length] * br.mood * royalty - b.base / 24;
+  }));
   ann += farmIncome(s) + facIncome(s);
   return Math.max(0, ann) * bizMultiplier(s);
 };
@@ -1349,6 +1353,72 @@ export function rollBranchClosures(s: GameState, rng: () => number = Math.random
   }
   if (closed > 0) addPost(s, `Tough quarter — ${closed} branch(es) closed. The market does not wait.`, 0.8);
   return closed;
+}
+
+// v11.37 — FRANCHISE: convert an existing branch into a franchised outlet.
+// The player receives an upfront franchise fee (cash injection) but the
+// branch's income is reduced by a royalty rate (8-12%) paid to the franchisee.
+// This is a capital-raise mechanism: trade long-term income for immediate cash.
+// Only works on branches the player owns (not capital-path manager branches).
+export const FRANCHISE_FEE_MULT = 1.8;   // upfront fee = branch paid × 1.8
+export const FRANCHISE_ROYALTY = 0.10;   // 10% income reduction post-franchise
+export function franchiseBranch(s: GameState, bizId: string, branchIdx: number): string | null {
+  const list = s.branches[bizId];
+  if (!list || branchIdx < 0 || branchIdx >= list.length) return null;
+  const br = list[branchIdx];
+  if (br.franchised) return null; // already franchised
+  const fee = Math.round(br.paid * FRANCHISE_FEE_MULT);
+  br.franchised = true;
+  s.money += fee;
+  s.fame += 1;
+  addXp(s, 10);
+  const b = BIZ.find(x => x.id === bizId);
+  pushLog(s, `Franchised ${b?.name || bizId} outlet — received $${fee.toLocaleString()} upfront, royalty ${FRANCHISE_ROYALTY * 100}% ongoing.`);
+  addPost(s, `Franchised a ${b?.name || 'business'} outlet — cash boost of $${fee.toLocaleString()}!`, 1.1);
+  return `Franchised! +$${fee.toLocaleString()} upfront (royalty ${FRANCHISE_ROYALTY * 100}% ongoing).`;
+}
+
+// v11.37 — NEGOTIATE SELL: sell a business branch to an NPC buyer at a
+// negotiated price. The buyer makes an initial offer (70-100% of paid value);
+// the player can accept, or push for a higher price (risk: buyer walks 25%).
+// Returns the offer; the player accepts via acceptBizOffer().
+export interface BizOffer { bizId: string; branchIdx: number; offer: number; buyerName: string; pushed: boolean }
+const BIZ_BUYERS = ['a private equity firm', 'a competitor chain', 'a family office', 'a sovereign fund', 'a strategic investor', 'a local entrepreneur'];
+export function negotiateBizSell(s: GameState, bizId: string, branchIdx: number): BizOffer | null {
+  const list = s.branches[bizId];
+  if (!list || branchIdx < 0 || branchIdx >= list.length) return null;
+  const br = list[branchIdx];
+  // Initial offer: 70-100% of paid value (market variance)
+  const pct = 0.70 + Math.random() * 0.30;
+  const offer = Math.round(br.paid * pct);
+  const buyerName = BIZ_BUYERS[Math.floor(Math.random() * BIZ_BUYERS.length)];
+  return { bizId, branchIdx, offer, buyerName, pushed: false };
+}
+export function pushBizOffer(s: GameState, offer: BizOffer): BizOffer | null {
+  if (offer.pushed) return offer; // can only push once
+  // 75% chance the buyer accepts a 10-20% higher counter; 25% they walk
+  // (offer drops to 0 = deal dead). The risk/reward of negotiation.
+  if (Math.random() < 0.75) {
+    const bump = 1.10 + Math.random() * 0.10;
+    return { ...offer, offer: Math.round(offer.offer * bump), pushed: true };
+  }
+  return { ...offer, offer: 0, pushed: true }; // buyer walked
+}
+export function acceptBizOffer(s: GameState, offer: BizOffer): string | null {
+  if (offer.offer <= 0) return null; // deal dead
+  const list = s.branches[offer.bizId];
+  if (!list || offer.branchIdx < 0 || offer.branchIdx >= list.length) return null;
+  s.money += offer.offer;
+  // Remove the branch
+  list.splice(offer.branchIdx, 1);
+  s.biz[offer.bizId] = list.length;
+  if (list.length === 0) { delete s.branches[offer.bizId]; delete s.biz[offer.bizId]; }
+  s.fame += 2;
+  addXp(s, 20);
+  const b = BIZ.find(x => x.id === offer.bizId);
+  pushLog(s, `Sold ${b?.name || offer.bizId} outlet to ${offer.buyerName} for $${offer.offer.toLocaleString()}.`);
+  addPost(s, `Closed a deal — sold a ${b?.name || 'business'} outlet for $${offer.offer.toLocaleString()}.`, 1.2);
+  return `Sold for $${offer.offer.toLocaleString()}!`;
 }
 export function buyFarmLine(s: GameState, id: string): string | null {
   const l = FARM_LINES.find(x => x.id === id); if (!l || s.farm[l.id]) return null;

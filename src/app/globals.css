@@ -82,24 +82,27 @@ html[data-theme="light"] body{background:#e2e7df}
 .tgame .tile{display:flex;align-items:center;gap:12px;width:100%;padding:10px;border-radius:14px;background:var(--card);border:1px solid var(--line);text-align:left;transition:border-color .2s}
 .tgame .tile:hover{border-color:var(--accent)}
 .tgame .tile .art{width:48px;height:48px}
-.tgame .ibtn{display:inline-flex;align-items:center;gap:7px;border:1px solid transparent;border-radius:999px;padding:6px 14px;font-weight:700;font-size:.86rem;color:var(--accentInk);background:var(--accent);box-shadow:0 1px 2px rgba(60,55,40,.15);min-width:104px;justify-content:center;font-variant-numeric:tabular-nums;transition:background .2s,transform .1s}
-.tgame .ibtn:hover:not(:disabled){background:var(--accent2)}
-.tgame .ibtn:active:not(:disabled){transform:translateY(1px)}
-.tgame .ibtn.ghost{background:var(--card);color:var(--ink);border-color:var(--line2);box-shadow:none}
-.tgame .ibtn.ghost:hover:not(:disabled){background:var(--paper)}
-.tgame .ibtn.danger{background:var(--brick);color:#fff}
-.tgame .ibtn.danger:hover:not(:disabled){background:#9c4a42}
-.tgame .ibtn.sageb{background:var(--sage);color:#fff}
-.tgame .ibtn.sageb:hover:not(:disabled){background:#527d61}
+/* v11.37 — stronger 3D button effect on ALL buttons. Every clickable gets a
+   multi-layer shadow (top highlight + bottom drop + inset rim) so buttons
+   read as raised objects. Hover lifts them; press sinks them. */
+.tgame .ibtn{display:inline-flex;align-items:center;gap:7px;border:1px solid transparent;border-radius:999px;padding:6px 14px;font-weight:700;font-size:.86rem;color:var(--accentInk);background:linear-gradient(180deg,color-mix(in srgb,var(--accent) 115%,#fff 0%),var(--accent));box-shadow:0 2px 0 color-mix(in srgb,var(--accent) 70%,#000),0 4px 10px rgba(60,55,40,.22),inset 0 1px 0 rgba(255,255,255,.25);min-width:104px;justify-content:center;font-variant-numeric:tabular-nums;transition:background .2s,transform .1s,box-shadow .12s}
+.tgame .ibtn:hover:not(:disabled){background:var(--accent2);box-shadow:0 3px 0 color-mix(in srgb,var(--accent2) 70%,#000),0 7px 16px rgba(60,55,40,.28),inset 0 1px 0 rgba(255,255,255,.3);transform:translateY(-1px)}
+.tgame .ibtn:active:not(:disabled){transform:translateY(2px);box-shadow:0 0 0 color-mix(in srgb,var(--accent) 70%,#000),0 1px 3px rgba(60,55,40,.2),inset 0 1px 3px rgba(0,0,0,.18)}
+.tgame .ibtn.ghost{background:linear-gradient(180deg,var(--card),color-mix(in srgb,var(--card) 92%,#000));color:var(--ink);border-color:var(--line2);box-shadow:0 2px 0 rgba(60,55,40,.10),0 3px 7px rgba(60,55,40,.10),inset 0 1px 0 rgba(255,255,255,.5)}
+.tgame .ibtn.ghost:hover:not(:disabled){background:var(--paper);box-shadow:0 3px 0 rgba(60,55,40,.10),0 6px 12px rgba(60,55,40,.14),inset 0 1px 0 rgba(255,255,255,.6);transform:translateY(-1px)}
+.tgame .ibtn.danger{background:linear-gradient(180deg,color-mix(in srgb,var(--brick) 115%,#fff),var(--brick));color:#fff;box-shadow:0 2px 0 color-mix(in srgb,var(--brick) 70%,#000),0 4px 10px rgba(192,71,60,.28),inset 0 1px 0 rgba(255,255,255,.22)}
+.tgame .ibtn.danger:hover:not(:disabled){background:#9c4a42;box-shadow:0 3px 0 #6e2f29,0 7px 16px rgba(192,71,60,.34),inset 0 1px 0 rgba(255,255,255,.28);transform:translateY(-1px)}
+.tgame .ibtn.sageb{background:linear-gradient(180deg,color-mix(in srgb,var(--sage) 115%,#fff),var(--sage));color:#fff;box-shadow:0 2px 0 color-mix(in srgb,var(--sage) 70%,#000),0 4px 10px rgba(46,125,84,.28),inset 0 1px 0 rgba(255,255,255,.22)}
+.tgame .ibtn.sageb:hover:not(:disabled){background:#527d61;box-shadow:0 3px 0 #34583f,0 7px 16px rgba(46,125,84,.34),inset 0 1px 0 rgba(255,255,255,.28);transform:translateY(-1px)}
 /* v11.34 — button-state convention:
    .busy    ORANGE  — slot taken / processing / "đang bận"
    .ongoing GREEN   — actively studying / "đang tiến hành"
    .danger  RED     — discard / cancel / withdraw / leave / rehome
    (the disabled state stays neutral grey in all cases) */
-.tgame .ibtn.busy{background:var(--amber);color:var(--amberInk);border-color:var(--amber)}
-.tgame .ibtn.busy:hover:not(:disabled){background:color-mix(in srgb,var(--amber) 85%,#000)}
-.tgame .ibtn.ongoing{background:var(--sage);color:#fff;border-color:var(--sage)}
-.tgame .ibtn.ongoing:hover:not(:disabled){background:color-mix(in srgb,var(--sage) 85%,#000)}
+.tgame .ibtn.busy{background:linear-gradient(180deg,color-mix(in srgb,var(--amber) 115%,#fff),var(--amber));color:var(--amberInk);border-color:var(--amber);box-shadow:0 2px 0 color-mix(in srgb,var(--amber) 70%,#000),0 4px 10px rgba(194,104,10,.28),inset 0 1px 0 rgba(255,255,255,.25)}
+.tgame .ibtn.busy:hover:not(:disabled){background:color-mix(in srgb,var(--amber) 85%,#000);box-shadow:0 3px 0 color-mix(in srgb,var(--amber) 70%,#000),0 7px 16px rgba(194,104,10,.34),inset 0 1px 0 rgba(255,255,255,.3);transform:translateY(-1px)}
+.tgame .ibtn.ongoing{background:linear-gradient(180deg,color-mix(in srgb,var(--sage) 115%,#fff),var(--sage));color:#fff;border-color:var(--sage);box-shadow:0 2px 0 color-mix(in srgb,var(--sage) 70%,#000),0 4px 10px rgba(46,125,84,.28),inset 0 1px 0 rgba(255,255,255,.25)}
+.tgame .ibtn.ongoing:hover:not(:disabled){background:color-mix(in srgb,var(--sage) 85%,#000);box-shadow:0 3px 0 color-mix(in srgb,var(--sage) 70%,#000),0 7px 16px rgba(46,125,84,.34),inset 0 1px 0 rgba(255,255,255,.3);transform:translateY(-1px)}
 .tgame .ibtn:disabled{background:var(--paper2);color:var(--faint);border-color:var(--line);box-shadow:none;cursor:not-allowed}
 .tgame .ibtn.ghost:disabled,.tgame .ibtn.danger:disabled,.tgame .ibtn.sageb:disabled,.tgame .ibtn.busy:disabled,.tgame .ibtn.ongoing:disabled{background:var(--paper2);color:var(--faint);border-color:var(--line)}
 .tgame .ghost{background:var(--card);color:var(--ink);border:1px solid var(--line2);border-radius:999px;padding:6px 14px;font-weight:650}
@@ -375,14 +378,15 @@ html[data-theme="light"] body{background:#e2e7df}
    - Level 2 active: subtle dark bg + gold border + gold text (less prominent)
    - Divider line between the two rows
    - Level 1: bigger, bolder; Level 2: smaller, muted */
-.tgame .gnav{padding-bottom:8px;border-bottom:1px solid var(--line);margin-bottom:2px}
-.tgame .gnav button{font-weight:800;padding:10px 16px;font-size:.95rem;border-width:1.5px}
+.tgame .gnav{padding-bottom:5px;border-bottom:1px solid var(--line);margin-bottom:1px}
+.tgame .gnav button{font-weight:700;padding:6px 11px;font-size:.82rem;border-width:1px}
 /* Level 1 active = gold accent bg + dark text (stands out from Level 2) */
-.tgame .gnav button[aria-selected="true"]{background:var(--accent);border-color:var(--accent);color:var(--accentInk);font-weight:850;box-shadow:0 3px 12px rgba(200,160,40,.25)}
-.tgame .subnav{padding-top:6px;padding-bottom:10px}
-.tgame .subnav button{padding:6px 12px;font-size:.82rem;font-weight:550;color:var(--mute)}
+.tgame .gnav button[aria-selected="true"]{background:linear-gradient(180deg,color-mix(in srgb,var(--accent) 112%,#fff),var(--accent));border-color:var(--accent);color:var(--accentInk);font-weight:780;box-shadow:0 2px 0 color-mix(in srgb,var(--accent) 70%,#000),0 3px 8px rgba(200,160,40,.22),inset 0 1px 0 rgba(255,255,255,.25);transform:translateY(-1px)}
+.tgame .gnav button:hover:not([aria-selected="true"]){transform:translateY(-1px);box-shadow:0 2px 5px rgba(60,55,40,.12)}
+.tgame .subnav{padding-top:4px;padding-bottom:6px}
+.tgame .subnav button{padding:4px 9px;font-size:.74rem;font-weight:550;color:var(--mute)}
 /* Level 2 active = subtle: muted bg + gold border + gold text (NOT gold bg) */
-.tgame .subnav button[aria-selected="true"]{background:var(--paper2);border-color:var(--accent);color:var(--accent);font-weight:750}
+.tgame .subnav button[aria-selected="true"]{background:var(--paper2);border-color:var(--accent);color:var(--accent);font-weight:720;box-shadow:0 1px 3px rgba(200,160,40,.15)}
 .tgame .subnav button:hover{color:var(--ink);border-color:var(--line2)}
 
 /* ===== v9 — systems links map ===== */
@@ -659,5 +663,25 @@ html[data-theme="dark"] .tgame .mcard{box-shadow:0 14px 46px rgba(0,0,0,.5)}
 .tgame .btn-ghost:hover{background:rgba(127,127,127,.08)}
 @media (max-width:700px){
   .tgame .avatar-picker{grid-template-columns:repeat(6,1fr)}
+}
+
+/* v11.37 — biz-actions row (franchise + sell buttons per business) */
+.tgame .biz-actions .ibtn{min-width:auto;padding:5px 11px;font-size:.78rem}
+
+/* ================= v11.37 — merged PinZone (status bar + detail + bars) ================= */
+.tgame .pinzone-v37{padding:9px 12px 10px}
+.tgame .pinzone-detail{display:flex;gap:14px;align-items:stretch;margin:7px 0 5px;padding-top:7px;border-top:1px solid var(--line)}
+.tgame .pinzone-info{flex:1 1 200px;display:flex;flex-direction:column;gap:1px;min-width:0}
+.tgame .pinzone-info .sub{font-size:.78rem;opacity:.72;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tgame .pinzone-bars{flex:0 0 200px;display:flex;flex-direction:column;gap:3px}
+.tgame .pinzone-bars .wrow{display:flex;align-items:center;gap:6px;font-size:.74rem}
+.tgame .pinzone-bars .wl{width:42px;flex:none;font-weight:600;opacity:.6}
+.tgame .pinzone-bars .wbar{flex:1;height:6px;border-radius:4px;background:rgba(127,127,127,.15);overflow:hidden}
+.tgame .pinzone-bars .wbar i{display:block;height:100%;border-radius:4px;transition:width .3s ease}
+@media (max-width:700px){
+  .tgame .pinzone-detail{flex-direction:column;gap:8px}
+  .tgame .pinzone-bars{flex:1 1 auto;width:100%}
+  .tgame .pinzone-info .sub{white-space:normal}
+  .tgame .pinzone-v37{padding:7px 10px 8px}
 }
 

@@ -1,15 +1,18 @@
 {
-  "version": "v11.36",
+  "version": "v11.37",
   "releasedAt": "2026-11-10",
-  "headline": "HuyenBao v11.36 — nhóm menu + pin, gộp tổng quan + nhân vật, edit profile (avatar + tên)",
-  "summary": "UI REDESIGN + EDIT PROFILE. The PinZone sticky bar now shows the player's emoji avatar + a ✏️ edit button that opens a new Edit Profile modal — pick from 40 emoji avatars (people, animals, fantasy) + rename the character anytime. HomeTab hero card redesigned to stop duplicating PinZone info: it's now a compact identity strip (large avatar + name + job/study/rent) with health/spirit/XP bars, since PinZone already carries the numbers. Nav menus (gnav + subnav) stay horizontal-scroll on ALL screen sizes — no more wrapping that eats vertical space on mobile.",
+  "headline": "HuyenBao v11.37 — 3D buttons, merged hero+pinzone, compact menu, 10 new businesses + franchise/sell, 7 new gigs",
+  "summary": "UI POLISH + CONTENT EXPANSION. Buttons now have stronger 3D depth (gradient + multi-layer shadow + hover lift + press sink). The separate hero card and PinZone are now ONE merged sticky card — no more duplicate info. Menu shrunk (gnav .95rem→.82rem, subnav .82rem→.74rem) and the degenerate single-sub subnav is hidden (fixes the Assets 2-level bug). 10 new business types added (street food, gym, salon, restaurant, logistics, clinic, school, realestate, esports, franchise network) + 2 new biz mechanics: FRANCHISE (convert a branch to franchised for upfront cash + 10% royalty) and NEGOTIATE SELL (NPC buyer makes offer, push for more at 25% walk risk). 7 new gigs (busk, petcare, photoshoot, coding, medical, endorsement, speaking) spanning arts/engineering/medicine/fame gates. Button colour convention gaps fixed: bank Withdraw, asset Sell, Relations argue now red (.danger).",
   "features": [
-    "EDIT PROFILE: new modal with 40-emoji avatar picker + name field, opened from PinZone ✏️ button",
-    "NEW GameState.avatar field (emoji string, default 🧑/👨/👩 by gender) — migrated for old saves",
-    "PINZONE: avatar emoji + ✏️ edit button next to character name",
-    "HOMETAB REDESIGN: hero card no longer duplicates PinZone — compact identity strip + health/spirit/XP bars only",
-    "NAV NO-OVERFLOW: gnav + subnav use horizontal scroll on mobile too (was: wrap to multiple lines = vertical space waste)",
-    "ENGINE: begin() accepts optional avatar; migrate() backfills avatar for old saves",
-    "Version bumped to v11.36"
+    "3D BUTTONS: all .ibtn get gradient bg + 3-layer shadow (bottom rim + drop + inset highlight); hover lifts -1px, press sinks +2px",
+    "MERGED HERO+PINZONE: hero-v36 card removed; PinZone now carries the character detail row (job/study/rent) + health/spirit/XP bars in one sticky card",
+    "COMPACT MENU: gnav 10px→6px padding, .95rem→.82rem font; subnav 6px→4px padding, .82rem→.74rem font — fits more tabs in less space",
+    "ASSETS 2-LEVEL FIX: page-level subnav hidden when active group has only 1 sub (Assets was degenerate — 1 button above the internal 7-section nav)",
+    "10 NEW BUSINESSES: street food, gym, salon, restaurant, logistics, clinic, school, realestate, esports, franchise network — spans Services/Health/Education/Real Estate/Franchise industries",
+    "FRANCHISE mechanic: convert a branch to franchised — get 1.8× paid value upfront, 10% ongoing royalty (branch income reduced)",
+    "NEGOTIATE SELL mechanic: NPC buyer offers 70-100% of branch value; push for +10-20% (75% accept, 25% walk); accept to cash out",
+    "7 NEW GIGS: busk (arts), petcare, photoshoot (fame), coding (engineering), medical (medicine), endorsement (10K followers), speaking (5K followers + 2 degrees)",
+    "BUTTON COLOUR FIXES: bank Withdraw ×3, asset Sell ×2, Relations argue — all now red (.danger) per convention",
+    "Version bumped to v11.37"
   ]
 }

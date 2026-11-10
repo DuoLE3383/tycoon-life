@@ -343,11 +343,21 @@ export interface Req { any?: number; deg?: Partial<Record<FieldKey, number>>; li
 export const BIZ: BizDef[] = [
   { id: 'cafe', name: 'Coffee shop', base: 800, inc: 1500, art: 'b-cafe', req: {}, ind: 'Food', reg: ['Hanoi Old Quarter', 'Ho Chi Minh City District 1', 'Brooklyn Williamsburg', 'Tokyo Ginza', 'Paris Le Marais', 'London Shoreditch'] },
   { id: 'shop', name: 'Convenience store', base: 8000, inc: 12000, art: 'b-shop', req: { deg: { business: 1 } }, ind: 'Retail', reg: ['Singapore Orchard Road', 'Bangkok Sukhumvit', 'Seoul Myeongdong', 'New York Times Square', 'Berlin Mitte', 'São Paulo Paulista'] },
+  { id: 'street', name: 'Street food stall', base: 300, inc: 700, art: 'b-cafe', req: {}, ind: 'Food', reg: ['Hanoi Old Quarter', 'Bangkok Yaowarat', 'Penang Georgetown', 'Taipei Shilin', 'Mexico City Centro', 'Marrakech Jemaa'] },
+  { id: 'gym', name: 'Boutique gym', base: 25000, inc: 40000, art: 'b-shop', req: { deg: { business: 1 } }, ind: 'Services', reg: ['Los Angeles Venice', 'Miami South Beach', 'Sydney Bondi', 'Singapore Tanjong', 'Dubai Marina', 'Berlin Mitte'] },
+  { id: 'salon', name: 'Beauty salon chain', base: 18000, inc: 32000, art: 'b-shop', req: { deg: { business: 1 } }, ind: 'Services', reg: ['Seoul Gangnam', 'Tokyo Omotesando', 'Bangkok Thonglor', 'Taipei Xinyi', 'Shanghai Jingan', 'Ho Chi Minh City District 2'] },
   { id: 'farm', name: 'Organic farm', base: 60000, inc: 90000, art: 'b-farm', req: { deg: { business: 1 } }, ind: 'Agriculture', reg: ['Mekong Delta, Vietnam', 'Napa Valley, California', 'Hokkaido, Japan', 'Tuscany, Italy', 'Punjab, India', 'Normandy, France'] },
   { id: 'fac', name: 'Factory', base: 90000, inc: 160000, art: 'b-fac', req: { deg: { engineering: 1 } }, ind: 'Industry', reg: ['Shenzhen, China', 'Detroit, Michigan', 'Busan, South Korea', 'Ruhr, Germany', 'Pune, India', 'Monterrey, Mexico'] },
+  { id: 'restaurant', name: 'Restaurant chain', base: 120000, inc: 220000, art: 'b-cafe', req: { deg: { business: 1 } }, ind: 'Food', reg: ['Tokyo Ginza', 'New York West Village', 'Paris Marais', 'Singapore Dempsey', 'Bangkok Sukhumvit', 'London Soho'] },
+  { id: 'logistics', name: 'Logistics & courier', base: 350000, inc: 580000, art: 'b-fac', req: { deg: { engineering: 1 } }, ind: 'Services', reg: ['Shenzhen, China', 'Rotterdam Port', 'Singapore Tuas', 'Memphis, Tennessee', 'Dubai South', 'Incheon, Korea'] },
+  { id: 'clinic', name: 'Private clinic', base: 500000, inc: 850000, art: 'b-bank', req: { deg: { medicine: 1 } }, ind: 'Health', reg: ['Singapore Orchard', 'Zurich Bahnhofstrasse', 'Boston Longwood', 'Seoul Gangnam', 'Dubai Healthcare', 'Bangkok Sukhumvit'] },
+  { id: 'school', name: 'Private school', base: 800000, inc: 1300000, art: 'b-bank', req: { deg: { arts: 1, business: 1 } }, ind: 'Education', reg: ['Boston, Massachusetts', 'Oxford, UK', 'Singapore Bukit', 'Tokyo Hiroo', 'Geneva, Switzerland', 'Melbourne, Australia'] },
+  { id: 'realestate', name: 'Real estate dev', base: 2000000, inc: 3200000, art: 'b-ret', req: { deg: { business: 2 } }, ind: 'Real Estate', reg: ['Dubai Marina', 'Singapore Marina Bay', 'Hong Kong Central', 'Miami Brickell', 'London Canary Wharf', 'Tokyo Roppongi'] },
   { id: 'hotel', name: 'Boutique hotel', base: 2500000, inc: 3500000, art: 'b-hotel', req: { deg: { business: 2 } }, ind: 'Tourism', reg: ['Bali Seminyak', 'Santorini Oia', 'Aspen, Colorado', 'Lake Como, Italy', 'Marrakech Medina', 'Maldives Atoll'] },
   { id: 'ret', name: 'Retail chain', base: 900000, inc: 1500000, art: 'b-ret', req: { deg: { business: 1 } }, ind: 'Retail', reg: ['Dubai Mall', 'Tokyo Ginza Six', 'New York Fifth Ave', 'Paris Champs-Élysées', 'London Oxford Street', 'Shanghai Nanjing Road'] },
+  { id: 'esports', name: 'Esports arena', base: 3500000, inc: 5500000, art: 'b-tech', req: { deg: { arts: 1 } }, ind: 'Media', reg: ['Seoul Gangnam', 'Shanghai Jingan', 'Los Angeles', 'Stockholm', 'Berlin', 'Tokyo Akihabara'] },
   { id: 'tech', name: 'Software studio', base: 6000000, inc: 9000000, art: 'b-tech', req: { deg: { engineering: 1 } }, ind: 'Tech', reg: ['Silicon Valley, Palo Alto', 'Tel Aviv Startup Strip', 'Bangalore Electronic City', 'Berlin Silicon Allee', 'Singapore One-North', 'Stockholm Kista'] },
+  { id: 'franchise', name: 'Franchise network', base: 8000000, inc: 14000000, art: 'b-ret', req: { deg: { business: 2 } }, ind: 'Franchise', reg: ['Global', 'Global', 'Global', 'Global', 'Global', 'Global'] },
   { id: 'bank', name: 'Private bank', base: 12000000, inc: 22000000, art: 'b-bank', req: { deg: { business: 2 } }, ind: 'Finance', reg: ['Wall Street, NYC', 'London City', 'Zurich Bahnhofstrasse', 'Hong Kong Central', 'Singapore Marina Bay', 'Frankfurt Bankenviertel'] },
   { id: 'studio', name: 'Film studio', base: 40000000, inc: 60000000, art: 'b-studio', req: { deg: { arts: 1, business: 1 } }, ind: 'Media', reg: ['Hollywood, Los Angeles', 'Bollywood, Mumbai', 'Pinewood, London', 'Nollywood, Lagos', 'Hallyuwood, Seoul', 'Cinecittà, Rome'] },
   { id: 'corp', name: 'Conglomerate', base: 150000000, inc: 280000000, art: 'b-corp', req: { deg: { business: 2 } }, ind: 'Diversified', reg: ['Tokyo Marunouchi HQ', 'Seoul Gangnam HQ', 'Manila BGC HQ', 'Mumbai BKC HQ', 'Istanbul Levent HQ', 'São Paulo Faria Lima HQ'] }
@@ -756,10 +766,17 @@ export interface GigDef { id: string; base: number; cd: number; icon: string; mi
 export const GIGS: GigDef[] = [
   { id: 'ad', base: 15, cd: 0, icon: 'ic-play', hp: 0.5 },
   { id: 'delivery', base: 60, cd: 1, icon: 'j-driver', hp: 2 },
+  { id: 'busk', base: 45, cd: 1, icon: 'j-teach', hp: 1, req: { deg: { arts: 1 } } },
   { id: 'freelance', base: 150, cd: 2, icon: 'j-eng', hp: 1.5 },
   { id: 'tutor', base: 130, cd: 2, icon: 'j-teach', req: { any: 1 }, hp: 1.5 },
   { id: 'sponsored', base: 80, cd: 4, icon: 't-social', minFollowers: 1000, hp: 1 },
-  { id: 'consult', base: 550, cd: 6, icon: 'j-mgr', req: { deg: { business: 1 } }, hp: 2 }
+  { id: 'petcare', base: 90, cd: 2, icon: 'ic-paw', hp: 1 },
+  { id: 'photoshoot', base: 220, cd: 3, icon: 't-social', minFollowers: 500, hp: 1.5 },
+  { id: 'coding', base: 280, cd: 3, icon: 'j-eng', req: { deg: { engineering: 1 } }, hp: 2 },
+  { id: 'medical', base: 340, cd: 4, icon: 'w-heart', req: { deg: { medicine: 1 } }, hp: 2.5 },
+  { id: 'consult', base: 550, cd: 6, icon: 'j-mgr', req: { deg: { business: 1 } }, hp: 2 },
+  { id: 'endorsement', base: 1200, cd: 8, icon: 't-social', minFollowers: 10000, hp: 2 },
+  { id: 'speaking', base: 1800, cd: 10, icon: 'j-mgr', req: { any: 2 }, minFollowers: 5000, hp: 2.5 },
 ];
 
 export interface SpaceDef { id: string; name: string; since: number; lvl: number; cost: number; inc: number; art: string; desc: string }

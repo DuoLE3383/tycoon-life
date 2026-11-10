@@ -1,5 +1,5 @@
 'use client';
-// HuyenBao v11.36 — React edition. Two-level grouped nav, a systems links map,
+// HuyenBao v11.37 — React edition. Two-level grouped nav, a systems links map,
 // gigs, levels, social, the cosmic frontier, EN/VI/中文, LLM oracle with
 // random kind dispatch (luck / setback / life-stage / story), pre-owned
 // market + social listings, a Hall of Fame tab, and a real player-to-player
@@ -34,6 +34,7 @@ import {
   processDay, yearEnd,
   doGig, gigReady, gigLock, gigPay, addPost, buySpace, spaceIncome, socialIncome, levelMult, canPost, postCooldownLeft,
   openBranch, openBranchCapital, capitalPathCost, MANAGER_MONTHLY, rollBranchClosures, buyFarmLine, buyFacLine, buyItem, sellLot, trade, joinClub, leaveClub, foundClub,
+  franchiseBranch, negotiateBizSell, pushBizOffer, acceptBizOffer, type BizOffer,
   hire, enrollDeg, enrollLic, enrollShortCourse, dropStudySlot, changeInterest, bankOp, donate, applyEventChoice, applyAIChoice, currentEvent, studyWorkMult,
   spaceUpgradeReady, startSpaceUpgrade, spaceUpgradeDays, spaceMultiplier, SPACE_TRAVEL_COST,
   recordActivity, studyPace, sleepHealthMult, sleepHoursOptions,
@@ -91,7 +92,7 @@ if (typeof window !== 'undefined') {
 // v11.8 — the bundled version. The /version.json file in /public is polled
 // every 5 minutes; if its version is newer than this, a "reload to update"
 // banner appears even in a running session (no F5 needed).
-const BUNDLED_VERSION = 'v11.36';
+const BUNDLED_VERSION = 'v11.37';
 const VERSION_POLL_MS = 5 * 60 * 1000;
 // v11.24 — 'what's new' modal is shown ONCE PER PLAYER per MAJOR version
 // (tycoon_seen_v11), not once per patch release. Previously the key was
@@ -382,6 +383,11 @@ export default function Page() {
             </button>
           ))}
         </nav>
+        {/* v11.37 — hide the page-level subnav when the active group has only
+            ONE sub-tab (e.g. Assets). That single button was degenerate — it
+            looked like a broken empty menu row above the AssetsTab's own
+            internal 7-section nav. Now the internal nav is the only subnav. */}
+        {curSubs.length > 1 && (
         <nav role="tablist" className="tnav subnav" aria-label="Sub-sections">
           {curSubs.map(([k, n, ic]) => (
             <button key={k} role="tab" aria-selected={tab === k} data-t={k}
@@ -392,6 +398,7 @@ export default function Page() {
             </button>
           ))}
         </nav>
+        )}
         <main id="tview" key={tab} className="enter">
           {tab === 'home' && <HomeTab s={s} act={act} askAI={askAI} aiBusy={aiBusy} aiNote={t(aiNoteKey)} eraName={eraName} />}
           {tab === 'career' && <CareerTab s={s} act={act} />}
@@ -529,7 +536,7 @@ function Header({ s, eraName }: { s: GameState; eraName: (y: number) => string }
     <header className="top">
       <div className="brand">
         <Art id="s-coin" className="logo" />
-        <div><h1><span className="mini">v11.36</span> HuyenBao</h1>
+        <div><h1><span className="mini">v11.37</span> HuyenBao</h1>
           <div className="mini">{s.started ? `${s.nation} · ${eraName(worldYear(s))}` : t('tagline')}</div></div>
       </div>
       <div><div className="mini">{t('cash')}</div><div id="tcash" style={{ color: s.money < 0 ? 'var(--brick)' : undefined }}>{fmt(s.money)}</div>
@@ -556,19 +563,25 @@ function Header({ s, eraName }: { s: GameState; eraName: (y: number) => string }
 // Warnings only render when something actually needs attention — no permanent
 // "all good" banner eating vertical space.
 function PinZone({ s, t, onEdit }: { s: GameState; t: TFn; onEdit: () => void }) {
+  const { t: _t } = useT();
   const a = s.age, st = stageOf(a), pct = (a - START) / (END_AGE - START) * 100;
   const p = (x: number) => ((x - START) / (END_AGE - START) * 100).toFixed(2) + '%';
   const d = new Date(Date.UTC(s.byear + 18, 8, 1) + Math.floor(s.lastDay) * 864e5);
   const dstr = d.toLocaleDateString('en-US', { timeZone: 'UTC', weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
   const marks: [number, string][] = [[START, String(START)], [RETIRE, '65'], [END_AGE, '90']];
-  // v11.27 attention logic moved here (was inline in HomeTab): the numbers
-  // that decide the run, colour-coded, plus the aggregate warning line.
   const yi = yearIncome(s);
   const warns: string[] = healthWarnings(s).map(w => 'att.' + w);
   if (s.money < 0) warns.push('att.debt');
   if (yi < 0) warns.push('att.negative');
+  // v11.37 — character details that PinZone now carries (moved from the old hero card)
+  const activeJobs = jobsOf(s);
+  const activeStudies = [s.study, s.sideStudy].filter((study): study is NonNullable<typeof study> => !!study);
+  const studyTxt = activeStudies.length
+    ? activeStudies.map(study => `${study.name} · ${Math.max(0, (study.end - s.day) / 365.25).toFixed(1)} ${t('years')}`).join(' · ')
+    : t('notStudying');
+  const xpPct = Math.min(100, Math.round(s.xp / xpNeed(s.level) * 100));
   return (
-    <section className="card age pinzone" data-life={healthState(s.health)}>
+    <section className="card age pinzone pinzone-v37" data-life={healthState(s.health)}>
       <div className="agehead">
         <span className="avchip" data-tip={t('edit.profile', 'Edit profile')}>{s.avatar}</span><b>{s.name}</b> <button className="pin-edit" onClick={onEdit} title={t('edit.profile', 'Edit profile')} aria-label={t('edit.profile', 'Edit profile')}>✏️</button> <span className="sep">·</span> {t('age')} {Math.floor(a)}
         <span className="tag dark">{t('stage.' + STAGES.indexOf(st), st.name)}</span>
@@ -578,12 +591,28 @@ function PinZone({ s, t, onEdit }: { s: GameState; t: TFn; onEdit: () => void })
         <span className={'pchip ' + (yi >= 0 ? 'up' : 'down')} data-tip={t('inc.total', 'Income/yr')}><Ic id="t-stock" className="bsi" />{yi >= 0 ? '+' : ''}{fmt(yi)}{t('perYear')}</span>
         <span className="hpill" data-life={healthState(s.health)}><Ic id="w-heart" className="bsi" />{Math.round(s.health)}</span>
         <span className="hpill"><Ic id="w-lotus" className="bsi" />{Math.round(s.spirit)}</span>
-        {/* v11.33 — the Character-panel essentials merged into the pinned
-            status bar so they are ALWAYS visible: job, education, level+XP. */}
-        {jobsOf(s).length > 0 && <span className="pchip" data-tip={t('pin.job')}><Ic id="t-work" className="bsi" />{jobsOf(s).map(j => t('job.' + j.id, j.name)).join(' + ')}</span>}
+        {activeJobs.length > 0 && <span className="pchip" data-tip={t('pin.job')}><Ic id="t-work" className="bsi" />{activeJobs.map(j => t('job.' + j.id, j.name)).join(' + ')}</span>}
         {Object.values(s.deg || {}).reduce((a, b) => a + b, 0) > 0 && <span className="pchip" data-tip={t('degrees')}>🎓 {Object.values(s.deg || {}).reduce((a, b) => a + b, 0)}</span>}
         <span className="pchip" data-tip={`Lv ${s.level} · ${s.xp}/${xpNeed(s.level)} XP`}>⭐ {t('lvl')} {s.level}<span className="pinbar"><i style={{ width: Math.min(100, Math.round(s.xp / xpNeed(s.level) * 100)) + '%' }} /></span></span>
-        <span className="mini">{t('fame')} {s.fame} · {t('followers')} {s.social.followers.toLocaleString()}</span></div>
+        <span className="mini">{t('fame')} {s.fame} · {t('followers')} {s.social.followers.toLocaleString()}</span>
+      </div>
+      {/* v11.37 — merged character detail row + progress bars (was a separate hero card in HomeTab).
+          One card = the pinned status bar AND the identity detail + bars. The life-themed
+          gradient strip replaces the old hero-city photo (which was a random skyline unrelated
+          to the life-simulation content). */}
+      <div className="pinzone-detail">
+        <div className="pinzone-info">
+          <span className="sub">{activeJobs.length ? t('workingAs', '', { j: activeJobs.map(job => t('job.' + job.id, job.name)).join(' · '), s: fmt(jobIncome(s)) }) : t('notEmployed')}</span>
+          <span className="sub">{t('knowledge')}: {knowledgeText(s)}</span>
+          <span className="sub">{t('study')}: {studyTxt}</span>
+          <span className="sub">{t('rentBills')}: {fmt((living(Math.floor(s.age)) + upkeep(s) + studyTuition(s)) / 12)}{t('perMonth')}</span>
+        </div>
+        <div className="pinzone-bars">
+          <div className="wrow"><span className="mini wl">{t('health')}</span><div className="wbar"><i style={{ width: s.health + '%', background: s.health < 40 ? 'var(--brick)' : 'var(--sage)' }} /></div><span className="mini">{Math.round(s.health)}</span></div>
+          <div className="wrow"><span className="mini wl">{t('spirit')}</span><div className="wbar"><i style={{ width: s.spirit + '%', background: 'var(--slate)' }} /></div><span className="mini">{Math.round(s.spirit)}</span></div>
+          <div className="wrow"><span className="mini wl">XP</span><div className="wbar"><i style={{ width: xpPct + '%', background: 'var(--gold)' }} /></div><span className="mini">{s.level}</span></div>
+        </div>
+      </div>
       {warns.length > 0 && <div className="att-warn pin" role="status">⚠ {warns.map(w => t(w)).join(' · ')}</div>}
       <div className="track slim" style={{ background: `linear-gradient(90deg,#8fae9b 0 ${p(22)},#c9b68e ${p(22)} ${p(26)},#c08a80 ${p(26)} ${p(RETIRE)},#9b93a8 ${p(RETIRE)})` }}>
         <div className="shade" style={{ left: pct + '%' }} /><div className="mark" style={{ left: pct + '%' }} />
@@ -687,33 +716,10 @@ function HomeTab({ s, act, askAI, aiBusy, aiNote, eraName }: { s: GameState; act
   ];
   return (
     <>
-      {/* v11.36 — hero card redesigned. PinZone (sticky, above) already shows
-          name/age/stage/cash/NW/income/health/spirit/job/level — so this card
-          no longer duplicates that. It's now a compact IDENTITY strip: large
-          avatar + edit button, plus the details PinZone doesn't carry
-          (knowledge, study, rent, zodiac, gender) and the health/spirit BARS
-          (PinZone only shows the numbers). */}
-      <div className="card hero hero-v36">
-        <div className="heroimg" style={{ backgroundImage: 'url(' + asset('/img/hero-city-v10.jpg') + ')' }} aria-hidden="true" />
-        <div className="herobody">
-          <div className="hero-id">
-            <span className="hero-av">{s.avatar}</span>
-            <div className="hero-id-info">
-              <b className="big">{s.name}</b>
-              <span className="sub">{activeJobs.length ? t('workingAs', '', { j: activeJobs.map(job => t('job.' + job.id, job.name)).join(' · '), s: fmt(jobIncome(s)) }) : t('notEmployed')}</span>
-              <span className="sub">{t('knowledge')}: {knowledgeText(s)}</span>
-              <span className="sub">{t('study')}: {studyTxt}</span>
-              <span className="sub">{t('rentBills')}: {fmt((living(Math.floor(s.age)) + upkeep(s) + studyTuition(s)) / 12)}{t('perMonth')}</span>
-            </div>
-          </div>
-          <div className="hero-bars">
-            <div className="wrow"><span className="mini wl">{t('health')}</span><div className="wbar"><i style={{ width: s.health + '%', background: s.health < 40 ? 'var(--brick)' : 'var(--sage)' }} /></div><span className="mini">{Math.round(s.health)}</span></div>
-            <div className="wrow"><span className="mini wl">{t('spirit')}</span><div className="wbar"><i style={{ width: s.spirit + '%', background: 'var(--slate)' }} /></div><span className="mini">{Math.round(s.spirit)}</span></div>
-            <div className="wrow"><span className="mini wl">XP</span><div className="wbar"><i style={{ width: xpPct + '%', background: 'var(--gold)' }} /></div><span className="mini">{s.level}</span></div>
-          </div>
-        </div>
-      </div>
-
+      {/* v11.37 — the hero card has been MERGED into PinZone (the sticky status
+          bar above). HomeTab no longer renders a separate identity card; it
+          starts directly with health alerts + sleep schedule + net worth +
+          gigs. This removes the duplicate info the user complained about. */}
       <HealthAlerts s={s} />
 
       <div className="card" style={{ marginBottom: 10 }}>
@@ -1007,6 +1013,8 @@ function BizTab({ s, act }: { s: GameState; act: Act }) {
   const net = bizNet(s);
   const share = bizMarketShare(s);
   const hasBranches = BIZ.some(b => branchCount(s, b.id) > 0);
+  // v11.37 — negotiate-sell offer state (one active offer at a time).
+  const [bizOffer, setBizOffer] = useState<BizOffer | null>(null);
   // v11.20 — R&D investment state. Local input for the amount; the actual
   // investment runs through investBizRnd() in the engine.
   const [rndAmount, setRndAmount] = useState(50000);
@@ -1077,8 +1085,21 @@ function BizTab({ s, act }: { s: GameState; act: Act }) {
           {n > 0 && <div>{(s.branches[b.id] || []).map((br, i) => {
             const net = branchNet(s, b, br) * mult;
             const isCapital = br.paid > c * 1.5; // paid ≥1.5× normal → capital path
-            return <span key={i} className={'brchip ' + (net >= 0 ? 'up' : 'dn')}>{b.reg[br.r % b.reg.length]} · {net >= 0 ? '+' : ''}{fmt(net)}/mo · {br.mood >= 1.35 ? t('booming') : br.mood <= .55 ? t('struggling') : t('steady')}{isCapital ? ' · ' + t('v11.manager') : ''}</span>;
-          })}</div>}
+            const isFranchised = !!br.franchised;
+            return <span key={i} className={'brchip ' + (net >= 0 ? 'up' : 'dn')}>{b.reg[br.r % b.reg.length]} · {net >= 0 ? '+' : ''}{fmt(net)}/mo · {br.mood >= 1.35 ? t('booming') : br.mood <= .55 ? t('struggling') : t('steady')}{isCapital ? ' · ' + t('v11.manager') : ''}{isFranchised ? ' · ' + t('biz.franchised') : ''}</span>;
+          })}
+          {/* v11.37 — franchise + negotiate-sell actions per business */}
+          <div className="biz-actions" style={{ marginTop: 4, display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+            <Btn ic="ic-up" label={t('biz.franchiseBtn')} kind="ghost" disabled={!(s.branches[b.id] || []).some(br => !br.franchised)} onClick={() => {
+              const idx = (s.branches[b.id] || []).findIndex(br => !br.franchised);
+              if (idx >= 0) act(st => franchiseBranch(st, b.id, idx));
+            }} />
+            <Btn ic="ic-coins" label={t('biz.sellBtn')} kind="danger" disabled={branchCount(s, b.id) === 0} onClick={() => {
+              const offer = negotiateBizSell(s, b.id, 0);
+              if (offer) setBizOffer(offer);
+            }} />
+          </div>
+          </div>}
         </Row>;
       })}
       <h3>{t('farmLines')}</h3>
@@ -1100,6 +1121,53 @@ function BizTab({ s, act }: { s: GameState; act: Act }) {
         </Row>;
       })}
       <p className="sub">{t('bizNote')}</p>
+      {/* v11.37 — negotiate-sell offer modal */}
+      {bizOffer && (
+        <div className="modal-overlay" onClick={() => setBizOffer(null)}>
+          <div className="modal-box edit-modal" onClick={e => e.stopPropagation()}>
+            <div className="modal-head">
+              <h2>🤝 {t('biz.sellBtn')}</h2>
+              <button className="modal-x" onClick={() => setBizOffer(null)} aria-label="Close">✕</button>
+            </div>
+            <div className="modal-body">
+              <div className="edit-preview">
+                <span className="edit-preview-av" style={{ fontSize: '2rem' }}>🏢</span>
+                <div>
+                  <b className="big">{t('biz.' + bizOffer.bizId)}</b>
+                  <div className="mini">{t('biz.offerFrom')} {bizOffer.buyerName}</div>
+                </div>
+              </div>
+              {bizOffer.offer > 0 ? (
+                <div className="field">
+                  <b style={{ fontSize: '1.3rem', color: 'var(--accent)' }}>{fmt(bizOffer.offer)}</b>
+                  {!bizOffer.pushed && <span className="mini">{t('biz.pushOffer')} — 75% chance buyer accepts, 25% walk.</span>}
+                  {bizOffer.pushed && <span className="mini" style={{ color: 'var(--sage)' }}>✓ {t('biz.pushOffer')} thành công!</span>}
+                </div>
+              ) : (
+                <div className="field">
+                  <b style={{ color: 'var(--brick)' }}>❌ {t('biz.buyerWalked')}</b>
+                  <span className="mini">The buyer pulled out after you pushed for more.</span>
+                </div>
+              )}
+            </div>
+            <div className="modal-foot">
+              <button className="btn-ghost" onClick={() => setBizOffer(null)}>{t('edit.cancel', 'Cancel')}</button>
+              {!bizOffer.pushed && bizOffer.offer > 0 && (
+                <button className="btn-primary" onClick={() => {
+                  const pushed = pushBizOffer(s, bizOffer);
+                  if (pushed) setBizOffer(pushed);
+                }}>{t('biz.pushOffer')}</button>
+              )}
+              {bizOffer.offer > 0 && (
+                <button className="btn-primary" onClick={() => {
+                  act(st => acceptBizOffer(st, bizOffer));
+                  setBizOffer(null);
+                }}>{t('biz.acceptOffer')} {fmt(bizOffer.offer)}</button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }
@@ -1988,7 +2056,7 @@ function AssetsTab({ s, act, curCat, setCurCat }: { s: GameState; act: Act; curC
       {mode !== 'workshop' && <>
         <Btn ic="ic-up" label={t('mkt.auctionBtn')} kind="ghost" disabled={s.money < Math.round(ask * AUCTION_FEE)} onClick={() => act(st => putUpAuction(st, 'lot', idx, t))} />
         <Btn ic="ic-coins" label={t('mkt.listBtn')} kind="ghost" disabled={s.money < Math.round(ask * LISTING_FEE)} onClick={() => act(st => postSaleListing(st, 'lot', idx, t))} />
-        <Btn ic="ic-down" label={t('sell') + ' ' + fmt(resale)} kind="ghost" onClick={() => act(st => sellLot(st, idx))} />
+        <Btn ic="ic-down" label={t('sell') + ' ' + fmt(resale)} kind="danger" onClick={() => act(st => sellLot(st, idx))} />
       </>}
       {mode === 'workshop' && cond < 100 && <Btn ic="ic-check" label={t('workshop.repair') + ' ' + fmt(repCost)} kind="ghost" disabled={s.money < repCost} onClick={() => act(st => repairLot(st, idx))} />}
     </div>}>
@@ -2012,7 +2080,7 @@ function AssetsTab({ s, act, curCat, setCurCat }: { s: GameState; act: Act; curC
       {mode !== 'workshop' && <>
         <Btn ic="ic-up" label={t('mkt.auctionBtn')} kind="ghost" disabled={s.money < Math.round(ask * AUCTION_FEE)} onClick={() => act(st => putUpAuction(st, 'used', idx, t))} />
         <Btn ic="ic-coins" label={t('mkt.listBtn')} kind="ghost" disabled={s.money < Math.round(ask * LISTING_FEE)} onClick={() => act(st => postSaleListing(st, 'used', idx, t))} />
-        <Btn ic="ic-down" label={t('used.sell') + ' ' + fmt(resale)} kind="ghost" onClick={() => act(st => sellUsed(st, idx))} />
+        <Btn ic="ic-down" label={t('used.sell') + ' ' + fmt(resale)} kind="danger" onClick={() => act(st => sellUsed(st, idx))} />
       </>}
       {mode === 'workshop' && u.condition < 100 && <Btn ic="ic-check" label={t('workshop.repair') + ' ' + fmt(repCost)} kind="ghost" disabled={s.money < repCost} onClick={() => act(st => repairUsed(st, idx))} />}
     </div>}>
@@ -2688,7 +2756,7 @@ function RelationsTab({ s, act }: { s: GameState; act: Act }) {
               <Btn ic="ic-heart" label={t('relations.talk')} onClick={() => act(st => interactNPC(st, npc.id, 'talk'))} />
               <Btn ic="ic-bag" label={t('relations.gift') + ' ' + fmt(Math.max(500, Math.round(200 * Math.sqrt(Math.max(1, s.fame + 1)))))} disabled={s.money < Math.max(500, Math.round(200 * Math.sqrt(Math.max(1, s.fame + 1))))} onClick={() => act(st => interactNPC(st, npc.id, 'gift'))} />
               <Btn ic="ic-check" label={t('relations.help') + ' $1K'} kind="ghost" disabled={s.money < 1000} onClick={() => act(st => interactNPC(st, npc.id, 'help'))} />
-              <Btn ic="ic-x" label={t('relations.argue')} kind="ghost" onClick={() => act(st => interactNPC(st, npc.id, 'argue'))} />
+              <Btn ic="ic-x" label={t('relations.argue')} kind="danger" onClick={() => act(st => interactNPC(st, npc.id, 'argue'))} />
               {canPropose && <Btn ic="ic-star" label={s.partner ? t('relations.marry') : t('relations.date')} kind="sageb" onClick={() => act(st => proposeToNPC(st, npc.id))} />}
             </div>
           </div>
@@ -2723,9 +2791,9 @@ function BankTab({ s, act }: { s: GameState; act: Act }) {
         <b>{t('deposit')}</b><span className="sub">{t('whileSleep', '', { x: fmt(s.bank.dep * SAVE_RATE) })}</span>
       </Row>
       <Row art="ic-coins" right={<div className="trade">
-        <Btn ic="ic-down" label="−$10K" kind="ghost" disabled={s.bank.dep < 10000} onClick={() => act(st => bankOp(st, 'wd', 10000))} />
-        <Btn ic="ic-down" label="−$100K" kind="ghost" disabled={s.bank.dep < 100000} onClick={() => act(st => bankOp(st, 'wd', 100000))} />
-        <Btn ic="ic-down" label={t('allOut')} kind="ghost" disabled={s.bank.dep <= 0} onClick={() => act(st => bankOp(st, 'wd', 'all'))} />
+        <Btn ic="ic-down" label="−$10K" kind="danger" disabled={s.bank.dep < 10000} onClick={() => act(st => bankOp(st, 'wd', 10000))} />
+        <Btn ic="ic-down" label="−$100K" kind="danger" disabled={s.bank.dep < 100000} onClick={() => act(st => bankOp(st, 'wd', 100000))} />
+        <Btn ic="ic-down" label={t('allOut')} kind="danger" disabled={s.bank.dep <= 0} onClick={() => act(st => bankOp(st, 'wd', 'all'))} />
       </div>}>
         <b>{t('withdraw')}</b><span className="sub">{t('moveCash')}</span>
       </Row>

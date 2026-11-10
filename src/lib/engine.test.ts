@@ -611,8 +611,13 @@ test('v11.24: daily price walk moves prices + appends hist (market no longer fla
 test('v11.26: every gig drains health by its hp field and queues a toast', () => {
   const state = fresh();
   state.health = 100;
+  // v11.37 — unlock ALL gigs: every degree field + high followers + 2 degrees for 'speaking'
   state.deg.business = 1;          // unlocks tutor ({any:1}) + consult ({deg:{business:1}})
-  state.social.followers = 1000;   // unlocks sponsored
+  state.deg.arts = 1;             // unlocks busk ({deg:{arts:1}})
+  state.deg.engineering = 1;      // unlocks coding ({deg:{engineering:1}})
+  state.deg.medicine = 1;         // unlocks medical ({deg:{medicine:1}})
+  state.deg.science = 2;          // 'speaking' needs any:2 (a degree at level ≥2)
+  state.social.followers = 15000; // unlocks sponsored(1K) + photoshoot(500) + endorsement(10K) + speaking(5K)
   const hpSum = GIGS.reduce((a, g) => a + (g.hp || 0), 0);
   assert.ok(hpSum > 0, 'GIGS must define hp costs');
   const before = state.money;
