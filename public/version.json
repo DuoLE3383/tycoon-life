@@ -1,12 +1,14 @@
 {
-  "version": "v11.31",
+  "version": "v11.32",
   "releasedAt": "2026-11-10",
-  "headline": "HuyenBao v11.31 — gỡ banner «🗄 Chế độ máy chủ» khỏi trang chủ (chế độ SQLite sống im lặng như Supabase)",
-  "summary": "QUIET SERVER MODE. The green '🗄 Chế độ máy chủ — SQLite tự host trên VPS này…' banner that sat on top of the community views (chat / friends / leaderboard) on the self-hosted VPS is gone. Live backends now render no banner at all — Supabase mode already behaved this way, SQLite mode now matches. Players just see the community features working. The error banner (⚠ connection problem, with retry) and the demo-mode setup guide (🧪, only when no backend exists) are untouched. The now-unused soc.sqlite i18n string was removed from all three languages.",
+  "headline": "HuyenBao v11.32 — ẨN trang admin: mở mogul.huyenbao.com vẫn là bảng điều khiển nhưng URL không đổi, đường dẫn thật chuyển sang /adm, /admin cũ chết (404)",
+  "summary": "HIDDEN ADMIN. The game-management console moved from /admin to the unlisted /adm route. On the dedicated mogul.huyenbao.com domain the root URL now serves the console via a silent Next.js proxy rewrite — the address bar stays on the root, so visitors cannot see where the console lives. The old /admin path was deleted entirely and returns 404 on every host. /adm remains reachable directly, the full game stays at /game on the mogul domain, and every /api/admin/* endpoint is still protected by the fail-closed ADMIN_KEY guard — the hidden path is obscurity, the key is the real lock. Any other host (huyenbao.com, localhost, LAN IP) is unaffected: the game stays at /. Deploy configs and the VPS guide were updated; Caddy/nginx need no changes as long as they pass the Host header through.",
   "features": [
-    "Community banner removed for sqlite mode — same as supabase, live backends are silent",
-    "Error banner (⚠ + retry) and demo setup guide (🧪) unchanged",
-    "Dead i18n key soc.sqlite removed (EN/VI/ZH)",
-    "Version bumped to v11.31 at FRONT of app name"
+    "Admin route moved /admin → /adm (git mv, zero code changes inside the console)",
+    "mogul.huyenbao.com/ silently rewrites to /adm — URL bar never reveals the real path",
+    "Old /admin returns 404 on all hosts — no stray links left behind",
+    "/game escape hatch unchanged; /api/* untouched and still ADMIN_KEY-guarded",
+    "deploy/ README URL map + Caddy/nginx annotations updated for /adm",
+    "Version bumped to v11.32 at FRONT of app name"
   ]
 }

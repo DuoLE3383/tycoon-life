@@ -1,5 +1,7 @@
 'use client';
-// v11.31 — HuyenBao admin dashboard, full game-management console (VPS).
+// v11.32 — HuyenBao admin dashboard, full game-management console (VPS).
+// Hidden route: served at /adm (and rewritten onto the mogul domain root by
+// src/proxy.ts). The old /admin path is gone.
 //
 // Tabs:
 //   📊 Tổng quan  — live server stats + top-10 net worth
@@ -9,7 +11,8 @@
 //   🗄 CSDL       — SQLite maintenance: vacuum, wipe chat log
 //
 // Every /api/admin/* route is guarded by the server-only ADMIN_KEY env var.
-// On the VPS: set ADMIN_KEY=<secret> before `next start`, open /admin, paste
+// On the VPS: set ADMIN_KEY=<secret> before `next start`, open /adm (or the
+// mogul domain root), paste
 // the key once (sessionStorage of this tab only — never sent anywhere else).
 import { useCallback, useEffect, useRef, useState } from 'react';
 
@@ -484,7 +487,7 @@ export default function AdminPage() {
       )}
 
       <footer className="adm-foot">
-        <span>{phase === 'live' && stats ? 'Cập nhật lúc ' + new Date(stats.ts).toLocaleTimeString('vi-VN') + (tab === 'overview' ? ' · tự refresh 10s' : '') : 'HuyenBao v11.31'}</span>
+        <span>{phase === 'live' && stats ? 'Cập nhật lúc ' + new Date(stats.ts).toLocaleTimeString('vi-VN') + (tab === 'overview' ? ' · tự refresh 10s' : '') : 'HuyenBao v11.32'}</span>
         <a href={gameHref} className="adm-back">← Về game</a>
       </footer>
     </div>

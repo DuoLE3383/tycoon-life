@@ -1,17 +1,21 @@
 # Deploy HuyenBao lên VPS — mogul.huyenbao.com
 
-**mogul.huyenbao.com là domain dành riêng cho ADMIN dashboard** (v11.30):
+**mogul.huyenbao.com là domain dành riêng cho ADMIN dashboard — ĐÃ ẨN (v11.32):**
 
 | URL | Nội dung |
 | --- | --- |
-| `https://mogul.huyenbao.com/` | → tự chuyển tới **/admin** (bảng điều khiển quản trị) |
-| `https://mogul.huyenbao.com/admin` | Bảng điều khiển admin (SQLite, người chơi, chat, quà, CSDL) |
+| `https://mogul.huyenbao.com/` | **Admin console** (rewrite ngầm tới `/adm` — URL trên thanh địa chỉ giữ nguyên) |
+| `https://mogul.huyenbao.com/adm` | Admin console, đường dẫn trực tiếp |
+| `https://mogul.huyenbao.com/admin` | **404** — đường dẫn cũ đã bị xoá hẳn |
 | `https://mogul.huyenbao.com/game` | Game đầy đủ (có backend xã hội SQLite) |
-| `https://mogul.huyenbao.com/api/*` | API xã hội + admin (JSON) |
+| `https://mogul.huyenbao.com/api/*` | API xã hội + admin API (JSON, vẫn chặn bằng ADMIN_KEY) |
 
 Game cho người chơi thường vẫn ở **https://huyenbao.com** (bản static GitHub Pages).
 
 Sơ đồ: **trình duyệt → https://mogul.huyenbao.com → reverse proxy (Caddy/nginx) → `http://localhost:3334` → `npm start` (Next.js + src/proxy.ts)**
+
+> Đường dẫn thật của admin là `/adm` (ẩn sau rewrite ở domain root).
+> Caddy/nginx không cần đổi gì — tiếp tục truyền đủ header `Host` là được.
 
 ## 1. Build + chạy server (port 3334)
 
@@ -65,14 +69,17 @@ sudo certbot --nginx -d mogul.huyenbao.com
 sudo nginx -t && sudo systemctl reload nginx
 ```
 
-## 5. Bật admin dashboard `/admin`
+## 5. Bật admin dashboard (ẩn ở `/adm`)
 
 1. Đặt `ADMIN_KEY=<bí mật>` trong môi trường trước `npm start`
    (đã có sẵn trong `deploy/huyenbao.service` — nhớ đổi giá trị mặc định).
-2. Mở `https://mogul.huyenbao.com` (tự nhảy vào `/admin`), dán key một lần (lưu sessionStorage).
+2. Mở `https://mogul.huyenbao.com` (hoặc `https://mogul.huyenbao.com/adm`), dán key một lần (lưu sessionStorage).
 3. Chức năng: Tổng quan · Người chơi (sửa/cấm/xoá) · Trò chuyện (xoá tin, cấm
    spam, phát 📢) · Quà tặng · CSDL (VACUUM, xoá chat).
 4. Muốn chơi bản có backend xã hội: `https://mogul.huyenbao.com/game`.
+5. Lưu ý ẩn: `/admin` cũ trả 404; route thật là `/adm`, còn mở domain root thì
+   Next rewrite ngầm — người ngoài không nhìn thấy đường dẫn thật trên URL.
+   Bảo mật thật sự vẫn là `ADMIN_KEY` (fail-closed khi chưa đặt).
 
 ## 6. File dữ liệu
 
