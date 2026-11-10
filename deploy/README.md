@@ -1,6 +1,17 @@
 # Deploy HuyenBao lên VPS — mogul.huyenbao.com
 
-Sơ đồ: **trình duyệt → https://mogul.huyenbao.com → reverse proxy (Caddy/nginx) → `http://localhost:3334` → `npm start` (Next.js)**
+**mogul.huyenbao.com là domain dành riêng cho ADMIN dashboard** (v11.30):
+
+| URL | Nội dung |
+| --- | --- |
+| `https://mogul.huyenbao.com/` | → tự chuyển tới **/admin** (bảng điều khiển quản trị) |
+| `https://mogul.huyenbao.com/admin` | Bảng điều khiển admin (SQLite, người chơi, chat, quà, CSDL) |
+| `https://mogul.huyenbao.com/game` | Game đầy đủ (có backend xã hội SQLite) |
+| `https://mogul.huyenbao.com/api/*` | API xã hội + admin (JSON) |
+
+Game cho người chơi thường vẫn ở **https://huyenbao.com** (bản static GitHub Pages).
+
+Sơ đồ: **trình duyệt → https://mogul.huyenbao.com → reverse proxy (Caddy/nginx) → `http://localhost:3334` → `npm start` (Next.js + src/proxy.ts)**
 
 ## 1. Build + chạy server (port 3334)
 
@@ -58,9 +69,10 @@ sudo nginx -t && sudo systemctl reload nginx
 
 1. Đặt `ADMIN_KEY=<bí mật>` trong môi trường trước `npm start`
    (đã có sẵn trong `deploy/huyenbao.service` — nhớ đổi giá trị mặc định).
-2. Mở `https://mogul.huyenbao.com/admin`, dán key một lần (lưu sessionStorage).
+2. Mở `https://mogul.huyenbao.com` (tự nhảy vào `/admin`), dán key một lần (lưu sessionStorage).
 3. Chức năng: Tổng quan · Người chơi (sửa/cấm/xoá) · Trò chuyện (xoá tin, cấm
    spam, phát 📢) · Quà tặng · CSDL (VACUUM, xoá chat).
+4. Muốn chơi bản có backend xã hội: `https://mogul.huyenbao.com/game`.
 
 ## 6. File dữ liệu
 

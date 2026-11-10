@@ -1,20 +1,15 @@
 {
-  "version": "v11.29",
+  "version": "v11.30",
   "releasedAt": "2026-11-10",
-  "headline": "HuyenBao v11.29 — Khỏe yếu thì ĐƯỢC khám & chữa trị ngay (hết khoá 30 ngày cứng) + Admin dashboard quản trị toàn diện + npm start port 3334 cho mogul.huyenbao.com",
-  "summary": "HEALTH TRIAGE + FULL ADMIN CONSOLE. The doctor check-up no longer hard-locks you for 30 days: its cooldown now adapts to your health — 30 days when you're fine, 7 days under 60, and just 1 day under 35 (⚡ shown when the urgent rate applies). A new deep MEDICAL TREATMENT action (Chữa trị) heals +45 for $3,000 on a 5-day cooldown for when you're truly weak. The /admin dashboard grew from read-only stats into a full console with 5 tabs: Overview (players / online / banned / messages / gifts / DB size), Players (search, inline edit of name/avatar/level/net-worth, ban & unban, permanent delete), Chat (delete a message, wipe all of a user, broadcast 📢 system announcements), Gifts (log + delete) and DB (VACUUM, wipe chat). All /api/admin/* routes share a timing-safe ADMIN_KEY guard; banned accounts are blocked from chat & gifts server-side with a schema migration (players.banned). `npm start` now serves 0.0.0.0:3334 to match the mogul.huyenbao.com reverse proxy, and deploy/ ships Caddy + nginx configs, a systemd unit and a step-by-step VPS guide.",
+  "headline": "HuyenBao v11.30 — mogul.huyenbao.com giờ là domain riêng cho ADMIN dashboard (mở trang chủ → thẳng bảng điều khiển quản trị)",
+  "summary": "ADMIN-FIRST DOMAIN. mogul.huyenbao.com is now dedicated to the game-management console: opening the root URL lands you straight on /admin (302 via the new Next.js 16 src/proxy.ts, host-aware), /api/* social + admin endpoints are untouched, and the full game (with the SQLite social backend) remains playable at /game as an escape hatch. The admin footer's 'Về game' link now points to /game when browsed on the mogul domain and to / everywhere else. Any other host — huyenbao.com, localhost, LAN IP, dev — is completely unaffected. The proxy file uses the Next 16 proxy.ts convention (replaces deprecated middleware.ts) and is automatically skipped by the static GitHub Pages build because that build's pageExtensions only include .tsx.",
   "features": [
-    "CHECKUP TRIAGE: cooldown 30d → 7d when health < 60 → 1d when health < 35 (no more dying while waiting out a routine visit)",
-    "NEW ACTION — TREATMENT (Chữa trị): +45 health, $3,000, 5-day cooldown, own icon, EN/VI/ZH localised",
-    "ADMIN CONSOLE: 5 tabs (Tổng quan / Người chơi / Trò chuyện / Quà tặng / CSDL) at /admin",
-    "PLAYERS ADMIN: search by name or HB-code, inline edit name/avatar/level/net worth, ban/unban, permanent delete (cascades chat/edges/gifts)",
-    "CHAT MODERATION: delete single messages, wipe everything by a user, broadcast 📢 HuyenBao system announcements into global chat",
-    "BAN ENFORCEMENT: banned players rejected server-side on chat & gifts (403), silent graceful handling in the client",
-    "GIFTS LOG: last 100 transfers with sender/receiver/amount/note/claim state, deletable",
-    "DB MAINTENANCE: VACUUM compaction + destructive chat wipe (double-confirmed)",
-    "SECURITY: shared timing-safe ADMIN_KEY guard for every /api/admin/* route, fail-closed when the env var is missing",
-    "DEPLOY: npm start = next start -H 0.0.0.0 -p 3334; deploy/ has Caddyfile.mogul, nginx-mogul.conf, huyenbao.service (systemd) and a VPS guide",
-    "TESTS: engine tests for adaptive checkup + treatment; socialDb tests for ban/unban, moderation, broadcast, admin stats",
-    "Version bumped to v11.29 at FRONT of app name"
+    "mogul.huyenbao.com/ → 302 → /admin — the admin console IS the front door of the domain",
+    "NEW src/proxy.ts (Next 16 proxy convention, host-based): mogul host root → /admin, mogul /game → rewrite to the game, every other host untouched",
+    "ESCAPE HATCH: /game serves the full game with the SQLite social backend on the mogul domain",
+    "Admin footer 'Về game' link is domain-aware (/game on mogul, / elsewhere)",
+    "STATIC-SAFE: proxy.ts is a .ts file and the GitHub Pages build only enables .tsx page extensions → silently excluded",
+    "deploy/ README now documents the URL map (/, /admin, /game, /api/*); Caddy + nginx configs annotated (Host header must be preserved)",
+    "Version bumped to v11.30 at FRONT of app name"
   ]
 }

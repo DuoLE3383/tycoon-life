@@ -1,31 +1,37 @@
 # HuyenBao — reverse proxy cho mogul.huyenbao.com (Caddy)
 #
+# mogul.huyenbao.com = domain dành riêng cho ADMIN dashboard (v11.30):
+#   /        → /admin (tự chuyển, lo bởi src/proxy.ts trong Next.js)
+#   /game    → game đầy đủ có backend xã hội
+#   /api/*   → social + admin API
+#
 # Cài: đặt file này thành /etc/caddy/Caddyfile (hoặc import vào file chính)
 # rồi:  sudo systemctl reload caddy
 #
 # Caddy tự lo HTTPS (Let's Encrypt) — không cần certbot.
 # `npm start` trên VPS phải chạy trước: next start -H 0.0.0.0 -p 3334
+# Caddy tự truyền đúng header Host cho upstream → src/proxy.ts hoạt động.
 
 mogul.huyenbao.com {
-	# GZIP + HTTP/2/3 mặc định của Caddy
-	encode zstd gzip
+        # GZIP + HTTP/2/3 mặc định của Caddy
+        encode zstd gzip
 
-	reverse_proxy 127.0.0.1:3334 {
-		# health check nhanh, không chặn khi game server restart ngắn
-		health_uri /version.json
-		health_interval 15s
-		health_timeout 5s
-	}
+        reverse_proxy 127.0.0.1:3334 {
+                # health check nhanh, không chặn khi game server restart ngắn
+                health_uri /version.json
+                health_interval 15s
+                health_timeout 5s
+        }
 
-	header {
-		Strict-Transport-Security "max-age=31536000"
-		X-Content-Type-Options "nosniff"
-		Referrer-Policy "strict-origin-when-cross-origin"
-		-Server
-	}
+        header {
+                Strict-Transport-Security "max-age=31536000"
+                X-Content-Type-Options "nosniff"
+                Referrer-Policy "strict-origin-when-cross-origin"
+                -Server
+        }
 
-	# Log vào journal (xem bằng: journalctl -u caddy | grep mogul)
-	log {
-		output stderr
-	}
+        # Log vào journal (xem bằng: journalctl -u caddy | grep mogul)
+        log {
+                output stderr
+        }
 }

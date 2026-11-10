@@ -1,5 +1,5 @@
 'use client';
-// v11.29 — HuyenBao admin dashboard, full game-management console (VPS).
+// v11.30 — HuyenBao admin dashboard, full game-management console (VPS).
 //
 // Tabs:
 //   📊 Tổng quan  — live server stats + top-10 net worth
@@ -64,6 +64,9 @@ export default function AdminPage() {
   const [bcast, setBcast] = useState('');
   // ---- gifts tab
   const [gifts, setGifts] = useState<AGift[] | null>(null);
+  // v11.30 — on the dedicated admin domain (mogul.huyenbao.com) the game root
+  // lives at /game (see src/proxy.ts), everywhere else it stays at /.
+  const [gameHref, setGameHref] = useState('/');
 
   const flash = useCallback((m: string) => { setNote(m); setTimeout(() => setNote(''), 4000); }, []);
 
@@ -142,6 +145,11 @@ export default function AdminPage() {
     timer.current = setInterval(() => { if (keyRef.current && tab === 'overview') void loadStats(); }, 10000);
     return () => { if (timer.current) clearInterval(timer.current); };
   }, [loadStats, tab]);
+
+  useEffect(() => {
+    const h = window.location.hostname.toLowerCase();
+    if (h === 'mogul.huyenbao.com' || h.endsWith('.mogul.huyenbao.com')) setGameHref('/game');
+  }, []);
 
   const switchTab = (tb: Tab) => { setTab(tb); setNote(''); loadTab(tb); };
 
@@ -476,8 +484,8 @@ export default function AdminPage() {
       )}
 
       <footer className="adm-foot">
-        <span>{phase === 'live' && stats ? 'Cập nhật lúc ' + new Date(stats.ts).toLocaleTimeString('vi-VN') + (tab === 'overview' ? ' · tự refresh 10s' : '') : 'HuyenBao v11.29'}</span>
-        <a href={asset('/')} className="adm-back">← Về game</a>
+        <span>{phase === 'live' && stats ? 'Cập nhật lúc ' + new Date(stats.ts).toLocaleTimeString('vi-VN') + (tab === 'overview' ? ' · tự refresh 10s' : '') : 'HuyenBao v11.30'}</span>
+        <a href={gameHref} className="adm-back">← Về game</a>
       </footer>
     </div>
   );
