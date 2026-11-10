@@ -2685,22 +2685,30 @@ export function petFameBonus(s: GameState): number {
 function finishStudy(s: GameState, study: Study, rng: () => number): void {
   if (study.kind === 'deg' && study.field) s.deg[study.field] = study.lvl!;
   else if (study.id) {
-    s.lic[study.id] = true;
+    // v11.43 BUG E fix: short courses reuse kind:'lic' for the study-slot
+    // mechanism, but they must NOT write to s.lic (that map is for real
+    // driver/boat/pilot licences checked by meets() + crewCostFor). Only
+    // write to s.lic if this is a genuine licence (in LIC_BY) and NOT a
+    // short course (in SHORT_BY).
+    const isShortCourse = !!SHORT_BY[study.id];
+    if (!isShortCourse) s.lic[study.id] = true;
     // v11 — if this was a short course, record it in shortCompleted so
     // the matching full degree gets a 10% tuition reduction later.
-    if (SHORT_BY[study.id] && !s.shortCompleted.includes(study.id)) {
+    if (isShortCourse && !s.shortCompleted.includes(study.id)) {
       s.shortCompleted.push(study.id);
     }
   }
   addXp(s, study.kind === 'deg' ? 150 : 40, rng);
   pushLog(s, `Graduated: ${study.name}.`);
-  addPost(s, study.kind === 'deg' ? `Officially graduated — ${study.name}!` : `Picked up a new licence: ${study.name}.`, 1.2, rng);
+  // v11.43 — short courses say "Short course" not "licence" in the log + post.
+  const isShort = study.kind === 'lic' && study.id && SHORT_BY[study.id];
+  addPost(s, study.kind === 'deg' ? `Officially graduated — ${study.name}!` : isShort ? `Completed short course: ${study.name}.` : `Picked up a new licence: ${study.name}.`, 1.2, rng);
   recordActivity(s, `Completed: ${study.name}`);
   // v11.17 — surface as a toast so the player sees it even if they're not on
   // the career/edu tab when the study ends.
   queueToast(s, study.kind === 'deg'
     ? `🎓 Graduated: ${study.name}`
-    : `📜 ${study.kind === 'lic' ? 'Licence' : 'Short course'} complete: ${study.name}`);
+    : `📜 ${isShort ? 'Short course' : 'Licence'} complete: ${study.name}`);
 }
 export function gameOverTier(s: GameState): { tier: string; nw: number } {
   const nw = netWorth(s);

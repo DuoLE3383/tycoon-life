@@ -1121,6 +1121,8 @@ const D: Record<string, [string, string, string]> = {
   'lic.car': ['Driver’s licence (car)', 'Bằng lái ô tô', '汽车驾照'],
   'lic.boat': ['Boating licence', 'Bằng lái thuyền', '船舶驾照'],
   'lic.pilot': ['Private pilot licence', 'Bằng lái máy bay tư nhân', '私人飞行执照'],
+  // v11.43 BUG C fix: missing mechanic licence translation
+  'lic.mechanic': ['Mechanic certification', 'Chứng chỉ thợ máy', '机械师认证'],
   'club.wine': ['Wine Connoisseurs', 'Hội sành vang', '品酒会所'],
   'club.golf': ['Royal Golf Club', 'CLB Golf Hoàng gia', '皇家高尔夫会所'],
   'club.car': ['Supercar Club', 'CLB Siêu xe', '超跑会所'],

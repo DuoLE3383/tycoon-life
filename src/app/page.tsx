@@ -1,5 +1,5 @@
 'use client';
-// HuyenBao v11.42 — React edition. Two-level grouped nav, a systems links map,
+// HuyenBao v11.43 — React edition. Two-level grouped nav, a systems links map,
 // gigs, levels, social, the cosmic frontier, EN/VI/中文, LLM oracle with
 // random kind dispatch (luck / setback / life-stage / story), pre-owned
 // market + social listings, a Hall of Fame tab, and a real player-to-player
@@ -95,7 +95,7 @@ if (typeof window !== 'undefined') {
 // v11.8 — the bundled version. The /version.json file in /public is polled
 // every 5 minutes; if its version is newer than this, a "reload to update"
 // banner appears even in a running session (no F5 needed).
-const BUNDLED_VERSION = 'v11.42';
+const BUNDLED_VERSION = 'v11.43';
 const VERSION_POLL_MS = 5 * 60 * 1000;
 // v11.24 — 'what's new' modal is shown ONCE PER PLAYER per MAJOR version
 // (tycoon_seen_v11), not once per patch release. Previously the key was
@@ -555,7 +555,7 @@ function Header({ s, eraName }: { s: GameState; eraName: (y: number) => string }
     <header className="top">
       <div className="brand">
         <Art id="s-coin" className="logo" />
-        <div><h1><span className="mini">v11.42</span> HuyenBao</h1>
+        <div><h1><span className="mini">v11.43</span> HuyenBao</h1>
           <div className="mini">{s.started ? `${s.nation} · ${eraName(worldYear(s))}` : t('tagline')}</div></div>
       </div>
       <div><div className="mini">{t('cash')}</div><div id="tcash" style={{ color: s.money < 0 ? 'var(--brick)' : undefined }}>{fmt(s.money)}</div>
@@ -1120,12 +1120,17 @@ function EduTab({ s, act }: { s: GameState; act: Act }) {
         const owned = !!s.lic[l.id];
         const studying = studies.some(course => course.kind === 'lic' && course.id === l.id);
         const busy = slotsFull;
-        const label = owned ? t('done') : studying ? t('inProgress') : busy ? t('busy') : s.money < l.cost ? t('needLicence') : t('enroll');
+        // v11.43 BUG A fix: was t('needLicence') → "Cần bằng lái" on a licence
+        // enrol button, making it look broken. Now correctly shows "Không đủ tiền".
+        const label = owned ? t('done') : studying ? t('inProgress') : busy ? t('busy') : s.money < l.cost ? t('noMoney') : t('enroll');
         const kind: 'busy' | 'ongoing' | undefined = studying ? 'ongoing' : busy ? 'busy' : undefined;
+        // v11.43 BUG D fix: localise category names + hide "needed for" when empty.
+        const neededCats = Object.keys(LIC_FOR).filter(k => LIC_FOR[k] === l.id).map(k => t('cat.' + k, k));
         return <Row key={l.id} art={l.art} right={<Btn ic={owned ? 'ic-check' : 'ic-cap'} kind={kind} label={owned ? t('done') : label} disabled={owned || !!studying || busy || s.money < l.cost}
           onClick={() => act(st => enrollLic(st, l.id))} />}>
-          <b>{t('lic.' + l.id, l.name)}</b><span className="sub">{fmt(l.cost)} {t('fee')} · {t('dayCourse', '', { n: l.days })} · {t('neededFor')} {Object.keys(LIC_FOR).filter(k => LIC_FOR[k] === l.id).join(', ')}</span>
-          {studies.length === 1 && <span className="sub" style={{ display: 'block' }}>{t('parallelStudyNote')}</span>}
+          <b>{t('lic.' + l.id, l.name)}</b><span className="sub">{fmt(l.cost)} {t('fee')} · {t('dayCourse', '', { n: l.days })}{neededCats.length > 0 ? ' · ' + t('neededFor') + ' ' + neededCats.join(', ') : ''}</span>
+          {/* v11.43 BUG B fix: use existing multiStudyNote key instead of missing parallelStudyNote */}
+          {studies.length === 1 && <span className="sub" style={{ display: 'block' }}>{t('multiStudyNote')}</span>}
         </Row>;
       })}
       <p className="sub">{t('eduTip')}</p>
