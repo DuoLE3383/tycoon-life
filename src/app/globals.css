@@ -223,9 +223,14 @@ html[data-theme="light"] body{background:#e2e7df}
 /* v11.50 — toast: bigger, glowing, longer-lasting, easier to read.
    - Larger font + padding so it's readable at a glance.
    - Pulsing accent-color glow ring so it draws the eye without being obnoxious.
-   - Top-center placement kept (above PinZone) but z-index raised above modals.
-   - .long variant wraps long text (multi-line toasts from tick/yearEnd). */
-.tgame #ttoast{position:fixed;left:50%;top:calc(14px + env(safe-area-inset-top,0px));transform:translateX(-50%);background:var(--ink);color:var(--paper);font-weight:800;font-size:1.18rem;line-height:1.45;padding:16px 26px;border-radius:14px;max-width:94vw;max-height:60vh;overflow:auto;text-align:center;z-index:300;border:2.5px solid var(--accent);box-shadow:0 0 0 4px rgba(202,138,4,.12),0 12px 36px rgba(40,35,25,.5),0 0 24px rgba(202,138,4,.35);animation:toastIn .35s cubic-bezier(.2,.8,.2,1) both,toastGlow 2.2s ease-in-out infinite alternate .4s;text-shadow:0 1px 2px rgba(0,0,0,.3)}
+   - Top-center placement kept (above PinZone).
+   - v11.53 — z-index lowered 300 → 150 so OPEN MODALS cover the toast.
+     Previously a toast firing while a modal was open (e.g. the gigs popup)
+     would cover the modal content — confusing because the user clicked a
+     modal button and wants to see the modal, not the result toast. Now the
+     toast sits behind the modal backdrop; it's still visible above page
+     content when no modal is open. */
+.tgame #ttoast{position:fixed;left:50%;top:calc(14px + env(safe-area-inset-top,0px));transform:translateX(-50%);background:var(--ink);color:var(--paper);font-weight:800;font-size:1.18rem;line-height:1.45;padding:16px 26px;border-radius:14px;max-width:94vw;max-height:60vh;overflow:auto;text-align:center;z-index:150;border:2.5px solid var(--accent);box-shadow:0 0 0 4px rgba(202,138,4,.12),0 12px 36px rgba(40,35,25,.5),0 0 24px rgba(202,138,4,.35);animation:toastIn .35s cubic-bezier(.2,.8,.2,1) both,toastGlow 2.2s ease-in-out infinite alternate .4s;text-shadow:0 1px 2px rgba(0,0,0,.3)}
 .tgame #ttoast.long{font-size:1.08rem;white-space:pre-wrap;line-height:1.5}
 @keyframes toastIn{from{opacity:0;transform:translate(-50%,-24px)}to{opacity:1;transform:translate(-50%,0)}}
 @keyframes toastGlow{from{box-shadow:0 0 0 4px rgba(202,138,4,.08),0 12px 36px rgba(40,35,25,.5),0 0 18px rgba(202,138,4,.25)}to{box-shadow:0 0 0 6px rgba(202,138,4,.16),0 12px 36px rgba(40,35,25,.55),0 0 32px rgba(202,138,4,.5)}}
@@ -812,6 +817,14 @@ html[data-theme="dark"] .tgame .cash-chip.low{color:#f87171;border-color:rgba(24
   .tgame .modal-overlay{padding:6px}
   .tgame .modal-box{max-width:100%;border-radius:14px}
   .tgame .gigs-modal{max-width:100%}
+  /* v11.53 — force gigs grid to 2 columns on mobile so the list doesn't
+     collapse to 1 column (was minmax(180px,1fr) which only fits 1 col
+     on a ~348px modal content area). */
+  .tgame .gigs-modal .gigs{grid-template-columns:repeat(2,1fr);gap:6px}
+  .tgame .gigs-modal .gig{padding:6px 8px;gap:6px}
+  .tgame .gigs-modal .gig .art{width:28px;height:28px;border-radius:7px}
+  .tgame .gigs-modal .gig b{font-size:.78rem}
+  .tgame .gigs-modal .gig .sub{font-size:.7rem}
   .tgame .modal-head{padding:12px 14px 8px}
   .tgame .modal-head h2{font-size:1.05rem}
   .tgame .modal-body{padding:12px 14px;gap:10px}
@@ -843,6 +856,10 @@ html[data-theme="dark"] .tgame .cash-chip.low{color:#f87171;border-color:rgba(24
   /* Edit-profile modal preview: smaller avatar + tighter gap. */
   .tgame .edit-preview{padding:9px;gap:9px}
   .tgame .edit-preview-av{font-size:1.8rem}
+  /* v11.53 — Finance Overview: tables stack to 1 column on mobile (was 2). */
+  .tgame .fo-grid{grid-template-columns:1fr !important}
+  .tgame .fo-row:hover{background:rgba(127,127,127,.06)}
+  .tgame .fo-row:active{background:rgba(127,127,127,.12)}
 }
 
 /* v11.37 — legacy pinzone-v37 (kept for reference, no longer used) */

@@ -1,5 +1,5 @@
 'use client';
-// HuyenBao v11.52 — React edition. Two-level grouped nav, a systems links map,
+// HuyenBao v11.53 — React edition. Two-level grouped nav, a systems links map,
 // gigs, levels, social, the cosmic frontier, EN/VI/中文, LLM oracle with
 // random kind dispatch (luck / setback / life-stage / story), pre-owned
 // market + social listings, a Hall of Fame tab, and a real player-to-player
@@ -45,6 +45,8 @@ import {
   gameOverTier, botRows, type AIEvent, type AIEventKind, type GameState, type Transaction, type TxKind, TX_CAP,
   // v11.49 — Portfolio Dashboard helpers
   recordTx, portfolioRealizedGains, portfolioUnrealizedGains, portfolioInvested, portfolioIncome, portfolioROI, stockROI, cashFlowLastDays,
+  // v11.53 — Finance Overview helpers (SAVE_RATE/LOAN_RATE already imported from gameData above)
+  yearExpenses, incomeBreakdown, expenseBreakdown, assetBreakdown, financeActions, type IncomeSource, type ExpenseItem, type AssetItem, type FinanceAction,
   doWell, toggleDiet, wellReady, wellLeft, effWellCd, healthMult, healthState, healthWarnings, spiritState, decayPerYear,
   jobsOf, jobIncome, studyTuition, type Religion, RELIGIONS,
   spiritBizMult, cosmicMult, GYM_COST, GYM_CD, CHECKUP_COST, CHECKUP_CD, TREAT_COST, TREAT_CD, DIET_COST,
@@ -98,7 +100,7 @@ if (typeof window !== 'undefined') {
 // v11.8 — the bundled version. The /version.json file in /public is polled
 // every 5 minutes; if its version is newer than this, a "reload to update"
 // banner appears even in a running session (no F5 needed).
-const BUNDLED_VERSION = 'v11.52';
+const BUNDLED_VERSION = 'v11.53';
 const VERSION_POLL_MS = 5 * 60 * 1000;
 // v11.44 — 'what's new' modal now fires PER PATCH (not per major version).
 // The SEEN_KEY is derived from BUNDLED_VERSION so each new patch re-shows the
@@ -453,6 +455,7 @@ export default function Page() {
           {tab === 'lboard' && <BoardView comm={comm} />}
           {tab === 'bank' && <BankTab s={s} act={act} />}
           {tab === 'portfolio' && <PortfolioTab s={s} act={act} />}
+          {tab === 'finance-overview' && <FinanceOverviewTab s={s} act={act} onNav={(k: string) => { setTab(k); setLastTab(lt => ({ ...lt, [activeGroup]: k })); }} />}
           {tab === 'rank' && <RankTab s={s} board={rankBoard} setBoard={setRankBoard} />}
           {tab === 'power' && <PowerTab s={s} act={act} />}
           {tab === 'entity' && <EntityTab s={s} act={act} />}
@@ -594,7 +597,7 @@ function Header({ s, eraName }: { s: GameState; eraName: (y: number) => string }
     <header className="top">
       <div className="brand">
         <Art id="s-coin" className="logo" />
-        <div><h1><span className="mini">v11.52</span> HuyenBao</h1>
+        <div><h1><span className="mini">v11.53</span> HuyenBao</h1>
           <div className="mini">{s.started ? `${s.nation} · ${eraName(worldYear(s))}` : t('tagline')}</div></div>
       </div>
       {/* v11.46 — removed Cash/NW/Income from header (was duplicate of PinZone).
@@ -3388,6 +3391,181 @@ function PortfolioTab({ s }: { s: GameState; act: Act }) {
       )}
       {/* Suppress unused-lang warning (lang is used elsewhere via useT consumer pattern). */}
       <span style={{ display: 'none' }}>{lang}</span>
+    </>
+  );
+}
+
+// ================= v11.53 — FINANCE OVERVIEW =================
+// Detailed financial dashboard: cash flow summary, income/expense/asset
+// breakdowns as clickable tables (each row navigates to the relevant tab),
+// + a priority-sorted action-suggestion list ("you have idle cash — deposit
+// to savings" etc). Designed to be the entry tab of the Finance group.
+function FinanceOverviewTab({ s, onNav }: { s: GameState; act: Act; onNav: (k: string) => void }) {
+  const { t } = useT();
+  const yi = yearIncome(s);
+  const ye = yearExpenses(s);
+  const netY = yi - ye;
+  const netM = netY / 12;
+  const nw = netWorth(s);
+  const income = incomeBreakdown(s);
+  const expenses = expenseBreakdown(s);
+  const assets = assetBreakdown(s);
+  const liabilities = s.bank.loan > 0 ? [{ id: 'loan', label: 'Loan', amount: s.bank.loan, link: 'bank' }] : [];
+  const actions = financeActions(s);
+  const priorityLabel = (p: FinanceAction['priority']): string =>
+    p === 'high' ? t('fo.priorityHigh') : p === 'medium' ? t('fo.priorityMedium') : t('fo.priorityLow');
+  const priorityColor = (p: FinanceAction['priority']): string =>
+    p === 'high' ? 'var(--brick)' : p === 'medium' ? 'var(--amber, #c47b2c)' : 'var(--mute)';
+  // Row renderer for income/expense/asset/liability tables — clickable.
+  const renderRow = (item: { id: string; label: string; amount: number; link: string }, idx: number, kind: 'income' | 'expense' | 'asset' | 'liab') => (
+    <tr key={item.id + idx} className="fo-row" onClick={() => onNav(item.link)} style={{ cursor: 'pointer', borderBottom: '1px solid var(--line)' }}>
+      <td style={{ padding: '7px 10px', fontWeight: 600 }}>{item.label}</td>
+      <td style={{ textAlign: 'right', padding: '7px 10px', fontVariantNumeric: 'tabular-nums', fontWeight: 700,
+        color: kind === 'income' ? 'var(--up)' : kind === 'expense' || kind === 'liab' ? 'var(--down)' : 'var(--ink)' }}>
+        {kind === 'income' ? '+' : kind === 'expense' || kind === 'liab' ? '−' : ''}{fmt(item.amount)}
+        <span className="mini" style={{ opacity: .6, fontWeight: 400 }}>{t('fo.perYear')}</span>
+      </td>
+      <td style={{ textAlign: 'right', padding: '7px 10px', color: 'var(--accent)', fontSize: '.74rem', fontWeight: 700, whiteSpace: 'nowrap' }}>
+        {t('fo.viewTab')} →
+      </td>
+    </tr>
+  );
+  return (
+    <>
+      {/* Cash flow summary card */}
+      <div className="card" style={{ marginBottom: 10, padding: 14 }}>
+        <div className="mini" style={{ textTransform: 'uppercase', letterSpacing: '.4px', color: 'var(--accent)' }}>{t('fo.title')}</div>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginTop: 8 }}>
+          <div>
+            <div className="mini" style={{ opacity: .7 }}>{t('fo.income')}</div>
+            <b style={{ fontSize: '1.1rem', color: 'var(--up)' }}>+{fmt(yi)}<span className="mini" style={{ fontWeight: 400, opacity: .6 }}>{t('fo.perYear')}</span></b>
+            <div className="mini" style={{ opacity: .7 }}>+{fmt(yi / 12)}{t('fo.perMonth')}</div>
+          </div>
+          <div>
+            <div className="mini" style={{ opacity: .7 }}>{t('fo.expenses')}</div>
+            <b style={{ fontSize: '1.1rem', color: 'var(--down)' }}>−{fmt(ye)}<span className="mini" style={{ fontWeight: 400, opacity: .6 }}>{t('fo.perYear')}</span></b>
+            <div className="mini" style={{ opacity: .7 }}>−{fmt(ye / 12)}{t('fo.perMonth')}</div>
+          </div>
+        </div>
+        <div style={{ marginTop: 10, padding: '8px 12px', borderRadius: 8, background: netY >= 0 ? 'rgba(46,158,91,.08)' : 'rgba(192,57,43,.08)', border: `1px solid ${netY >= 0 ? 'rgba(46,158,91,.25)' : 'rgba(192,57,43,.25)'}` }}>
+          <span className="mini" style={{ opacity: .7 }}>{t('fo.net')}</span>
+          <b style={{ fontSize: '1.2rem', color: netY >= 0 ? 'var(--up)' : 'var(--down)', marginLeft: 6 }}>
+            {netY >= 0 ? '+' : '−'}{fmt(Math.abs(netY))}<span className="mini" style={{ fontWeight: 400, opacity: .6 }}>{t('fo.perYear')}</span>
+          </b>
+          <span className="mini" style={{ marginLeft: 8, opacity: .7 }}>
+            · {netM >= 0 ? '+' : '−'}{fmt(Math.abs(netM))}{t('fo.perMonth')}
+          </span>
+        </div>
+        <div style={{ marginTop: 6, display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', padding: '0 4px' }}>
+          <span className="mini" style={{ opacity: .7 }}>{t('fo.netWorth')}</span>
+          <b style={{ fontSize: '1rem', color: 'var(--accent)' }}>{fmt(nw)}</b>
+        </div>
+      </div>
+
+      {/* Action suggestions */}
+      <h3>💡 {t('fo.actions')}</h3>
+      {actions.length === 0 ? (
+        <div className="card" style={{ marginBottom: 10, padding: 12, color: 'var(--sage)', fontWeight: 600 }}>✓ {t('fo.noActions')}</div>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 10 }}>
+          {actions.map(a => (
+            <button key={a.id} className="card" onClick={() => onNav(a.link)} style={{
+              padding: '10px 12px', textAlign: 'left', cursor: 'pointer',
+              borderLeft: `3px solid ${priorityColor(a.priority)}`,
+              background: 'var(--card)',
+            }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 3 }}>
+                <span className="tag" style={{
+                  fontSize: '.68rem', fontWeight: 700,
+                  background: priorityColor(a.priority),
+                  color: '#fff',
+                  padding: '1px 7px', borderRadius: 999,
+                }}>{priorityLabel(a.priority)}</span>
+                <span className="mini" style={{ color: 'var(--accent)', fontWeight: 700 }}>{t('fo.viewTab')} →</span>
+              </div>
+              <div style={{ fontSize: '.86rem', lineHeight: 1.45 }}>{a.text}</div>
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* Income + Expense tables side by side on desktop, stacked on mobile */}
+      <div className="fo-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 10 }}>
+        <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+          <div className="modal-head" style={{ padding: '10px 12px' }}><h2 style={{ fontSize: '.95rem' }}>📈 {t('fo.incomeSources')}</h2></div>
+          {income.length === 0 ? (
+            <p className="sub" style={{ padding: 12 }}>—</p>
+          ) : (
+            <table style={{ width: '100%', fontSize: '.82rem', borderCollapse: 'collapse' }}>
+              <tbody>
+                {income.map((it, i) => renderRow(it, i, 'income'))}
+                <tr style={{ background: 'var(--paper2)', borderTop: '2px solid var(--line)' }}>
+                  <td style={{ padding: '7px 10px', fontWeight: 800 }}>{t('fo.income')}</td>
+                  <td style={{ textAlign: 'right', padding: '7px 10px', fontWeight: 800, color: 'var(--up)', fontVariantNumeric: 'tabular-nums' }}>+{fmt(yi)}</td>
+                  <td></td>
+                </tr>
+              </tbody>
+            </table>
+          )}
+        </div>
+        <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+          <div className="modal-head" style={{ padding: '10px 12px' }}><h2 style={{ fontSize: '.95rem' }}>📉 {t('fo.expenseItems')}</h2></div>
+          {expenses.length === 0 ? (
+            <p className="sub" style={{ padding: 12 }}>—</p>
+          ) : (
+            <table style={{ width: '100%', fontSize: '.82rem', borderCollapse: 'collapse' }}>
+              <tbody>
+                {expenses.map((it, i) => renderRow(it, i, 'expense'))}
+                <tr style={{ background: 'var(--paper2)', borderTop: '2px solid var(--line)' }}>
+                  <td style={{ padding: '7px 10px', fontWeight: 800 }}>{t('fo.expenses')}</td>
+                  <td style={{ textAlign: 'right', padding: '7px 10px', fontWeight: 800, color: 'var(--down)', fontVariantNumeric: 'tabular-nums' }}>−{fmt(ye)}</td>
+                  <td></td>
+                </tr>
+              </tbody>
+            </table>
+          )}
+        </div>
+      </div>
+
+      {/* Assets + Liabilities tables */}
+      <div className="fo-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 10 }}>
+        <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+          <div className="modal-head" style={{ padding: '10px 12px' }}><h2 style={{ fontSize: '.95rem' }}>💼 {t('fo.assets')}</h2></div>
+          {assets.length === 0 ? (
+            <p className="sub" style={{ padding: 12 }}>—</p>
+          ) : (
+            <table style={{ width: '100%', fontSize: '.82rem', borderCollapse: 'collapse' }}>
+              <tbody>
+                {assets.map((it, i) => renderRow(it, i, 'asset'))}
+                <tr style={{ background: 'var(--paper2)', borderTop: '2px solid var(--line)' }}>
+                  <td style={{ padding: '7px 10px', fontWeight: 800 }}>{t('fo.assets')}</td>
+                  <td style={{ textAlign: 'right', padding: '7px 10px', fontWeight: 800, color: 'var(--ink)', fontVariantNumeric: 'tabular-nums' }}>{fmt(assets.reduce((a, b) => a + b.amount, 0))}</td>
+                  <td></td>
+                </tr>
+              </tbody>
+            </table>
+          )}
+        </div>
+        <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+          <div className="modal-head" style={{ padding: '10px 12px' }}><h2 style={{ fontSize: '.95rem' }}>📉 {t('fo.liabilities')}</h2></div>
+          {liabilities.length === 0 ? (
+            <p className="sub" style={{ padding: 12 }}>—</p>
+          ) : (
+            <table style={{ width: '100%', fontSize: '.82rem', borderCollapse: 'collapse' }}>
+              <tbody>
+                {liabilities.map((it, i) => renderRow(it, i, 'liab'))}
+                <tr style={{ background: 'var(--paper2)', borderTop: '2px solid var(--line)' }}>
+                  <td style={{ padding: '7px 10px', fontWeight: 800 }}>{t('fo.liabilities')}</td>
+                  <td style={{ textAlign: 'right', padding: '7px 10px', fontWeight: 800, color: 'var(--down)', fontVariantNumeric: 'tabular-nums' }}>−{fmt(liabilities.reduce((a, b) => a + b.amount, 0))}</td>
+                  <td></td>
+                </tr>
+              </tbody>
+            </table>
+          )}
+        </div>
+      </div>
+
+      <p className="mini" style={{ textAlign: 'center', opacity: .7, marginTop: 6 }}>{t('fo.tapHint')}</p>
     </>
   );
 }

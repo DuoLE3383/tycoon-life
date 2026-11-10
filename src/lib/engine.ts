@@ -897,6 +897,183 @@ export const studyTuition = (s: GameState) => [s.study, s.sideStudy]
   .reduce((total, study) => total + (study?.kind === 'deg' ? study.tuition : 0), 0);
 export const yearIncome = (s: GameState) => bizIncome(s) + spaceIncome(s) + socialIncome(s) + jobIncome(s) + (s.age >= RETIRE ? PENSION : 0);
 export const living = (age: number) => Math.round(3000 * Math.pow(1.03, age - START));
+// v11.53 — Finance Overview: total annual expenses (living + upkeep + tuition
+// + loan interest + biz costs + diet + kids). Used by the cash-flow panel +
+// action suggestions. Returns 0 for a fresh state with no expenses yet.
+export const yearExpenses = (s: GameState): number => {
+  const livingCost = living(Math.floor(s.age));
+  const upk = upkeep(s);
+  const tuition = studyTuition(s);
+  const loanInt = s.bank.loan * effLoanRate(s);
+  const bizC = bizCosts(s);
+  const diet = s.diet ? DIET_COST * 12 : 0;
+  const kids = s.kids * 400 * 12;
+  return livingCost + upk + tuition + loanInt + bizC + diet + kids;
+};
+// v11.53 — Finance Overview: income broken down by source, returned as a
+// sorted array (largest first) so the UI can render a clean table.
+export interface IncomeSource {
+  id: string;          // 'salary' | 'biz' | 'social' | 'space' | 'pension' | 'interest'
+  label: 'Salary' | 'Business' | 'Social' | 'Space' | 'Pension' | 'Bank interest';
+  amount: number;      // annual $ amount
+  link: string;        // tab id to navigate to for this source
+}
+export const incomeBreakdown = (s: GameState): IncomeSource[] => {
+  const out: IncomeSource[] = [];
+  const sal = jobIncome(s);
+  if (sal > 0) out.push({ id: 'salary', label: 'Salary', amount: sal, link: 'career' });
+  const biz = bizIncome(s);
+  if (biz > 0) out.push({ id: 'biz', label: 'Business', amount: biz, link: 'biz' });
+  const soc = socialIncome(s);
+  if (soc > 0) out.push({ id: 'social', label: 'Social', amount: soc, link: 'social' });
+  const sp = spaceIncome(s);
+  if (sp > 0) out.push({ id: 'space', label: 'Space', amount: sp, link: 'space' });
+  const pen = s.age >= RETIRE ? PENSION : 0;
+  if (pen > 0) out.push({ id: 'pension', label: 'Pension', amount: pen, link: 'career' });
+  const interest = s.bank.dep * SAVE_RATE;
+  if (interest > 0) out.push({ id: 'interest', label: 'Bank interest', amount: interest, link: 'bank' });
+  return out.sort((a, b) => b.amount - a.amount);
+};
+// v11.53 — Finance Overview: expenses broken down by category.
+export interface ExpenseItem {
+  id: string;          // 'living' | 'upkeep' | 'tuition' | 'loanInt' | 'bizCosts' | 'diet' | 'kids'
+  label: 'Living' | 'Asset upkeep' | 'Tuition' | 'Loan interest' | 'Business costs' | 'Diet' | 'Kids';
+  amount: number;      // annual $ amount
+  link: string;        // tab id to navigate to
+}
+export const expenseBreakdown = (s: GameState): ExpenseItem[] => {
+  const out: ExpenseItem[] = [];
+  const lv = living(Math.floor(s.age));
+  if (lv > 0) out.push({ id: 'living', label: 'Living', amount: lv, link: 'career' });
+  const upk = upkeep(s);
+  if (upk > 0) out.push({ id: 'upkeep', label: 'Asset upkeep', amount: upk, link: 'assets' });
+  const tuition = studyTuition(s);
+  if (tuition > 0) out.push({ id: 'tuition', label: 'Tuition', amount: tuition, link: 'edu' });
+  const loanInt = s.bank.loan * effLoanRate(s);
+  if (loanInt > 0) out.push({ id: 'loanInt', label: 'Loan interest', amount: loanInt, link: 'bank' });
+  const bizC = bizCosts(s);
+  if (bizC > 0) out.push({ id: 'bizCosts', label: 'Business costs', amount: bizC, link: 'biz' });
+  if (s.diet) out.push({ id: 'diet', label: 'Diet', amount: DIET_COST * 12, link: 'health' });
+  if (s.kids > 0) out.push({ id: 'kids', label: 'Kids', amount: s.kids * 400 * 12, link: 'life' });
+  return out.sort((a, b) => b.amount - a.amount);
+};
+// v11.53 — Finance Overview: asset breakdown by category.
+export interface AssetItem {
+  id: string;          // 'cash' | 'savings' | 'stocks' | 'items' | 'biz' | 'farm' | 'fac' | 'space'
+  label: 'Cash' | 'Savings' | 'Stocks' | 'Items' | 'Business' | 'Farm' | 'Factory' | 'Space';
+  amount: number;
+  link: string;
+}
+export const assetBreakdown = (s: GameState): AssetItem[] => {
+  const out: AssetItem[] = [];
+  if (s.money > 0) out.push({ id: 'cash', label: 'Cash', amount: s.money, link: 'bank' });
+  if (s.bank.dep > 0) out.push({ id: 'savings', label: 'Savings', amount: s.bank.dep, link: 'bank' });
+  const stk = stockVal(s);
+  if (stk > 0) out.push({ id: 'stocks', label: 'Stocks', amount: stk, link: 'markets' });
+  const items = assetVal(s);
+  if (items > 0) out.push({ id: 'items', label: 'Items', amount: items, link: 'assets' });
+  const biz = bizVal(s);
+  if (biz > 0) out.push({ id: 'biz', label: 'Business', amount: biz, link: 'biz' });
+  return out.sort((a, b) => b.amount - a.amount);
+};
+// v11.53 — Finance Overview: action suggestions based on the player's state.
+// Returns a priority-sorted list of { id, text, link } tuples — each one
+// identifies a concrete thing the player could do to improve their finances.
+export interface FinanceAction {
+  id: string;
+  priority: 'high' | 'medium' | 'low';
+  text: string;        // human-readable suggestion (caller can i18n the prefix)
+  link: string;        // tab id to navigate to
+}
+export function financeActions(s: GameState): FinanceAction[] {
+  const out: FinanceAction[] = [];
+  const yi = yearIncome(s);
+  const ye = yearExpenses(s);
+  const monthlyExpenses = ye / 12;
+  // 1. Income below expenses — high priority.
+  if (yi < ye && ye > 0) {
+    out.push({
+      id: 'deficit',
+      priority: 'high',
+      text: `Income ${fmt(yi)}/yr is below expenses ${fmt(ye)}/yr — increase revenue or cut costs.`,
+      link: 'career',
+    });
+  }
+  // 2. Loan active — repay to save interest (high if interest is large).
+  if (s.bank.loan > 0) {
+    const interestYr = s.bank.loan * effLoanRate(s);
+    out.push({
+      id: 'repay',
+      priority: interestYr > 5000 ? 'high' : 'medium',
+      text: `Loan ${fmt(s.bank.loan)} costs ${fmt(interestYr)}/yr in interest — repay to save.`,
+      link: 'bank',
+    });
+  }
+  // 3. Idle cash — deposit to savings (medium).
+  if (s.money > 3 * monthlyExpenses && s.money > 1000 && s.bank.dep < s.money * 0.5) {
+    const potential = s.money * 0.5 * SAVE_RATE;
+    out.push({
+      id: 'deposit',
+      priority: 'medium',
+      text: `${fmt(s.money)} idle cash — deposit ~half to savings to earn ${fmt(potential)}/yr.`,
+      link: 'bank',
+    });
+  }
+  // 4. Active study — finish to stop tuition (medium).
+  if (s.study || s.sideStudy) {
+    const tuitionYr = studyTuition(s);
+    if (tuitionYr > 0) {
+      out.push({
+        id: 'study',
+        priority: 'medium',
+        text: `Paying ${fmt(tuitionYr)}/yr tuition — finish the degree to stop the bleed.`,
+        link: 'edu',
+      });
+    }
+  }
+  // 5. Stocks held — review portfolio (low).
+  const stk = stockVal(s);
+  if (stk > 0) {
+    out.push({
+      id: 'portfolio',
+      priority: 'low',
+      text: `Holding ${fmt(stk)} in stocks — review ROI in the Portfolio tab.`,
+      link: 'portfolio',
+    });
+  }
+  // 6. No business — consider opening one (low, only if has cash).
+  const totalBranches = BIZ.reduce((n, b) => n + branchCount(s, b.id), 0);
+  if (totalBranches === 0 && s.money > 1000) {
+    out.push({
+      id: 'startbiz',
+      priority: 'low',
+      text: `No business yet — opening one builds passive income. Cash ${fmt(s.money)} available.`,
+      link: 'biz',
+    });
+  }
+  // 7. Biz profitable — consider expanding (low).
+  const bn = bizNet(s);
+  if (bn > 5000) {
+    out.push({
+      id: 'expand',
+      priority: 'low',
+      text: `Business nets ${fmt(bn)}/yr — consider opening more branches to scale.`,
+      link: 'biz',
+    });
+  }
+  // 8. Health low — health-care costs are coming (high).
+  if (s.health < 35) {
+    out.push({
+      id: 'health',
+      priority: 'high',
+      text: `Health critical (${Math.round(s.health)}/100) — rest or see a doctor before medical bills hit.`,
+      link: 'health',
+    });
+  }
+  // Sort by priority: high → medium → low.
+  const order: Record<FinanceAction['priority'], number> = { high: 0, medium: 1, low: 2 };
+  return out.sort((a, b) => order[a.priority] - order[b.priority]);
+}
 export const lotValue = (s: GameState, l: { id: string; paid: number; day: number; condition?: number }) => {
   const it = ITEM_BY[l.id];
   const itemRate = it.rate;

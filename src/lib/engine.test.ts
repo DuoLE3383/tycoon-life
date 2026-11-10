@@ -13,6 +13,8 @@ import {
   buyItem, sellLot, buySpace,
   // v11.50 — brand customization + NPC reactions
   setBizBrand, bizBrandOf, generateNpcReactions, openBranch, franchiseBranch, FRANCHISE_FEE_MULT, FRANCHISE_ROYALTY,
+  // v11.53 — Finance Overview helpers
+  yearExpenses, incomeBreakdown, expenseBreakdown, assetBreakdown, financeActions,
   dateOf, worldYear, type GameState, type Transaction,
 } from './engine';
 
@@ -1286,5 +1288,88 @@ test('v11.50: addPost now returns the created Post (so callers can attach reacti
   assert.ok(post, 'addPost returns the post object');
   assert.equal(post!.t, 'Hello world');
   assert.equal(post!.likes >= 0, true);
+});
+
+// ================= v11.53 — FINANCE OVERVIEW =================
+
+test('v11.53: yearExpenses sums living + upkeep + tuition + loan interest + biz costs', () => {
+  const s = fresh();
+  // Fresh state: no biz, no loan, no study, no diet, no kids.
+  // Only living cost should be present (3000 * 1.03^0 = 3000 for age 18).
+  const ye = yearExpenses(s);
+  assert.ok(ye > 0, 'expenses > 0 even for fresh state (living cost)');
+  assert.ok(ye >= 3000, 'at least the base living cost');
+  // Add a loan → expenses should jump by loan * LOAN_RATE.
+  s.bank.loan = 100_000;
+  const yeWithLoan = yearExpenses(s);
+  assert.ok(yeWithLoan > ye, 'loan interest adds to expenses');
+});
+
+test('v11.53: incomeBreakdown returns sorted array of active income sources', () => {
+  const s = fresh();
+  // Fresh state: no income sources (no job, no biz, no social, no space, no pension, no savings).
+  assert.deepEqual(incomeBreakdown(s), []);
+  // Add savings → bank interest appears.
+  s.bank.dep = 100_000;
+  const inc = incomeBreakdown(s);
+  assert.equal(inc.length, 1);
+  assert.equal(inc[0].id, 'interest');
+  assert.equal(inc[0].amount, 100_000 * 0.02); // SAVE_RATE = 0.02
+});
+
+test('v11.53: expenseBreakdown includes living cost + any active category', () => {
+  const s = fresh();
+  const exp = expenseBreakdown(s);
+  // Fresh state: at least 'living' is present.
+  assert.ok(exp.some(e => e.id === 'living'), 'living cost always present');
+  // Diet adds a diet expense.
+  s.diet = true;
+  const expWithDiet = expenseBreakdown(s);
+  assert.ok(expWithDiet.some(e => e.id === 'diet'), 'diet expense when diet active');
+});
+
+test('v11.53: assetBreakdown returns sorted (largest first) active assets', () => {
+  const s = fresh();
+  // Fresh state: only cash (if any) shows.
+  s.money = 5000;
+  const a = assetBreakdown(s);
+  assert.equal(a.length, 1);
+  assert.equal(a[0].id, 'cash');
+  assert.equal(a[0].amount, 5000);
+  // Add savings → sorted by amount descending.
+  s.bank.dep = 20_000;
+  const a2 = assetBreakdown(s);
+  assert.equal(a2[0].id, 'savings', 'savings > cash so it sorts first');
+  assert.equal(a2[1].id, 'cash');
+});
+
+test('v11.53: financeActions flags deficit for a fresh state (no income, living expenses only)', () => {
+  const s = fresh();
+  // Fresh state: no job, no biz, no savings → income=0 but living expenses>0.
+  // The deficit suggestion should fire (income < expenses).
+  const actions = financeActions(s);
+  const ids = actions.map(a => a.id);
+  assert.ok(ids.includes('deficit'), 'deficit suggestion fires when income < expenses');
+  assert.ok(!ids.includes('repay'), 'no repay suggestion without a loan');
+  assert.ok(!ids.includes('deposit'), 'no deposit suggestion without idle cash');
+});
+
+test('v11.53: financeActions flags loan + idle cash + low health', () => {
+  const s = fresh();
+  s.money = 200_000;       // idle cash
+  s.bank.dep = 5_000;      // below half of money → deposit suggestion
+  s.bank.loan = 50_000;    // active loan → repay suggestion
+  s.health = 25;           // critical → health suggestion
+  const actions = financeActions(s);
+  const ids = actions.map(a => a.id);
+  assert.ok(ids.includes('repay'), 'repay loan suggestion');
+  assert.ok(ids.includes('deposit'), 'deposit idle cash suggestion');
+  assert.ok(ids.includes('health'), 'critical health suggestion');
+  // High priority items should sort before low priority.
+  const highIdx = ids.indexOf('health');
+  const lowIdx = ids.indexOf('deposit');
+  if (highIdx >= 0 && lowIdx >= 0) {
+    assert.ok(highIdx < lowIdx, 'high priority sorts before low');
+  }
 });
 
