@@ -9,6 +9,9 @@ export const ART_DEFS = `<svg width="0" height="0" style="position:absolute" ari
 <symbol id="t-rank" viewBox="0 0 24 24"><path d="M7 4h10v4a5 5 0 0 1-10 0zM12 13v5M8 20h8"/></symbol>
 <symbol id="i-sound" viewBox="0 0 24 24"><path d="M4 9h4l5-4v14l-5-4H4zM16 9a4 4 0 0 1 0 6M19 6a8 8 0 0 1 0 12"/></symbol>
 <symbol id="i-mute" viewBox="0 0 24 24"><path d="M4 9h4l5-4v14l-5-4H4zM17 9l5 6M22 9l-5 6"/></symbol>
+<symbol id="i-shoe" viewBox="0 0 24 24"><path d="M3 17c0-1.2.8-2.4 2.2-2.7l3.3-.8c.9-.2 1.7-.8 2.2-1.6l1-1.6c1.2 1.7 3 2.8 5.1 3.2l2.6.5c1.4.3 2.6 1.4 2.6 3v.5H3z"/><path d="M7.5 14.5l1 1.5M10.5 13.2l1 1.5M13.8 13.6l.8 1.4M17 14.6l.6 1.3"/></symbol>
+<symbol id="i-handbag" viewBox="0 0 24 24"><path d="M9 10V8a3 3 0 0 1 6 0v2"/><path d="M5.5 10h13l-1.2 10h-10.6z"/><path d="M5.5 14.5h13"/></symbol>
+<symbol id="i-cam" viewBox="0 0 24 24"><path d="M3 8.5A1.5 1.5 0 0 1 4.5 7h3.2l1.6-2.2h5.4L16.3 7h3.2A1.5 1.5 0 0 1 21 8.5V18a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 18z"/><circle cx="12" cy="13.3" r="3.4"/></symbol>
 <symbol id="ic-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
 <symbol id="ic-bag" viewBox="0 0 24 24"><path d="M5 8h14l-1 12H6zM9 8a3 3 0 0 1 6 0"/></symbol>
 <symbol id="ic-up" viewBox="0 0 24 24"><path d="M12 19V5M6 11l6-6 6 6"/></symbol>

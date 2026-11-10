@@ -215,7 +215,10 @@ const D: Record<string, [string, string, string]> = {
   'grp.life': ['Character', 'Nhân vật', '角色'],
   'grp.growth': ['Education', 'Học vấn', '学业'],
   'grp.empire': ['Business', 'Kinh doanh', '生意'],
-  'grp.wealth': ['Assets', 'Tài sản', '资产'],
+  // v11.24 — 'wealth' (Portfolio) split into two groups: assets (physical
+  // items) vs finance (markets + banking).
+  'grp.assets': ['Assets', 'Tài sản', '资产'],
+  'grp.finance': ['Finance', 'Tài chính', '财务'],
   'grp.network': ['Social', 'Xã hội', '社交'],
   'grp.world': ['Empire', 'Đế chế', '帝国'],
   'tab.links': ['Systems', 'Hệ thống', '系统'],

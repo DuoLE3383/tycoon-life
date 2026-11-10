@@ -319,7 +319,7 @@ export const LICENSES = [
   { id: 'car', name: "Driver's licence (car)", cost: 600, days: 60, art: 'i-lambo' },
   { id: 'boat', name: 'Boating licence', cost: 1500, days: 90, art: 'i-yacht' },
   { id: 'pilot', name: 'Private pilot licence', cost: 20000, days: 365, art: 'i-jet' },
-  { id: 'mechanic', name: 'Mechanic certification', cost: 2500, days: 120, art: 'i-bag' }
+  { id: 'mechanic', name: 'Mechanic certification', cost: 2500, days: 120, art: 'i-handbag' }
 ];
 export const LIC_BY = Object.fromEntries(LICENSES.map(l => [l.id, l]));
 export const LIC_FOR: Record<string, string> = { 'Sport bike': 'moto', 'Car': 'car' };
@@ -442,6 +442,31 @@ export const ITEMS: ItemDef[] = [
   { id: 'col-wine', cat: 'Collectibles', name: 'Vintage wine case (6 bt)', c: '#7f1d1d', price: 18000, lux: 70, rate: .06, art: 'i-wine' },
   { id: 'col-ming', cat: 'Collectibles', name: 'Ming-dynasty porcelain vase', c: '#0c4a6e', price: 350000, lux: 800, rate: .07, art: 'i-vase' },
   { id: 'col-strad', cat: 'Collectibles', name: 'Stradivarius violin', c: '#92400e', price: 2500000, lux: 3000, rate: .08, art: 'i-violin' },
+  // ---- v11.24: diversified catalogue (5 new categories, 16 items) ----
+  // Player feedback: "đa dạng hoá hơn phần item... đưa thành tài sản".
+  // Sneakers + handbags cover streetwear/luxury fashion; audio + camera
+  // cover equipment hobbies; classic cars are appreciating garage plays.
+  // ---- Sneakers ----
+  { id: 'sn-jordan', cat: 'Sneakers', brand: 'Nike', name: 'Air Jordan 1 Retro High', c: '#dc2626', price: 250, lux: 3, rate: -.1, art: 'i-shoe' },
+  { id: 'sn-yeezy', cat: 'Sneakers', brand: 'Adidas', name: 'Yeezy Boost 350', c: '#a3a3a3', price: 350, lux: 5, rate: -.15, art: 'i-shoe' },
+  { id: 'sn-dior', cat: 'Sneakers', brand: 'Dior', name: 'B23 high-top', c: '#334155', price: 1800, lux: 20, rate: -.08, art: 'i-shoe' },
+  { id: 'sn-aimag', cat: 'Sneakers', brand: 'Nike', name: 'Air Mag "Back to the Future"', c: '#f8fafc', price: 92000, lux: 1500, rate: .1, art: 'i-shoe', rarity: 'legendary' },
+  { id: 'sn-lvaf1', cat: 'Sneakers', brand: 'Louis Vuitton × Nike', name: 'Air Force 1 (Virgil Abloh)', c: '#a16207', price: 350000, lux: 2800, rate: .09, art: 'i-shoe', rarity: 'legendary' },
+  // ---- Handbags ----
+  { id: 'bag-coach', cat: 'Handbag', brand: 'Coach', name: 'Tabby 26', c: '#b45309', price: 450, lux: 4, rate: -.2, art: 'i-handbag' },
+  { id: 'bag-lv', cat: 'Handbag', brand: 'Louis Vuitton', name: 'Neverfull MM', c: '#7c2d12', price: 2400, lux: 18, rate: -.04, art: 'i-handbag' },
+  { id: 'bag-chanel', cat: 'Handbag', brand: 'Chanel', name: 'Classic Flap', c: '#111827', price: 11000, lux: 100, rate: .06, art: 'i-handbag' },
+  { id: 'bag-birkin', cat: 'Handbag', brand: 'Hermès', name: 'Birkin 35 Togo', c: '#78350f', price: 28000, lux: 420, rate: .12, art: 'i-bag', rarity: 'legendary' },
+  // ---- Audio ----
+  { id: 'au-mcintosh', cat: 'Audio', brand: 'McIntosh', name: 'Hi-fi amplifier stack', c: '#1e3a8a', price: 32000, lux: 220, rate: 0, art: 'i-sound' },
+  { id: 'au-gram', cat: 'Audio', brand: 'HMV', name: 'Gramophone (1930s)', c: '#7c3aed', price: 9000, lux: 90, rate: .05, art: 'i-sound' },
+  // ---- Camera ----
+  { id: 'cam-leica', cat: 'Camera', brand: 'Leica', name: 'M11 rangefinder', c: '#0f172a', price: 6500, lux: 55, rate: -.03, art: 'i-cam' },
+  { id: 'cam-hassel', cat: 'Camera', brand: 'Hasselblad', name: '907X & CFV 100C', c: '#44403c', price: 11000, lux: 80, rate: .01, art: 'i-cam' },
+  // ---- Classic cars (appreciating garage) ----
+  { id: 'cc-e30', cat: 'Classic car', brand: 'BMW', name: 'M3 Sport Evolution \'90', c: '#b91c1c', price: 260000, lux: 320, rate: .05, art: 'i-lambo' },
+  { id: 'cc-959', cat: 'Classic car', brand: 'Porsche', name: '959 \'87', c: '#e5e7eb', price: 1500000, lux: 1600, rate: .07, art: 'i-lambo' },
+  { id: 'cc-300sl', cat: 'Classic car', brand: 'Mercedes-Benz', name: '300SL Gullwing \'55', c: '#94a3b8', price: 1800000, lux: 2000, rate: .08, art: 'i-lambo', rarity: 'legendary' },
 ];
 // v10.5 — derive rarity from luxury tier if not set explicitly.
 // 0-9 common · 10-49 uncommon · 50-299 rare · 300+ legendary.
@@ -664,13 +689,19 @@ export const TABS: [string, string, string][] = [
 // before opening businesses, and Empire (world/meta-game) sits last.
 //   Old order: life → growth → empire → wealth → network → world
 //   New order: life → growth → wealth → empire → network → world
+// v11.24 — split 'wealth' (Portfolio) into TWO groups per UX feedback:
+//   'assets'  (Tài sản)  — the diversified item/property catalogue
+//   'finance' (Tài chính) — markets (stocks) + banking (savings/loans/tax)
+// Physical possessions and financial instruments are different mental
+// models; mixing them under one "Portfolio" umbrella was confusing.
 export const GROUPS: [string, string, string, [string, string, string][]][] = [
   ['life', 'Character', 't-life', [['home', 'Overview', 't-life'], ['health', 'Wellbeing', 'w-heart'], ['spirit', 'Mind', 'w-lotus'], ['pets', 'Companions', 'ic-paw']]],
-  ['growth', 'Capital', 't-cap', [['edu', 'Education', 't-cap'], ['career', 'Career', 't-work']]],
-  ['wealth', 'Portfolio', 't-bank', [['assets', 'Assets', 'ic-bag'], ['markets', 'Markets', 't-stock'], ['bank', 'Banking', 't-bank']]],
-  ['empire', 'Ventures', 't-biz', [['biz', 'Business', 't-biz'], ['space', 'Space', 't-space']]],
-  ['network', 'Sphere', 't-social', [['social', 'Social', 't-social'], ['relations', 'Relations', 'ic-heart'], ['club', 'Clubs', 't-club']]],
-  ['world', 'World', 't-rank', [['power', 'Power', 't-power'], ['entity', 'Empire', 'b-corp'], ['rank', 'Ranking', 't-rank'], ['fame', 'Hall of Fame', 'ic-trophy'], ['links', 'Systems', 'ic-link']]],
+  ['growth', 'Education', 't-cap', [['edu', 'Education', 't-cap'], ['career', 'Career', 't-work']]],
+  ['assets', 'Assets', 'ic-bag', [['assets', 'Assets', 'ic-bag']]],
+  ['finance', 'Finance', 't-bank', [['markets', 'Markets', 't-stock'], ['bank', 'Banking', 't-bank']]],
+  ['empire', 'Business', 't-biz', [['biz', 'Business', 't-biz'], ['space', 'Space', 't-space']]],
+  ['network', 'Social', 't-social', [['social', 'Social', 't-social'], ['relations', 'Relations', 'ic-heart'], ['club', 'Clubs', 't-club']]],
+  ['world', 'Empire', 't-rank', [['power', 'Power', 't-power'], ['entity', 'Empire', 'b-corp'], ['rank', 'Ranking', 't-rank'], ['fame', 'Hall of Fame', 'ic-trophy'], ['links', 'Systems', 'ic-link']]],
 ];
 
 // ================= v8: gigs, levels & XP, the cosmic frontier =================

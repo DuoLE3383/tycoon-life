@@ -1,18 +1,22 @@
 {
-  "version": "v11.23",
+  "version": "v11.24",
   "releasedAt": "2026-11-10",
-  "headline": "HuyenBao v11.23 — nav tooltips + XP bar visibility + Power/Empire bullet explanations + Relations primary buttons",
-  "summary": "UX clarity pass. (1) Tooltips for Level-2 nav icons — hover any subnav tab (Overview / Wellbeing / Education / Assets / Markets / Banking / Business / Space / Social / Relations / Clubs / Power / Empire / Ranking / Hall of Fame / Systems) to see a one-line description of what it contains. Implemented as a pure CSS tooltip (::after + attr(data-tip)) with fade-in + caret; no JS state, no extra dependencies. (2) XP progress bar visibility — the lvlchip bar in the header was 6px×74px (effectively invisible); now 9px×96px with a gradient fill + a thin next-level marker at the right edge. Added a hover tooltip on the lvlchip showing exact XP: 'Lv X · Y/Z XP (P%) · next in N XP'. (3) Power + Empire tier explanations converted from dense prose paragraph to scannable icon bullet list — each tier now shows 3 bullets (role / requirement-or-source / catch) with a small icon per bullet (check / xp / x for Power; check / xp / star for Empire). All 9 tier bullets added in EN/VI/ZH. (4) Relations tab — 'Trò chuyện' (Talk) and 'Tặng quà' (Gift) buttons changed from ghost (subtle) to default accent gold background, making them visually primary alongside 'Giúp' (Help) and 'Cãi' (Argue) which stay ghost. The propose/marry button keeps its sage-green special variant. Version bumped to v11.23 at FRONT of app name (v11.23 HuyenBao). 4 Huyen-Hoc-AI features unchanged.",
+  "headline": "HuyenBao v11.24 — market finally moves + Finance/Assets split + 16 new items + 3D nav + event/notification fixes",
+  "summary": "Structural + bugfix pass. (1) MARKET FIXED — the real bug behind 'market chưa hoạt động': STOCKS[].vol was defined but never used and s.hist was never pushed to, so prices only moved on year-boundary shocks/crises and sparklines were dead flat lines. Stocks now do a daily geometric random walk (30s per game-day) scaled by each stock's volatility (COIN ±9% … BANK ±2%) with gentle mean reversion toward the listing price (clamped 0.25×–6×), and history is appended (capped 60 points) so charts finally move. (2) EVENTS/NOTIFICATIONS FIXED — the real bug behind 'thông báo và hint sự kiện vẫn chưa hoạt động': the day>30 threshold meant 15 minutes of real play before the FIRST AI-oracle popup or ambient toast could ever roll; most sessions ended before anything fired. Threshold lowered day>30 → day>3 (~90 seconds). Rates unchanged (9%/day oracle, 6%/day ambient). (3) WHAT'S-NEW REPEAT FIXED — the modal key was per-patch (tycoon_seen_v11.21/.22/.23) so every version bump re-showed the SAME static v11 feature list ('big update bị lặp lại'); now keyed once per major version (tycoon_seen_v11). Also removed the reload-banner button that wiped the seen flag. (4) NAV REORGANIZED — 'Portfolio' group split into two: 'Tài sản' (Assets — the diversified item catalogue) and 'Tài chính' (Finance — Markets + Banking). Physical possessions and financial instruments are different mental models. (5) 16 NEW ITEMS in 5 new categories: Sneakers (Jordan 1, Yeezy, Dior B23, Nike Air Mag, LV×Nike AF1), Handbag (Coach Tabby, LV Neverfull, Chanel Classic Flap, Hermès Birkin), Audio (McIntosh stack, gramophone), Camera (Leica M11, Hasselblad 907X), Classic car (BMW M3 E30, Porsche 959, Mercedes 300SL Gullwing). Grail pieces appreciate (Air Mag +10%/yr, Birkin +12%/yr — mirroring real collector markets). 3 new SVG icons (sneaker, handbag, camera). Catalog now 67 items / 16 categories. (6) 3D ANIMATED NAV — buttons lift on hover with perspective rotateX tilt (Level 1) or scale pop (Level 2), press down on :active; disabled under prefers-reduced-motion. Version bumped to v11.24. 4 Huyen-Hoc-AI features unchanged.",
   "features": [
-    "Tooltips for all 19 Level-2 nav tab icons — hover any subnav button to see a one-line description of what the tab contains (EN/VI/ZH)",
-    "Pure CSS tooltip implementation (::after + attr(data-tip) + fade-in + caret) — no JS state, no extra dependencies, gracefully degrades if data-tip empty",
-    "XP progress bar in header lvlchip made more visible: 6px×74px → 9px×96px with gradient fill (accent → lighter accent) + thin next-level marker at right edge",
-    "Hover tooltip on lvlchip showing exact XP: 'Lv X · Y/Z XP (P%) · next in N XP' — replaces static 'Level' title",
-    "Power tier explanations converted from prose paragraph to 3-bullet icon list (check/xp/x icons) — mogul / influencer / national / state tiers all updated",
-    "Empire tier explanations converted from prose paragraph to 3-bullet icon list (check/xp/star icons) — conglomerate / autonomous / nation / empire / federation tiers all updated",
-    "9 new bullet-string i18n keys (||-separated) added in EN/VI/ZH for tier explanations",
-    "Relations tab: 'Trò chuyện' (Talk) and 'Tặng quà' (Gift) buttons upgraded from ghost to default accent gold background — now visually primary CTAs",
-    "'Giúp' (Help) and 'Cãi' (Argue) stay ghost (secondary); propose/marry stays sage-green (special) — preserves visual hierarchy",
-    "Version bumped to v11.23 at FRONT of app name (v11.23 HuyenBao)"
+    "MARKET FIX: daily geometric random walk per stock (vol from STOCKS[].vol — was defined but never used)",
+    "MARKET FIX: s.hist now appended every game-day (capped 60 points) — sparklines finally move (was initialized once, never pushed)",
+    "MARKET FIX: soft mean reversion toward listing price (≤1.2%/day) + price clamp 0.25×–6× to prevent runaway values",
+    "EVENT FIX: AI-oracle popup threshold day>30 → day>3 — first popup can now fire after ~90 seconds instead of ~15 minutes",
+    "EVENT FIX: ambient mini-toast threshold day>30 → day>3 (rates unchanged: 9%/day oracle, 6%/day ambient)",
+    "BUGFIX: what's-new modal shown once per MAJOR version (tycoon_seen_v11) instead of once per patch — kills the 'big update repeats' complaint",
+    "BUGFIX: reload-banner button no longer wipes the seen flag",
+    "NAV: 'Portfolio' group split into 'Tài sản' (Assets) + 'Tài chính' (Finance = Markets + Banking) — VI/EN/ZH",
+    "ITEMS: +16 items in 5 new categories — Sneakers (5), Handbag (4), Audio (2), Camera (2), Classic car (3)",
+    "ITEMS: collector grails appreciate — Nike Air Mag +10%/yr, Hermès Birkin +12%/yr, Mercedes 300SL +8%/yr (real collector-market rates)",
+    "ITEMS: catalogue now 67 items across 16 categories",
+    "ART: +3 SVG symbols — i-shoe (sneaker), i-handbag, i-cam (camera)",
+    "NAV 3D: hover lift + rotateX tilt on Level-1 buttons (perspective 700px), scale pop on Level-2, press-down on :active",
+    "Version bumped to v11.24 at FRONT of app name (v11.24 HuyenBao)"
   ]
 }

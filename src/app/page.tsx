@@ -1,5 +1,5 @@
 'use client';
-// HuyenBao v11.23 — React edition. Two-level grouped nav, a systems links map,
+// HuyenBao v11.24 — React edition. Two-level grouped nav, a systems links map,
 // gigs, levels, social, the cosmic frontier, EN/VI/中文, LLM oracle with
 // random kind dispatch (luck / setback / life-stage / story), pre-owned
 // market + social listings, and a Hall of Fame tab.
@@ -73,9 +73,14 @@ if (typeof window !== 'undefined') {
 // v11.8 — the bundled version. The /version.json file in /public is polled
 // every 5 minutes; if its version is newer than this, a "reload to update"
 // banner appears even in a running session (no F5 needed).
-const BUNDLED_VERSION = 'v11.23';
+const BUNDLED_VERSION = 'v11.24';
 const VERSION_POLL_MS = 5 * 60 * 1000;
-const SEEN_KEY = 'tycoon_seen_' + BUNDLED_VERSION;
+// v11.24 — 'what's new' modal is shown ONCE PER PLAYER per MAJOR version
+// (tycoon_seen_v11), not once per patch release. Previously the key was
+// per-patch (tycoon_seen_v11.21/.22/.23) so every version bump re-showed the
+// SAME static v11 feature list — the "big update notification repeats!!!"
+// complaint. Now it appears on first load of the v11 era only.
+const SEEN_KEY = 'tycoon_seen_v11';
 
 export default function Page() {
   const { s } = useGame();
@@ -403,7 +408,7 @@ export default function Page() {
       {reloadPrompt && (
         <div className="reload-banner" role="alert">
           <span><b>{reloadPrompt.headline}</b> — {t('v11.reloadPrompt', '', { v: reloadPrompt.version })}</span>
-          <button className="ibtn" onClick={() => { try { localStorage.removeItem(SEEN_KEY); } catch { /* ignore */ } window.location.reload(); }}>{t('v11.reload')}</button>
+          <button className="ibtn" onClick={() => { window.location.reload(); }}>{t('v11.reload')}</button>
           <button className="ibtn ghost" onClick={() => setReloadPrompt(null)}>{t('v11.later')}</button>
         </div>
       )}
@@ -492,7 +497,7 @@ function Header({ s, eraName }: { s: GameState; eraName: (y: number) => string }
     <header className="top">
       <div className="brand">
         <Art id="s-coin" className="logo" />
-        <div><h1><span className="mini">v11.23</span> HuyenBao</h1>
+        <div><h1><span className="mini">v11.24</span> HuyenBao</h1>
           <div className="mini">{s.started ? `${s.nation} · ${eraName(worldYear(s))}` : t('tagline')}</div></div>
       </div>
       <div><div className="mini">{t('cash')}</div><div id="tcash" style={{ color: s.money < 0 ? 'var(--brick)' : undefined }}>{fmt(s.money)}</div>

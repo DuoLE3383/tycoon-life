@@ -853,21 +853,48 @@ export function processDay(s: GameState, d: number, rng: () => number = Math.ran
   // v11.22 — bumped to ~9%/day (was 6%) per player complaint that AI popups
   // are not showing. At 9%/day with 30s=1day, that's roughly one popup every
   // ~5.5 minutes of active play — frequent enough to feel alive.
-  if (!s.aiEvPending && !s.pending && !s.aiEv && s.started && s.day > 30 && rng() < 0.09) {
+  // v11.24 — threshold lowered day>30 → day>3. THE REAL BUG behind "thông báo
+  // không hoạt động": day>30 = 15 minutes of real play before the FIRST event
+  // could ever roll — most sessions ended before anything fired. Rates are
+  // useless if the gate blocks the whole session; now events can start after
+  // ~90 seconds of play.
+  if (!s.aiEvPending && !s.pending && !s.aiEv && s.started && s.day > 3 && rng() < 0.09) {
     s.aiEvPending = true;
   }
-  // v11.22 — ambient mini-events bumped to ~6%/day (was 3%). At 30s=1day,
-  // that's roughly one ambient toast every ~8 minutes. These are the
-  // "tin vui / sự cố" flavor notifications (found $20, parking ticket, etc.)
-  // that make the world feel alive during online play. NOT full AI oracle
-  // popups — short toast-only flavor lines with small ±$50–$500 swings.
-  if (!s.pending && !s.aiEv && s.started && s.day > 30 && rng() < 0.06) {
+  // v11.22 — ambient mini-events ~6%/day. At 30s=1day, roughly one ambient
+  // toast every ~8 minutes. These are the "tin vui / sự cố" flavor
+  // notifications (found $20, parking ticket, etc.) that make the world feel
+  // alive during online play. NOT full AI oracle popups — short toast-only
+  // flavor lines with small ±$50–$500 swings.
+  // v11.24 — same threshold fix: day>30 → day>3.
+  if (!s.pending && !s.aiEv && s.started && s.day > 3 && rng() < 0.06) {
     const ambient = AMBIENT_EVENTS[Math.floor(rng() * AMBIENT_EVENTS.length)];
     if (ambient.cash) s.money += ambient.cash;
     if (ambient.health) s.health = Math.max(0, Math.min(100, s.health + ambient.health));
     if (ambient.spirit) s.spirit = Math.max(0, Math.min(100, s.spirit + ambient.spirit));
     pushLog(s, ambient.msg + (ambient.cash ? ` ${ambient.cash >= 0 ? '+' : '−'}${fmt(Math.abs(ambient.cash))}` : ''));
     queueToast(s, ambient.toast);
+  }
+  // v11.24 — DAILY stock price walk. THE REAL BUG behind "market chưa hoạt
+  // động": STOCKS[].vol was defined but never used, and s.hist was never
+  // pushed to — prices only moved on year-boundary shocks and crises, so in
+  // calm years the chart was a dead flat line and there was nothing to trade.
+  // Each stock now does a small geometric random walk every game-day (30s),
+  // scaled by its own volatility (COIN ±9% … BANK ±2%), with a gentle mean
+  // reversion toward the listing price so prices can't wander to 0 or ∞.
+  // History is appended (capped at 60 points) so sparklines finally move.
+  if (s.started && !s.over) {
+    STOCKS.forEach(x => {
+      const cur = s.prices[x.id] || x.p;
+      const vol = x.vol || 0.02;
+      const walk = (rng() * 2 - 1) * vol;
+      const revert = ((x.p - cur) / x.p) * 0.012; // ≤1.2%/day pull toward listing price
+      const next = cur * (1 + walk + revert);
+      s.prices[x.id] = Math.max(x.p * 0.25, Math.min(x.p * 6, next));
+      const h = s.hist[x.id] || (s.hist[x.id] = []);
+      h.push(s.prices[x.id]);
+      if (h.length > 60) h.shift();
+    });
   }
   // Sleep trades study time for health recovery; other wellbeing modifiers still apply.
   const dhp = ageDecayPerDay(s.age) * sleepHealthMult(s.sleepHours) * (s.diet ? .55 : 1) * (s.spirit >= 70 ? .85 : 1);

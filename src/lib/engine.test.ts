@@ -411,10 +411,15 @@ test('v11.2: stock shocks split into instant + 30-day delayed; net = original mu
   const fireDay = state.lastDay + 30;
   state.lastDay = fireDay; state.day = fireDay;
   processDay(state, fireDay, () => 0.5);
-  // Net should be 0.5 (instant 0.7071 * delayed 0.7071 = 0.5)
+  // Net should be 0.5 (instant 0.7071 * delayed 0.7071 = 0.5).
+  // v11.24 tolerance: the daily price walk now adds a small mean-reversion
+  // pull toward the listing price (≤1.2% of the deviation from listing per
+  // game-day → ≤0.35% here, since ratio deviates ~0.29 from 1.0). With the
+  // seeded rng()=0.5 the random component is exactly 0, so the drift is
+  // purely the reversion pull — assert within 0.5% of the exact 0.5 net.
   for (const k of Object.keys(state.prices)) {
     const ratio = state.prices[k] / orig[k];
-    assert.ok(Math.abs(ratio - 0.5) < 1e-6,
+    assert.ok(Math.abs(ratio - 0.5) < 0.005,
       `expected net 0.5 for ${k} after delayed shock, got ${ratio}`);
   }
   // Shock queue should be drained
@@ -529,4 +534,28 @@ test('v11.2: effEraBiz/effEraFac fall back to eraBiz when no crisis (old saves)'
   assert.equal(effDemand(state), 1);
   // And effLoanRate is just LOAN_RATE (no crisis multiplier)
   assert.ok(effLoanRate(state) < 0.07, `expected LOAN_RATE ~6%, got ${effLoanRate(state)}`);
+});
+
+// v11.24 — the market no longer sleeps. Previously STOCKS[].vol was dead code
+// and s.hist was never appended, so prices were flat outside year shocks.
+// Now processDay walks each price daily (±vol, mean-reverting, clamped) and
+// appends history. Regression test: 40 game-days of play must move prices
+// AND grow the sparkline history, while staying inside the clamp band.
+test('v11.24: daily price walk moves prices + appends hist (market no longer flat)', () => {
+  const state = fresh();
+  begin(state, { name: 'Tycoon', byear: 1990, nation: 'United States', ints: [], tals: [] });
+  let seed = 0.123;
+  const rng = () => { seed = (seed * 9301 + 49297) % 233280; return seed / 233280; };
+  const startPrice = state.prices.TECH;
+  const startHistLen = state.hist.TECH.length;
+  for (let d = 0; d < 40; d++) {
+    state.lastDay = d; state.day = d;
+    processDay(state, d, rng);
+  }
+  assert.ok(state.hist.TECH.length > startHistLen,
+    `expected hist appended (start ${startHistLen} → ${state.hist.TECH.length})`);
+  assert.ok(state.hist.TECH.length <= 60, 'hist capped at 60 points');
+  const ratio = state.prices.TECH / startPrice;
+  assert.ok(Math.abs(ratio - 1) > 0.001, `expected TECH to move, ratio=${ratio}`);
+  assert.ok(ratio >= 0.25 && ratio <= 6, `expected TECH inside clamp band, ratio=${ratio}`);
 });

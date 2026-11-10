@@ -151,6 +151,29 @@ html[data-theme="light"] body{background:#e9e6df}
 .tgame .subnav button[data-tip]:hover::before,
 .tgame .subnav button[data-tip]:focus-visible::before{opacity:1}
 
+/* ===== v11.24 — 3D animated nav buttons =====
+   Buttons lift off the page on hover with a slight rotateX tilt (Level 1)
+   or a scale pop (Level 2), then press back down on :active. The parent
+   .tnav gets a perspective so the rotateX reads as real 3D depth. All
+   transforms are disabled under prefers-reduced-motion (global rule). */
+.tgame .tnav{perspective:700px}
+.tgame .tnav button{
+  transition:background .2s,color .2s,border-color .2s,
+    transform .18s cubic-bezier(.2,.8,.2,1),box-shadow .18s ease;
+  will-change:transform
+}
+.tgame .tnav button:hover{transform:translateY(-2px) scale(1.02)}
+.tgame .tnav button:active{transform:translateY(1px) scale(.96)}
+.tgame .gnav button:hover{
+  transform:translateY(-3px) rotateX(8deg);
+  box-shadow:0 7px 18px rgba(60,55,40,.22)
+}
+.tgame .gnav button[aria-selected="true"]:hover{
+  transform:translateY(-3px) rotateX(8deg);
+  box-shadow:0 8px 22px rgba(200,160,40,.35)
+}
+.tgame .subnav button:hover{box-shadow:0 5px 12px rgba(60,55,40,.14)}
+
 /* v11.23 — XP progress bar: lvlchip bar made taller + wider so the
    progress is clearly visible at a glance (was 6px×74px, far too tiny).
    Also adds a thin "next level" hint marker at the right end. */
