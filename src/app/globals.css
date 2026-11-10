@@ -488,6 +488,31 @@ html[data-theme="dark"] .tgame .mcard{box-shadow:0 14px 46px rgba(0,0,0,.5)}
 .tgame .att-warn{border:1px solid var(--brick);color:var(--brick);background:var(--brickBg);border-radius:11px;padding:7px 11px;font-size:.85rem;font-weight:600;margin:0 0 10px}
 .tgame .att-warn.ok{border-color:var(--sage);color:var(--sage);background:var(--sageBg)}
 
+/* v11.28 — pinned life-overview (PinZone): compact age card, sticky at the
+   top of the viewport so age + the four key numbers stay visible on every
+   tab while scrolling. The thin accent stripe mirrors the life-health tint. */
+.tgame .pinzone{position:sticky;top:6px;z-index:40;padding:9px 12px;margin:8px 0;backdrop-filter:blur(8px);background:color-mix(in srgb, var(--card) 88%, transparent)}
+.tgame .pinzone .agehead{margin-bottom:6px;gap:7px;row-gap:4px}
+.tgame .pinzone .agehead b{font-size:1.02rem}
+.tgame .pinzone .track.slim{height:12px}
+.tgame .pinzone .ms{height:14px;margin-top:4px;font-size:.62rem}
+.tgame .pchip{display:inline-flex;align-items:center;gap:4px;font-size:.78rem;font-weight:750;font-variant-numeric:tabular-nums;padding:2px 9px;border-radius:999px;background:rgba(127,127,127,.08);border:1px solid var(--line);color:var(--ink)}
+.tgame .pchip svg{width:12px;height:12px;stroke-width:2.2}
+.tgame .pchip.up{color:var(--sage)}
+.tgame .pchip.down{color:var(--brick)}
+.tgame .att-warn.pin{margin:0 0 6px;padding:4px 10px;font-size:.78rem;border-radius:9px}
+.tgame .pinzone::after{content:'';position:absolute;left:0;right:0;bottom:-1px;height:2px;border-radius:2px;background:var(--accent);opacity:.45}
+.tgame .pinzone[data-life="0"]::after{background:#2e9e5b}
+.tgame .pinzone[data-life="1"]::after{background:#7bc96f}
+.tgame .pinzone[data-life="2"]::after{background:#d8b13a}
+.tgame .pinzone[data-life="3"]::after{background:#e07b2e}
+.tgame .pinzone[data-life="4"]::after{background:#c0392b;animation:lifeDanger 2.4s ease-in-out infinite alternate}
+
+/* v11.28 — Assets sub-menu (auction / used / rare / workshop / shop) */
+.tgame .asec{margin-bottom:10px}
+.tgame .asec button{padding:7px 12px;font-size:.88rem}
+.tgame .asec .asec-n{min-width:18px;height:18px;padding:0 5px;border-radius:999px;background:var(--accent);color:var(--paper);font-size:.68rem;font-weight:800;display:inline-flex;align-items:center;justify-content:center}
+
 /* What's-new popup language buttons */
 .tgame .mlang{display:inline-flex;gap:4px}
 

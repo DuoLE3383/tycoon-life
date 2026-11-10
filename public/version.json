@@ -1,20 +1,19 @@
 {
-  "version": "v11.27",
+  "version": "v11.28",
   "releasedAt": "2026-11-10",
-  "headline": "HuyenBao v11.27 — SQLite tự host trên VPS (chat/bạn bè/quà/BXH thật, không cần Supabase) + Admin dashboard + nền đổi màu theo sức khoẻ",
-  "summary": "SELF-HOSTED SQLITE + ADMIN. The community backend now runs ON YOUR OWN VPS with zero extra services: /api/social/* route handlers persist chat, friends, gifts, presence and the leaderboard into a local SQLite file (data/social.db, WAL mode, all input clamped server-side, gifts restricted to accepted friends, 1.2s server flood guard). The browser auto-detects the backend with one /api/social/ping probe — Supabase env vars are no longer needed, and the supabase-js npm dependency is GONE (loaded from CDN only when Supabase is explicitly configured), which permanently fixes the VPS build error \"Module not found: Can't resolve '@supabase/supabase-js'\". Backends: supabase (env) > sqlite (server detected) > demo (static hosts). New /admin dashboard (key-guarded by the ADMIN_KEY env var) shows players, online, messages/gifts 24h, friendships, DB size and the top-10 board. UI: the whole app is tinted by health state (5 transparent levels from emerald 'best' to pulsing red 'danger'), the Overview tab opens with a needs-attention strip (cash / net worth / income per year / health — colour-coded, plus a warning line for critical health, short sleep, no diet, debt, negative income), the what's-new popup carries EN/VI/ZH buttons, the market gets a portfolio card (total holdings + today's movers) and one-tap MAX buy / ALL sell, and the nav menu is now 3D (perspective tilt + press depth). 6 new integration tests cover the SQLite layer (identity codes, clamps, flood guard, friends flow, gift claim-once, admin stats).",
+  "headline": "HuyenBao v11.28 — Đấu giá & rao bán THEO THỜI GIAN (có thể không bán được!) + menu Tài sản đưa lên đầu + tổng quan ghim cùng tuổi",
+  "summary": "TIMED MARKETPLACE + ASSETS FIRST. The instant auction is GONE: putting an item up now TAKES TIME — AUCTIONS run 4–7 game-days with bids rolling in one by one (the hammer can land above the ask in a bidding war) while fixed-price LISTINGS run 8–12 days with steadier odds; both can find NO buyer, in which case the item comes back and the upfront fee (3% auction / 1.5% listing) is forfeited. Items live at the market while listed (removed from inventory, still counted in net worth) and you can withdraw early. The exact sell chance is shown before you commit: 1−(1−p)^days, scaled by rarity — legendary draws watchers, common barely sells. The Assets tab is now a 5-section menu (Auction house / Used market / Rare items / Workshop / Shop) with live badges, and the Assets GROUP moved up to slot 2 in the main nav right after Character. The v11.27 attention strip (cash / net worth / income-per-year / health + warnings) merged with the age card into one COMPACT PINNED bar (position:sticky) that follows you on every tab. Full EN/VI/ZH localisation including auction-result toasts. 8 new engine tests cover the timed marketplace.",
   "features": [
-    "SQLITE BACKEND: /api/social/{ping,init,messages,friends,gifts,presence,leaderboard} on better-sqlite3 — data/social.db (WAL), auto-created schema",
-    "ZERO-CONFIG VPS: browser probes /api/social/ping once and upgrades demo → sqlite automatically; NEXT_PUBLIC_SOCIAL_BACKEND=sqlite forces it",
-    "BUILD FIX: @supabase/supabase-js removed from dependencies — loaded from CDN only when Supabase env vars are set; VPS builds no longer fail on missing node_modules",
-    "SERVER RULES: all strings clamped, uid validated, gifts only between accepted friends, 1.2s flood guard, unique read-aloud HB- codes",
-    "ADMIN DASHBOARD: /admin protected by ADMIN_KEY env var — players, online (13s window), messages/gifts 24h, friendships, DB size, top 10",
-    "HEALTH TINT: whole-app transparent background wash in 5 levels (life-0 best … life-4 danger with slow pulse), driven by healthState()",
-    "ATTENTION STRIP: Overview opens with cash / net worth / income-per-year / health cards + aggregated warnings (critical health, sleep <7h, no diet, debt, negative income)",
-    "MARKET: portfolio card with total holdings + today's best/worst movers; one-tap MAX buy and ALL sell per stock",
-    "POPUP i18n: language buttons (EN/VI/ZH) inside the what's-new modal",
-    "3D NAV: group + sub-tab buttons tilt in perspective, lift on hover, press down on click (respects prefers-reduced-motion)",
-    "TESTS: 6 integration tests for the SQLite layer; 141 tests total",
-    "Version bumped to v11.27 at FRONT of app name"
+    "AUCTION: put items up for 4–7 days — per-day bid rolls, hammer can exceed the ask (bidding war), 3% upfront fee, no buyer = fee lost + item returned",
+    "LISTING: fixed-price sale for 8–12 days — steadier odds (p×0.75/day), 1.5% upfront fee, sells exactly at the ask",
+    "SELL CHANCE PREVIEW: exact 1−(1−p)^days shown per item before committing (legendary ~71% on a 5-day auction vs common ~43%)",
+    "MARKET JOBS: items leave the inventory while listed, keep counting toward net worth at their ordinary value, withdrawable anytime (fee forfeited)",
+    "LIVE JOBS UI: countdown in days, best bid so far, exact sell chance, one-tap withdraw",
+    "ASSETS SUB-MENU: Auction house / Used market / Rare items / Workshop / Shop with count badges; rare section shows your collectibles + all rare/legendary catalogue items",
+    "NAV: Assets group moved UP to slot 2 (right after Character) per UX feedback",
+    "PINNED OVERVIEW: age card + attention strip merged into one compact sticky bar (cash / net worth / income / health chips + warning line + slim life track) visible on every tab",
+    "TOASTS: auction/listing results localised EN/VI/ZH (up for auction, sold with bids, no buyer, withdrawn)",
+    "TESTS: 8 new engine tests for the timed marketplace; 151 tests total",
+    "Version bumped to v11.28 at FRONT of app name"
   ]
 }

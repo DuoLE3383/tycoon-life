@@ -632,3 +632,144 @@ test('v11.20 regression: hype and charity posts still cost health, plain posts d
   addPost(state, 'charity', 1.4);
   assert.ok(Math.abs(state.health - 99.1) < 1e-9, `health after charity = ${state.health}`);
 });
+
+// ================= v11.28 — timed marketplace (auction + listings) =================
+import { addLot, putUpAuction, postSaleListing, cancelMarketJob, resolveMarket, marketVal, sellChanceOf, AUCTION_FEE, LISTING_FEE, netWorth } from './engine';
+import { ITEMS, RARITY_MULT, itemRarity } from './gameData';
+
+test('v11.28: putting an item up for auction removes it from inventory, charges the 3% fee and creates a 4–7 day job', () => {
+  const state = fresh();
+  state.money = 100_000;
+  addLot(state, ITEMS[0].id);
+  const est = lotValue(state, state.lots[0]);
+  const rar = itemRarity(ITEMS[0]);
+  const moneyBefore = state.money;
+  const msg = putUpAuction(state, 'lot', 0, undefined, seeded(7));
+  assert.ok(msg, 'putUpAuction should succeed with enough cash');
+  assert.equal(state.lots.length, 0, 'item leaves the inventory while at the auction house');
+  assert.equal(state.mkt.length, 1);
+  const j = state.mkt[0];
+  assert.equal(j.kind, 'auction');
+  assert.equal(j.src, 'lot');
+  assert.equal(j.ask, Math.round(est * RARITY_MULT[rar] * 1.4));
+  assert.equal(j.fee, Math.round(j.ask * AUCTION_FEE));
+  assert.equal(state.money, moneyBefore - j.fee, 'only the upfront fee is charged at listing time');
+  const days = j.endDay - j.startDay;
+  assert.ok(days >= 4 && days <= 7, `auction window 4–7 days, got ${days}`);
+});
+
+test('v11.28: a fixed-price sale listing charges the smaller 1.5% fee and runs 8–12 days', () => {
+  const state = fresh();
+  state.money = 100_000;
+  addLot(state, ITEMS[0].id);
+  const est = lotValue(state, state.lots[0]);
+  const rar = itemRarity(ITEMS[0]);
+  const moneyBefore = state.money;
+  assert.ok(postSaleListing(state, 'lot', 0, undefined, seeded(7)));
+  const j = state.mkt[0];
+  assert.equal(j.kind, 'listing');
+  assert.equal(j.ask, Math.round(est * RARITY_MULT[rar] * 1.4));
+  assert.equal(j.fee, Math.round(j.ask * LISTING_FEE));
+  assert.ok(j.fee < Math.round(j.ask * AUCTION_FEE), 'listing fee is half the auction fee');
+  assert.equal(state.money, moneyBefore - j.fee);
+  const days = j.endDay - j.startDay;
+  assert.ok(days >= 8 && days <= 12, `listing window 8–12 days, got ${days}`);
+});
+
+test('v11.28: an auction with bids sells above the ask and pays proceeds (forced rng)', () => {
+  const state = fresh();
+  state.money = 100_000;
+  addLot(state, ITEMS[0].id);
+  const est = lotValue(state, state.lots[0]);
+  assert.ok(putUpAuction(state, 'lot', 0, undefined, () => 0.01)); // every roll hits: 4-day window, bid every day
+  const j = state.mkt[0];
+  state.day = j.endDay; // jump past the window
+  const moneyBefore = state.money;
+  resolveMarket(state, k => k, () => 0.01);
+  assert.equal(state.mkt.length, 0, 'job resolves off the board');
+  assert.ok(state.money > moneyBefore, 'proceeds land in cash');
+  const expected = Math.round(j.ask * (0.95 + 0.01 * 0.45) * (1 - 0.03));
+  assert.equal(state.money, moneyBefore + expected);
+  assert.ok(j.bids >= 1);
+  assert.ok(state.pendingToasts.some(x => x.includes('mkt.soldAuction')), JSON.stringify(state.pendingToasts));
+});
+
+test('v11.28: an auction with no bids returns the item and forfeits the fee (forced rng)', () => {
+  const state = fresh();
+  state.money = 100_000;
+  addLot(state, ITEMS[0].id);
+  const est = lotValue(state, state.lots[0]);
+  const moneyBefore = state.money;
+  assert.ok(putUpAuction(state, 'lot', 0, undefined, () => 0.99)); // no day hits the bid chance
+  const fee = state.mkt[0].fee;
+  assert.equal(state.money, moneyBefore - fee);
+  state.day = state.mkt[0].endDay;
+  resolveMarket(state, k => k, () => 0.99);
+  assert.equal(state.mkt.length, 0);
+  assert.equal(state.lots.length, 1, 'unsold item comes back to the inventory');
+  assert.equal(state.money, moneyBefore - fee, 'fee is gone forever');
+  assert.ok(state.pendingToasts.some(x => x.includes('mkt.noBuyer')));
+  assert.ok(Math.abs(lotValue(state, state.lots[0]) - est) < est * 0.005, 'returned item keeps its value (7 days of natural ageing < 0.5%)');
+});
+
+test('v11.28: a listing sells exactly at the ask when a buyer shows up', () => {
+  const state = fresh();
+  state.money = 100_000;
+  addLot(state, ITEMS[0].id);
+  assert.ok(postSaleListing(state, 'lot', 0, undefined, () => 0.01)); // 8-day window, buyer every day
+  const j = state.mkt[0];
+  state.day = j.endDay;
+  const moneyBefore = state.money;
+  resolveMarket(state, k => k, () => 0.01);
+  const expected = Math.round(j.ask * (1 - 0.03));
+  assert.equal(state.money, moneyBefore + expected, 'listing pays the fixed ask (minus the 3% sale fee), no bidding war');
+  assert.ok(state.pendingToasts.some(x => x.includes('mkt.soldListing')));
+});
+
+test('v11.28: listed items keep counting toward net worth at their ordinary value', () => {
+  const state = fresh();
+  state.money = 100_000;
+  state.bank = { dep: 5_000, loan: 0 };
+  addLot(state, ITEMS[0].id);
+  const nwBefore = netWorth(state);
+  assert.ok(putUpAuction(state, 'lot', 0, undefined, seeded(3)));
+  // money dropped by the fee, but marketVal adds the item's est back — net
+  // worth only moves by the fee, never by the item's full value.
+  assert.equal(netWorth(state), nwBefore - state.mkt[0].fee);
+  assert.equal(marketVal(state), state.mkt[0].est);
+});
+
+test('v11.28: cancelling a market job returns the item and forfeits the fee', () => {
+  const state = fresh();
+  state.money = 100_000;
+  addLot(state, ITEMS[0].id);
+  assert.ok(putUpAuction(state, 'lot', 0, undefined, seeded(11)));
+  const fee = state.mkt[0].fee;
+  const moneyWhileListed = state.money;
+  assert.equal(cancelMarketJob(state, 0, k => k), 'mkt.cancelled');
+  assert.equal(state.mkt.length, 0);
+  assert.equal(state.lots.length, 1, 'item comes home');
+  assert.equal(state.money, moneyWhileListed, 'no refund — the fee was already taken');
+  assert.ok(fee > 0);
+  assert.ok(state.log.some(x => x.includes('Withdrew')), 'withdrawal is logged');
+});
+
+test('v11.28: tick() resolves finished market jobs and queues a localised toast', () => {
+  const state = fresh();
+  begin(state, { name: 'Tycoon', byear: 1990, nation: 'United States', ints: [], tals: [] });
+  state.money = 100_000;
+  addLot(state, ITEMS[0].id);
+  assert.ok(putUpAuction(state, 'lot', 0, undefined, () => 0.99)); // 7-day window, zero bids
+  assert.ok(tick(state, 8 * DAY_MS, () => 0.99, k => k).toasts?.some(x => x.includes('mkt.noBuyer')));
+  assert.equal(state.mkt.length, 0);
+  assert.equal(state.lots.length, 1);
+});
+
+test('v11.28: sellChanceOf is the exact binomial chance of >=1 buyer over the window', () => {
+  // legendary draws ~22%/day at auction: 1-(1-.22)^5 ≈ 71% on a 5-day window
+  assert.ok(Math.abs(sellChanceOf('legendary', 'auction', 5) - (1 - Math.pow(0.78, 5))) < 1e-12);
+  // listings use p×0.75 — steadier but slower
+  assert.ok(sellChanceOf('legendary', 'listing', 10) < sellChanceOf('legendary', 'auction', 10));
+  assert.ok(sellChanceOf('common', 'auction', 4) < sellChanceOf('legendary', 'auction', 4));
+  assert.ok(sellChanceOf('common', 'auction', 1) > 0);
+});

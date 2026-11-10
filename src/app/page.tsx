@@ -1,10 +1,14 @@
 'use client';
-// HuyenBao v11.27 — React edition. Two-level grouped nav, a systems links map,
+// HuyenBao v11.28 — React edition. Two-level grouped nav, a systems links map,
 // gigs, levels, social, the cosmic frontier, EN/VI/中文, LLM oracle with
 // random kind dispatch (luck / setback / life-stage / story), pre-owned
 // market + social listings, a Hall of Fame tab, and a real player-to-player
 // community (chat / friends / gifts / global leaderboard — Supabase or
 // same-device demo mode, see src/lib/social.ts).
+// v11.28 — timed marketplace: auctions (bids over days, may not sell) +
+// fixed-price listings, an Assets sub-menu (auction / used / rare / workshop
+// / shop), the Assets group moved up in the nav, and a pinned compact
+// life-overview bar (age + the four key numbers) visible on every tab.
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Art, Ic, ART_DEFS } from '@/lib/art';
 import { useGame, getState, persist, bump, resetState, reincarnateState } from '@/lib/store';
@@ -12,7 +16,7 @@ import {
   START, END_AGE, RETIRE, RESALE_FEE, FOUND_COST, FOUND_MIN_NW, OWN_CLUB_MULT,
   SAVE_RATE, LOAN_RATE, TAX_FREE, TAX_BRACKETS, ALLNEWS, eraOf, NATIONS, NAME_POOLS, INTERESTS, TALENTS, PATHS,
   analyze, FIELDS, LICENSES, LIC_BY, LIC_FOR, STAGES, BIZ, FARM_LINES, FAC_LINES, ITEM_BY, ITEM_IMAGES, USED_IMAGES, STOCKS, ASSET_DEPRECIATION_RATE,
-  CLUBS, JOBS, GIGS, SPACE_LINES, TABS, GROUPS, xpNeed, ITEMS, USED_MARKET, HALL_OF_FAME, itemRarity, RARITY_COLOR, NPCS, NPC_BY, PETS, PET_BY, MAX_PETS, CREW_COST, SHORT_COURSES, SHORT_BY, BOTS, type Rarity, type FieldKey, type Req, type ItemDef, type UsedItem,
+  CLUBS, JOBS, GIGS, SPACE_LINES, TABS, GROUPS, xpNeed, ITEMS, USED_MARKET, HALL_OF_FAME, itemRarity, RARITY_COLOR, RARITY_MULT, NPCS, NPC_BY, PETS, PET_BY, MAX_PETS, CREW_COST, SHORT_COURSES, SHORT_BY, BOTS, type Rarity, type FieldKey, type Req, type ItemDef, type UsedItem,
 } from '@/lib/gameData';
 import {
   fmt, taxOf, fresh, begin, tick, applyOffline, stageOf, worldYear, branchCount, bizCost, clubMult, branchNet, fameBonus, bizMultiplier,
@@ -32,8 +36,9 @@ import {
   spiritBizMult, cosmicMult, GYM_COST, GYM_CD, CHECKUP_COST, CHECKUP_CD, DIET_COST,
   TEMPLE_COST, TEMPLE_CD, RETREAT_COST, RETREAT_CD, FAITH_PRACTICE_COST, FAITH_PRACTICE_CD,
   ACHIEVEMENTS, checkAch,
-  buyUsedItem, sellUsed, usedItemValue, postItemListing, playerHallEntry, recordHallOnGameOver,
-  auctionItem, repairLot, repairUsed, repairSkill, repairCost,
+  buyUsedItem, sellUsed, usedItemValue, playerHallEntry, recordHallOnGameOver,
+  putUpAuction, postSaleListing, cancelMarketJob, sellChanceOf, AUCTION_DAYS, LISTING_DAYS, AUCTION_FEE, LISTING_FEE, marketVal,
+  repairLot, repairUsed, repairSkill, repairCost,
   choiceRisk, type ChoiceRisk,
   creativePost,
   relationState, interactNPC, proposeToNPC,
@@ -77,7 +82,7 @@ if (typeof window !== 'undefined') {
 // v11.8 — the bundled version. The /version.json file in /public is polled
 // every 5 minutes; if its version is newer than this, a "reload to update"
 // banner appears even in a running session (no F5 needed).
-const BUNDLED_VERSION = 'v11.27';
+const BUNDLED_VERSION = 'v11.28';
 const VERSION_POLL_MS = 5 * 60 * 1000;
 // v11.24 — 'what's new' modal is shown ONCE PER PLAYER per MAJOR version
 // (tycoon_seen_v11), not once per patch release. Previously the key was
@@ -223,7 +228,7 @@ export default function Page() {
     // produced (graduation, scandal, etc.) so the player doesn't miss them.
     const st0 = getState();
     if (st0.started && !st0.over) {
-      const off = applyOffline(st0, Math.random);
+      const off = applyOffline(st0, Math.random, t);
       if (off?.summary) showToast(off.summary);
       if (off?.toasts?.length) off.toasts.forEach((msg, i) => setTimeout(() => showToast(msg), 1200 + i * 1500));
       if (off?.gameJustOver) showToast(t('livedToast'));
@@ -239,7 +244,7 @@ export default function Page() {
       // real away-duration on return. Previously hidden time was simply paused.
       if (document.hidden) { return; }
       const now = Date.now();
-      const res = tick(st, now - last);
+      const res = tick(st, now - last, Math.random, t);
       last = now;
       // Refresh lastSeen while actively playing so offline only counts real
       // away time (not the gap between 250ms ticks).
@@ -271,7 +276,7 @@ export default function Page() {
       } else {
         const st = getState();
         if (st.started && !st.over) {
-          const off = applyOffline(st, Math.random);
+          const off = applyOffline(st, Math.random, t);
           if (off?.summary) showToast(off.summary);
           if (off?.gameJustOver) showToast(t('livedToast'));
           st.lastSeen = Date.now();
@@ -357,7 +362,7 @@ export default function Page() {
       <div dangerouslySetInnerHTML={{ __html: ART_DEFS }} />
       <div className="wrap">
         <Header s={s} eraName={eraName} />
-        <AgeBox s={s} t={t} />
+        <PinZone s={s} t={t} />
         <nav role="tablist" className="tnav gnav" aria-label="Sections">
           {GROUPS.map(([gid, gn, gic, subs]) => (
             <button key={gid} role="tab" aria-selected={activeGroup === gid} data-g={gid}
@@ -512,7 +517,7 @@ function Header({ s, eraName }: { s: GameState; eraName: (y: number) => string }
     <header className="top">
       <div className="brand">
         <Art id="s-coin" className="logo" />
-        <div><h1><span className="mini">v11.27</span> HuyenBao</h1>
+        <div><h1><span className="mini">v11.28</span> HuyenBao</h1>
           <div className="mini">{s.started ? `${s.nation} · ${eraName(worldYear(s))}` : t('tagline')}</div></div>
       </div>
       <div><div className="mini">{t('cash')}</div><div id="tcash" style={{ color: s.money < 0 ? 'var(--brick)' : undefined }}>{fmt(s.money)}</div>
@@ -532,21 +537,38 @@ function Header({ s, eraName }: { s: GameState; eraName: (y: number) => string }
   );
 }
 
-function AgeBox({ s, t }: { s: GameState; t: TFn }) {
+// v11.28 — PinZone replaces the old AgeBox. The life overview (age + stage +
+// the four "needs attention" numbers from the v11.27 dashboard) is now ONE
+// compact card, PINNED to the top of the viewport (position:sticky) so the
+// numbers that matter stay visible on every tab while the player scrolls.
+// Warnings only render when something actually needs attention — no permanent
+// "all good" banner eating vertical space.
+function PinZone({ s, t }: { s: GameState; t: TFn }) {
   const a = s.age, st = stageOf(a), pct = (a - START) / (END_AGE - START) * 100;
   const p = (x: number) => ((x - START) / (END_AGE - START) * 100).toFixed(2) + '%';
   const d = new Date(Date.UTC(s.byear + 18, 8, 1) + Math.floor(s.lastDay) * 864e5);
   const dstr = d.toLocaleDateString('en-US', { timeZone: 'UTC', weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
   const marks: [number, string][] = [[START, String(START)], [RETIRE, '65'], [END_AGE, '90']];
+  // v11.27 attention logic moved here (was inline in HomeTab): the numbers
+  // that decide the run, colour-coded, plus the aggregate warning line.
+  const yi = yearIncome(s);
+  const warns: string[] = healthWarnings(s).map(w => 'att.' + w);
+  if (s.money < 0) warns.push('att.debt');
+  if (yi < 0) warns.push('att.negative');
   return (
-    <section className="card age">
-      <div className="agehead"><b>{s.name} · {t('age')} {Math.floor(a)}</b>
+    <section className="card age pinzone" data-life={healthState(s.health)}>
+      <div className="agehead">
+        <b>{s.name} · {t('age')} {Math.floor(a)}</b>
         <span className="tag dark">{t('stage.' + STAGES.indexOf(st), st.name)}</span>
         <span className="mini">{dstr}</span>
-        <span className="hpill"><Ic id="w-heart" className="bsi" />{Math.round(s.health)}</span>
+        <span className="pchip" data-tip={t('cash')}><Ic id="s-coin" className="bsi" />{fmt(s.money)}</span>
+        <span className="pchip" data-tip={t('netWorth')}><Ic id="t-bank" className="bsi" />{fmt(netWorth(s))}</span>
+        <span className={'pchip ' + (yi >= 0 ? 'up' : 'down')} data-tip={t('inc.total', 'Income/yr')}><Ic id="t-stock" className="bsi" />{yi >= 0 ? '+' : ''}{fmt(yi)}{t('perYear')}</span>
+        <span className="hpill" data-life={healthState(s.health)}><Ic id="w-heart" className="bsi" />{Math.round(s.health)}</span>
         <span className="hpill"><Ic id="w-lotus" className="bsi" />{Math.round(s.spirit)}</span>
         <span className="mini">{t('fame')} {s.fame} · {t('followers')} {s.social.followers.toLocaleString()}</span></div>
-      <div className="track" style={{ background: `linear-gradient(90deg,#8fae9b 0 ${p(22)},#c9b68e ${p(22)} ${p(26)},#c08a80 ${p(26)} ${p(RETIRE)},#9b93a8 ${p(RETIRE)})` }}>
+      {warns.length > 0 && <div className="att-warn pin" role="status">⚠ {warns.map(w => t(w)).join(' · ')}</div>}
+      <div className="track slim" style={{ background: `linear-gradient(90deg,#8fae9b 0 ${p(22)},#c9b68e ${p(22)} ${p(26)},#c08a80 ${p(26)} ${p(RETIRE)},#9b93a8 ${p(RETIRE)})` }}>
         <div className="shade" style={{ left: pct + '%' }} /><div className="mark" style={{ left: pct + '%' }} />
       </div>
       <div className="ms">{marks.map(([m, lb]) => <span key={lb + m} style={{ left: p(m) }}>{lb}</span>)}</div>
@@ -584,33 +606,9 @@ function HomeTab({ s, act, askAI, aiBusy, aiNote, eraName }: { s: GameState; act
   ];
   return (
     <>
-      {/* v11.27 — needs-attention strip: the four numbers that decide the run,
-          colour-coded (debt / negative income red, health by severity) with a
-          warning line aggregating health sanity checks. */}
-      {(() => {
-        const yi = yearIncome(s);
-        const warns: string[] = [];
-        if (s.health < 20) warns.push('att.critical');
-        else if (s.health < 40) warns.push('att.low');
-        else if (s.health < 60) warns.push('att.recover');
-        if (s.sleepHours < 7) warns.push('att.sleep');
-        if (!s.diet && s.health < 70) warns.push('att.diet');
-        if (s.money < 0) warns.push('att.debt');
-        if (yi < 0) warns.push('att.negative');
-        return (
-          <>
-            <div className="attention" data-life={healthState(s.health)}>
-              <div className="att-card"><span className={'att-v' + (s.money < 0 ? ' down' : '')}>{fmt(s.money)}</span><span className="att-l">{t('cash')}</span></div>
-              <div className="att-card"><span className="att-v">{fmt(netWorth(s))}</span><span className="att-l">{t('netWorth')}</span></div>
-              <div className="att-card"><span className={'att-v ' + (yi >= 0 ? 'up' : 'down')}>{yi >= 0 ? '+' : ''}{fmt(yi)}</span><span className="att-l">{t('inc.total')}</span></div>
-              <div className="att-card"><span className="att-v" style={{ color: s.health < 40 ? 'var(--brick)' : s.health < 60 ? 'var(--gold)' : 'var(--sage)' }}>{Math.round(s.health)}</span><span className="att-l">{t('health')}</span></div>
-            </div>
-            {warns.length > 0
-              ? <div className="att-warn" role="status">⚠ {warns.map(w => t(w)).join(' · ')}</div>
-              : <div className="att-warn ok" role="status">✓ {t('att.allgood')}</div>}
-          </>
-        );
-      })()}
+      {/* v11.28 — the v11.27 attention strip moved into the pinned PinZone at
+          the top of the page so the four key numbers + warnings are visible on
+          every tab. HomeTab no longer duplicates it. */}
       <div className="card hero">
         <div className="heroimg" style={{ backgroundImage: 'url(' + asset('/img/hero-city-v10.jpg') + ')' }} aria-hidden="true" />
         <div className="herobody">
@@ -1829,36 +1827,33 @@ function TarotSpreadPanel({ act }: { act: Act }) {
 }
 
 // ================= ASSETS (was ShopTab) =================
-// v10.5: renamed from ShopTab. The "buy/sell" of physical items now lives
-// under the Portfolio → Assets tab, alongside the player's owned items +
-// pre-owned market + social listings + (new) repair/restore workshop.
+// v11.28 — reorganised into a 5-section sub-menu so every asset concern has
+// a home: AUCTION (timed auction house + fixed-price listings — items leave
+// your inventory for a few game-days, bids roll in, and the sale can fall
+// through), USED (pre-owned market + your second-hand pieces), RARE (the
+// rare/legendary collectibles you own + the ones for sale), WORKSHOP (repair
+// & restore) and SHOP (the full new-item catalogue). The Assets GROUP also
+// moved up to slot 2 in the main nav this version.
+type AssetSec = 'auction' | 'used' | 'rare' | 'workshop' | 'shop';
+
 const CATART: Record<string, string> = { 'Sport bike': 'i-bike', 'Phone': 'i-phone', 'Watch': 'i-watch', 'Jewelry': 'i-ring', 'Suit': 'i-suit', 'Car': 'i-lambo', 'Property': 'i-house', 'Yacht': 'i-yacht', 'Private jet': 'i-jet', 'Art': 'i-art', 'Collectibles': 'i-coin' };
 
 function AssetsTab({ s, act, curCat, setCurCat }: { s: GameState; act: Act; curCat: string | null; setCurCat: (c: string | null) => void }) {
   const { t } = useT();
+  const [sec, setSec] = useState<AssetSec>('auction');
   // v11.20 — sort categories by minimum item price ascending (easiest → hardest).
-  // Previously the order was insertion order from ITEMS[], which mixed cheap
-  // (Phone $999) with expensive (Property $300k) randomly. Now the player
-  // sees the cheapest categories first, with locked ones showing what
-  // licence unlocks them.
   const cats = [...new Set(ITEMS.map(i => i.cat))].sort((a, b) => {
     const loA = Math.min(...ITEMS.filter(i => i.cat === a).map(i => i.price));
     const loB = Math.min(...ITEMS.filter(i => i.cat === b).map(i => i.price));
     return loA - loB;
   });
-  // v11.18 — pending purchase confirmation. Clicking "buy" on a new or used
-  // item no longer fires buyItem/buyUsedItem directly; instead it opens this
-  // modal so the player can review price + cash-after + upkeep + rarity and
-  // confirm or cancel. Lets the player back out if they clicked by mistake.
+  // v11.18 — pending purchase confirmation modal (unchanged this version).
   const [pendingBuy, setPendingBuy] = useState<{ kind: 'new'; item: ItemDef } | { kind: 'used'; used: UsedItem } | null>(null);
   // Surface 6 used listings, shuffled deterministically by the current
   // game-year so the listings rotate as the player ages.
   const y = worldYear(s);
   const usedShown = useMemo(() => {
     const seed = y * 7 + s.level;
-    // v10.5: filter out anachronistic listings — only show items whose
-    // real-world 'since' year has passed in the current game timeline.
-    // A 2001 game will not show a 2018 Ducati Panigale.
     const arr = [...USED_MARKET].filter(u => u.since <= y);
     for (let i = arr.length - 1; i > 0; i--) {
       const j = (seed * (i + 3) + 13) % (i + 1);
@@ -1867,107 +1862,200 @@ function AssetsTab({ s, act, curCat, setCurCat }: { s: GameState; act: Act; curC
     const filtered = arr.filter(u => !s.used.some(owned => owned.id === u.id));
     return filtered.slice(0, 6);
   }, [y, s.level, s.used.length]);
+
+  const condTxtOf = (c: number) => c >= 80 ? 'mint' : c >= 60 ? 'good' : c >= 40 ? 'fair' : 'rough';
+  const rareIds = ['rare', 'legendary'];
+  const rareLots = s.lots.map((l, i) => ({ l, i })).filter(({ l }) => rareIds.includes(itemRarity(ITEM_BY[l.id])));
+  const rareUsed = s.used.map((u, i) => ({ u, i })).filter(({ u }) => rareIds.includes(itemRarity(u)));
+  const repLots = s.lots.map((l, i) => ({ l, i })).filter(({ l }) => (l.condition == null ? 100 : l.condition) < 100);
+  const repUsed = s.used.map((u, i) => ({ u, i })).filter(({ u }) => u.condition < 100);
+
+  const secs: [AssetSec, string, string, number][] = [
+    ['auction', 'ic-up', 'astsec.auction', s.mkt.length],
+    ['used', 'ic-coins', 'astsec.used', s.used.length],
+    ['rare', 'ic-star', 'astsec.rare', rareLots.length + rareUsed.length],
+    ['workshop', 'ic-check', 'astsec.workshop', repLots.length + repUsed.length],
+    ['shop', 'ic-bag', 'astsec.shop', 0],
+  ];
+
+  // ---- shared row renderers (called as plain functions, not components) ----
+  const lotRow = (l: GameState['lots'][number], idx: number, mode: 'auction' | 'rare' | 'workshop') => {
+    const it = ITEM_BY[l.id], v = lotValue(s, l), resale = v * (1 - RESALE_FEE);
+    const rar = itemRarity(it);
+    const cond = l.condition == null ? 100 : l.condition;
+    const ask = Math.round(v * RARITY_MULT[rar] * 1.4);
+    const repCost = repairCost(s, it.price, rar);
+    return <Row key={'l' + idx} art={it.art} image={ITEM_IMAGES[l.id]} right={<div className="trade" style={{ flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+      {mode !== 'workshop' && <>
+        <Btn ic="ic-up" label={t('mkt.auctionBtn')} kind="ghost" disabled={s.money < Math.round(ask * AUCTION_FEE)} onClick={() => act(st => putUpAuction(st, 'lot', idx, t))} />
+        <Btn ic="ic-coins" label={t('mkt.listBtn')} kind="ghost" disabled={s.money < Math.round(ask * LISTING_FEE)} onClick={() => act(st => postSaleListing(st, 'lot', idx, t))} />
+        <Btn ic="ic-down" label={t('sell') + ' ' + fmt(resale)} kind="ghost" onClick={() => act(st => sellLot(st, idx))} />
+      </>}
+      {mode === 'workshop' && cond < 100 && <Btn ic="ic-check" label={t('workshop.repair') + ' ' + fmt(repCost)} kind="ghost" disabled={s.money < repCost} onClick={() => act(st => repairLot(st, idx))} />}
+    </div>}>
+      <b>{it.brand ? <span className="bchip" style={{ background: it.c }}>{it.brand}</span> : null}{it.name} <span className="rarity-chip" data-rarity={rar} style={{ '--rc': RARITY_COLOR[rar] } as React.CSSProperties}>{t('rarity.' + rar)}</span></b>
+      <span className="sub">
+        {mode === 'workshop'
+          ? <span className="cond-pill" data-cond={condTxtOf(cond)}>{t('used.cond')} {cond} · {condTxtOf(cond)}</span>
+          : <><span className="cond-pill" data-cond={condTxtOf(cond)}>{t('used.cond')} {cond} · {condTxtOf(cond)}</span>{' · '}{t('paid')} {fmt(l.paid)} · {t('worthNow')} {fmt(v)} · {v >= l.paid ? t('gains', '', { n: ((v / l.paid - 1) * 100).toFixed(0) }) : t('loses', '', { n: ((1 - v / l.paid) * 100).toFixed(0) })}</>}
+      </span>
+      {mode !== 'workshop' && <span className="mini" style={{ display: 'block', marginTop: 2 }}>
+        🔨 {t('auction.ask')} {fmt(ask)} · ⏳ {t('mkt.auctionWindow', '', { n: AUCTION_DAYS[0] + '-' + AUCTION_DAYS[1] })} ~{Math.round(sellChanceOf(rar, 'auction', 5) * 100)}% · ⏳ {t('mkt.listingWindow', '', { n: LISTING_DAYS[0] + '-' + LISTING_DAYS[1] })} ~{Math.round(sellChanceOf(rar, 'listing', 10) * 100)}%
+      </span>}
+    </Row>;
+  };
+  const usedRow = (u: GameState['used'][number], idx: number, mode: 'auction' | 'rare' | 'workshop') => {
+    const v = usedItemValue(s, u), resale = v * (1 - RESALE_FEE);
+    const rar = itemRarity(u);
+    const ask = Math.round(v * RARITY_MULT[rar] * 1.4);
+    const repCost = repairCost(s, u.paid, rar);
+    return <Row key={u.id} art={u.art} image={USED_IMAGES[u.id]} right={<div className="trade" style={{ flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+      {mode !== 'workshop' && <>
+        <Btn ic="ic-up" label={t('mkt.auctionBtn')} kind="ghost" disabled={s.money < Math.round(ask * AUCTION_FEE)} onClick={() => act(st => putUpAuction(st, 'used', idx, t))} />
+        <Btn ic="ic-coins" label={t('mkt.listBtn')} kind="ghost" disabled={s.money < Math.round(ask * LISTING_FEE)} onClick={() => act(st => postSaleListing(st, 'used', idx, t))} />
+        <Btn ic="ic-down" label={t('used.sell') + ' ' + fmt(resale)} kind="ghost" onClick={() => act(st => sellUsed(st, idx))} />
+      </>}
+      {mode === 'workshop' && u.condition < 100 && <Btn ic="ic-check" label={t('workshop.repair') + ' ' + fmt(repCost)} kind="ghost" disabled={s.money < repCost} onClick={() => act(st => repairUsed(st, idx))} />}
+    </div>}>
+      <b>{u.brand ? <span className="bchip" style={{ background: u.c }}>{u.brand}</span> : null}{u.name} <span className="rarity-chip" data-rarity={rar} style={{ '--rc': RARITY_COLOR[rar] } as React.CSSProperties}>{t('rarity.' + rar)}</span></b>
+      <span className="sub">
+        <span className="cond-pill" data-cond={condTxtOf(u.condition)}>{t('used.cond')} {u.condition} · {condTxtOf(u.condition)}</span>
+        {' · '}{t('used.age', '', { n: u.ageYears })} · {t('paid')} {fmt(u.paid)} · {t('worthNow')} {fmt(v)}
+      </span>
+      {mode !== 'workshop' && <span className="mini" style={{ display: 'block', marginTop: 2 }}>
+        🔨 {t('auction.ask')} {fmt(ask)} · ⏳ {t('mkt.auctionWindow', '', { n: AUCTION_DAYS[0] + '-' + AUCTION_DAYS[1] })} ~{Math.round(sellChanceOf(rar, 'auction', 5) * 100)}% · ⏳ {t('mkt.listingWindow', '', { n: LISTING_DAYS[0] + '-' + LISTING_DAYS[1] })} ~{Math.round(sellChanceOf(rar, 'listing', 10) * 100)}%
+      </span>}
+      <span className="mini" style={{ display: 'block', marginTop: 2, fontStyle: 'italic' }}>{u.story}</span>
+    </Row>;
+  };
+
   return (
     <>
-      {/* ---- pre-owned: items the player already owns (with sell + list + auction + repair) ---- */}
-      {s.lots.length > 0 && (<><h3>{t('myItems')}</h3>
-        {s.lots.map((l, idx) => {
-          const it = ITEM_BY[l.id], v = lotValue(s, l), resale = v * (1 - RESALE_FEE);
-          const rar = itemRarity(it);
-          const cond = l.condition == null ? 100 : l.condition;
-          const condTxt = cond >= 80 ? 'mint' : cond >= 60 ? 'good' : cond >= 40 ? 'fair' : 'rough';
-          const ask = v * 1.4;
-          const repCost = repairCost(s, it.price, rar);
-          return <Row key={idx} art={it.art} image={ITEM_IMAGES[l.id]} right={<div className="trade" style={{ flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-            {cond < 100 && <Btn ic="ic-bag" label={t('workshop.repair') + ' ' + fmt(repCost)} kind="ghost" disabled={s.money < repCost} onClick={() => act(st => repairLot(st, idx))} />}
-            <Btn ic="ic-up" label={t('auction.btn')} kind="ghost" disabled={s.money < ask * 0.03} onClick={() => act(st => auctionItem(st, 'lot', idx))} />
-            <Btn ic="ic-social" label={t('used.listLot')} kind="ghost" onClick={() => act(st => postItemListing(st, 'lot', idx))} />
-            <Btn ic="ic-down" label={t('sell') + ' ' + fmt(resale)} kind="ghost" onClick={() => act(st => sellLot(st, idx))} />
-          </div>}>
-            <b>{it.brand ? <span className="bchip" style={{ background: it.c }}>{it.brand}</span> : null}{it.name} <span className="rarity-chip" data-rarity={rar} style={{ '--rc': RARITY_COLOR[rar] } as React.CSSProperties}>{t('rarity.' + rar)}</span></b>
-            <span className="sub">
-              <span className="cond-pill" data-cond={condTxt}>{t('used.cond')} {cond} · {condTxt}</span>
-              {' · '}{t('paid')} {fmt(l.paid)} · {t('worthNow')} {fmt(v)} · {v >= l.paid ? t('gains', '', { n: ((v / l.paid - 1) * 100).toFixed(0) }) : t('loses', '', { n: ((1 - v / l.paid) * 100).toFixed(0) })}
-            </span>
-            <span className="mini" style={{ display: 'block', marginTop: 2 }}>{t('auction.ask')} {fmt(ask)} · {t('auction.fee')} · {t('auction.sellChance', '', { n: Math.round(rar === 'legendary' ? 85 : rar === 'rare' ? 75 : rar === 'uncommon' ? 55 : 40) })}</span>
-          </Row>;
-        })}</>)}
-      {/* ---- pre-owned: items the player bought used ---- */}
-      {s.used.length > 0 && (<><h3>{t('used.mine')}</h3>
-        {s.used.map((u, idx) => {
-          const v = usedItemValue(s, u), resale = v * (1 - RESALE_FEE);
-          const condTxt = u.condition >= 80 ? 'mint' : u.condition >= 60 ? 'good' : u.condition >= 40 ? 'fair' : 'rough';
-          const rar = itemRarity(u);
-          const ask = v * 1.4;
-          const repCost = repairCost(s, u.paid, rar);
-          return <Row key={u.id} art={u.art} image={USED_IMAGES[u.id]} right={<div className="trade" style={{ flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-            {u.condition < 100 && <Btn ic="ic-bag" label={t('workshop.repair') + ' ' + fmt(repCost)} kind="ghost" disabled={s.money < repCost} onClick={() => act(st => repairUsed(st, idx))} />}
-            <Btn ic="ic-up" label={t('auction.btn')} kind="ghost" disabled={s.money < ask * 0.03} onClick={() => act(st => auctionItem(st, 'used', idx))} />
-            <Btn ic="ic-social" label={t('used.list')} kind="ghost" onClick={() => act(st => postItemListing(st, 'used', idx))} />
-            <Btn ic="ic-down" label={t('used.sell') + ' ' + fmt(resale)} kind="ghost" onClick={() => act(st => sellUsed(st, idx))} />
-          </div>}>
-            <b>{u.brand ? <span className="bchip" style={{ background: u.c }}>{u.brand}</span> : null}{u.name} <span className="rarity-chip" data-rarity={rar} style={{ '--rc': RARITY_COLOR[rar] } as React.CSSProperties}>{t('rarity.' + rar)}</span></b>
-            <span className="sub">
-              <span className="cond-pill" data-cond={condTxt}>{t('used.cond')} {u.condition} · {condTxt}</span>
-              {' · '}{t('used.age', '', { n: u.ageYears })} · {t('paid')} {fmt(u.paid)} · {t('worthNow')} {fmt(v)}
-            </span>
-            <span className="mini" style={{ display: 'block', marginTop: 2 }}>{t('auction.ask')} {fmt(ask)} · {t('auction.sellChance', '', { n: Math.round(rar === 'legendary' ? 85 : rar === 'rare' ? 75 : rar === 'uncommon' ? 55 : 40) })}</span>
-            <span className="mini" style={{ display: 'block', marginTop: 2, fontStyle: 'italic' }}>{u.story}</span>
-          </Row>;
-        })}</>)}
-      {/* ---- pre-owned market listings ---- */}
-      <h3>{t('used.title')}</h3>
-      <p className="sub">{t('used.sub')}</p>
-      <div className="grid">
-        {usedShown.length === 0
-          ? <span className="sub">{t('used.empty')}</span>
-          : usedShown.map(u => {
-            const off = Math.max(0, Math.round((1 - u.askPrice / u.newPrice) * 100));
-            const condTxt = u.condition >= 80 ? 'mint' : u.condition >= 60 ? 'good' : u.condition >= 40 ? 'fair' : 'rough';
-            return <button key={u.id} className="tile used-tile" disabled={s.money < u.askPrice}
-              onClick={() => setPendingBuy({ kind: 'used', used: u })}>
-              {USED_IMAGES[u.id]
-                ? <img className="tile-photo" src={asset(USED_IMAGES[u.id])} alt={u.name} loading="lazy" />
-                : <Art id={u.art} />}
-              <span>
-                <b>{u.brand ? <span className="bchip" style={{ background: u.c }}>{u.brand}</span> : null}{u.name} <span className="rarity-chip" data-rarity={itemRarity(u)} style={{ '--rc': RARITY_COLOR[itemRarity(u)] } as React.CSSProperties}>{t('rarity.' + itemRarity(u))}</span></b>
-                <span className="sub" style={{ display: 'block' }}>
-                  <span className="cond-pill" data-cond={condTxt}>{t('used.cond')} {u.condition}</span>
-                  {' · '}{t('used.age', '', { n: u.ageYears })}
+      {/* ---- v11.28: 5-section asset menu ---- */}
+      <div className="tnav asec" role="tablist" aria-label="Asset sections">
+        {secs.map(([k, ic, key, n]) => (
+          <button key={k} role="tab" aria-selected={sec === k} onClick={() => setSec(k)}>
+            <Ic id={ic} className="si navsi" />{t(key)}{n > 0 ? <span className="asec-n">{n}</span> : null}
+          </button>
+        ))}
+      </div>
+
+      {/* ================= AUCTION HOUSE ================= */}
+      {sec === 'auction' && <>
+        <p className="sub">{t('mkt.how', '', { a: AUCTION_DAYS[0] + '–' + AUCTION_DAYS[1], l: LISTING_DAYS[0] + '–' + LISTING_DAYS[1] })}</p>
+        {s.mkt.length > 0 && <>
+          <h3>{t('mkt.active')}</h3>
+          {s.mkt.map((j, ji) => {
+            const left = Math.max(0, Math.ceil(j.endDay - s.day));
+            const chance = Math.round(sellChanceOf(j.rarity, j.kind, Math.max(1, Math.round(j.endDay - j.startDay))) * 100);
+            return <Row key={'j' + ji} art={j.art} image={j.img} right={<Btn ic="ic-x" label={t('mkt.withdraw')} kind="ghost" onClick={() => act(st => cancelMarketJob(st, ji, t))} />}>
+              <b>{j.brand ? <span className="bchip" style={{ background: j.c }}>{j.brand}</span> : null}{j.name} <span className="rarity-chip" data-rarity={j.rarity} style={{ '--rc': RARITY_COLOR[j.rarity] } as React.CSSProperties}>{t('rarity.' + j.rarity)}</span></b>
+              <span className="sub">{j.kind === 'auction' ? '🔨 ' + t('mkt.onAuction') : '🏷 ' + t('mkt.onListing')} · {t('mkt.ask')} <b>{fmt(j.ask)}</b></span>
+              <span className="mini" style={{ display: 'block', marginTop: 2 }}>
+                ⏳ {t('mkt.daysLeft', '', { n: left })} · {j.bids > 0 ? t('mkt.bestBid', '', { x: fmt(j.best) }) + ' · ' : ''}{t('auction.sellChance', '', { n: chance })}
+              </span>
+            </Row>;
+          })}
+        </>}
+        <h3>{t('mkt.sellTitle')}</h3>
+        {s.lots.length === 0 && s.used.length === 0 && <p className="sub">{t('mkt.nothingToSell')}</p>}
+        {s.lots.map((l, idx) => lotRow(l, idx, 'auction'))}
+        {s.used.map((u, idx) => usedRow(u, idx, 'auction'))}
+      </>}
+
+      {/* ================= USED MARKET ================= */}
+      {sec === 'used' && <>
+        <h3>{t('used.mine')}</h3>
+        {s.used.length === 0 ? <p className="sub">{t('mkt.noUsed')}</p> : s.used.map((u, idx) => usedRow(u, idx, 'auction'))}
+        <h3>{t('used.title')}</h3>
+        <p className="sub">{t('used.sub')}</p>
+        <div className="grid">
+          {usedShown.length === 0
+            ? <span className="sub">{t('used.empty')}</span>
+            : usedShown.map(u => {
+              const off = Math.max(0, Math.round((1 - u.askPrice / u.newPrice) * 100));
+              return <button key={u.id} className="tile used-tile" disabled={s.money < u.askPrice}
+                onClick={() => setPendingBuy({ kind: 'used', used: u })}>
+                {USED_IMAGES[u.id]
+                  ? <img className="tile-photo" src={asset(USED_IMAGES[u.id])} alt={u.name} loading="lazy" />
+                  : <Art id={u.art} />}
+                <span>
+                  <b>{u.brand ? <span className="bchip" style={{ background: u.c }}>{u.brand}</span> : null}{u.name} <span className="rarity-chip" data-rarity={itemRarity(u)} style={{ '--rc': RARITY_COLOR[itemRarity(u)] } as React.CSSProperties}>{t('rarity.' + itemRarity(u))}</span></b>
+                  <span className="sub" style={{ display: 'block' }}>
+                    <span className="cond-pill" data-cond={condTxtOf(u.condition)}>{t('used.cond')} {u.condition}</span>
+                    {' · '}{t('used.age', '', { n: u.ageYears })}
+                  </span>
+                  <span className="sub" style={{ display: 'block' }}>{t('used.ask')} <b>{fmt(u.askPrice)}</b> · <span className="up">{t('used.discount', '', { n: off })}</span></span>
                 </span>
-                <span className="sub" style={{ display: 'block' }}>{t('used.ask')} <b>{fmt(u.askPrice)}</b> · <span className="up">{t('used.discount', '', { n: off })}</span></span>
+              </button>;
+            })}
+        </div>
+      </>}
+
+      {/* ================= RARE / COLLECTIBLES ================= */}
+      {sec === 'rare' && <>
+        <p className="sub">{t('rare.sub')}</p>
+        <h3>{t('rare.mine')}</h3>
+        {rareLots.length === 0 && rareUsed.length === 0 ? <p className="sub">{t('rare.none')}</p> : <>
+          {rareLots.map(({ l, i }) => lotRow(l, i, 'rare'))}
+          {rareUsed.map(({ u, i }) => usedRow(u, i, 'rare'))}
+        </>}
+        <h3>{t('rare.catalogue')}</h3>
+        <div className="grid">
+          {ITEMS.filter(i => rareIds.includes(itemRarity(i))).map(i => {
+            const irar = itemRarity(i);
+            return <button key={i.id} className="tile" disabled={s.money < i.price} onClick={() => setPendingBuy({ kind: 'new', item: i })}>
+              {ITEM_IMAGES[i.id]
+                ? <img className="tile-photo" src={asset(ITEM_IMAGES[i.id])} alt={i.name} loading="lazy" />
+                : <Art id={i.art} />}
+              <span>
+                <b>{i.brand ? <span className="bchip" style={{ background: i.c }}>{i.brand}</span> : null}{i.name} <span className="rarity-chip" data-rarity={irar} style={{ '--rc': RARITY_COLOR[irar] } as React.CSSProperties}>{t('rarity.' + irar)}</span></b>
+                <span className="sub" style={{ display: 'block' }}>{fmt(i.price)} · +{i.lux} {t('status')}</span>
               </span>
             </button>;
           })}
-      </div>
-      {/* ---- new-item catalogue (the original shop) ---- */}
-      <h3>{t('catalogue')}</h3>
-      <p className="mini" style={{ opacity: .65, marginBottom: 6 }}>{t('cat.sortedNote')}</p>
-      <div className="grid">
-        {cats.map(c => {
-          const list = ITEMS.filter(i => i.cat === c);
-          const lo = Math.min(...list.map(i => i.price)), hi = Math.max(...list.map(i => i.price));
-          const need = LIC_FOR[c], have = !need || s.lic[need];
-          const crewCat = CREW_COST[c] || 0;
-          // v11.20 — locked categories show the licence name as a hint.
-          const lockedHint = need && !have ? t('cat.lockedHint', '', { req: t('lic.' + need, LIC_BY[need]?.name || need) }) : '';
-          return <button key={c} className="tile" onClick={() => setCurCat(c)} disabled={!!lockedHint}>
-            <Art id={CATART[c] || 'ic-bag'} />
-            <span>
-              <b>{t('cat.' + c, c)}</b>
-              <span className="sub" style={{ display: 'block' }}>{list.length} {t('items')} · {fmt(lo)} – {fmt(hi)}{crewCat ? ' · ' + t('v11.crewOptional') : ''}</span>
-              {lockedHint ? (
-                <span className="mini" style={{ display: 'block', marginTop: 2, color: 'var(--brick)' }}>
-                  <Ic id="ic-lock" className="bsi" /> {lockedHint}
-                </span>
-              ) : need && have ? (
-                <span className="mini" style={{ display: 'block', marginTop: 2, color: 'var(--sage)' }}>✓ {t('lic.' + need, LIC_BY[need]?.name || need)}</span>
-              ) : null}
-            </span>
-          </button>;
-        })}
-      </div>
-      <p className="sub">{t('tapCategory')}</p>
+        </div>
+      </>}
+
+      {/* ================= WORKSHOP (repair & restore) ================= */}
+      {sec === 'workshop' && <>
+        <p className="sub">🛠 {t('workshop.skill')}: <b>{repairSkill(s)}</b> · {t('workshop.botchRisk')}</p>
+        {repLots.length === 0 && repUsed.length === 0 ? <p className="sub">{t('workshop.allGood')}</p> : <>
+          {repLots.map(({ l, i }) => lotRow(l, i, 'workshop'))}
+          {repUsed.map(({ u, i }) => usedRow(u, i, 'workshop'))}
+        </>}
+      </>}
+
+      {/* ================= SHOP (new-item catalogue) ================= */}
+      {sec === 'shop' && <>
+        <h3>{t('catalogue')}</h3>
+        <p className="mini" style={{ opacity: .65, marginBottom: 6 }}>{t('cat.sortedNote')}</p>
+        <div className="grid">
+          {cats.map(c => {
+            const list = ITEMS.filter(i => i.cat === c);
+            const lo = Math.min(...list.map(i => i.price)), hi = Math.max(...list.map(i => i.price));
+            const need = LIC_FOR[c], have = !need || s.lic[need];
+            const crewCat = CREW_COST[c] || 0;
+            const lockedHint = need && !have ? t('cat.lockedHint', '', { req: t('lic.' + need, LIC_BY[need]?.name || need) }) : '';
+            return <button key={c} className="tile" onClick={() => setCurCat(c)} disabled={!!lockedHint}>
+              <Art id={CATART[c] || 'ic-bag'} />
+              <span>
+                <b>{t('cat.' + c, c)}</b>
+                <span className="sub" style={{ display: 'block' }}>{list.length} {t('items')} · {fmt(lo)} – {fmt(hi)}{crewCat ? ' · ' + t('v11.crewOptional') : ''}</span>
+                {lockedHint ? (
+                  <span className="mini" style={{ display: 'block', marginTop: 2, color: 'var(--brick)' }}>
+                    <Ic id="ic-lock" className="bsi" /> {lockedHint}
+                  </span>
+                ) : need && have ? (
+                  <span className="mini" style={{ display: 'block', marginTop: 2, color: 'var(--sage)' }}>✓ {t('lic.' + need, LIC_BY[need]?.name || need)}</span>
+                ) : null}
+              </span>
+            </button>;
+          })}
+        </div>
+        <p className="sub">{t('tapCategory')}</p>
+      </>}
+
       {curCat && (
         <div className="modal on" onClick={e => { if (e.target === e.currentTarget) setCurCat(null); }}>
           <div className="mcard">
@@ -1987,8 +2075,6 @@ function AssetsTab({ s, act, curCat, setCurCat }: { s: GameState; act: Act; curC
           </div>
         </div>
       )}
-      {/* v11.18 — purchase confirmation modal. Opens when pendingBuy is set;
-          lets the player review price + cash-after + upkeep and confirm/cancel. */}
       {pendingBuy && <PurchaseConfirm s={s} pending={pendingBuy} onConfirm={() => {
         act(st => {
           if (pendingBuy.kind === 'new') return buyItem(st, pendingBuy.item.id);

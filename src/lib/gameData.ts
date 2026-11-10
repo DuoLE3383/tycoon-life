@@ -694,10 +694,16 @@ export const TABS: [string, string, string][] = [
 //   'finance' (Tài chính) — markets (stocks) + banking (savings/loans/tax)
 // Physical possessions and financial instruments are different mental
 // models; mixing them under one "Portfolio" umbrella was confusing.
+// v11.28 — per UX feedback the Assets group (auction house, used market,
+// rare items, repair workshop) moves UP to slot 2, right after Character:
+// buying/fixing/selling stuff is the core loop the player touches most, so
+// it should be one tap away from the overview — before education/career.
+//   Old order: life → growth → assets → finance → empire → network → …
+//   New order: life → ASSETS → growth → finance → empire → network → …
 export const GROUPS: [string, string, string, [string, string, string][]][] = [
   ['life', 'Character', 't-life', [['home', 'Overview', 't-life'], ['health', 'Wellbeing', 'w-heart'], ['spirit', 'Mind', 'w-lotus'], ['pets', 'Companions', 'ic-paw']]],
-  ['growth', 'Education', 't-cap', [['edu', 'Education', 't-cap'], ['career', 'Career', 't-work']]],
   ['assets', 'Assets', 'ic-bag', [['assets', 'Assets', 'ic-bag']]],
+  ['growth', 'Education', 't-cap', [['edu', 'Education', 't-cap'], ['career', 'Career', 't-work']]],
   ['finance', 'Finance', 't-bank', [['markets', 'Markets', 't-stock'], ['bank', 'Banking', 't-bank']]],
   ['empire', 'Business', 't-biz', [['biz', 'Business', 't-biz'], ['space', 'Space', 't-space']]],
   ['network', 'Social', 't-social', [['social', 'Social', 't-social'], ['relations', 'Relations', 'ic-heart'], ['club', 'Clubs', 't-club']]],

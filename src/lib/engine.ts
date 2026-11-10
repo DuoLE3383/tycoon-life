@@ -8,7 +8,8 @@ import {
   ALLNEWS, YEAR_EVENTS, eraOf, FIELDS, LICENSES, LIC_BY, LIC_FOR, STAGES,
   BIZ, FARM_LINES, FAC_LINES, ITEM_BY, STOCKS, CLUBS, JOBS, BOTS,
   NPC_BY, PET_BY, MAX_PETS, CREW_COST, SHORT_BY,
-  analyze, type FieldKey, type LineDef, type Req, type GigDef, type SpaceDef, type Rarity, RARITY_MULT, itemRarity, POST_TEMPLATES
+  analyze, type FieldKey, type LineDef, type Req, type GigDef, type SpaceDef, type Rarity, RARITY_MULT, itemRarity, POST_TEMPLATES,
+  ITEM_IMAGES, USED_IMAGES
 } from './gameData';
 // v11.3 — Power & influence system. Engine imports PowerState type + the
 // passive tick + advocacy helpers; PowerState lives on GameState below.
@@ -83,6 +84,27 @@ export interface AIChoice { l: string; cost?: number; money?: number; fame?: num
 export type AIEventKind = 'story' | 'luck' | 'badluck' | 'lifestage';
 export interface AIEvent { title: string; text: string; choices: AIChoice[]; source?: 'backend' | 'backend-local' | 'local'; kind?: AIEventKind }
 export interface Post { d: number; t: string; likes: number }
+// v11.28 — a timed marketplace job: either an AUCTION (bids arrive over the
+// window, the hammer can land above the ask, or nothing sells) or a fixed-
+// price SALE LISTING (one buyer either meets the ask or doesn't). The item is
+// snapshotted out of s.lots / s.used for the duration; `est` (its ordinary
+// resale value at listing time) keeps net worth stable while it runs.
+export type MarketItem =
+  | { src: 'lot'; id: string; paid: number; day: number; condition?: number; condDay?: number; repaired?: number }
+  | GameState['used'][number];
+export interface MarketJob {
+  kind: 'auction' | 'listing';
+  src: 'lot' | 'used';
+  item: MarketItem;
+  name: string; brand?: string; c: string; art: string; img?: string; rarity: Rarity;
+  ask: number;      // listing price (value × rarity premium × 1.4)
+  est: number;      // ordinary value — what netWorth counts while it runs
+  fee: number;      // upfront listing fee (lost even if it doesn't sell)
+  startDay: number;
+  endDay: number;   // resolves on the first tick past this day
+  bids: number;     // display-only: bids seen so far (rolled at resolution)
+  best: number;     // best bid seen (0 = none yet)
+}
 export type Religion = 'none' | 'buddhism' | 'christianity' | 'islam' | 'hinduism' | 'folk';
 export const RELIGIONS: Religion[] = ['none', 'buddhism', 'christianity', 'islam', 'hinduism', 'folk'];
 export interface GameState {
@@ -129,6 +151,14 @@ export interface GameState {
   // v10.4 — used-market purchases and player Hall of Fame entry written at
   // game over. Kept on the same GameState shape so save migration is trivial.
   used: { id: string; baseId: string; name: string; brand?: string; cat: string; c: string; art: string; ageYears: number; condition: number; paid: number; day: number; lux: number; rate: number; story: string }[];
+  // v11.28 — timed marketplace. Items the player put up for AUCTION (bids
+  // arrive over several game days, final price can exceed the ask, and the
+  // item may find NO buyer) or posted as a fixed-price SALE LISTING (slower,
+  // no bidding war, but a higher chance the ask is met). While a job runs the
+  // item lives here (removed from s.lots / s.used) and still counts toward
+  // net worth at its `est` estimate, so listing something doesn't nuke the
+  // player's balance sheet.
+  mkt: MarketJob[];
   hall: { name: string; nation: string; era: string; industry: string; peakNetWorth: string; note: string; livedTo: number; tier: string } | null;
   // v10.5 — reincarnation ledger. Each entry is a past life recorded at the
   // moment of reincarnation (not at game over — game over only writes s.hall).
@@ -441,7 +471,7 @@ export function fresh(): GameState {
     level: 1, xp: 0, gigs: {}, space: {}, social: { followers: 0, posts: [] },
     health: 92, spirit: 18, karma: 0, diet: false, well: {}, cause: null,
     sleepHours: 8, timeline: [], ach: [],
-    used: [], hall: null, pastLives: [], relations: {}, pets: [], clubs: [], aiEvPending: false, shortCompleted: [],
+    used: [], mkt: [], hall: null, pastLives: [], relations: {}, pets: [], clubs: [], aiEvPending: false, shortCompleted: [],
     pendingToasts: [],
     crisis: null, shocks: [], lastResearchDay: 0, researchBrief: null,
     bizRnd: null, spiritGainToday: null,
@@ -481,6 +511,8 @@ export function migrate(raw: unknown): GameState {
   s.bank = s.bank || { dep: 0, loan: 0 };
   s.story = s.story || { used: [] };
   s.used = Array.isArray(s.used) ? s.used : [];
+  // v11.28 — timed marketplace jobs backfill for old saves.
+  s.mkt = Array.isArray(s.mkt) ? s.mkt : [];
   s.hall = s.hall || null;
   s.pastLives = Array.isArray(s.pastLives) ? s.pastLives : [];
   s.relations = s.relations && typeof s.relations === 'object' ? s.relations : {};
@@ -745,7 +777,7 @@ export const bizVal = (s: GameState) => {
   return total;
 };
 export const stockVal = (s: GameState) => STOCKS.reduce((a, x) => a + (s.stk[x.id] || 0) * s.prices[x.id], 0);
-export const netWorth = (s: GameState) => s.money + stockVal(s) + assetVal(s) + bizVal(s) + s.bank.dep - s.bank.loan;
+export const netWorth = (s: GameState) => s.money + stockVal(s) + assetVal(s) + bizVal(s) + s.bank.dep - s.bank.loan + marketVal(s);
 export const clickVal = (s: GameState) => Math.max(25, Math.round((30 + 0.01 * yearIncome(s)) * ((s.ints.includes('sports') || s.tals.includes('hands')) ? 1.25 : 1)));
 export const taxOf = (inc: number) => {
   let t = 0, lo = 0;
@@ -1760,75 +1792,144 @@ export function sellUsed(s: GameState, idx: number): string | null {
   pushLog(s, `Sold used ${u.name} for ${fmt(v)}.`);
   return 'Sold for ' + fmt(v);
 }
-// List an owned lot (new or used) on the in-game social feed. Generates a
-// public post and, with some probability based on fame, an unsolicited
-// premium offer (a small immediate cash bump on top of the resale value).
-export function postItemListing(s: GameState, kind: 'lot' | 'used', idx: number): string | null {
-  if (kind === 'lot') {
-    const l = s.lots[idx]; if (!l) return null;
-    const it = ITEM_BY[l.id]; if (!it) return null;
-    const v = lotValue(s, l) * (1 - RESALE_FEE);
-    addPost(s, `Listing my ${it.name} on the feed. DM if serious. Asking ${fmt(v)}.`, 1.4);
-    s.fame = s.fame + 1;
-    pushLog(s, `Posted listing for ${it.name}.`);
-    return 'Posted: ' + it.name;
-  }
-  const u = s.used[idx]; if (!u) return null;
-  const v = usedItemValue(s, u) * (1 - RESALE_FEE);
-  addPost(s, `Anyone want my ${u.name}? ${u.story} Asking ${fmt(v)}.`, 1.5);
-  s.fame = s.fame + 1;
-  pushLog(s, `Posted used listing for ${u.name}.`);
-  return 'Posted: ' + u.name;
-}
+// ---------- v11.28: timed marketplace — auction house + sale listings ----------
+// Replaces the v10.5 instant auction. Listing an item now TAKES TIME:
+//   • AUCTION  (4-7 game days): bids roll in one by one; the hammer can land
+//     above the ask (bidding war) or the item finds no buyer at all. 3%
+//     upfront fee, lost when nothing sells. High-risk, high-reward, fast.
+//   • LISTING  (8-12 game days): one buyer either meets the fixed ask or
+//     doesn't. 1.5% upfront fee. Slower but steadier — and rarer items draw
+//     more watchers, so the odds scale with rarity and window length.
+// The sell chance shown in the UI is the exact chance of >=1 buyer over the
+// window: 1 - (1-p)^days, p = P_BID[rarity] x kind factor. resolveMarket()
+// rolls one rng per game-day at resolution, so the odds match the sim.
+export const AUCTION_DAYS: [number, number] = [4, 7];
+export const LISTING_DAYS: [number, number] = [8, 12];
+export const AUCTION_FEE = 0.03;   // % of ask, paid upfront
+export const LISTING_FEE = 0.015;  // % of ask, paid upfront
+// Per-day chance an interested buyer shows up, by rarity. Auctions draw more
+// eyes (a live event); listings rely on passive browsing (x0.75).
+const P_BID: Record<Rarity, number> = { legendary: .22, rare: .19, uncommon: .15, common: .11 };
+export const sellChanceOf = (rarity: Rarity, kind: 'auction' | 'listing', days: number) =>
+  1 - Math.pow(1 - P_BID[rarity] * (kind === 'auction' ? 1 : 0.75), days);
 
-// ---------- v10.5: auction by rarity + repair/restore workshop ----------
-// Auction: list an item at a premium (rarity multiplier × 1.4) but with a
-// real chance of NO buyer — in which case the listing fee (3% of ask) is
-// lost. Rare/legendary items sell more often (collectors pay attention).
-// The buyer-side RNG is rolled at listing time so the outcome is immediate.
-export function auctionItem(s: GameState, kind: 'lot' | 'used', idx: number): string | null {
-  const compute = (ask: number, rarity: Rarity): { sold: boolean; proceeds: number; fee: number } => {
-    const fee = Math.round(ask * 0.03);
-    const sellChance = rarity === 'legendary' ? 0.85 : rarity === 'rare' ? 0.75 : rarity === 'uncommon' ? 0.55 : 0.4;
-    const sold = Math.random() < sellChance;
-    const proceeds = sold ? Math.round(ask * (1 - RESALE_FEE)) : 0;
-    return { sold, proceeds, fee };
-  };
-  if (kind === 'lot') {
+function mktView(item: MarketItem): { name: string; brand?: string; c: string; art: string; rarity: Rarity } {
+  if ('src' in item) {
+    const it = ITEM_BY[item.id];
+    return { name: it ? it.name : item.id, brand: it?.brand, c: it ? it.c : '#888', art: it ? it.art : 'ic-bag', rarity: it ? itemRarity(it) : 'common' };
+  }
+  return { name: item.name, brand: item.brand, c: item.c, art: item.art, rarity: itemRarity(item) };
+}
+function mktImg(item: MarketItem): string | undefined {
+  if ('src' in item) return ITEM_IMAGES[item.id];
+  return USED_IMAGES[item.id];
+}
+// Put an owned item up for AUCTION. The item is removed from the inventory
+// for the duration (it "lives at the auction house"); the upfront fee is
+// charged immediately. Resolution happens on tick via resolveMarket().
+export function putUpAuction(s: GameState, src: 'lot' | 'used', idx: number, t?: T, rng: () => number = Math.random): string | null {
+  return listForMarket(s, src, idx, 'auction', t, rng);
+}
+// Post an owned item as a fixed-price SALE LISTING (replaces the old
+// social-feed-only postItemListing — now it's a real market entry).
+export function postSaleListing(s: GameState, src: 'lot' | 'used', idx: number, t?: T, rng: () => number = Math.random): string | null {
+  return listForMarket(s, src, idx, 'listing', t, rng);
+}
+function listForMarket(s: GameState, src: 'lot' | 'used', idx: number, kind: 'auction' | 'listing', t?: T, rng: () => number = Math.random): string | null {
+  const auction = kind === 'auction';
+  let item: MarketItem; let est: number;
+  if (src === 'lot') {
     const l = s.lots[idx]; if (!l) return null;
     const it = ITEM_BY[l.id]; if (!it) return null;
-    const rarity = itemRarity(it);
-    const ask = lotValue(s, l) * RARITY_MULT[rarity] * 1.4;
-    if (s.money < ask * 0.03) return null;
-    const r = compute(ask, rarity);
-    s.money -= r.fee;
-    if (r.sold) {
-      s.money += r.proceeds;
-      s.lots.splice(idx, 1);
-      pushLog(s, `Auction: ${it.name} sold for ${fmt(r.proceeds)} (rarity ${rarity}, ask ${fmt(ask)}).`);
-      addPost(s, `Auction closed! ${it.name} went to a collector for ${fmt(r.proceeds)}.`, 1.8);
-      return `Sold at auction: ${fmt(r.proceeds)}`;
-    } else {
-      pushLog(s, `Auction: ${it.name} found no buyer. Listing fee ${fmt(r.fee)} lost.`);
-      addPost(s, `Auction fell through on the ${it.name}. No bids above reserve.`, 0.8);
-      return `No buyer — lost ${fmt(r.fee)} listing fee`;
-    }
-  }
-  const u = s.used[idx]; if (!u) return null;
-  const rarity = itemRarity(u);
-  const ask = usedItemValue(s, u) * RARITY_MULT[rarity] * 1.4;
-  if (s.money < ask * 0.03) return null;
-  const r = compute(ask, rarity);
-  s.money -= r.fee;
-  if (r.sold) {
-    s.money += r.proceeds;
-    s.used.splice(idx, 1);
-    pushLog(s, `Auction: ${u.name} sold for ${fmt(r.proceeds)} (rarity ${rarity}).`);
-    addPost(s, `Auction closed! ${u.name} went for ${fmt(r.proceeds)}.`, 1.8);
-    return `Sold at auction: ${fmt(r.proceeds)}`;
+    est = lotValue(s, l);
+    item = { ...l, src: 'lot' as const };
+    s.lots.splice(idx, 1);
   } else {
-    pushLog(s, `Auction: ${u.name} found no buyer. Fee ${fmt(r.fee)} lost.`);
-    return `No buyer — lost ${fmt(r.fee)} listing fee`;
+    const u = s.used[idx]; if (!u) return null;
+    est = usedItemValue(s, u);
+    item = { ...u };
+    s.used.splice(idx, 1);
+  }
+  const rarity = itemRarity('src' in item ? ITEM_BY[item.id] : item);
+  const ask = Math.round(est * RARITY_MULT[rarity] * 1.4);
+  const fee = Math.round(ask * (auction ? AUCTION_FEE : LISTING_FEE));
+  if (s.money < fee) {
+    // can't afford the upfront fee — put the item back where it came from
+    if (src === 'lot') s.lots.push({ id: (item as { id: string }).id, paid: (item as { paid: number }).paid, day: (item as { day: number }).day, condition: (item as { condition?: number }).condition, condDay: (item as { condDay?: number }).condDay, repaired: (item as { repaired?: number }).repaired });
+    else s.used.push(item as GameState['used'][number]);
+    return null;
+  }
+  s.money -= fee;
+  const [dLo, dHi] = auction ? AUCTION_DAYS : LISTING_DAYS;
+  const days = dLo + Math.floor(rng() * (dHi - dLo + 1));
+  const v = mktView(item);
+  s.mkt.push({
+    kind, src, item, name: v.name, brand: v.brand, c: v.c, art: v.art, img: mktImg(item), rarity,
+    ask, est, fee, startDay: s.day, endDay: s.day + days, bids: 0, best: 0
+  });
+  addPost(s, auction
+    ? `My ${v.name} is live at the auction house — bids close in ${days} days. Asking ${fmt(ask)}.`
+    : `Anyone want my ${v.name}? Fixed price ${fmt(ask)}, ${days}-day listing.`, auction ? 1.8 : 1.4, rng);
+  pushLog(s, `${auction ? 'Auction' : 'Listing'}: ${v.name} at ${fmt(ask)} for ${days} days (fee ${fmt(fee)}).`);
+  return t
+    ? t(auction ? 'mkt.upAuction' : 'mkt.upListing', '', { name: v.name, x: fmt(ask), n: days })
+    : `${auction ? 'Auction' : 'Listing'}: ${v.name} @ ${fmt(ask)} (${days}d)`;
+}
+// Pull an item out of the market early. The upfront fee is forfeited — the
+// auction house doesn't refund appointments. Item returns to the inventory.
+export function cancelMarketJob(s: GameState, ji: number, t?: T): string | null {
+  const j = s.mkt[ji]; if (!j) return null;
+  s.mkt.splice(ji, 1);
+  if (j.src === 'lot') s.lots.push({ id: (j.item as { id: string }).id, paid: (j.item as { paid: number }).paid, day: (j.item as { day: number }).day, condition: (j.item as { condition?: number }).condition, condDay: (j.item as { condDay?: number }).condDay, repaired: (j.item as { repaired?: number }).repaired });
+  else s.used.push(j.item as GameState['used'][number]);
+  pushLog(s, `Withdrew ${j.name} from the ${j.kind === 'auction' ? 'auction' : 'listing'} (fee ${fmt(j.fee)} forfeited).`);
+  return t ? t('mkt.cancelled', '', { name: j.name, x: fmt(j.fee) }) : `Withdrew ${j.name} — lost ${fmt(j.fee)} fee`;
+}
+// Value locked in running market jobs — added to netWorth so listing an item
+// doesn't make the player suddenly "poorer" while it sits at the auction house.
+export const marketVal = (s: GameState) => (s.mkt || []).reduce((a, j) => a + j.est, 0);
+// Called from tick() after the day loop. Resolves every job whose window has
+// closed, simulating the bids that arrived over the elapsed days (one roll per
+// game-day, so the advertised sell chance matches the simulation exactly).
+export function resolveMarket(s: GameState, t?: T, rng: () => number = Math.random): void {
+  if (!s.mkt.length) return;
+  for (let i = s.mkt.length - 1; i >= 0; i--) {
+    const j = s.mkt[i];
+    if (s.day < j.endDay) continue;
+    const days = Math.max(1, Math.round(j.endDay - j.startDay));
+    let bids = 0, best = 0;
+    const p = P_BID[j.rarity] * (j.kind === 'auction' ? 1 : 0.75);
+    for (let d = 0; d < days; d++) {
+      if (rng() < p) {
+        bids++;
+        // each bid lands between 95% and 140% of the ask (bidding war)
+        best = Math.max(best, j.ask * (0.95 + rng() * 0.45));
+      }
+    }
+    const sold = bids > 0;
+    j.bids = bids; j.best = best;
+    if (sold) {
+      const final = j.kind === 'auction' ? best : j.ask;
+      const proceeds = Math.round(final * (1 - RESALE_FEE));
+      s.money += proceeds;
+      s.mkt.splice(i, 1);
+      pushLog(s, `${j.kind === 'auction' ? 'Auction' : 'Listing'}: ${j.name} ${bids > 1 ? `(${bids} bids, hammer ${fmt(final)}) ` : ''}sold for ${fmt(proceeds)}.`);
+      addPost(s, j.kind === 'auction'
+        ? `Hammer down! ${j.name} sold at auction for ${fmt(proceeds)} after ${bids} bid${bids > 1 ? 's' : ''}.`
+        : `Sold my ${j.name} for ${fmt(proceeds)} — listing closed.`, 1.8, rng);
+      queueToast(s, t
+        ? t(j.kind === 'auction' ? 'mkt.soldAuction' : 'mkt.soldListing', '', { name: j.name, x: fmt(proceeds), n: bids })
+        : `${j.kind === 'auction' ? 'Auction sold' : 'Sold'}: ${j.name} +${fmt(proceeds)}`);
+      addXp(s, bids > 1 ? 12 : 6, rng); // negotiating pays XP
+    } else {
+      s.mkt.splice(i, 1);
+      if (j.src === 'lot') s.lots.push({ id: (j.item as { id: string }).id, paid: (j.item as { paid: number }).paid, day: (j.item as { day: number }).day, condition: (j.item as { condition?: number }).condition, condDay: (j.item as { condDay?: number }).condDay, repaired: (j.item as { repaired?: number }).repaired });
+      else s.used.push(j.item as GameState['used'][number]);
+      pushLog(s, `${j.kind === 'auction' ? 'Auction' : 'Listing'}: ${j.name} found no buyer in ${days} days. Fee ${fmt(j.fee)} lost.`);
+      queueToast(s, t
+        ? t('mkt.noBuyer', '', { name: j.name, x: fmt(j.fee) })
+        : `No buyer for ${j.name} — lost ${fmt(j.fee)} fee`);
+    }
   }
 }
 
@@ -2206,7 +2307,7 @@ export function gameOverTier(s: GameState): { tier: string; nw: number } {
 }
 
 // ---------- main tick ----------
-export function tick(s: GameState, dtMs: number, rng: () => number = Math.random): { taxToast?: string; yearToast?: string; gameJustOver?: boolean; toasts?: string[] } {
+export function tick(s: GameState, dtMs: number, rng: () => number = Math.random, t?: T): { taxToast?: string; yearToast?: string; gameJustOver?: boolean; toasts?: string[] } {
   const out: { taxToast?: string; yearToast?: string; gameJustOver?: boolean; toasts?: string[] } = {};
   if (s.over || s.pending || s.aiEv || !s.started) return out;
   s.day += dtMs / DAY_MS; // dt is milliseconds; DAY_MS milliseconds = 1 game day
@@ -2232,6 +2333,10 @@ export function tick(s: GameState, dtMs: number, rng: () => number = Math.random
     finishStudy(s, s.sideStudy, rng);
     s.sideStudy = null;
   }
+  // v11.28 — resolve timed marketplace jobs (auctions + sale listings) whose
+  // window closed. Runs after the day loop so results land the moment the
+  // clock passes endDay; t is threaded through for localised toasts.
+  if (s.mkt.length) resolveMarket(s, t, rng);
   while (Math.floor(s.age) > s.lastYr && !s.over) { s.lastYr++; yearEnd(s, s.lastYr, rng); }
   if (s.age >= END_AGE && !s.over) { s.age = END_AGE; s.over = true; s.cause = 'age'; out.gameJustOver = true; }
   if (!s.over && s.health <= 0) { s.over = true; s.cause = 'health'; out.gameJustOver = true; }
@@ -2252,7 +2357,7 @@ export function tick(s: GameState, dtMs: number, rng: () => number = Math.random
 // unmonitored business then faces an extra closure roll + operational loss,
 // because nobody was minding the shop. Returns a human summary for the toast,
 // or null if no catch-up applied.
-export function applyOffline(s: GameState, rng: () => number = Math.random): { summary: string; days: number; closures: number; losses: number; gameJustOver?: boolean; toasts?: string[] } | null {
+export function applyOffline(s: GameState, rng: () => number = Math.random, t?: T): { summary: string; days: number; closures: number; losses: number; gameJustOver?: boolean; toasts?: string[] } | null {
   if (!s.started || s.over || s.lastSeen == null) {
     s.lastSeen = Date.now();
     return null;
@@ -2270,7 +2375,8 @@ export function applyOffline(s: GameState, rng: () => number = Math.random): { s
   }
   // Advance the calendar (processDay runs for each elapsed day, same as the
   // online clock). tick() guards against pending events / game over itself.
-  const res = tick(s, days * DAY_MS, rng);
+  // v11.28 — t threads through so auction/listing results come back localised.
+  const res = tick(s, days * DAY_MS, rng, t);
   // Elevated unsupervised-business risk: per offline day, each branch faces an
   // extra ~2% closure chance (capped) on top of the normal roll inside
   // processDay, plus a lump operational loss proportional to the portfolio.
