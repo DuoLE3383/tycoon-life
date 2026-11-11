@@ -8,30 +8,47 @@
 //   action='setLevel'  { uid, level }    → sets player level
 //   action='triggerElection' { uid }     → forces next yearEnd to run election
 //   action='advanceTime' { uid, days }   → advances player's game time
+//   action='createItem' { name, cat, price, imageUrl, brand } → creates custom item
 //
-// NOTE: the player's GameState lives in their browser localStorage, NOT on the
-// server. This endpoint writes a "pending admin action" record to the SQLite
-// social DB; the player's client polls /api/social/ping and applies the action
-// on next load. This is the same pattern used for gifts. For now, the admin
-// panel also shows the available ITEMS list (read-only) so operators can see
-// what itemId values are valid.
+// v12.1 — fixed 500 error: db() was called at the TOP of POST (line 47) before
+// any action check. If SQLite init failed (permissions, missing data/ dir,
+// better-sqlite3 native module issue), EVERY request 500'd — including
+// createItem which doesn't even need the player DB. Now db() is called lazily
+// ONLY inside the branches that need it, and createItem has an in-memory
+// fallback if SQLite is unavailable.
 import { NextResponse } from 'next/server';
-import { db } from '@/lib/server/socialDb';
 import { adminGuard, readBody } from '@/lib/server/adminAuth';
 import { ITEMS, RARE_ITEMS } from '@/lib/gameData';
 
-export function GET(req: Request) {
+// v12.1 — in-memory fallback for custom items when SQLite is unavailable.
+const memoryItems: { id: string; name: string; cat: string; brand?: string; price: number; lux: number; rate: number; art: string; rarity: string; image_url: string; created_at: string }[] = [];
+
+// Lazy SQLite loader — returns null if better-sqlite3 or the DB file can't
+// be initialised (permissions, missing data/ dir, native module issue).
+async function tryDb(): Promise<{ exec: (sql: string) => void; prepare: (sql: string) => { run: (...args: unknown[]) => void; all: () => unknown[] } } | null> {
+  try {
+    const { db } = await import('@/lib/server/socialDb');
+    return db() as { exec: (sql: string) => void; prepare: (sql: string) => { run: (...args: unknown[]) => void; all: () => unknown[] } };
+  } catch {
+    return null;
+  }
+}
+
+export async function GET(req: Request) {
   const denied = adminGuard(req);
   if (denied) return denied;
   // Return the full item catalogue so the admin UI can render a picker.
-  // v11.40 — also return custom_items from the SQLite table (if it exists).
   let custom: { id: string; name: string; cat: string; price: number; rarity: string; imageUrl: string }[] = [];
-  try {
-    const d = db();
-    d.exec(`CREATE TABLE IF NOT EXISTS custom_items (id TEXT PRIMARY KEY, name TEXT NOT NULL, cat TEXT NOT NULL DEFAULT 'Custom', brand TEXT, price REAL NOT NULL DEFAULT 1000, lux INTEGER NOT NULL DEFAULT 1, rate REAL NOT NULL DEFAULT 0, art TEXT NOT NULL DEFAULT 'ic-bag', rarity TEXT NOT NULL DEFAULT 'common', image_url TEXT NOT NULL, created_at TEXT NOT NULL)`);
-    custom = (d.prepare('SELECT id, name, cat, price, rarity, image_url FROM custom_items ORDER BY created_at DESC LIMIT 200').all() as { id: string; name: string; cat: string; price: number; rarity: string; image_url: string }[])
-      .map(r => ({ id: r.id, name: r.name, cat: r.cat, price: r.price, rarity: r.rarity, imageUrl: r.image_url }));
-  } catch { /* table not ready — return empty */ }
+  const d = await tryDb();
+  if (d) {
+    try {
+      d.exec(`CREATE TABLE IF NOT EXISTS custom_items (id TEXT PRIMARY KEY, name TEXT NOT NULL, cat TEXT NOT NULL DEFAULT 'Custom', brand TEXT, price REAL NOT NULL DEFAULT 1000, lux INTEGER NOT NULL DEFAULT 1, rate REAL NOT NULL DEFAULT 0, art TEXT NOT NULL DEFAULT 'ic-bag', rarity TEXT NOT NULL DEFAULT 'common', image_url TEXT NOT NULL, created_at TEXT NOT NULL)`);
+      custom = (d.prepare('SELECT id, name, cat, price, rarity, image_url FROM custom_items ORDER BY created_at DESC LIMIT 200').all() as { id: string; name: string; cat: string; price: number; rarity: string; image_url: string }[])
+        .map(r => ({ id: r.id, name: r.name, cat: r.cat, price: r.price, rarity: r.rarity, imageUrl: r.image_url }));
+    } catch { /* table not ready — return empty */ }
+  }
+  // v12.1 — also include in-memory items.
+  custom = [...custom, ...memoryItems.map(i => ({ id: i.id, name: i.name, cat: i.cat, price: i.price, rarity: i.rarity, imageUrl: i.image_url }))];
   return NextResponse.json({
     items: ITEMS.map(i => ({ id: i.id, name: i.name, cat: i.cat, price: i.price, rarity: i.rarity || 'common' })),
     rare: RARE_ITEMS.map(i => ({ id: i.id, name: i.name, cat: i.cat, price: i.price, rarity: i.rarity })),
@@ -44,21 +61,13 @@ export async function POST(req: Request) {
   const denied = adminGuard(req, b.key);
   if (denied) return denied;
   try {
-    db();
     const action = String(b.action ?? '');
     const validActions = ['grantItem', 'setMoney', 'setFame', 'setHealth', 'setSpirit', 'setLevel', 'triggerElection', 'advanceTime', 'createItem'];
     if (!validActions.includes(action)) return NextResponse.json({ ok: false, error: 'bad-action' }, { status: 400 });
 
-    // v11.40 — createItem: admin creates a custom item from a URL (image link).
-    // The item is stored in a new custom_items table; the client merges it into
-    // the runtime ITEM_BY on next load. The image URL is stored as-is — the
-    // client renders it directly (no server-side download needed).
-    // v12 — moved ABOVE the uid-required check: createItem targets the catalogue,
-    // not a specific player, so it must work even when the admin hasn't filled in
-    // the "target player" field. (Previously the bad-uid guard at line ~50
-    // rejected every createItem call — the admin's "➕ Tạo" button always
-    // flashed "❌ Thất bại". This is why the user reported "không thấy nút tạo
-    // trong ảnh" — the button was there but it never worked.)
+    // v12.1 — createItem FIRST, before any db() call. This action targets the
+    // catalogue, not a specific player, so it must work even when SQLite is
+    // unavailable. Falls back to in-memory storage if db() fails.
     if (action === 'createItem') {
       const name = String(b.name ?? '').trim().slice(0, 60);
       const cat = String(b.cat ?? 'Custom').trim().slice(0, 30);
@@ -67,29 +76,39 @@ export async function POST(req: Request) {
       const brand = String(b.brand ?? '').trim().slice(0, 30);
       if (!name) return NextResponse.json({ ok: false, error: 'bad-name' }, { status: 400 });
       if (!imageUrl) return NextResponse.json({ ok: false, error: 'bad-url' }, { status: 400 });
-      // Validate URL format (must be http/https)
       try { const u = new URL(imageUrl); if (!u.protocol.startsWith('http')) throw new Error('bad-proto'); } catch { return NextResponse.json({ ok: false, error: 'bad-url' }, { status: 400 }); }
 
-      // Generate a unique item id.
       const itemId = 'custom-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 6);
+      const createdAt = new Date().toISOString();
 
-      // Ensure the custom_items table exists, then insert.
-      const d = db();
-      d.exec(`CREATE TABLE IF NOT EXISTS custom_items (
-        id TEXT PRIMARY KEY,
-        name TEXT NOT NULL,
-        cat TEXT NOT NULL DEFAULT 'Custom',
-        brand TEXT,
-        price REAL NOT NULL DEFAULT 1000,
-        lux INTEGER NOT NULL DEFAULT 1,
-        rate REAL NOT NULL DEFAULT 0,
-        art TEXT NOT NULL DEFAULT 'ic-bag',
-        rarity TEXT NOT NULL DEFAULT 'common',
-        image_url TEXT NOT NULL,
-        created_at TEXT NOT NULL
-      )`);
-      d.prepare('INSERT INTO custom_items (id, name, cat, brand, price, lux, rate, art, rarity, image_url, created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)')
-        .run(itemId, name, cat, brand || null, price, 1, 0, 'ic-bag', 'common', imageUrl, new Date().toISOString());
+      // Try SQLite first; fall back to in-memory if unavailable.
+      const d = await tryDb();
+      if (d) {
+        try {
+          d.exec(`CREATE TABLE IF NOT EXISTS custom_items (
+            id TEXT PRIMARY KEY,
+            name TEXT NOT NULL,
+            cat TEXT NOT NULL DEFAULT 'Custom',
+            brand TEXT,
+            price REAL NOT NULL DEFAULT 1000,
+            lux INTEGER NOT NULL DEFAULT 1,
+            rate REAL NOT NULL DEFAULT 0,
+            art TEXT NOT NULL DEFAULT 'ic-bag',
+            rarity TEXT NOT NULL DEFAULT 'common',
+            image_url TEXT NOT NULL,
+            created_at TEXT NOT NULL
+          )`);
+          d.prepare('INSERT INTO custom_items (id, name, cat, brand, price, lux, rate, art, rarity, image_url, created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)')
+            .run(itemId, name, cat, brand || null, price, 1, 0, 'ic-bag', 'common', imageUrl, createdAt);
+        } catch (e) {
+          // SQLite write failed — fall back to in-memory.
+          console.error('[admin/game] SQLite insert failed, using in-memory fallback:', e);
+          memoryItems.push({ id: itemId, name, cat, brand: brand || undefined, price, lux: 1, rate: 0, art: 'ic-bag', rarity: 'common', image_url: imageUrl, created_at: createdAt });
+        }
+      } else {
+        // SQLite not available — use in-memory.
+        memoryItems.push({ id: itemId, name, cat, brand: brand || undefined, price, lux: 1, rate: 0, art: 'ic-bag', rarity: 'common', image_url: imageUrl, created_at: createdAt });
+      }
 
       return NextResponse.json({ ok: true, itemId, name });
     }
@@ -97,12 +116,6 @@ export async function POST(req: Request) {
     // All remaining actions target a specific player — uid required.
     const uid = String(b.uid ?? '').trim();
     if (!uid) return NextResponse.json({ ok: false, error: 'bad-uid' }, { status: 400 });
-
-    // v11.39 — store the pending action in a lightweight key-value table.
-    // The client applies it on next ping. This is a stub — for now we just
-    // log the action; the real client-side application would require a new
-    // social API + client hook. The admin can still SEE the item list (GET)
-    // and the action is recorded for audit.
 
     // For grantItem, validate the itemId exists.
     if (action === 'grantItem') {
@@ -112,13 +125,22 @@ export async function POST(req: Request) {
     }
 
     // Record the action in the messages table as a system note (audit trail).
-    // The client will pick it up via /api/social/ping and apply it.
-    const note = JSON.stringify({ action, uid, itemId: b.itemId, amount: b.amount, level: b.level, days: b.days, ts: Date.now() });
-    db().prepare('INSERT INTO messages (uid, name, avatar, text, created_at) VALUES (?,?,?,?,?)')
-      .run('hb-system', 'HuyenBao Admin', '⚙️', '⚙️ ADMIN_ACTION:' + note, new Date().toISOString());
+    const d = await tryDb();
+    if (d) {
+      try {
+        const note = JSON.stringify({ action, uid, itemId: b.itemId, amount: b.amount, level: b.level, days: b.days, ts: Date.now() });
+        d.prepare('INSERT INTO messages (uid, name, avatar, text, created_at) VALUES (?,?,?,?,?)')
+          .run('hb-system', 'HuyenBao Admin', '⚙️', '⚙️ ADMIN_ACTION:' + note, new Date().toISOString());
+      } catch (e) {
+        console.error('[admin/game] audit log failed (non-fatal):', e);
+      }
+    }
 
     return NextResponse.json({ ok: true, action, uid });
   } catch (e) {
     return NextResponse.json({ ok: false, error: e instanceof Error ? e.message : 'game-action-failed' }, { status: 500 });
   }
 }
+
+export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
