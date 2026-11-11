@@ -819,7 +819,7 @@ function PinZone({ s, t, onEdit, act, onNav }: { s: GameState; t: TFn; onEdit: (
             <div className="pinzone-sleep">
               <label className="mini wl" htmlFor="sleep-hours-pin">{t('sleepSchedule')}</label>
               <select id="sleep-hours-pin" value={s.sleepHours} onChange={e => act(st => { st.sleepHours = Number(e.target.value); return t('sleepSet', '', { n: st.sleepHours }); })}>
-                {sleepHoursOptions.map(hours => <option key={hours} value={hours}>{hours}{t('sleepHourUnit')}{hours === 12 ? ' ✓' : ''}</option>)}
+                {sleepHoursOptions.map(hours => <option key={hours} value={hours}>{hours} {t('sleepHourUnit')}{hours === 12 ? ' ✓' : ''}</option>)}
               </select>
               <span className="mini">{t('sleepEffects', '', { p: Math.round((studyPace(s.sleepHours) - 1) * 100), h: healthChangeText })}</span>
               {/* v11.49 — sleep debt indicator: shows accumulated deficit + recovery hint */}
@@ -1025,7 +1025,7 @@ function BarChart({ rows, maxVal }: { rows: { label: string; value: number; colo
         const w = Math.max(2, (r.value / max) * (220 - labelW - 44));
         return (
           <g key={r.label}>
-            <text x={0} y={y + barH - 4} fontSize="9" fontWeight="600" fill="var(--mute)" style={{ textTransform: 'uppercase' }}>{r.label.length > 11 ? r.label.slice(0, 11) + '…' : r.label}</text>
+            <text x={0} y={y + barH - 4} fontSize="9" fontWeight="600" fill="var(--mute)" style={{ textTransform: 'uppercase' }}>{r.label.length > 14 ? r.label.slice(0, 14) + '…' : r.label}</text>
             <rect x={labelW} y={y} width={w} height={barH - 2} rx={3} fill={r.color} style={{ transition: 'width .3s ease' }} />
             <text x={labelW + w + 4} y={y + barH - 4} fontSize="9" fontWeight="700" fill="var(--up)">+{fmt(r.value)}</text>
           </g>
@@ -1267,13 +1267,13 @@ function MoreInfoPopup({ s, t, lang, eraName, y, news, timelineLocale, onNav }: 
     <>
       <button className="gigs-trigger" style={{ background: 'linear-gradient(180deg,rgba(255,255,255,.12) 0%,rgba(255,255,255,0) 50%),var(--slate)', borderColor: 'var(--slate)', color: '#fff' }} onClick={() => setOpen(true)}>
         <Art id="ic-link" className="si" />
-        <span>More</span>
+        <span>{t('more.btn', 'More')}</span>
       </button>
       {open && (
         <div className="modal-overlay" onClick={close}>
           <div className="modal-box gigs-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 600 }}>
             <div className="modal-head">
-              <h2>📋 More info</h2>
+              <h2>📋 {t('more.title', 'More info')}</h2>
               <button className="modal-x" onClick={close} aria-label="Close">✕</button>
             </div>
             <div className="modal-body">

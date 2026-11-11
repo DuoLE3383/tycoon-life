@@ -554,6 +554,8 @@ const D: Record<string, [string, string, string]> = {
   'inc.space': ['Space ventures', 'Dự án vũ trụ', '太空项目'],
   'inc.pension': ['Pension', 'Lương hưu', '养老金'],
   'inc.total': ['Total', 'Tổng', '合计'],
+  'more.btn': ['More', 'Thêm', '更多'],
+  'more.title': ['More info', 'Thông tin thêm', '更多信息'],
   'asset.space': ['Space ventures', 'Dự án vũ trụ', '太空资产'],
   'guide': ['How to play', 'Hướng dẫn chơi', '玩法指南'],
   'guide.1': ['Time flows automatically — about 30 seconds per day while you are online. When you are away, time slows to 1 day per 10 minutes and unmonitored businesses face extra risk. Pause or change speed with the buttons in the header.', 'Thời gian tự trôi — khoảng 30 giây mỗi ngày khi đang online. Khi vắng mặt, thời gian chậm lại 1 ngày mỗi 10 phút và các việc kinh doanh không giám sát sẽ chịu rủi ro cao hơn. Tạm dừng hoặc đổi tốc độ bằng các nút trên đầu trang.', '时间自动流逝 — 在线时约30秒一天。离开时时间放慢至每10分钟一天，且无人看管的生意风险升高。可用顶栏按钮暂停或调速。'],

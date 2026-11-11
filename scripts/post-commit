@@ -1,0 +1,75 @@
+#!/usr/bin/env bash
+# post-commit hook — auto-sync every commit to origin/main.
+#
+# Why this exists:
+#   The v12.8 handoff doc went stale because hot-fix commits landed locally
+#   but were never pushed. Future operators reading the repo on GitHub saw
+#   'last commit v12.8' while the local clone was 8 commits ahead. This hook
+#   closes that gap: every time `git commit` succeeds on `main`, the hook
+#   pulls (rebase) and pushes so origin/main always reflects local state.
+#
+# Install:  cp scripts/post-commit .git/hooks/post-commit && chmod +x .git/hooks/post-commit
+#           (or symlink: ln -s ../../scripts/post-commit .git/hooks/post-commit)
+# Uninstall: rm .git/hooks/post-commit
+#
+# Safety:
+#   - Only fires on branch 'main' (skip feature branches).
+#   - Pulls with --rebase only (never creates a merge commit).
+#   - Skips push if NO_AUTO_PUSH env var is set (e.g. for offline work).
+#   - Never pushes tags — that stays a deliberate operator action via
+#     scripts/release.sh, which calls `git push origin <tag>` explicitly.
+#   - If push fails (network, auth, non-fast-forward), prints a warning and
+#     exits 0 so the commit itself is not rolled back.
+#
+# Bypass for a single commit:  git commit --no-verify  (works because this
+#   hook is a post-commit hook, not pre-commit — but `--no-verify` is the
+#   conventional way to skip hooks).
+
+set -uo pipefail
+
+REPO="$(git rev-parse --show-toplevel 2>/dev/null)"
+[ -n "${REPO}" ] || exit 0
+
+BRANCH=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "")
+[ "${BRANCH}" = "main" ] || exit 0
+
+# Skip if explicitly disabled
+[ "${NO_AUTO_PUSH:-0}" = "1" ] && exit 0
+
+# Skip during rebase / merge / cherry-pick — leave the operator to finish
+[ -d "${REPO}/.git/rebase-merge" ] && exit 0
+[ -d "${REPO}/.git/rebase-apply" ] && exit 0
+[ -f "${REPO}/.git/MERGE_HEAD" ] && exit 0
+[ -f "${REPO}/.git/CHERRY_PICK_HEAD" ] && exit 0
+
+# Quiet log — minimal output so `git commit` stays readable
+log()  { printf '[post-commit] %s\n' "$*" >&2; }
+warn() { printf '[post-commit] WARN: %s\n' "$*" >&2; }
+
+# 1. Fetch origin so we know if main moved
+git fetch origin main --quiet 2>/dev/null || { warn "fetch failed (offline?) — push skipped"; exit 0; }
+
+LOCAL=$(git rev-parse HEAD)
+REMOTE=$(git rev-parse origin/main 2>/dev/null || echo "")
+
+# 2. If origin is ahead, rebase our new commit on top
+if [ -n "${REMOTE}" ] && [ "${LOCAL}" != "${REMOTE}" ]; then
+  BASE=$(git merge-base HEAD origin/main 2>/dev/null || echo "")
+  if [ -n "${BASE}" ] && [ "${BASE}" != "${REMOTE}" ]; then
+    # Remote has commits we don't — rebase
+    log "Rebasing onto origin/main…"
+    if ! git pull --rebase origin main --quiet 2>/dev/null; then
+      warn "rebase failed — resolve conflicts and run 'git push' manually"
+      exit 0
+    fi
+  fi
+fi
+
+# 3. Push
+if ! git push origin main --quiet 2>/dev/null; then
+  warn "push failed (auth? network?) — run 'git push origin main' manually"
+  exit 0
+fi
+
+log "Synced to origin/main ($(git rev-parse --short HEAD))"
+exit 0
