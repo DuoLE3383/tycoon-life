@@ -303,6 +303,11 @@ export interface GameState {
   //   hard   → win -10% (safe 70 / med 40 / high 10), penalties +50%
   // Defaults to 'normal'; migrate() backfills it on old saves.
   aiDifficulty: AiDifficulty;
+  // v13.2 — per-item remaining stock. Keyed by item id. An item with
+  // `ItemDef.stock: number` is limited-quantity; each purchase decrements the
+  // counter here. Items with no `stock` field stay unlimited (undefined).
+  // `itemStockLeft(s, id)` returns null (unlimited) or the remaining count.
+  itemStock: Record<string, number>;
 }
 // v12.2 — AI event difficulty enum.
 export type AiDifficulty = 'easy' | 'normal' | 'hard';
@@ -697,6 +702,7 @@ export function fresh(): GameState {
     power: freshPower(),
     entity: freshEntity(),
     aiDifficulty: 'normal',
+    itemStock: {},
   };
   STOCKS.forEach(x => { s.prices[x.id] = x.p; s.hist[x.id] = [x.p]; });
   return s;
@@ -784,6 +790,12 @@ export function migrate(raw: unknown): GameState {
     : freshEntity();
   // v12.2 — aiDifficulty backfill for old saves.
   s.aiDifficulty = normaliseDifficulty(s.aiDifficulty);
+  // v13.2 — itemStock backfill for old saves. Pre-v13.2 saves have no
+  // itemStock map; default to {} so lookups are safe. Items purchased before
+  // this version obviously didn't track stock, so we leave the map empty
+  // rather than synthesising values — limited-quantity items only exist via
+  // custom_items created after this change.
+  s.itemStock = s.itemStock && typeof s.itemStock === 'object' ? s.itemStock : {};
   // v11.6 — zodiac / gender / birthMonth / psychic. Old saves have none;
   // backfill from freshPsychic() + defaults. gender defaults to
   // 'nonbinary', birthMonth to 1 (Jan), zodiac to 'capricorn'.
@@ -1146,10 +1158,13 @@ export const lotValue = (s: GameState, l: { id: string; paid: number; day: numbe
   // Unknown legacy items use common rarity and conservative depreciation.
   const cond = Number.isFinite(Number(l?.condition)) ? Number(l.condition) : 100;
   const rarity = it ? itemRarity(it) : 'common';
-  const floor = rarity === 'legendary' ? 70 : rarity === 'rare' ? 55 : rarity === 'uncommon' ? 45 : 35;
+  // v13.2 — mythic tier sits above legendary: higher condition floor (80)
+  // and a 2.0× premium (vs legendary's 1.6×). Ultra-limited pieces hold
+  // value almost regardless of condition.
+  const floor = rarity === 'mythic' ? 80 : rarity === 'legendary' ? 70 : rarity === 'rare' ? 55 : rarity === 'uncommon' ? 45 : 35;
   const eff = Math.max(floor, Math.min(100, Math.max(0, cond)));
   const condFactor = 0.4 + 0.6 * (eff / 100);
-  return base * condFactor * (rarity === 'legendary' ? 1.6 : rarity === 'rare' ? 1.2 : rarity === 'uncommon' ? 1.05 : 1);
+  return base * condFactor * (rarity === 'mythic' ? 2 : rarity === 'legendary' ? 1.6 : rarity === 'rare' ? 1.2 : rarity === 'uncommon' ? 1.05 : 1);
 };
 // v11 — upkeep now includes optional crew cost for Yacht / Private jet.
 // The player no longer needs a licence to own these — they hire a crew
@@ -2044,11 +2059,30 @@ export function buyFacLine(s: GameState, id: string): string | null {
 }
 export function buyItem(s: GameState, id: string): string | null {
   const it = ITEM_BY[id]; if (!it || s.money < it.price) return null;
+  // v13.2 — limited-quantity items: an item with `stock: number` decrements a
+  // per-item counter on purchase. Sold-out items (0 left) can't be bought.
+  // Lazily initialises s.itemStock[id] from it.stock on first lookup so newly
+  // registered items (admin/LLM) with stock start counting from their cap.
+  if (typeof it.stock === 'number') {
+    if (s.itemStock[id] == null) s.itemStock[id] = it.stock;
+    if (s.itemStock[id] <= 0) return null;
+    s.itemStock[id] -= 1;
+  }
   s.money -= it.price; addLot(s, id);
   s.fame = s.fame + (it.lux >= 100 ? 3 : it.lux >= 30 ? 1 : 0);
   if (it.price >= 10000) addPost(s, `Just picked up a new ${it.name}. Life is good.`, it.lux >= 100 ? 2 : 1);
   recordTx(s, { kind: 'buy', asset: 'lot', ref: id, name: it.name, qty: 1, unit: it.price, amount: -it.price });
   return 'Bought ' + it.name;
+}
+// v13.2 — remaining stock for an item. Returns null when the item has no
+// stock cap (unlimited), otherwise the number left (it.stock when freshly
+// registered, decremented after each buy). The UI uses this to show "Only X
+// left!" badges and "SOLD OUT" overlays.
+export function itemStockLeft(s: GameState, id: string): number | null {
+  const it = ITEM_BY[id];
+  if (!it || typeof it.stock !== 'number') return null;
+  const cur = s.itemStock[id];
+  return cur == null ? it.stock : cur;
 }
 export function sellLot(s: GameState, idx: number): string | null {
   const l = s.lots[idx]; if (!l) return null;
@@ -2757,7 +2791,9 @@ export const AUCTION_FEE = 0.03;   // % of ask, paid upfront
 export const LISTING_FEE = 0.015;  // % of ask, paid upfront
 // Per-day chance an interested buyer shows up, by rarity. Auctions draw more
 // eyes (a live event); listings rely on passive browsing (x0.75).
-const P_BID: Record<Rarity, number> = { legendary: .22, rare: .19, uncommon: .15, common: .11 };
+// v13.2 — mythic added. Ultra-limited pieces draw huge interest (0.35),
+// higher than legendary, since their scarcity guarantees a queue of buyers.
+const P_BID: Record<Rarity, number> = { legendary: .22, rare: .19, uncommon: .15, common: .11, mythic: .35 };
 export const sellChanceOf = (rarity: Rarity, kind: 'auction' | 'listing', days: number) =>
   1 - Math.pow(1 - P_BID[rarity] * (kind === 'auction' ? 1 : 0.75), days);
 

@@ -386,17 +386,27 @@ export const FAC_LINES: LineDef[] = [
   { id: 'ev', name: 'EV assembly plant', since: 2010, cost: 5000000, inc: 6500000, needs: 'assembly', fac: true },
   { id: 'chip', name: 'Semiconductor fab', since: 2020, cost: 20000000, inc: 30000000, fac: true }
 ];
-export type Rarity = 'common' | 'uncommon' | 'rare' | 'legendary';
-export const RARITY_MULT: Record<Rarity, number> = { common: 1, uncommon: 1.4, rare: 2.2, legendary: 4 };
-export const RARITY_COLOR: Record<Rarity, string> = { common: '#78725f', uncommon: '#3a5a99', rare: '#5b3da3', legendary: '#a16207' };
-export interface ItemDef { id: string; cat: string; brand?: string; name: string; c: string; price: number; lux: number; rate: number; art: string; rarity?: Rarity }
+// v13.2 — mythic tier added ABOVE legendary for ultra-limited items (1-10
+// exist globally). RARITY_MULT=8 (vs legendary=4) so mythic resale prices
+// tower over even legendary grails. RARITY_COLOR crimson red stands apart
+// from the gold legendary chip. itemRarity() only returns 'mythic' when an
+// item explicitly opts in (it.rarity === 'mythic') AND has lux >= 5000;
+// the auto-derivation never spontaneously produces a mythic tier.
+export type Rarity = 'common' | 'uncommon' | 'rare' | 'legendary' | 'mythic';
+export const RARITY_MULT: Record<Rarity, number> = { common: 1, uncommon: 1.4, rare: 2.2, legendary: 4, mythic: 8 };
+export const RARITY_COLOR: Record<Rarity, string> = { common: '#78725f', uncommon: '#3a5a99', rare: '#5b3da3', legendary: '#a16207', mythic: '#e11d48' };
+export interface ItemDef { id: string; cat: string; brand?: string; name: string; c: string; price: number; lux: number; rate: number; art: string; rarity?: Rarity; stock?: number }
 // v11.58 — ITEMS now loads from /public/items.json (single source of truth).
 // `as ItemDef[]` because the JSON import is typed as a plain object.
 export const ITEMS: ItemDef[] = itemsData.items as ItemDef[];
 // v10.5 — derive rarity from luxury tier if not set explicitly.
 // 0-9 common · 10-49 uncommon · 50-299 rare · 300+ legendary.
+// v13.2 — mythic is OPT-IN only: an item is mythic iff it.rarity==='mythic'
+// AND lux >= 5000. The auto-derivation otherwise never produces mythic, so
+// existing items keep their current tier.
 export function itemRarity(it: { rarity?: Rarity; lux: number }): Rarity {
-  if (it.rarity) return it.rarity;
+  if (it.rarity === 'mythic' && (it.lux || 0) >= 5000) return 'mythic';
+  if (it.rarity && it.rarity !== 'mythic') return it.rarity;
   const l = it.lux || 0;
   if (l >= 300) return 'legendary';
   if (l >= 50) return 'rare';

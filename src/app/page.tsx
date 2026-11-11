@@ -58,6 +58,8 @@ import {
   // v11.33 — rare-auction circuit + favourites
   placeBidRare, toggleFav,
   repairLot, repairUsed, repairSkill, repairCost,
+  // v13.2 — limited-stock item system
+  itemStockLeft,
   choiceRisk, type ChoiceRisk,
   creativePost,
   relationState, interactNPC, proposeToNPC,
@@ -2800,7 +2802,9 @@ function AssetsTab({ s, act, curCat, setCurCat }: { s: GameState; act: Act; curC
   }, [y, s.level, s.used.length]);
 
   const condTxtOf = (c: number) => c >= 80 ? 'mint' : c >= 60 ? 'good' : c >= 40 ? 'fair' : 'rough';
-  const rareIds = ['rare', 'legendary'];
+  // v13.2 — mythic items join the rare section. rareLots / rareUsed now also
+  // match mythic-tier items so they appear under "Đồ hiếm" alongside legendary.
+  const rareIds = ['rare', 'legendary', 'mythic'];
   // v11.33 — favourites + group membership helpers.
   const favOn = (id: string) => (s.favs || []).includes(id);
   const favBtn = (id: string) => (
@@ -2854,6 +2858,7 @@ function AssetsTab({ s, act, curCat, setCurCat }: { s: GameState; act: Act; curC
           ? <span className="cond-pill" data-cond={condTxtOf(cond)}>{t('used.cond')} {cond} · {condTxtOf(cond)}</span>
           : <><span className="cond-pill" data-cond={condTxtOf(cond)}>{t('used.cond')} {cond} · {condTxtOf(cond)}</span>{' · '}{t('paid')} {fmt(l.paid)} · {t('worthNow')} {fmt(v)} · {v >= l.paid ? t('gains', '', { n: ((v / l.paid - 1) * 100).toFixed(0) }) : t('loses', '', { n: ((1 - v / l.paid) * 100).toFixed(0) })}</>}
       </span>
+      {rar === 'mythic' && typeof it.stock === 'number' && <span className="mini" style={{ display: 'block', marginTop: 2, color: 'var(--brick)', fontWeight: 700 }}>🌍 {t('rarity.mythicOnlyWorld', '', { n: it.stock })}</span>}
       {mode !== 'workshop' && <span className="mini" style={{ display: 'block', marginTop: 2 }}>
         🔨 {t('auction.ask')} {fmt(ask)} · ⏳ {t('mkt.auctionWindow', '', { n: AUCTION_DAYS[0] + '-' + AUCTION_DAYS[1] })} ~{Math.round(sellChanceOf(rar, 'auction', 5) * 100)}% · ⏳ {t('mkt.listingWindow', '', { n: LISTING_DAYS[0] + '-' + LISTING_DAYS[1] })} ~{Math.round(sellChanceOf(rar, 'listing', 10) * 100)}%
       </span>}
@@ -3041,6 +3046,14 @@ function AssetsTab({ s, act, curCat, setCurCat }: { s: GameState; act: Act; curC
       // the catalogue immediately and renders with its photo when bought.
       registerItem(item);
       if (item.image) ITEM_IMAGES[item.id] = item.image;
+      // v13.2 — if the freshly generated item carries a limited stock cap,
+      // initialise the player's per-item stock tracker so buyItem decrements
+      // from the correct starting count. Unlimited items (no stock field) are
+      // left untouched. registerItem only mutates the global ITEMS pool; the
+      // per-player GameState.itemStock lives here.
+      if (typeof item.stock === 'number') {
+        act(st => { if (st.itemStock[item.id] == null) st.itemStock[item.id] = item.stock!; return null; });
+      }
       toastMsg = `✨ ${item.brand ? item.brand + ' ' : ''}${item.name} — ${t('v11.generated', 'added to catalogue', { n: item.cat })}`;
       // Open the item's category in the catalogue so the player sees it land.
       setCurCat(item.cat);
@@ -3168,6 +3181,34 @@ function AssetsTab({ s, act, curCat, setCurCat }: { s: GameState; act: Act; curC
           {rareLots.map(({ l, i }) => lotRow(l, i, 'sell'))}
           {rareUsed.map(({ u, i }) => usedRow(u, i, 'sell'))}
         </>}
+        {/* v13.2 — mythic tier gallery. Surfaces every mythic item currently
+            registered in the runtime ITEMS pool (custom/admin items included)
+            with the crimson glow chip + the "Only X in the world" counter.
+            Players can buy directly from here; sold-out items show an overlay. */}
+        {ITEMS.some(i => itemRarity(i) === 'mythic') && <>
+          <h3>🌍 {t('rarity.mythic')}</h3>
+          <p className="mini" style={{ opacity: .65, marginBottom: 6 }}>{t('rarity.mythicOnlyWorld', '', { n: 10 })}</p>
+          <div className="grid">
+            {ITEMS.filter(i => itemRarity(i) === 'mythic').map(i => {
+              const left = itemStockLeft(s, i.id);
+              const soldOut = left === 0;
+              return <button key={i.id} className="tile mythic-tile" data-sold-out={soldOut ? 'true' : undefined}
+                disabled={soldOut || s.money < i.price}
+                onClick={() => setPendingBuy({ kind: 'new', item: i })}>
+                {ITEM_IMAGES[i.id]
+                  ? <img className="tile-photo" src={asset(ITEM_IMAGES[i.id])} alt={i.name} loading="lazy" />
+                  : <Art id={i.art} />}
+                {soldOut && <span className="sold-overlay">{t('rarity.soldOut')}</span>}
+                <span>
+                  <b>{i.brand ? <span className="bchip" style={{ background: i.c }}>{i.brand}</span> : null}{i.name} <span className="rarity-chip" data-rarity="mythic" style={{ '--rc': RARITY_COLOR.mythic } as React.CSSProperties}>{t('rarity.mythic')}</span></b>
+                  <span className="sub" style={{ display: 'block' }}>{fmt(i.price)}</span>
+                  <span className="mini" style={{ display: 'block', color: 'var(--brick)', fontWeight: 700 }}>🌍 {t('rarity.mythicOnlyWorld', '', { n: i.stock ?? 10 })}</span>
+                  {left != null && left > 0 && left <= 5 && <span className="stock-low" style={{ marginTop: 4 }}>{t('rarity.onlyLeft', '', { n: left })}</span>}
+                </span>
+              </button>;
+            })}
+          </div>
+        </>}
         <h3>{t('rare.gallery')}</h3>
         <p className="mini" style={{ opacity: .65, marginBottom: 6 }}>{t('rare.galleryNote')}</p>
         <div className="grid">
@@ -3205,8 +3246,13 @@ function AssetsTab({ s, act, curCat, setCurCat }: { s: GameState; act: Act; curC
               const irar = itemRarity(i);
               const crew = CREW_COST[curCat] || 0;
               const crewNow = crew > 0 ? ((curCat === 'Yacht' && s.lic['boat']) || (curCat === 'Private jet' && s.lic['pilot']) ? Math.round(crew / 2) : crew) : 0;
-              return <Row key={i.id} art={i.art} image={ITEM_IMAGES[i.id]} right={<Btn ic={locked ? 'ic-lock' : 'ic-bag'} label={locked ? t('needLicence') : fmt(i.price)} disabled={!!locked || s.money < i.price} onClick={() => setPendingBuy({ kind: 'new', item: i })} />}>
-                <b>{favBtn(i.id)}{i.brand ? <span className="bchip" style={{ background: i.c }}>{i.brand}</span> : null}{i.name} <span className="rarity-chip" data-rarity={irar} style={{ '--rc': RARITY_COLOR[irar] } as React.CSSProperties}>{t('rarity.' + irar)}</span></b>
+              // v13.2 — limited-stock badge + sold-out disable. itemStockLeft
+              // returns null for unlimited items, otherwise the remaining count.
+              const left = itemStockLeft(s, i.id);
+              const soldOut = left === 0;
+              const lowStock = left != null && left > 0 && left <= 5;
+              return <Row key={i.id} art={i.art} image={ITEM_IMAGES[i.id]} right={<Btn ic={locked ? 'ic-lock' : 'ic-bag'} label={locked ? t('needLicence') : (soldOut ? t('rarity.soldOut') : fmt(i.price))} disabled={!!locked || soldOut || s.money < i.price} onClick={() => setPendingBuy({ kind: 'new', item: i })} />}>
+                <b>{favBtn(i.id)}{i.brand ? <span className="bchip" style={{ background: i.c }}>{i.brand}</span> : null}{i.name} <span className="rarity-chip" data-rarity={irar} style={{ '--rc': RARITY_COLOR[irar] } as React.CSSProperties}>{t('rarity.' + irar)}</span>{irar === 'mythic' && i.stock ? <span className="rarity-chip" data-rarity="mythic" style={{ '--rc': RARITY_COLOR.mythic } as React.CSSProperties}>{t('rarity.mythicOnlyWorld', '', { n: i.stock })}</span> : null}{lowStock ? <span className="stock-low">{t('rarity.onlyLeft', '', { n: left })}</span> : null}{soldOut ? <span className="stock-sold">{t('rarity.soldOut')}</span> : null}</b>
                 <span className="sub">+{i.lux} {t('status')} · {t('loses', '', { n: (Math.abs(Math.min(i.rate, ASSET_DEPRECIATION_RATE)) * 100).toFixed(0) })} · {t('upkeep')} {fmt(i.price * 0.02)}{t('perYear')}</span>
                 {crew > 0 && <span className="mini" style={{ display: 'block', marginTop: 2 }}>{t('v11.crewCost', '', { x: fmt(crewNow) })}{crewNow < crew ? ` (${t('v11.crewHalved')})` : ''}</span>}
               </Row>;

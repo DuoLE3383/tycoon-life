@@ -8,8 +8,8 @@
 //   action='setLevel'  { uid, level }    → sets player level
 //   action='triggerElection' { uid }     → forces next yearEnd to run election
 //   action='advanceTime' { uid, days }   → advances player's game time
-//   action='createItem' { name, cat, price, imageUrl, brand } → creates custom item
-//   action='updateItem' { id, name?, cat?, price?, imageUrl?, brand? } → updates a custom item (v12.2)
+//   action='createItem' { name, cat, price, imageUrl, brand?, rarity?, stock? } → creates custom item
+//   action='updateItem' { id, name?, cat?, price?, imageUrl?, brand?, rarity?, stock? } → updates a custom item (v12.2)
 //   action='setDifficulty' { uid, level: 'easy'|'normal'|'hard' } → AI event difficulty (v12.2)
 //
 // v12.1 — fixed 500 error: db() was called at the TOP of POST (line 47) before
@@ -23,9 +23,14 @@
 // same SQLite-or-fallback path as createItem. setDifficulty is an audit-log
 // action that records the operator's chosen AI difficulty for a player; the
 // engine applies it via GameState.aiDifficulty (defaults to 'normal').
+// v13.2 — createItem/updateItem now accept + store `rarity` (TEXT) and
+// `stock` (INTEGER NULLABLE). custom_items table gains a stock column via
+// ALTER TABLE on read so existing installs upgrade transparently. Mythic
+// items MUST carry a 1-10 stock; the patch rejects bad stock values.
 import { NextResponse } from 'next/server';
 import { adminGuard, readBody } from '@/lib/server/adminAuth';
 import { ITEMS, RARE_ITEMS } from '@/lib/gameData';
+import type { Rarity } from '@/lib/gameData';
 
 // Lazy SQLite loader — returns null if better-sqlite3 or the DB file can't
 // be initialised (permissions, missing data/ dir, native module issue).
@@ -40,10 +45,28 @@ async function tryDb(): Promise<{ exec: (sql: string) => void; prepare: (sql: st
   }
 }
 
+// v13.2 — ensure the custom_items table has the stock column. SQLite doesn't
+// support adding NOT NULL columns to existing tables, so we add it NULLABLE
+// and the read path coalesces null → undefined for the client. Safe to call
+// repeatedly: ALTER TABLE only fires when the column is missing.
+function ensureStockColumn(d: { exec: (sql: string) => void }): void {
+  try {
+    // PRAGMA table_info returns rows; check for a 'stock' column.
+    // Simpler: try ALTER and swallow the "duplicate column" error.
+    d.exec('ALTER TABLE custom_items ADD COLUMN stock INTEGER');
+  } catch { /* column already exists — expected on second call */ }
+}
+
+// v13.2 — the rarity tiers the API accepts. Matches the Rarity type in
+// gameData.ts so admin-created items flow through itemRarity() untouched.
+const VALID_RARITIES: Rarity[] = ['common', 'uncommon', 'rare', 'legendary', 'mythic'];
+
 // v12.2 — normalise + clamp a custom-item patch shared by createItem and
 // updateItem. Returns null when the patch has no valid URL (URL is required
 // for custom items since they have no built-in art fallback).
-function readItemPatch(b: Record<string, unknown>): { name: string; cat: string; price: number; imageUrl: string; brand: string } | null {
+// v13.2 — adds rarity + stock normalisation. Mythic items MUST carry a
+// 1-10 stock (enforced by the form on the client; the API double-checks).
+function readItemPatch(b: Record<string, unknown>): { name: string; cat: string; price: number; imageUrl: string; brand: string; rarity: Rarity; stock: number | null } | null {
   const name = String(b.name ?? '').trim().slice(0, 60);
   const cat = String(b.cat ?? 'Custom').trim().slice(0, 30);
   const price = Math.max(1, Math.min(1e9, Math.round(Number(b.price) || 1000)));
@@ -52,25 +75,40 @@ function readItemPatch(b: Record<string, unknown>): { name: string; cat: string;
   if (!name) return null;
   if (!imageUrl) return null;
   try { const u = new URL(imageUrl); if (!u.protocol.startsWith('http')) throw new Error('bad-proto'); } catch { return null; }
-  return { name, cat, price, imageUrl, brand };
+  // v13.2 — rarity: default 'common'; reject unknown tiers.
+  const rarityRaw = String(b.rarity ?? 'common').trim().toLowerCase();
+  const rarity: Rarity = VALID_RARITIES.includes(rarityRaw as Rarity) ? (rarityRaw as Rarity) : 'common';
+  // v13.2 — stock: null/undefined/empty → unlimited; positive int → that
+  // count. Mythic MUST have stock in 1-10; otherwise the patch fails.
+  let stock: number | null = null;
+  if (b.stock !== undefined && b.stock !== null && String(b.stock).trim() !== '') {
+    const n = Math.round(Number(b.stock));
+    if (!Number.isFinite(n) || n < 1) return null;
+    stock = Math.min(1_000_000, n);
+  }
+  if (rarity === 'mythic') {
+    if (stock === null || stock < 1 || stock > 10) return null;
+  }
+  return { name, cat, price, imageUrl, brand, rarity, stock };
 }
 
 export async function GET(req: Request) {
   const denied = adminGuard(req);
   if (denied) return denied;
   // Return the full item catalogue so the admin UI can render a picker.
-  let custom: { id: string; name: string; cat: string; price: number; rarity: string; imageUrl: string }[] = [];
+  let custom: { id: string; name: string; cat: string; price: number; rarity: string; stock?: number | null; imageUrl: string }[] = [];
   const d = await tryDb();
   if (d) {
     try {
       d.exec(`CREATE TABLE IF NOT EXISTS custom_items (id TEXT PRIMARY KEY, name TEXT NOT NULL, cat TEXT NOT NULL DEFAULT 'Custom', brand TEXT, price REAL NOT NULL DEFAULT 1000, lux INTEGER NOT NULL DEFAULT 1, rate REAL NOT NULL DEFAULT 0, art TEXT NOT NULL DEFAULT 'ic-bag', rarity TEXT NOT NULL DEFAULT 'common', image_url TEXT NOT NULL, created_at TEXT NOT NULL)`);
-      custom = (d.prepare('SELECT id, name, cat, price, rarity, image_url FROM custom_items ORDER BY created_at DESC LIMIT 200').all() as { id: string; name: string; cat: string; price: number; rarity: string; image_url: string }[])
-        .map(r => ({ id: r.id, name: r.name, cat: r.cat, price: r.price, rarity: r.rarity, imageUrl: r.image_url }));
+      ensureStockColumn(d);
+      custom = (d.prepare('SELECT id, name, cat, price, rarity, stock, image_url FROM custom_items ORDER BY created_at DESC LIMIT 200').all() as { id: string; name: string; cat: string; price: number; rarity: string; stock?: number | null; image_url: string }[])
+        .map(r => ({ id: r.id, name: r.name, cat: r.cat, price: r.price, rarity: r.rarity, stock: r.stock == null ? null : r.stock, imageUrl: r.image_url }));
     } catch { /* table not ready — return empty */ }
   }
   return NextResponse.json({
-    items: ITEMS.map(i => ({ id: i.id, name: i.name, cat: i.cat, price: i.price, rarity: i.rarity || 'common' })),
-    rare: RARE_ITEMS.map(i => ({ id: i.id, name: i.name, cat: i.cat, price: i.price, rarity: i.rarity })),
+    items: ITEMS.map(i => ({ id: i.id, name: i.name, cat: i.cat, price: i.price, rarity: i.rarity || 'common', stock: i.stock ?? null })),
+    rare: RARE_ITEMS.map(i => ({ id: i.id, name: i.name, cat: i.cat, price: i.price, rarity: i.rarity, stock: i.stock ?? null })),
     custom,
   });
 }
@@ -99,8 +137,11 @@ export async function POST(req: Request) {
           art TEXT NOT NULL DEFAULT 'ic-bag', rarity TEXT NOT NULL DEFAULT 'common',
           image_url TEXT NOT NULL, created_at TEXT NOT NULL
         )`);
-        d.prepare('INSERT INTO custom_items (id, name, cat, brand, price, lux, rate, art, rarity, image_url, created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)')
-          .run(itemId, patch.name, patch.cat, patch.brand || null, patch.price, 1, 0, 'ic-bag', 'common', patch.imageUrl, new Date().toISOString());
+        ensureStockColumn(d);
+        // v13.2 — INSERT now includes rarity + stock. stock is NULLABLE: a
+        // NULL row means unlimited (matches ItemDef.stock === undefined).
+        d.prepare('INSERT INTO custom_items (id, name, cat, brand, price, lux, rate, art, rarity, stock, image_url, created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)')
+          .run(itemId, patch.name, patch.cat, patch.brand || null, patch.price, 1, 0, 'ic-bag', patch.rarity, patch.stock, patch.imageUrl, new Date().toISOString());
       } catch (e) {
         console.error('[admin/game] createItem failed:', e instanceof Error ? e.message : e);
         return NextResponse.json({ ok: false, error: 'item-save-failed' }, { status: 500 });
@@ -116,8 +157,10 @@ export async function POST(req: Request) {
       const d = await tryDb();
       if (!d) return NextResponse.json({ ok: false, error: 'sqlite-unavailable' }, { status: 503 });
       try {
-        const result = d.prepare('UPDATE custom_items SET name=?, cat=?, brand=?, price=?, image_url=? WHERE id=?')
-          .run(patch.name, patch.cat, patch.brand || null, patch.price, patch.imageUrl, itemId);
+        ensureStockColumn(d);
+        // v13.2 — UPDATE now writes rarity + stock alongside the other fields.
+        const result = d.prepare('UPDATE custom_items SET name=?, cat=?, brand=?, price=?, rarity=?, stock=?, image_url=? WHERE id=?')
+          .run(patch.name, patch.cat, patch.brand || null, patch.price, patch.rarity, patch.stock, patch.imageUrl, itemId);
         if (!result.changes) return NextResponse.json({ ok: false, error: 'not-found' }, { status: 404 });
       } catch (e) {
         console.error('[admin/game] updateItem failed:', e instanceof Error ? e.message : e);

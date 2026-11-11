@@ -459,7 +459,12 @@ const D: Record<string, [string, string, string]> = {
   'rarity.uncommon': ['Uncommon', 'Hiếm vừa', '少见'],
   'rarity.rare': ['Rare', 'Hiếm', '稀有'],
   'rarity.legendary': ['Legendary', 'Huyền thoại', '传奇'],
+  'rarity.mythic': ['Mythic', 'Thần thoại', '神话'],
   'rarity.label': ['Rarity', 'Độ hiếm', '稀有度'],
+  // v13.2 — mythic-specific UI strings. Only X in the world / Only X left / Sold out.
+  'rarity.mythicOnlyWorld': ['Only {n} in the world', 'Chỉ có {n} trên thế giới', '全球仅存 {n} 件'],
+  'rarity.onlyLeft': ['Only {n} left!', 'Chỉ còn {n}!', '仅剩 {n} 件!'],
+  'rarity.soldOut': ['SOLD OUT', 'HẾT HÀNG', '已售罄'],
   'workshop.title': ['Workshop — repair & restore', 'Xưởng — sửa chữa & tân trang', '工坊 — 修理与翻新'],
   'workshop.skill': ['Repair skill', 'Kỹ năng sửa chữa', '修理技能'],
   'workshop.cost': ['Repair cost', 'Chi phí sửa', '修理费用'],

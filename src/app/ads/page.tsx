@@ -88,7 +88,7 @@ export default function AdminPage() {
   const [sendNote, setSendNote] = useState('');
   const [top, setTop] = useState<ATop[] | null>(null);
   // ---- game control tab
-  const [itemList, setItemList] = useState<{ items: { id: string; name: string; cat: string; price: number; rarity: string }[]; rare: { id: string; name: string; cat: string; price: number; rarity: string }[]; custom?: { id: string; name: string; cat: string; price: number; rarity: string; imageUrl: string }[] } | null>(null);
+  const [itemList, setItemList] = useState<{ items: { id: string; name: string; cat: string; price: number; rarity: string; stock?: number | null }[]; rare: { id: string; name: string; cat: string; price: number; rarity: string; stock?: number | null }[]; custom?: { id: string; name: string; cat: string; price: number; rarity: string; stock?: number | null; imageUrl: string }[] } | null>(null);
   const [gameUid, setGameUid] = useState('');
   const [gameItemId, setGameItemId] = useState('');
   const [gameAmount, setGameAmount] = useState('100000');
@@ -97,6 +97,13 @@ export default function AdminPage() {
   const [newItemCat, setNewItemCat] = useState('Custom');
   const [newItemPrice, setNewItemPrice] = useState('1000');
   const [newItemUrl, setNewItemUrl] = useState('');
+  // v13.2 — Stock + Rarity fields on the create/edit form. Stock is empty
+  // string → unlimited (stored as NULL); a positive integer → limited. Rarity
+  // is the explicit tier (defaults to 'common' for non-mythic items). When
+  // mythic is selected, the form auto-suggests a stock of 1-10 and shows a
+  // hint reminding the operator mythic items are ultra-limited.
+  const [newItemStock, setNewItemStock] = useState('');
+  const [newItemRarity, setNewItemRarity] = useState<'common' | 'uncommon' | 'rare' | 'legendary' | 'mythic'>('common');
   // v12.2 — edit-item mode: editingItemId is set when the form is in "update"
   // mode instead of "create". Submitting either creates (id null) or patches
   // (id set) the item, then the form flips back to create mode.
@@ -481,7 +488,11 @@ export default function AdminPage() {
               <div className="adm-tools"><b style={{ fontSize: '.95rem' }}>Cấp item cho người chơi</b><button className="adm-btn adm-ghost" onClick={() => void loadItems()}>↻ Làm mới danh sách</button></div>
 
               {/* v11.40 — Create/Update item from URL (v12.2: doubles as the
-                  edit form when editingItemId is set). */}
+                  edit form when editingItemId is set).
+                  v13.2 — Stock + Rarity fields added: stock is empty (→ ∞
+                  unlimited) or a positive integer; rarity is a dropdown
+                  including the new mythic tier. Selecting mythic auto-suggests
+                  a stock of 1-10 and shows a hint. */}
               <div className="adm-bcast">
                 <b>{editingItemId ? '✏️ Sửa vật phẩm tuỳ chỉnh' : '➕ Tạo vật phẩm mới từ URL ảnh'}</b>
                 {editingItemId && <p className="adm-note">Đang sửa item <code className="adm-mini-code">{editingItemId.slice(0, 18)}…</code> — ấn <b>Cập nhật</b> để lưu, hoặc <b>Huỷ</b> để quay lại tạo mới.</p>}
@@ -489,29 +500,50 @@ export default function AdminPage() {
                   <input className="adm-input" value={newItemName} placeholder="Tên vật phẩm" onChange={e => setNewItemName(e.target.value)} style={{ flex: '1 1 140px' }} />
                   <input className="adm-input" value={newItemCat} placeholder="Danh mục" onChange={e => setNewItemCat(e.target.value)} style={{ flex: '0 0 100px' }} />
                   <input className="adm-input" type="number" value={newItemPrice} placeholder="Giá" onChange={e => setNewItemPrice(e.target.value)} style={{ flex: '0 0 100px' }} />
+                  {/* v13.2 — Rarity dropdown. Includes mythic (crimson). */}
+                  <select className="adm-input" value={newItemRarity} onChange={e => {
+                    const v = e.target.value as typeof newItemRarity;
+                    setNewItemRarity(v);
+                    // Auto-suggest stock 1-10 when mythic is selected and the
+                    // stock field is empty (don't overwrite an explicit value).
+                    if (v === 'mythic' && !newItemStock.trim()) setNewItemStock('5');
+                  }} style={{ flex: '0 0 120px' }} aria-label="Rarity">
+                    <option value="common">Common</option>
+                    <option value="uncommon">Uncommon</option>
+                    <option value="rare">Rare</option>
+                    <option value="legendary">Legendary</option>
+                    <option value="mythic">Mythic</option>
+                  </select>
+                  {/* v13.2 — Stock input. Empty = unlimited (∞). */}
+                  <input className="adm-input" type="number" value={newItemStock} placeholder="∞ unlimited" onChange={e => setNewItemStock(e.target.value.replace(/[^0-9]/g, ''))} style={{ flex: '0 0 120px' }} aria-label="Stock" />
                 </div>
+                {/* v13.2 — Mythic hint shown only when mythic is selected. */}
+                {newItemRarity === 'mythic' && <p className="adm-note" style={{ color: '#9f1239' }}>🌍 Mythic items are ultra-limited: only 1-10 exist globally. Set stock ≤ 10 to enforce scarcity.</p>}
                 <div className="adm-row">
                   <input className="adm-input" value={newItemUrl} placeholder="https://example.com/image.jpg" onChange={e => setNewItemUrl(e.target.value)} style={{ flex: 1 }} />
-                  <button className="adm-btn" disabled={!newItemName.trim() || !newItemUrl.trim()} onClick={() => void (async () => {
+                  <button className="adm-btn" disabled={!newItemName.trim() || !newItemUrl.trim() || (newItemRarity === 'mythic' && newItemStock.trim() !== '' && (Number(newItemStock) < 1 || Number(newItemStock) > 10))} onClick={() => void (async () => {
+                    // v13.2 — parse stock: empty string → null (unlimited);
+                    // a positive integer → that number (clamped 1..1e6).
+                    const stockNum = newItemStock.trim() === '' ? null : Math.max(1, Math.min(1_000_000, Math.round(Number(newItemStock) || 0)));
                     try {
                       if (editingItemId) {
                         // v12.2 — update existing item by id.
-                        const r = await adminPost<{ ok: boolean; itemId?: string; name?: string; error?: string }>('/api/admin/game', { action: 'updateItem', id: editingItemId, name: newItemName, cat: newItemCat, price: Number(newItemPrice), imageUrl: newItemUrl });
+                        const r = await adminPost<{ ok: boolean; itemId?: string; name?: string; error?: string }>('/api/admin/game', { action: 'updateItem', id: editingItemId, name: newItemName, cat: newItemCat, price: Number(newItemPrice), imageUrl: newItemUrl, rarity: newItemRarity, stock: stockNum });
                         if (!r.ok) throw new Error(r.error || 'failed');
                         flash('✅ Đã cập nhật "' + (r.name || '') + '"');
                       } else {
                         // create mode
-                        const r = await adminPost<{ ok: boolean; itemId?: string; name?: string; error?: string }>('/api/admin/game', { action: 'createItem', name: newItemName, cat: newItemCat, price: Number(newItemPrice), imageUrl: newItemUrl });
+                        const r = await adminPost<{ ok: boolean; itemId?: string; name?: string; error?: string }>('/api/admin/game', { action: 'createItem', name: newItemName, cat: newItemCat, price: Number(newItemPrice), imageUrl: newItemUrl, rarity: newItemRarity, stock: stockNum });
                         if (!r.ok || !r.itemId) throw new Error(r.error || 'failed');
                         flash('✅ Đã tạo "' + (r.name || '') + '"');
                       }
                       // Reset the form back to create mode after either submit.
                       setEditingItemId(null);
-                      setNewItemName(''); setNewItemUrl(''); setNewItemPrice('1000'); setNewItemCat('Custom');
+                      setNewItemName(''); setNewItemUrl(''); setNewItemPrice('1000'); setNewItemCat('Custom'); setNewItemStock(''); setNewItemRarity('common');
                       void loadItems();
-                    } catch (e) { const msg = e instanceof Error ? e.message : ''; flash('❌ ' + (editingItemId ? 'Cập nhật' : 'Tạo') + ' thất bại' + (msg === 'bad-url' ? ' — URL không hợp lệ' : msg === 'bad-patch' ? ' — thiếu tên hoặc URL' : msg === 'not-found' ? ' — không tìm thấy item' : '')); }
+                    } catch (e) { const msg = e instanceof Error ? e.message : ''; flash('❌ ' + (editingItemId ? 'Cập nhật' : 'Tạo') + ' thất bại' + (msg === 'bad-url' ? ' — URL không hợp lệ' : msg === 'bad-patch' ? ' — thiếu tên hoặc URL' : msg === 'not-found' ? ' — không tìm thấy item' : msg === 'bad-stock' ? ' — stock phải 1-10 cho mythic' : '')); }
                   })()}>{editingItemId ? '💾 Cập nhật' : '➕ Tạo'}</button>
-                  {editingItemId && <button className="adm-btn adm-ghost" onClick={() => { setEditingItemId(null); setNewItemName(''); setNewItemUrl(''); setNewItemPrice('1000'); setNewItemCat('Custom'); }}>Huỷ</button>}
+                  {editingItemId && <button className="adm-btn adm-ghost" onClick={() => { setEditingItemId(null); setNewItemName(''); setNewItemUrl(''); setNewItemPrice('1000'); setNewItemCat('Custom'); setNewItemStock(''); setNewItemRarity('common'); }}>Huỷ</button>}
                 </div>
                 {newItemUrl && <img src={newItemUrl} alt="preview" style={{ maxWidth: 100, maxHeight: 80, borderRadius: 8, marginTop: 4, objectFit: 'cover' }} onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />}
               </div>
@@ -551,12 +583,22 @@ export default function AdminPage() {
                           form above and flips the form to "update" mode. */}
                       {(itemList.custom || []).map(it => (
                         <tr key={it.id}>
-                          <td><img src={it.imageUrl} alt="" style={{ width: 28, height: 28, borderRadius: 5, objectFit: 'cover', verticalAlign: 'middle', marginRight: 6 }} />{it.name} <span className="adm-mini-code">custom</span></td>
+                          <td><img src={it.imageUrl} alt="" style={{ width: 28, height: 28, borderRadius: 5, objectFit: 'cover', verticalAlign: 'middle', marginRight: 6 }} />{it.name} <span className="adm-mini-code">custom</span>{it.stock != null ? <span className="adm-mini-code" style={{ marginLeft: 6 }}>stock: {it.stock}</span> : null}</td>
                           <td>{it.cat}</td>
                           <td className="adm-nw">${it.price.toLocaleString()}</td>
                           <td>{it.rarity}</td>
                           <td className="adm-actions">
-                            <button className="adm-btn" title="Sửa vật phẩm" onClick={() => { setEditingItemId(it.id); setNewItemName(it.name); setNewItemCat(it.cat); setNewItemPrice(String(it.price)); setNewItemUrl(it.imageUrl); window.scrollTo({ top: 0, behavior: 'smooth' }); }}>✏️</button>
+                            {/* v13.2 — Edit button now also loads stock + rarity into the form. */}
+                            <button className="adm-btn" title="Sửa vật phẩm" onClick={() => {
+                              setEditingItemId(it.id);
+                              setNewItemName(it.name);
+                              setNewItemCat(it.cat);
+                              setNewItemPrice(String(it.price));
+                              setNewItemUrl(it.imageUrl);
+                              setNewItemRarity((['common', 'uncommon', 'rare', 'legendary', 'mythic'].includes(it.rarity) ? it.rarity : 'common') as typeof newItemRarity);
+                              setNewItemStock(it.stock == null ? '' : String(it.stock));
+                              window.scrollTo({ top: 0, behavior: 'smooth' });
+                            }}>✏️</button>
                             <button className="adm-btn" title="Cấp item" disabled={!gameUid.trim()} onClick={() => void (async () => { try { await adminPost('/api/admin/game', { action: 'grantItem', uid: gameUid, itemId: it.id }); flash('✅ Đã cấp ' + it.name); } catch { flash('❌ Thất bại'); } })()}>🎁</button>
                           </td>
                         </tr>
