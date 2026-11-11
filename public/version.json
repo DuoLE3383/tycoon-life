@@ -1,14 +1,11 @@
 {
-  "version": "v12.11",
+  "version": "v12.12",
   "releasedAt": "2026-11-11",
-  "headline": "fix header overflow + bigger clearer numbers in PinZone",
-  "summary": "v12.11: fix header overflow + bigger clearer numbers in PinZone",
+  "headline": "fix 2 more React #418 hydration sources (TipsCard Math.random + Intro new Date)",
+  "summary": "v12.12: fix 2 more React #418 hydration sources (TipsCard Math.random + Intro new Date)",
   "features": [
-    "fix header era-line overflow (Vietnam · 互联网普及) — truncate with ellipsis + flex shrink",
-    "fix hardcoded v12.8 in header — now reads BUNDLED_VERSION (v12.11)",
-    "make NW chip gold accent + bigger (was muted grey)",
-    "make Income chip color-coded green/red + bigger",
-    "make Cash/Health/Spirit/Level chips bigger too (1rem desktop",
-    "0.84-0.96rem mobile)"
+    "fix TipsCard Math.random() in useState — start at idx 0",
+    "jump to random in useEffect",
+    "fix Intro new Date().getUTCFullYear() in render — useState+useEffect pattern"
   ]
 }
