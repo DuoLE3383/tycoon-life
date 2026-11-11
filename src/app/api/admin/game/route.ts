@@ -27,9 +27,6 @@ import { NextResponse } from 'next/server';
 import { adminGuard, readBody } from '@/lib/server/adminAuth';
 import { ITEMS, RARE_ITEMS } from '@/lib/gameData';
 
-// v12.1 — in-memory fallback for custom items when SQLite is unavailable.
-const memoryItems: { id: string; name: string; cat: string; brand?: string; price: number; lux: number; rate: number; art: string; rarity: string; image_url: string; created_at: string }[] = [];
-
 // Lazy SQLite loader — returns null if better-sqlite3 or the DB file can't
 // be initialised (permissions, missing data/ dir, native module issue).
 type DbPrepared = { run: (...args: unknown[]) => { changes: number; lastInsertRowid: number | bigint }; get: (...args: unknown[]) => unknown; all: (...args: unknown[]) => unknown[] };
@@ -71,8 +68,6 @@ export async function GET(req: Request) {
         .map(r => ({ id: r.id, name: r.name, cat: r.cat, price: r.price, rarity: r.rarity, imageUrl: r.image_url }));
     } catch { /* table not ready — return empty */ }
   }
-  // v12.1 — also include in-memory items.
-  custom = [...custom, ...memoryItems.map(i => ({ id: i.id, name: i.name, cat: i.cat, price: i.price, rarity: i.rarity, imageUrl: i.image_url }))];
   return NextResponse.json({
     items: ITEMS.map(i => ({ id: i.id, name: i.name, cat: i.cat, price: i.price, rarity: i.rarity || 'common' })),
     rare: RARE_ITEMS.map(i => ({ id: i.id, name: i.name, cat: i.cat, price: i.price, rarity: i.rarity })),
@@ -89,117 +84,61 @@ export async function POST(req: Request) {
     const validActions = ['grantItem', 'setMoney', 'setFame', 'setHealth', 'setSpirit', 'setLevel', 'triggerElection', 'advanceTime', 'createItem', 'updateItem', 'setDifficulty'];
     if (!validActions.includes(action)) return NextResponse.json({ ok: false, error: 'bad-action' }, { status: 400 });
 
-    // v12.1 — createItem FIRST, before any db() call. This action targets the
-    // catalogue, not a specific player, so it must work even when SQLite is
-    // unavailable. Falls back to in-memory storage if db() fails.
+    // Custom catalogue mutations must be durable. Never report success for RAM-only writes.
     if (action === 'createItem') {
-      const name = String(b.name ?? '').trim().slice(0, 60);
-      const cat = String(b.cat ?? 'Custom').trim().slice(0, 30);
-      const price = Math.max(1, Math.min(1e9, Math.round(Number(b.price) || 1000)));
-      const imageUrl = String(b.imageUrl ?? '').trim().slice(0, 500);
-      const brand = String(b.brand ?? '').trim().slice(0, 30);
-      if (!name) return NextResponse.json({ ok: false, error: 'bad-name' }, { status: 400 });
-      if (!imageUrl) return NextResponse.json({ ok: false, error: 'bad-url' }, { status: 400 });
-      try { const u = new URL(imageUrl); if (!u.protocol.startsWith('http')) throw new Error('bad-proto'); } catch { return NextResponse.json({ ok: false, error: 'bad-url' }, { status: 400 }); }
-
-      const itemId = 'custom-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 6);
-      const createdAt = new Date().toISOString();
-
-      // Try SQLite first; fall back to in-memory if unavailable.
+      const patch = readItemPatch(b);
+      if (!patch) return NextResponse.json({ ok: false, error: 'bad-patch' }, { status: 400 });
       const d = await tryDb();
-      if (d) {
-        try {
-          d.exec(`CREATE TABLE IF NOT EXISTS custom_items (
-            id TEXT PRIMARY KEY,
-            name TEXT NOT NULL,
-            cat TEXT NOT NULL DEFAULT 'Custom',
-            brand TEXT,
-            price REAL NOT NULL DEFAULT 1000,
-            lux INTEGER NOT NULL DEFAULT 1,
-            rate REAL NOT NULL DEFAULT 0,
-            art TEXT NOT NULL DEFAULT 'ic-bag',
-            rarity TEXT NOT NULL DEFAULT 'common',
-            image_url TEXT NOT NULL,
-            created_at TEXT NOT NULL
-          )`);
-          d.prepare('INSERT INTO custom_items (id, name, cat, brand, price, lux, rate, art, rarity, image_url, created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)')
-            .run(itemId, name, cat, brand || null, price, 1, 0, 'ic-bag', 'common', imageUrl, createdAt);
-        } catch (e) {
-          // SQLite write failed — fall back to in-memory.
-          console.error('[admin/game] SQLite insert failed, using in-memory fallback:', e);
-          memoryItems.push({ id: itemId, name, cat, brand: brand || undefined, price, lux: 1, rate: 0, art: 'ic-bag', rarity: 'common', image_url: imageUrl, created_at: createdAt });
-        }
-      } else {
-        // SQLite not available — use in-memory.
-        memoryItems.push({ id: itemId, name, cat, brand: brand || undefined, price, lux: 1, rate: 0, art: 'ic-bag', rarity: 'common', image_url: imageUrl, created_at: createdAt });
+      if (!d) return NextResponse.json({ ok: false, error: 'sqlite-unavailable' }, { status: 503 });
+      const itemId = 'custom-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 8);
+      const createdAt = new Date().toISOString();
+      try {
+        d.exec(`CREATE TABLE IF NOT EXISTS custom_items (
+          id TEXT PRIMARY KEY, name TEXT NOT NULL, cat TEXT NOT NULL DEFAULT 'Custom', brand TEXT,
+          price REAL NOT NULL DEFAULT 1000, lux INTEGER NOT NULL DEFAULT 1, rate REAL NOT NULL DEFAULT 0,
+          art TEXT NOT NULL DEFAULT 'ic-bag', rarity TEXT NOT NULL DEFAULT 'common',
+          image_url TEXT NOT NULL, created_at TEXT NOT NULL
+        )`);
+        d.prepare('INSERT INTO custom_items (id, name, cat, brand, price, lux, rate, art, rarity, image_url, created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)')
+          .run(itemId, patch.name, patch.cat, patch.brand || null, patch.price, 1, 0, 'ic-bag', 'common', patch.imageUrl, createdAt);
+      } catch (e) {
+        console.error('[admin/game] createItem failed:', e instanceof Error ? e.message : e);
+        return NextResponse.json({ ok: false, error: 'item-save-failed' }, { status: 500 });
       }
-
-      return NextResponse.json({ ok: true, itemId, name });
+      return NextResponse.json({ ok: true, itemId, name: patch.name });
     }
 
-    // v12.2 — updateItem: edit an existing custom item by id. Same SQLite-or-
-    // in-memory path as createItem so it works without a DB too. Requires the
-    // item id and (at minimum) a fresh URL since custom items always have one.
+    // Update custom catalogue items in persistent storage only.
     if (action === 'updateItem') {
       const itemId = String(b.id ?? '').trim();
       if (!itemId) return NextResponse.json({ ok: false, error: 'bad-id' }, { status: 400 });
       const patch = readItemPatch(b);
       if (!patch) return NextResponse.json({ ok: false, error: 'bad-patch' }, { status: 400 });
       const d = await tryDb();
-      let updated = false;
-      if (d) {
-        try {
-          d.exec(`CREATE TABLE IF NOT EXISTS custom_items (
-            id TEXT PRIMARY KEY,
-            name TEXT NOT NULL,
-            cat TEXT NOT NULL DEFAULT 'Custom',
-            brand TEXT,
-            price REAL NOT NULL DEFAULT 1000,
-            lux INTEGER NOT NULL DEFAULT 1,
-            rate REAL NOT NULL DEFAULT 0,
-            art TEXT NOT NULL DEFAULT 'ic-bag',
-            rarity TEXT NOT NULL DEFAULT 'common',
-            image_url TEXT NOT NULL,
-            created_at TEXT NOT NULL
-          )`);
-          const r = d.prepare('UPDATE custom_items SET name=?, cat=?, brand=?, price=?, image_url=? WHERE id=?')
-            .run(patch.name, patch.cat, patch.brand || null, patch.price, patch.imageUrl, itemId);
-          updated = r ? r.changes > 0 : false;
-        } catch (e) {
-          console.error('[admin/game] SQLite update failed:', e instanceof Error ? e.message : e);
-        }
+      if (!d) return NextResponse.json({ ok: false, error: 'sqlite-unavailable' }, { status: 503 });
+      try {
+        const result = d.prepare('UPDATE custom_items SET name=?, cat=?, brand=?, price=?, image_url=? WHERE id=?')
+          .run(patch.name, patch.cat, patch.brand || null, patch.price, patch.imageUrl, itemId);
+        if (!result.changes) return NextResponse.json({ ok: false, error: 'not-found' }, { status: 404 });
+      } catch (e) {
+        console.error('[admin/game] updateItem failed:', e instanceof Error ? e.message : e);
+        return NextResponse.json({ ok: false, error: 'item-save-failed' }, { status: 500 });
       }
-      // Also patch the in-memory copy (if present) so the dashboard reflects
-      // the change even on a SQLite-less deployment.
-      const mem = memoryItems.find(it => it.id === itemId);
-      if (mem) {
-        mem.name = patch.name; mem.cat = patch.cat; mem.brand = patch.brand || undefined;
-        mem.price = patch.price; mem.image_url = patch.imageUrl;
-        updated = true;
-      }
-      if (!updated) return NextResponse.json({ ok: false, error: 'not-found' }, { status: 404 });
       return NextResponse.json({ ok: true, itemId, name: patch.name });
     }
 
-    // All remaining actions target a specific player — uid required.
+    // Player saves currently live in browser LocalStorage, not in the server DB.
+    // Refuse these mutations rather than returning a false success after writing only an audit note.
     const uid = String(b.uid ?? '').trim();
     if (!uid) return NextResponse.json({ ok: false, error: 'bad-uid' }, { status: 400 });
-
-    // v12.2 — setDifficulty: validate the level then record an audit-log row.
-    // The engine reads GameState.aiDifficulty (default 'normal'); this action
-    // tells the operator what was requested for a given player.
-    if (action === 'setDifficulty') {
-      const level = String(b.level ?? 'normal');
-      if (level !== 'easy' && level !== 'normal' && level !== 'hard') {
-        return NextResponse.json({ ok: false, error: 'bad-level' }, { status: 400 });
-      }
-      const d = await tryDb();
-      if (d) {
-        try {
-          const note = JSON.stringify({ action, uid, level, ts: Date.now() });
-          d.prepare('INSERT INTO messages (uid, name, avatar, text, created_at) VALUES (?,?,?,?,?)')
-            .run('hb-system', 'HuyenBao Admin', '⚙️', '⚙️ ADMIN_ACTION:' + note, new Date().toISOString());
-        } catch (e) {
+    return NextResponse.json({
+      ok: false,
+      error: 'player-save-not-server-managed',
+      message: 'This action is disabled until player saves are migrated to authenticated server-side storage.',
+      action,
+      uid,
+    }, { status: 501 });
+  } catch (e) {
           console.error('[admin/game] setDifficulty audit log failed (non-fatal):', e instanceof Error ? e.message : e);
         }
       }
