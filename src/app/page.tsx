@@ -18,6 +18,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Art, Ic, ART_DEFS } from '@/lib/art';
 import { useGame, getState, persist, bump, resetState, reincarnateState } from '@/lib/store';
+import { IntroModal } from '@/components/modals/IntroModal';
 import {
   START, END_AGE, RETIRE, RESALE_FEE, FOUND_COST, FOUND_MIN_NW, OWN_CLUB_MULT,
   SAVE_RATE, LOAN_RATE, TAX_FREE, TAX_BRACKETS, ALLNEWS, eraOf, NATIONS, NAME_POOLS, INTERESTS, TALENTS, PATHS,
@@ -134,6 +135,8 @@ export default function Page() {
   const { t, lang } = useT();
   const [tab, setTab] = useState('home');
   const [lastTab, setLastTab] = useState<Record<string, string>>({});
+  const activeGroup = GROUPS.find(group => group[3].some(([key]) => key === tab))?.[0] || 'life';
+  const curSubs = (GROUPS.find(group => group[0] === activeGroup) || GROUPS[0])[3];
   const [rankBoard, setRankBoard] = useState<'all' | 'young' | 'industry' | 'nation'>('all');
   const [curCat, setCurCat] = useState<string | null>(null);
   // v11.36 — edit-profile modal state. Opened from PinZone ✏️ button.
