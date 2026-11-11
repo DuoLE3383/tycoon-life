@@ -27,7 +27,7 @@ import {
   TRAVEL, registerItem,
 } from '@/lib/gameData';
 import {
-  fmt, taxOf, fresh, begin, tick, applyOffline, stageOf, worldYear, branchCount, bizCost, clubMult, branchNet, fameBonus, bizMultiplier,
+  fmt, fmtFull, taxOf, fresh, begin, tick, applyOffline, stageOf, worldYear, branchCount, bizCost, clubMult, branchNet, fameBonus, bizMultiplier,
   bizIncome, yearIncome, living, lotValue, upkeep, assetVal, bizVal, stockVal, netWorth,
   bizRevenue, bizCosts, bizNet, bizMarketShare, bizRndMult, investBizRnd, farmIncome, facIncome,
   grantSpirit, spiritGainTodayLeft, SPIRIT_DAILY_CAP,
@@ -117,7 +117,7 @@ if (typeof window !== 'undefined') {
 // v11.8 — the bundled version. The /version.json file in /public is polled
 // every 5 minutes; if its version is newer than this, a "reload to update"
 // banner appears even in a running session (no F5 needed).
-const BUNDLED_VERSION = 'v13.8';
+const BUNDLED_VERSION = 'v13.9';
 const VERSION_POLL_MS = 5 * 60 * 1000;
 // v11.44 — 'what's new' modal now fires PER PATCH (not per major version).
 // The SEEN_KEY is derived from BUNDLED_VERSION so each new patch re-shows the
@@ -2865,6 +2865,10 @@ function AssetsTab({ s, act, curCat, setCurCat }: { s: GameState; act: Act; curC
   // (not in `act`) because `act` is synchronous — the async work happens
   // first, then `act` is called with the registered item to toast + persist.
   const [genBusy, setGenBusy] = useState(false);
+  // v13.9 — owned-asset categories are collapsed by default; the player taps
+  // a category header to expand its rows. A Set<string> of expanded keys
+  // (empty by default) — toggled by the ownCatHeader button.
+  const [expandedCats, setExpandedCats] = useState<Set<string>>(() => new Set());
   // Surface 6 used listings, shuffled deterministically by the current
   // game-year so the listings rotate as the player ages.
   const y = worldYear(s);
@@ -2934,11 +2938,11 @@ function AssetsTab({ s, act, curCat, setCurCat }: { s: GameState; act: Act; curC
       <span className="sub">
         {mode === 'workshop'
           ? <span className="cond-pill" data-cond={condTxtOf(cond)}>{t('used.cond')} {cond} · {condTxtOf(cond)}</span>
-          : <><span className="cond-pill" data-cond={condTxtOf(cond)}>{t('used.cond')} {cond} · {condTxtOf(cond)}</span>{' · '}{t('paid')} {fmt(l.paid)} · {t('worthNow')} {fmt(v)} · {v >= l.paid ? t('gains', '', { n: ((v / l.paid - 1) * 100).toFixed(0) }) : t('loses', '', { n: ((1 - v / l.paid) * 100).toFixed(0) })}</>}
+          : <><span className="cond-pill" data-cond={condTxtOf(cond)}>{t('used.cond')} {cond} · {condTxtOf(cond)}</span>{' · '}{t('paid')} <b className="num-full">{fmtFull(l.paid)}</b> · {t('worthNow')} <b className="num-full">{fmtFull(v)}</b> · {v >= l.paid ? t('gains', '', { n: ((v / l.paid - 1) * 100).toFixed(0) }) : t('loses', '', { n: ((1 - v / l.paid) * 100).toFixed(0) })}</>}
       </span>
       {rar === 'mythic' && typeof it.stock === 'number' && <span className="mini" style={{ display: 'block', marginTop: 2, color: 'var(--brick)', fontWeight: 700 }}>🌍 {t('rarity.mythicOnlyWorld', '', { n: it.stock })}</span>}
       {mode !== 'workshop' && <span className="mini" style={{ display: 'block', marginTop: 2 }}>
-        🔨 {t('auction.ask')} {fmt(ask)} · ⏳ {t('mkt.auctionWindow', '', { n: AUCTION_DAYS[0] + '-' + AUCTION_DAYS[1] })} ~{Math.round(sellChanceOf(rar, 'auction', 5) * 100)}% · ⏳ {t('mkt.listingWindow', '', { n: LISTING_DAYS[0] + '-' + LISTING_DAYS[1] })} ~{Math.round(sellChanceOf(rar, 'listing', 10) * 100)}%
+        🔨 {t('auction.ask')} <b className="num-full">{fmtFull(ask)}</b> · ⏳ {t('mkt.auctionWindow', '', { n: AUCTION_DAYS[0] + '-' + AUCTION_DAYS[1] })} ~{Math.round(sellChanceOf(rar, 'auction', 5) * 100)}% · ⏳ {t('mkt.listingWindow', '', { n: LISTING_DAYS[0] + '-' + LISTING_DAYS[1] })} ~{Math.round(sellChanceOf(rar, 'listing', 10) * 100)}%
       </span>}
     </Row>;
   };
@@ -2958,10 +2962,10 @@ function AssetsTab({ s, act, curCat, setCurCat }: { s: GameState; act: Act; curC
       <b>{favBtn(u.baseId)}{u.brand ? <span className="bchip" style={{ background: u.c }}>{u.brand}</span> : null}{u.name} <span className="rarity-chip" data-rarity={rar} style={{ '--rc': RARITY_COLOR[rar] } as React.CSSProperties}>{t('rarity.' + rar)}</span></b>
       <span className="sub">
         <span className="cond-pill" data-cond={condTxtOf(u.condition)}>{t('used.cond')} {u.condition} · {condTxtOf(u.condition)}</span>
-        {' · '}{t('used.age', '', { n: u.ageYears })} · {t('paid')} {fmt(u.paid)} · {t('worthNow')} {fmt(v)}
+        {' · '}{t('used.age', '', { n: u.ageYears })} · {t('paid')} <b className="num-full">{fmtFull(u.paid)}</b> · {t('worthNow')} <b className="num-full">{fmtFull(v)}</b>
       </span>
       {mode !== 'workshop' && <span className="mini" style={{ display: 'block', marginTop: 2 }}>
-        🔨 {t('auction.ask')} {fmt(ask)} · ⏳ {t('mkt.auctionWindow', '', { n: AUCTION_DAYS[0] + '-' + AUCTION_DAYS[1] })} ~{Math.round(sellChanceOf(rar, 'auction', 5) * 100)}% · ⏳ {t('mkt.listingWindow', '', { n: LISTING_DAYS[0] + '-' + LISTING_DAYS[1] })} ~{Math.round(sellChanceOf(rar, 'listing', 10) * 100)}%
+        🔨 {t('auction.ask')} <b className="num-full">{fmtFull(ask)}</b> · ⏳ {t('mkt.auctionWindow', '', { n: AUCTION_DAYS[0] + '-' + AUCTION_DAYS[1] })} ~{Math.round(sellChanceOf(rar, 'auction', 5) * 100)}% · ⏳ {t('mkt.listingWindow', '', { n: LISTING_DAYS[0] + '-' + LISTING_DAYS[1] })} ~{Math.round(sellChanceOf(rar, 'listing', 10) * 100)}%
       </span>}
       <span className="mini" style={{ display: 'block', marginTop: 2, fontStyle: 'italic' }}>{u.story}</span>
     </Row>;
@@ -3093,15 +3097,70 @@ function AssetsTab({ s, act, curCat, setCurCat }: { s: GameState; act: Act; curC
   </>;
 
   // ---- v11.33 — TÀI SẢN buckets (houses / wheels / collection / goods) ----
-  const isHouseCat = (c: string) => c === 'Property';
-  const isWheelCat = (c: string) => c === 'Car' || c === 'Classic car' || c === 'Sport bike';
-  const isCollCat = (c: string) => c === 'Art' || c === 'Collectibles';
+  // v13.9 — owned assets are now grouped + COLLAPSED by category. The previous
+  // four flat buckets (houses / wheels / collection / goods) rendered every
+  // owned row at once, which got unwieldy once the player owned dozens of items.
+  // The new layout shows one summary header per category (icon · label · count
+  // · total value) and only renders the rows when the player expands it. The
+  // catGroupOf() mapping collapses the 16+ catalogue cat strings into 12 tidy
+  // groups; anything unmatched falls into 'other'. ownRowsFor + the legacy
+  // isHouseCat/isWheelCat/isCollCat helpers were removed alongside this change.
+  const CAT_GROUPS: { key: string; icon: string; label: string }[] = [
+    { key: 'properties', icon: '🏠', label: 'Properties' },
+    { key: 'vehicles', icon: '🚗', label: 'Vehicles' },
+    { key: 'watches', icon: '⌚', label: 'Watches' },
+    { key: 'jewelry', icon: '💎', label: 'Jewelry' },
+    { key: 'art', icon: '🖼', label: 'Art' },
+    { key: 'collectibles', icon: '🎴', label: 'Collectibles' },
+    { key: 'sneakers', icon: '👟', label: 'Sneakers' },
+    { key: 'handbags', icon: '👜', label: 'Handbags' },
+    { key: 'audio', icon: '🎧', label: 'Audio' },
+    { key: 'camera', icon: '📷', label: 'Cameras' },
+    { key: 'suits', icon: '👔', label: 'Suits' },
+    { key: 'other', icon: '📦', label: 'Other' },
+  ];
+  const catGroupOf = (c: string): string => {
+    switch (c) {
+      case 'Property': return 'properties';
+      case 'Car': case 'Sport bike': case 'Classic car': return 'vehicles';
+      case 'Watch': return 'watches';
+      case 'Jewelry': return 'jewelry';
+      case 'Art': return 'art';
+      case 'Collectibles': return 'collectibles';
+      case 'Sneakers': return 'sneakers';
+      case 'Handbag': return 'handbags';
+      case 'Audio': return 'audio';
+      case 'Camera': return 'camera';
+      case 'Suit': return 'suits';
+      default: return 'other';
+    }
+  };
   // v13.1 — null-safe: skip lots whose ITEM_BY lookup returns undefined.
-  const ownRowsFor = (pred: (cat: string) => boolean) => <>
-    {s.lots.map((l, i) => ({ l, i })).filter(({ l }) => { const it = ITEM_BY[l.id]; return it && pred(it.cat); }).map(({ l, i }) => lotRow(l, i, 'sell'))}
-    {s.used.map((u, i) => ({ u, i })).filter(({ u }) => pred(u.cat)).map(({ u, i }) => usedRow(u, i, 'sell'))}
-  </>;
+  // Build a per-category { lots, used, totalValue, count } map once per render.
+  const ownBuckets = (() => {
+    const map: Record<string, { lots: { l: GameState['lots'][number]; i: number }[]; used: { u: GameState['used'][number]; i: number }[]; total: number }> = {};
+    for (const g of CAT_GROUPS) map[g.key] = { lots: [], used: [], total: 0 };
+    for (let i = 0; i < s.lots.length; i++) {
+      const l = s.lots[i]; const it = ITEM_BY[l.id];
+      if (!it) continue;
+      const k = catGroupOf(it.cat);
+      map[k].lots.push({ l, i });
+      map[k].total += lotValue(s, l);
+    }
+    for (let i = 0; i < s.used.length; i++) {
+      const u = s.used[i];
+      const k = catGroupOf(u.cat);
+      map[k].used.push({ u, i });
+      map[k].total += usedItemValue(s, u);
+    }
+    return map;
+  })();
   const ownAllEmpty = s.lots.length === 0 && s.used.length === 0;
+  const toggleCat = (k: string) => setExpandedCats(prev => {
+    const n = new Set(prev);
+    if (n.has(k)) n.delete(k); else n.add(k);
+    return n;
+  });
 
   // v11.58 — "Generate new item" handler. POSTs to /api/items/generate (which
   // calls the local llama.cpp LLM at LLAMA_SERVER_URL, then a web image search),
@@ -3177,17 +3236,38 @@ function AssetsTab({ s, act, curCat, setCurCat }: { s: GameState; act: Act; curC
             <Art id="ic-bag" /><span><b>{s.lots.length + s.used.length}</b><span className="sub" style={{ display: 'block' }}>{t('own.items')}</span></span>
           </div>
           <div className="tile" style={{ cursor: 'default' }}>
-            <Art id="t-bank" /><span><b>{fmt(assetVal(s))}</b><span className="sub" style={{ display: 'block' }}>{t('own.total')}</span></span>
+            <Art id="t-bank" /><span><b className="num-full">{fmtFull(assetVal(s))}</b><span className="sub" style={{ display: 'block' }}>{t('own.total')}</span></span>
           </div>
           <div className="tile" style={{ cursor: 'default' }}>
-            <Art id="ic-up" /><span><b>{fmt(marketVal(s))}</b><span className="sub" style={{ display: 'block' }}>{t('own.inMarket')}</span></span>
+            <Art id="ic-up" /><span><b className="num-full">{fmtFull(marketVal(s))}</b><span className="sub" style={{ display: 'block' }}>{t('own.inMarket')}</span></span>
           </div>
         </div>
         {ownAllEmpty ? <p className="sub">{t('own.none')}</p> : <>
-          <h3>🏠 {t('own.houses')}</h3>{ownRowsFor(isHouseCat)}
-          <h3>🚗 {t('own.wheels')}</h3>{ownRowsFor(isWheelCat)}
-          <h3>🖼 {t('own.collection')}</h3>{ownRowsFor(isCollCat)}
-          <h3>👔 {t('own.goods')}</h3>{ownRowsFor(c => !isHouseCat(c) && !isWheelCat(c) && !isCollCat(c))}
+          {/* v13.9 — collapsible category headers. Each shows the count + total
+              value; rows only render when expanded. Default: collapsed (only
+              headers visible) so the section stays compact even with dozens of
+              owned items. Tap the header to toggle that one category. */}
+          {CAT_GROUPS.map(g => {
+            const b = ownBuckets[g.key];
+            const count = b.lots.length + b.used.length;
+            if (count === 0) return null;
+            const expanded = expandedCats.has(g.key);
+            return <div key={g.key} className="own-cat" data-expanded={expanded ? 'true' : undefined}>
+              <button className="own-cat-header" type="button" onClick={() => toggleCat(g.key)} aria-expanded={expanded}>
+                <span className="own-cat-icon" aria-hidden>{g.icon}</span>
+                <span className="own-cat-label">{g.label}</span>
+                <span className="own-cat-meta">
+                  <span className="own-cat-count">{count} {t('items')}</span>
+                  <span className="own-cat-total num-full">{fmtFull(b.total)}</span>
+                </span>
+                <span className="own-cat-toggle" aria-hidden>{expanded ? '▼' : '▶'}</span>
+              </button>
+              {expanded && <div className="own-cat-body">
+                {b.lots.map(({ l, i }) => lotRow(l, i, 'sell'))}
+                {b.used.map(({ u, i }) => usedRow(u, i, 'sell'))}
+              </div>}
+            </div>;
+          })}
         </>}
       </>}
 
@@ -3492,47 +3572,51 @@ function StockTab({ s, act, qtyMap, setQtyMap }: { s: GameState; act: Act; qtyMa
           ROI across every owned ticker (built-in + custom) so the player
           gets the headline numbers without flipping to the Portfolio tab.
           Only renders when the player actually owns something (avoids a
-          row of zeros confusing a fresh player). */}
+          row of zeros confusing a fresh player).
+          v13.9 — compact 2-column layout (Total Value | Total P&L + ROI%)
+          with full thousand-separated numbers so billion-dollar portfolios
+          stay readable. */}
       {totalValue > 0 && (
-        <div className="card" style={{ marginBottom: 8 }}>
-          <div className="lb"><span>{t('mk.portfolio')} · {t('pf.value')}</span><b>{fmt(totalValue)}</b></div>
-          <div className="lb"><span>{t('pf.cost')}</span><b>{fmt(totalBasis)}</b></div>
-          <div className="lb">
-            <span>{t('pf.unrealized')}</span>
-            <b style={{ color: totalPnL >= 0 ? 'var(--up)' : 'var(--down)' }}>
-              {(totalPnL >= 0 ? '+' : '') + fmt(totalPnL)}
-            </b>
+        <div className="card stk-summary" style={{ marginBottom: 10 }}>
+          <div className="stk-summary-col">
+            <div className="mini" style={{ opacity: .75 }}>{t('mk.portfolio')} · {t('pf.value')}</div>
+            <b className="num-full stk-summary-num">{fmtFull(totalValue)}</b>
+            <div className="mini" style={{ opacity: .65 }}>{t('pf.cost')} <span className="num-full">{fmtFull(totalBasis)}</span></div>
           </div>
-          <div className="lb">
-            <span>{t('pf.roiCol')}</span>
-            <b style={{ color: (overallRoi ?? 0) >= 0 ? 'var(--up)' : 'var(--down)' }}>
-              {overallRoi == null ? '—' : (overallRoi >= 0 ? '+' : '') + overallRoi.toFixed(1) + '%'}
+          <div className="stk-summary-col">
+            <div className="mini" style={{ opacity: .75 }}>{t('pf.unrealized')}</div>
+            <b className="num-full stk-summary-num" style={{ color: totalPnL >= 0 ? 'var(--up)' : 'var(--down)' }}>
+              {(totalPnL >= 0 ? '+' : '−') + fmtFull(Math.abs(totalPnL))}
             </b>
+            <div className="mini" style={{ color: (overallRoi ?? 0) >= 0 ? 'var(--up)' : 'var(--down)' }}>
+              {t('pf.roiCol')}: {overallRoi == null ? '—' : (overallRoi >= 0 ? '+' : '') + overallRoi.toFixed(1) + '%'}
+            </div>
           </div>
         </div>
       )}
-      {/* v11.27 — portfolio pulse: total holdings value + today's movers.
-          v14.1 — uses stocksOf(s) so custom tickers join the movers list. */}
+      {/* v11.27 — portfolio pulse: today's movers (best + worst tickers by
+          daily % change). v13.9 — compact one-liner so it doesn't compete
+          with the summary card above. */}
       {(() => {
-        const val = totalValue;
         const movers = stocks.map(x => { const hh = s.hist[x.id] || []; return { id: x.id, ch: hh.length > 1 ? (s.prices[x.id] / hh[hh.length - 2] - 1) * 100 : 0 }; }).sort((a, b) => b.ch - a.ch);
         const best = movers[0], worst = movers[movers.length - 1];
+        if (!best) return null;
         return (
-          <Row art="s-coin">
-            <b>{t('mk.portfolio')} · <span className={val > 0 ? 'up' : ''}>{fmt(val)}</span></b>
-            <span className="sub">{t('mk.holdings', '', { n: fmt(val) })}</span>
-            <span className="mini" style={{ display: 'block', marginTop: 2 }}>
-              📈 {best.id} <b className="up">+{best.ch.toFixed(1)}%</b> · 📉 {worst.id} <b className={worst.ch >= 0 ? 'up' : 'down'}>{worst.ch.toFixed(1)}%</b> — {t('mk.movers')}
-            </span>
-          </Row>
+          <div className="card stk-movers" style={{ marginBottom: 10 }}>
+            <span className="mini" style={{ opacity: .75 }}>{t('mk.movers')}: </span>
+            <span className="mini">📈 <b className="up">{best.id} +{best.ch.toFixed(1)}%</b></span>
+            <span className="mini"> · </span>
+            <span className="mini">📉 <b className={worst.ch >= 0 ? 'up' : 'down'}>{worst.id} {worst.ch.toFixed(1)}%</b></span>
+          </div>
         );
       })()}
       {stocks.map(st => {
         const p = s.prices[st.id], h = s.hist[st.id] || [];
         const ch = h.length > 1 ? (p / h[h.length - 2] - 1) * 100 : 0, q = s.stk[st.id] || 0;
         // v14.1 — per-stock portfolio breakdown. Only meaningful when the
-        // player owns shares; otherwise we show "—" so the row stays compact
-        // for the dozens of tickers a fresh player hasn't touched yet.
+        // player owns shares; otherwise the right column shows a "—" hint
+        // so the card stays compact for the dozens of tickers a fresh
+        // player hasn't touched yet.
         const owned = q > 0;
         const value = owned ? q * p : 0;
         const basis = owned ? (s.costBasis[st.id] || 0) : 0;
@@ -3544,35 +3628,53 @@ function StockTab({ s, act, qtyMap, setQtyMap }: { s: GameState; act: Act; qtyMa
         const spark = h.slice(-30);
         const mn = spark.length ? Math.min(...spark) : p, mx = spark.length ? Math.max(...spark) : p, r = (mx - mn) || 1;
         const pts = spark.map((v, i) => `${(i / Math.max(spark.length - 1, 1) * 96).toFixed(1)},${(28 - (v - mn) / r * 24).toFixed(1)}`).join(' ');
-        return <Row key={st.id} art={st.art}
-          right={<div className="trade">
-            <input className="qty" type="number" min={1} step={1} value={qtyMap[st.id] || 1} aria-label={`Quantity for ${st.id}`}
-              onChange={e => setQtyMap({ ...qtyMap, [st.id]: Math.max(1, Math.floor(+e.target.value || 1)) })} />
-            <button className="tsell" disabled={!q} onClick={() => act(g => { const r2 = trade(g, st.id, 'sell', qtyMap[st.id] || 1); return r2.msg; })}>{t('sellS')}</button>
-            <button className="tbuy" disabled={s.money < p} onClick={() => act(g => { const r2 = trade(g, st.id, 'buy', qtyMap[st.id] || 1); return r2.ok ? r2.msg : null; })}>{t('buy')}</button>
-            {/* v11.27 — one-tap MAX buy (spend all affordable cash) / ALL sell (entire holding) */}
-            <button className="tquick" title={t('mk.buyMax')} disabled={s.money < p} onClick={() => act(g => { const q2 = Math.max(1, Math.floor(g.money / Math.max(1, g.prices[st.id]))); return trade(g, st.id, 'buy', q2).msg; })}>{t('mk.max')}</button>
-            <button className="tquick" title={t('mk.sellAll')} disabled={!q} onClick={() => act(g => trade(g, st.id, 'sell', g.stk[st.id] || 0).msg)}>{t('mk.all')}</button>
-          </div>}>
-          <b>{st.id} <span className={ch >= 0 ? 'up' : 'down'}>{ch >= 0 ? '▲' : '▼'}{Math.abs(ch).toFixed(1)}%</span></b>
-          <span className="sub">{st.name} · {fmt(p)} · {t('hold', '', { n: q })}</span>
-          {/* v14.1 — per-stock portfolio line. Rendered inline (below the
-              subtitle) so the row stays a single .info block; the trade
-              buttons live in `right` as before. */}
-          {owned ? (
-            <span className="mini" style={{ display: 'block', marginTop: 2 }}>
-              {t('pf.value')}: <b>{fmt(value)}</b>
-              {' · '}{t('pf.cost')}: <b>{fmt(basis)}</b>
-              {' · '}{t('pf.pnl')}: <b style={{ color: pnl >= 0 ? 'var(--up)' : 'var(--down)' }}>{(pnl >= 0 ? '+' : '') + fmt(pnl)}</b>
-              {' · '}{t('pf.roiCol')}: <b style={{ color: (roiPct ?? 0) >= 0 ? 'var(--up)' : 'var(--down)' }}>{roiPct == null ? '—' : (roiPct >= 0 ? '+' : '') + roiPct.toFixed(1) + '%'}</b>
-            </span>
-          ) : (
-            <span className="mini" style={{ display: 'block', marginTop: 2, opacity: .55 }}>
-              {t('pf.value')}: — · {t('pf.cost')}: — · {t('pf.pnl')}: — · {t('pf.roiCol')}: —
-            </span>
-          )}
-          <svg className="spark" viewBox="0 0 96 30"><polyline fill="none" stroke={spark.length && spark[spark.length - 1] >= spark[0] ? '#4f7d5f' : '#a3524a'} strokeWidth="2.4" points={pts} /></svg>
-        </Row>;
+        // v13.9 — clean card layout: left (name + price + daily badge +
+        // sparkline) | right (holdings + P&L + ROI%) | bottom (qty + buy/
+        // sell / MAX / All). Replaces the cramped single-row layout that
+        // packed everything into one .info block with the trade buttons on
+        // the right edge. Uses fmtFull() for every dollar amount so very
+        // large positions ($100B+) stay readable.
+        return (
+          <div key={st.id} className="card stk-card">
+            <div className="stk-card-main">
+              <div className="stk-card-left">
+                <div className="stk-card-title">
+                  <Art id={st.art} className="ca" />
+                  <b>{st.id}</b>
+                  <span className={'stk-daily ' + (ch >= 0 ? 'up' : 'down')}>
+                    {ch >= 0 ? '▲' : '▼'}{Math.abs(ch).toFixed(1)}%
+                  </span>
+                </div>
+                <div className="sub stk-card-name">{st.name}</div>
+                <div className="stk-card-price num-full">{fmtFull(p)}</div>
+                <svg className="spark stk-card-spark" viewBox="0 0 96 30" preserveAspectRatio="none">
+                  <polyline fill="none" stroke={spark.length && spark[spark.length - 1] >= spark[0] ? '#4f7d5f' : '#a3524a'} strokeWidth="2.4" points={pts} />
+                </svg>
+              </div>
+              {owned ? (
+                <div className="stk-card-right">
+                  <div className="lb"><span>{t('hold', '', { n: q })}</span><b className="num-full">{fmtFull(value)}</b></div>
+                  <div className="lb"><span>{t('pf.cost')}</span><b className="num-full">{fmtFull(basis)}</b></div>
+                  <div className="lb"><span>{t('pf.pnl')}</span><b className="num-full" style={{ color: pnl >= 0 ? 'var(--up)' : 'var(--down)' }}>{(pnl >= 0 ? '+' : '−') + fmtFull(Math.abs(pnl))}</b></div>
+                  <div className="lb"><span>{t('pf.roiCol')}</span><b style={{ color: (roiPct ?? 0) >= 0 ? 'var(--up)' : 'var(--down)' }}>{roiPct == null ? '—' : (roiPct >= 0 ? '+' : '') + roiPct.toFixed(1) + '%'}</b></div>
+                </div>
+              ) : (
+                <div className="stk-card-right stk-card-none">
+                  <span className="mini" style={{ opacity: .55 }}>— {t('hold', '', { n: 0 })} —</span>
+                </div>
+              )}
+            </div>
+            <div className="stk-card-trade">
+              <input className="qty" type="number" min={1} step={1} value={qtyMap[st.id] || 1} aria-label={`Quantity for ${st.id}`}
+                onChange={e => setQtyMap({ ...qtyMap, [st.id]: Math.max(1, Math.floor(+e.target.value || 1)) })} />
+              <button className="tsell" disabled={!q} onClick={() => act(g => { const r2 = trade(g, st.id, 'sell', qtyMap[st.id] || 1); return r2.msg; })}>{t('sellS')}</button>
+              <button className="tbuy" disabled={s.money < p} onClick={() => act(g => { const r2 = trade(g, st.id, 'buy', qtyMap[st.id] || 1); return r2.ok ? r2.msg : null; })}>{t('buy')}</button>
+              {/* v11.27 — one-tap MAX buy (spend all affordable cash) / ALL sell (entire holding) */}
+              <button className="tquick" title={t('mk.buyMax')} disabled={s.money < p} onClick={() => act(g => { const q2 = Math.max(1, Math.floor(g.money / Math.max(1, g.prices[st.id]))); return trade(g, st.id, 'buy', q2).msg; })}>{t('mk.max')}</button>
+              <button className="tquick" title={t('mk.sellAll')} disabled={!q} onClick={() => act(g => trade(g, st.id, 'sell', g.stk[st.id] || 0).msg)}>{t('mk.all')}</button>
+            </div>
+          </div>
+        );
       })}
       {/* v11.19 — crypto hook: link to the companion Elliott Wave crypto app.
           COIN in-game is a BTC proxy; for real-time crypto charts + Elliott
@@ -3903,10 +4005,13 @@ function PortfolioTab({ s }: { s: GameState; act: Act }) {
     buy: t('pf.kindBuy'), sell: t('pf.kindSell'), income: t('pf.kindIncome'),
     expense: t('pf.kindExpense'), transfer: t('pf.kindTransfer'), dividend: t('pf.kindDividend'),
   }[k] || k);
+  // v13.9 — table cells + summary now use fmtFull() (full $ + thousand
+  // separators) so positions > 100 tỷ stay readable. Compact fmt() is
+  // still used by chips/badges outside this tab.
   const txSign = (k: TxKind, amount: number): string => {
-    if (k === 'sell' || k === 'income' || k === 'dividend') return '+' + fmt(amount);
-    if (k === 'transfer') return (amount >= 0 ? '+' : '') + fmt(amount);
-    return (amount >= 0 ? '+' : '') + fmt(amount);
+    if (k === 'sell' || k === 'income' || k === 'dividend') return '+' + fmtFull(amount);
+    if (k === 'transfer') return (amount >= 0 ? '+' : '−') + fmtFull(Math.abs(amount));
+    return (amount >= 0 ? '+' : '−') + fmtFull(Math.abs(amount));
   };
   const txColor = (k: TxKind, amount: number): string => {
     if (k === 'sell' || k === 'income' || k === 'dividend') return 'var(--up)';
@@ -3915,7 +4020,7 @@ function PortfolioTab({ s }: { s: GameState; act: Act }) {
   };
   const pct = (n: number | null): string => n == null ? '—' : (n * 100).toFixed(1) + '%';
   const pnlText = (n: number): { text: string; color: string } => ({
-    text: (n >= 0 ? '+' : '') + fmt(n),
+    text: (n >= 0 ? '+' : '−') + fmtFull(Math.abs(n)),
     color: n >= 0 ? 'var(--up)' : 'var(--down)',
   });
   const roiPctText = (n: number): { text: string; color: string } => ({
@@ -3926,14 +4031,14 @@ function PortfolioTab({ s }: { s: GameState; act: Act }) {
     <>
       {/* Summary card */}
       <div className="card" style={{ marginBottom: 10 }}>
-        <div className="lb"><span>{t('pf.netWorth')}</span><b>{fmt(nw)}</b></div>
-        <div className="lb"><span>{t('pf.invested')}</span><b>{fmt(invested)}</b></div>
-        <div className="lb"><span>{t('pf.income')}</span><b style={{ color: 'var(--up)' }}>+{fmt(income)}</b></div>
-        <div className="lb"><span>{t('pf.realized')}</span><b style={{ color: realized >= 0 ? 'var(--up)' : 'var(--down)' }}>{pnlText(realized).text}</b></div>
-        <div className="lb"><span>{t('pf.unrealized')}</span><b style={{ color: unrealized >= 0 ? 'var(--up)' : 'var(--down)' }}>{pnlText(unrealized).text}</b></div>
+        <div className="lb"><span>{t('pf.netWorth')}</span><b className="num-full">{fmtFull(nw)}</b></div>
+        <div className="lb"><span>{t('pf.invested')}</span><b className="num-full">{fmtFull(invested)}</b></div>
+        <div className="lb"><span>{t('pf.income')}</span><b className="num-full" style={{ color: 'var(--up)' }}>+{fmtFull(income)}</b></div>
+        <div className="lb"><span>{t('pf.realized')}</span><b className="num-full" style={{ color: realized >= 0 ? 'var(--up)' : 'var(--down)' }}>{pnlText(realized).text}</b></div>
+        <div className="lb"><span>{t('pf.unrealized')}</span><b className="num-full" style={{ color: unrealized >= 0 ? 'var(--up)' : 'var(--down)' }}>{pnlText(unrealized).text}</b></div>
         <div className="lb"><span>{t('pf.roi')}</span><b style={{ color: (roi ?? 0) >= 0 ? 'var(--up)' : 'var(--down)' }}>{pct(roi)}</b></div>
-        <div className="lb"><span>{t('pf.cashFlow30')}</span><b style={{ color: cashFlow >= 0 ? 'var(--up)' : 'var(--down)' }}>{(cashFlow >= 0 ? '+' : '') + fmt(cashFlow)}</b></div>
-        {loanVal > 0 && <div className="lb"><span style={{ color: 'var(--mute)' }}>Loan</span><b style={{ color: 'var(--brick)' }}>−{fmt(loanVal)}</b></div>}
+        <div className="lb"><span>{t('pf.cashFlow30')}</span><b className="num-full" style={{ color: cashFlow >= 0 ? 'var(--up)' : 'var(--down)' }}>{(cashFlow >= 0 ? '+' : '−') + fmtFull(Math.abs(cashFlow))}</b></div>
+        {loanVal > 0 && <div className="lb"><span style={{ color: 'var(--mute)' }}>Loan</span><b className="num-full" style={{ color: 'var(--brick)' }}>−{fmtFull(loanVal)}</b></div>}
       </div>
 
       {/* Allocation donut */}
@@ -3949,7 +4054,7 @@ function PortfolioTab({ s }: { s: GameState; act: Act }) {
                     <span style={{ display: 'inline-block', width: 10, height: 10, borderRadius: 2, background: seg.color }} />
                     {seg.label}
                   </span>
-                  <b>{fmt(seg.value)}</b>
+                  <b className="num-full">{fmtFull(seg.value)}</b>
                 </div>
               ))}
             </div>
@@ -3981,11 +4086,11 @@ function PortfolioTab({ s }: { s: GameState; act: Act }) {
                 return (
                   <tr key={h.id + (h as { idx?: number }).idx} style={{ borderBottom: '1px solid var(--line)' }}>
                     <td style={{ padding: '6px 8px' }}>{h.name}</td>
-                    <td style={{ textAlign: 'right', padding: '6px 8px' }}>{h.qty}</td>
-                    <td style={{ textAlign: 'right', padding: '6px 8px' }}>{fmt(h.basis)}</td>
-                    <td style={{ textAlign: 'right', padding: '6px 8px' }}>{fmt(h.value)}</td>
-                    <td style={{ textAlign: 'right', padding: '6px 8px', color: pnlInfo.color, fontWeight: 600 }}>{pnlInfo.text}</td>
-                    <td style={{ textAlign: 'right', padding: '6px 8px', color: roiInfo.color, fontWeight: 600 }}>{roiInfo.text}</td>
+                    <td className="num-cell" style={{ textAlign: 'right', padding: '6px 8px' }}>{h.qty}</td>
+                    <td className="num-cell" style={{ textAlign: 'right', padding: '6px 8px' }}>{fmtFull(h.basis)}</td>
+                    <td className="num-cell" style={{ textAlign: 'right', padding: '6px 8px' }}>{fmtFull(h.value)}</td>
+                    <td className="num-cell" style={{ textAlign: 'right', padding: '6px 8px', color: pnlInfo.color, fontWeight: 600 }}>{pnlInfo.text}</td>
+                    <td className="num-cell" style={{ textAlign: 'right', padding: '6px 8px', color: roiInfo.color, fontWeight: 600 }}>{roiInfo.text}</td>
                   </tr>
                 );
               })}
@@ -4018,8 +4123,8 @@ function PortfolioTab({ s }: { s: GameState; act: Act }) {
                     <span className="tag" style={{ fontSize: 10 }}>{txKindLabel(tx.kind)}</span>
                   </td>
                   <td style={{ padding: '6px 8px' }}>{tx.name}{tx.qty > 1 ? ` ×${tx.qty}` : ''}</td>
-                  <td style={{ textAlign: 'right', padding: '6px 8px', color: txColor(tx.kind, tx.amount), fontWeight: 600 }}>{txSign(tx.kind, tx.amount)}</td>
-                  <td style={{ textAlign: 'right', padding: '6px 8px', color: (tx.realizedPnL || 0) >= 0 ? 'var(--up)' : 'var(--down)', fontWeight: 600 }}>
+                  <td className="num-cell" style={{ textAlign: 'right', padding: '6px 8px', color: txColor(tx.kind, tx.amount), fontWeight: 600 }}>{txSign(tx.kind, tx.amount)}</td>
+                  <td className="num-cell" style={{ textAlign: 'right', padding: '6px 8px', color: (tx.realizedPnL || 0) >= 0 ? 'var(--up)' : 'var(--down)', fontWeight: 600 }}>
                     {tx.realizedPnL != null ? pnlText(tx.realizedPnL).text : '—'}
                   </td>
                 </tr>
@@ -4056,12 +4161,14 @@ function FinanceOverviewTab({ s, onNav }: { s: GameState; act: Act; onNav: (k: s
   const priorityColor = (p: FinanceAction['priority']): string =>
     p === 'high' ? 'var(--brick)' : p === 'medium' ? 'var(--amber, #c47b2c)' : 'var(--mute)';
   // Row renderer for income/expense/asset/liability tables — clickable.
+  // v13.9 — uses fmtFull() so large income/asset figures (> 100 tỷ) stay
+  // readable with thousand separators.
   const renderRow = (item: { id: string; label: string; amount: number; link: string }, idx: number, kind: 'income' | 'expense' | 'asset' | 'liab') => (
     <tr key={item.id + idx} className="fo-row" onClick={() => onNav(item.link)} style={{ cursor: 'pointer', borderBottom: '1px solid var(--line)' }}>
       <td style={{ padding: '7px 10px', fontWeight: 600 }}>{item.label}</td>
-      <td style={{ textAlign: 'right', padding: '7px 10px', fontVariantNumeric: 'tabular-nums', fontWeight: 700,
+      <td className="num-cell" style={{ textAlign: 'right', padding: '7px 10px', fontVariantNumeric: 'tabular-nums', fontWeight: 700,
         color: kind === 'income' ? 'var(--up)' : kind === 'expense' || kind === 'liab' ? 'var(--down)' : 'var(--ink)' }}>
-        {kind === 'income' ? '+' : kind === 'expense' || kind === 'liab' ? '−' : ''}{fmt(item.amount)}
+        {kind === 'income' ? '+' : kind === 'expense' || kind === 'liab' ? '−' : ''}{fmtFull(item.amount)}
         <span className="mini" style={{ opacity: .6, fontWeight: 400 }}>{t('fo.perYear')}</span>
       </td>
       <td style={{ textAlign: 'right', padding: '7px 10px', color: 'var(--accent)', fontSize: '.74rem', fontWeight: 700, whiteSpace: 'nowrap' }}>
@@ -4072,32 +4179,33 @@ function FinanceOverviewTab({ s, onNav }: { s: GameState; act: Act; onNav: (k: s
   return (
     <>
       {/* Cash flow summary card */}
+      {/* v13.9 — fmtFull() so billion-dollar incomes/expenses stay readable. */}
       <div className="card" style={{ marginBottom: 10, padding: 14 }}>
         <div className="mini" style={{ textTransform: 'uppercase', letterSpacing: '.4px', color: 'var(--accent)' }}>{t('fo.title')}</div>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginTop: 8 }}>
           <div>
             <div className="mini" style={{ opacity: .7 }}>{t('fo.income')}</div>
-            <b style={{ fontSize: '1.1rem', color: 'var(--up)' }}>+{fmt(yi)}<span className="mini" style={{ fontWeight: 400, opacity: .6 }}>{t('fo.perYear')}</span></b>
-            <div className="mini" style={{ opacity: .7 }}>+{fmt(yi / 12)}{t('fo.perMonth')}</div>
+            <b className="num-full" style={{ fontSize: '1.1rem', color: 'var(--up)' }}>+{fmtFull(yi)}<span className="mini" style={{ fontWeight: 400, opacity: .6 }}>{t('fo.perYear')}</span></b>
+            <div className="mini" style={{ opacity: .7 }}>+{fmtFull(yi / 12)}{t('fo.perMonth')}</div>
           </div>
           <div>
             <div className="mini" style={{ opacity: .7 }}>{t('fo.expenses')}</div>
-            <b style={{ fontSize: '1.1rem', color: 'var(--down)' }}>−{fmt(ye)}<span className="mini" style={{ fontWeight: 400, opacity: .6 }}>{t('fo.perYear')}</span></b>
-            <div className="mini" style={{ opacity: .7 }}>−{fmt(ye / 12)}{t('fo.perMonth')}</div>
+            <b className="num-full" style={{ fontSize: '1.1rem', color: 'var(--down)' }}>−{fmtFull(ye)}<span className="mini" style={{ fontWeight: 400, opacity: .6 }}>{t('fo.perYear')}</span></b>
+            <div className="mini" style={{ opacity: .7 }}>−{fmtFull(ye / 12)}{t('fo.perMonth')}</div>
           </div>
         </div>
         <div style={{ marginTop: 10, padding: '8px 12px', borderRadius: 8, background: netY >= 0 ? 'rgba(46,158,91,.08)' : 'rgba(192,57,43,.08)', border: `1px solid ${netY >= 0 ? 'rgba(46,158,91,.25)' : 'rgba(192,57,43,.25)'}` }}>
           <span className="mini" style={{ opacity: .7 }}>{t('fo.net')}</span>
-          <b style={{ fontSize: '1.2rem', color: netY >= 0 ? 'var(--up)' : 'var(--down)', marginLeft: 6 }}>
-            {netY >= 0 ? '+' : '−'}{fmt(Math.abs(netY))}<span className="mini" style={{ fontWeight: 400, opacity: .6 }}>{t('fo.perYear')}</span>
+          <b className="num-full" style={{ fontSize: '1.2rem', color: netY >= 0 ? 'var(--up)' : 'var(--down)', marginLeft: 6 }}>
+            {netY >= 0 ? '+' : '−'}{fmtFull(Math.abs(netY))}<span className="mini" style={{ fontWeight: 400, opacity: .6 }}>{t('fo.perYear')}</span>
           </b>
           <span className="mini" style={{ marginLeft: 8, opacity: .7 }}>
-            · {netM >= 0 ? '+' : '−'}{fmt(Math.abs(netM))}{t('fo.perMonth')}
+            · {netM >= 0 ? '+' : '−'}{fmtFull(Math.abs(netM))}{t('fo.perMonth')}
           </span>
         </div>
         <div style={{ marginTop: 6, display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', padding: '0 4px' }}>
           <span className="mini" style={{ opacity: .7 }}>{t('fo.netWorth')}</span>
-          <b style={{ fontSize: '1rem', color: 'var(--accent)' }}>{fmt(nw)}</b>
+          <b className="num-full" style={{ fontSize: '1rem', color: 'var(--accent)' }}>{fmtFull(nw)}</b>
         </div>
       </div>
 
@@ -4140,7 +4248,7 @@ function FinanceOverviewTab({ s, onNav }: { s: GameState; act: Act; onNav: (k: s
                 {income.map((it, i) => renderRow(it, i, 'income'))}
                 <tr style={{ background: 'var(--paper2)', borderTop: '2px solid var(--line)' }}>
                   <td style={{ padding: '7px 10px', fontWeight: 800 }}>{t('fo.income')}</td>
-                  <td style={{ textAlign: 'right', padding: '7px 10px', fontWeight: 800, color: 'var(--up)', fontVariantNumeric: 'tabular-nums' }}>+{fmt(yi)}</td>
+                  <td className="num-cell" style={{ textAlign: 'right', padding: '7px 10px', fontWeight: 800, color: 'var(--up)', fontVariantNumeric: 'tabular-nums' }}>+{fmtFull(yi)}</td>
                   <td></td>
                 </tr>
               </tbody>
@@ -4157,7 +4265,7 @@ function FinanceOverviewTab({ s, onNav }: { s: GameState; act: Act; onNav: (k: s
                 {expenses.map((it, i) => renderRow(it, i, 'expense'))}
                 <tr style={{ background: 'var(--paper2)', borderTop: '2px solid var(--line)' }}>
                   <td style={{ padding: '7px 10px', fontWeight: 800 }}>{t('fo.expenses')}</td>
-                  <td style={{ textAlign: 'right', padding: '7px 10px', fontWeight: 800, color: 'var(--down)', fontVariantNumeric: 'tabular-nums' }}>−{fmt(ye)}</td>
+                  <td className="num-cell" style={{ textAlign: 'right', padding: '7px 10px', fontWeight: 800, color: 'var(--down)', fontVariantNumeric: 'tabular-nums' }}>−{fmtFull(ye)}</td>
                   <td></td>
                 </tr>
               </tbody>
@@ -4178,7 +4286,7 @@ function FinanceOverviewTab({ s, onNav }: { s: GameState; act: Act; onNav: (k: s
                 {assets.map((it, i) => renderRow(it, i, 'asset'))}
                 <tr style={{ background: 'var(--paper2)', borderTop: '2px solid var(--line)' }}>
                   <td style={{ padding: '7px 10px', fontWeight: 800 }}>{t('fo.assets')}</td>
-                  <td style={{ textAlign: 'right', padding: '7px 10px', fontWeight: 800, color: 'var(--ink)', fontVariantNumeric: 'tabular-nums' }}>{fmt(assets.reduce((a, b) => a + b.amount, 0))}</td>
+                  <td className="num-cell" style={{ textAlign: 'right', padding: '7px 10px', fontWeight: 800, color: 'var(--ink)', fontVariantNumeric: 'tabular-nums' }}>{fmtFull(assets.reduce((a, b) => a + b.amount, 0))}</td>
                   <td></td>
                 </tr>
               </tbody>
@@ -4195,7 +4303,7 @@ function FinanceOverviewTab({ s, onNav }: { s: GameState; act: Act; onNav: (k: s
                 {liabilities.map((it, i) => renderRow(it, i, 'liab'))}
                 <tr style={{ background: 'var(--paper2)', borderTop: '2px solid var(--line)' }}>
                   <td style={{ padding: '7px 10px', fontWeight: 800 }}>{t('fo.liabilities')}</td>
-                  <td style={{ textAlign: 'right', padding: '7px 10px', fontWeight: 800, color: 'var(--down)', fontVariantNumeric: 'tabular-nums' }}>−{fmt(liabilities.reduce((a, b) => a + b.amount, 0))}</td>
+                  <td className="num-cell" style={{ textAlign: 'right', padding: '7px 10px', fontWeight: 800, color: 'var(--down)', fontVariantNumeric: 'tabular-nums' }}>−{fmtFull(liabilities.reduce((a, b) => a + b.amount, 0))}</td>
                   <td></td>
                 </tr>
               </tbody>
@@ -4237,7 +4345,7 @@ function AmountRow({ label, sub, icon, max, allLabel, allAction, onSubmit, dange
       <input className="qty" type="text" inputMode="numeric" placeholder="0" value={val}
         onChange={e => setVal(formatThousands(e.target.value))}
         onKeyDown={e => { if (e.key === 'Enter') submit(); }}
-        style={{ width: 110, textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}
+        style={{ width: 120, textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}
         aria-label={label} />
       <button className={danger ? 'tsell' : 'tbuy'} disabled={!val || parseAmount(val) <= 0} onClick={submit}>
         <Ic id={icon} className="bsi" /><span>{label}</span>
@@ -4262,35 +4370,36 @@ function BankTab({ s, act }: { s: GameState; act: Act }) {
   return (
     <>
       <div className="card" style={{ marginBottom: 10 }}>
-        <div className="lb"><span>{t('savings')} ({(SAVE_RATE * 100).toFixed(0)}%{t('perYear')})</span><b>{fmt(s.bank.dep)}</b></div>
-        <div className="lb"><span>{t('loan')} ({(LOAN_RATE * 100).toFixed(0)}%{t('perYear')})</span><b style={{ color: s.bank.loan > 0 ? 'var(--brick)' : undefined }}>{fmt(s.bank.loan)}</b></div>
-        <div className="lb"><span>{t('incomeYear')}</span><b>{fmt(s.yIncome)}</b></div>
+        <div className="lb"><span>{t('savings')} ({(SAVE_RATE * 100).toFixed(0)}%{t('perYear')})</span><b className="num-full">{fmtFull(s.bank.dep)}</b></div>
+        <div className="lb"><span>{t('loan')} ({(LOAN_RATE * 100).toFixed(0)}%{t('perYear')})</span><b className="num-full" style={{ color: s.bank.loan > 0 ? 'var(--brick)' : undefined }}>{fmtFull(s.bank.loan)}</b></div>
+        <div className="lb"><span>{t('incomeYear')}</span><b className="num-full">{fmtFull(s.yIncome)}</b></div>
         <div className="lb"><span>{t('bracket', '', { x: '$' + TAX_FREE.toLocaleString() })}</span><b>{(marginal * 100).toFixed(0)}{t('marginal')}</b></div>
-        <div className="lb"><span>{t('lastTax')}</span><b>{fmt(s.yTax)}</b></div>
-        {/* v11.57 — credit limit breakdown showing base + income credit */}
+        <div className="lb"><span>{t('lastTax')}</span><b className="num-full">{fmtFull(s.yTax)}</b></div>
+        {/* v11.57 — credit limit breakdown showing base + income credit.
+            v13.9 — fmtFull() so credit limits in the billions stay readable. */}
         <div className="lb" style={{ flexDirection: 'column', alignItems: 'stretch', gap: 4, padding: '8px 13px' }}>
           <span className="mini" style={{ fontWeight: 700, opacity: .8 }}>{t('bank.creditBreakdown')}</span>
-          <span className="mini"><span style={{ opacity: .6 }}>{t('bank.baseCredit')}:</span> <b>{fmt(loanInfo.base)}</b></span>
+          <span className="mini"><span style={{ opacity: .6 }}>{t('bank.baseCredit')}:</span> <b className="num-full">{fmtFull(loanInfo.base)}</b></span>
           {loanInfo.incomeCredit > 0 && (
-            <span className="mini" style={{ color: 'var(--sage)' }}><span style={{ opacity: .6 }}>{t('bank.incomeCredit')}:</span> <b>+{fmt(loanInfo.incomeCredit)}</b></span>
+            <span className="mini" style={{ color: 'var(--sage)' }}><span style={{ opacity: .6 }}>{t('bank.incomeCredit')}:</span> <b className="num-full">+{fmtFull(loanInfo.incomeCredit)}</b></span>
           )}
-          <span className="mini"><span style={{ opacity: .6 }}>{t('bank.existingLoan')}:</span> <b style={{ color: 'var(--brick)' }}>−{fmt(loanInfo.existing)}</b></span>
-          <span className="mini" style={{ fontWeight: 700 }}><span style={{ opacity: .6 }}>{t('bank.available')}:</span> <b style={{ color: 'var(--accent)' }}>{fmt(loanInfo.total)}</b></span>
+          <span className="mini"><span style={{ opacity: .6 }}>{t('bank.existingLoan')}:</span> <b className="num-full" style={{ color: 'var(--brick)' }}>−{fmtFull(loanInfo.existing)}</b></span>
+          <span className="mini" style={{ fontWeight: 700 }}><span style={{ opacity: .6 }}>{t('bank.available')}:</span> <b className="num-full" style={{ color: 'var(--accent)' }}>{fmtFull(loanInfo.total)}</b></span>
           {loanInfo.incomeCredit > 0 && <span className="mini" style={{ opacity: .55, fontStyle: 'italic' }}>{t('bank.incomeCreditNote')}</span>}
         </div>
       </div>
       <h3>{t('savings')}</h3>
-      <AmountRow label={t('deposit')} sub={t('whileSleep', '', { x: fmt(s.bank.dep * SAVE_RATE) })} icon="ic-plus" max={Math.floor(s.money)} allLabel={t('allIn')} allAction={() => act(st => bankOp(st, 'dep', 'all'))} onSubmit={amt => act(st => bankOp(st, 'dep', amt))} />
+      <AmountRow label={t('deposit')} sub={t('whileSleep', '', { x: fmtFull(s.bank.dep * SAVE_RATE) })} icon="ic-plus" max={Math.floor(s.money)} allLabel={t('allIn')} allAction={() => act(st => bankOp(st, 'dep', 'all'))} onSubmit={amt => act(st => bankOp(st, 'dep', amt))} />
       <AmountRow label={t('withdraw')} sub={t('moveCash')} icon="ic-down" danger max={Math.floor(s.bank.dep)} allLabel={t('allOut')} allAction={() => act(st => bankOp(st, 'wd', 'all'))} onSubmit={amt => act(st => bankOp(st, 'wd', amt))} />
       <h3>{t('loan')}</h3>
-      <AmountRow label={t('borrow')} sub={t('upTo', '', { x: fmt(maxLoan) })} icon="ic-up" max={maxLoan} allLabel={t('borrowMax')} allAction={() => act(st => bankOp(st, 'loan', 'all'))} onSubmit={amt => act(st => bankOp(st, 'loan', amt))} />
-      <AmountRow label={t('repay')} sub={t('owe', '', { x: fmt(s.bank.loan), i: fmt(s.bank.loan * LOAN_RATE) })} icon="ic-check" danger max={Math.min(s.bank.loan, Math.floor(s.money))} allLabel={t('repayAll')} allAction={() => act(st => bankOp(st, 'repay', 'all'))} onSubmit={amt => act(st => bankOp(st, 'repay', amt))} />
+      <AmountRow label={t('borrow')} sub={t('upTo', '', { x: fmtFull(maxLoan) })} icon="ic-up" max={maxLoan} allLabel={t('borrowMax')} allAction={() => act(st => bankOp(st, 'loan', 'all'))} onSubmit={amt => act(st => bankOp(st, 'loan', amt))} />
+      <AmountRow label={t('repay')} sub={t('owe', '', { x: fmtFull(s.bank.loan), i: fmtFull(s.bank.loan * LOAN_RATE) })} icon="ic-check" danger max={Math.min(s.bank.loan, Math.floor(s.money))} allLabel={t('repayAll')} allAction={() => act(st => bankOp(st, 'repay', 'all'))} onSubmit={amt => act(st => bankOp(st, 'repay', amt))} />
       <h3>{t('charityFame')}</h3>
       <div className="card" style={{ marginBottom: 8 }}>
         <div className="famewrap"><span className="mini">{t('fame')}</span><div className="famebar"><i style={{ width: Math.min(100, Math.log10(Math.max(1, s.fame + 1)) * 25) + '%' }} /></div><b>{Math.round(s.fame)}</b></div>
         <div className="mini">{fameTxt} · {t('bizIncomeFame', '', { n: ((fameBonus(s) - 1) * 100).toFixed(1) })}</div>
       </div>
-      <AmountRow label={t('donate')} sub={`${t('totalDonated')}: ${fmt(s.donated)} · ${t('fameFades')}`} icon="ic-heart" max={Math.floor(s.money)} onSubmit={amt => act(st => donate(st, amt))} />
+      <AmountRow label={t('donate')} sub={`${t('totalDonated')}: ${fmtFull(s.donated)} · ${t('fameFades')}`} icon="ic-heart" max={Math.floor(s.money)} onSubmit={amt => act(st => donate(st, amt))} />
     </>
   );
 }

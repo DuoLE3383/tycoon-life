@@ -1,22 +1,20 @@
 {
-  "version": "v13.8",
-  "releasedAt": "2026-11-11",
-  "headline": "HuyenBao v13.8 — Markets portfolio in StockTab + admin stock management + mobile 10% scale + mythic serials",
-  "summary": "v13.8: Markets tab now shows per-stock portfolio info (holdings value, cost basis, P&L, ROI%, sparkline) plus a summary card rolling up total value / cost basis / unrealized P&L / overall ROI. New admin Stocks tab lets operators edit built-in stock prices + volatility, create custom tickers, delete them, or reset everything. Mobile UI scaled down 10% (html font-size 90%). Mythic rarity with serial numbers (#1 of 10). Social post queue for AI events. Popup overlap root cause fixed (isolation:isolate + backdrop-filter removal).",
+  "version": "v13.9",
+  "releasedAt": "2026-11-12",
+  "headline": "HuyenBao v13.9 — collapsible assets, thousand separators, market layout",
+  "summary": "v13.9: Assets 'own' section now collapses owned items by category (Properties, Vehicles, Watches, Jewelry, Art, Collectibles, Sneakers, Handbags, Audio, Camera, Suits, Other) — each header shows the count + total value and only expands on tap. Tables and detailed displays now use full thousand-separated numbers ($1,234,567) via fmtFull() so values > 100 tỷ stay readable, with wider numeric cells and tabular-nums. Markets tab rebuilt as clean cards: 2-column summary header (Total Value | Total P&L), per-stock card with left (name + price + daily badge + sparkline) + right (holdings + P&L + ROI%) + bottom buy/sell/MAX/All, responsive on mobile.",
   "features": [
-    "Markets tab: per-stock holdings value, cost basis, P&L (green/red), ROI%",
-    "Markets tab: portfolio summary card (total value, cost basis, unrealized P&L, overall ROI)",
-    "Markets tab: 30-point sparkline per stock (built-in + custom)",
-    "Admin dashboard: new 📈 Thị trường tab — edit any stock's price + volatility",
-    "Admin dashboard: create custom stock tickers (id, name, price, vol, art icon)",
-    "Admin dashboard: reset all stock overrides + custom tickers (refunds holdings)",
-    "Engine: stocksOf() merges built-in + overridden + custom stocks everywhere",
-    "Mobile 10% scale (html font-size 90%)",
-    "Header compact: logo 32px, level chip + language hidden on mobile",
-    "Bottom nav compact: 52px height, 38px buttons, 22px icons",
-    "Mythic rarity tier + serial numbers (#1 of 10)",
-    "Social post queue for AI events",
-    "Popup overlap root cause fix (isolation:isolate)",
-    "Version bumped to v13.8"
+    "Assets 'own': owned items grouped by category with collapsible headers",
+    "Assets 'own': summary header per category (icon + name + count + total value)",
+    "Assets 'own': default collapsed — only header shown until tapped",
+    "Engine: new fmtFull() — full dollar value with thousand separators",
+    "Tables: fmtFull() in Portfolio holdings, transactions, StockTab, Finance Overview, Banking credit breakdown, Assets item rows",
+    "Tables: wider numeric cells (min-width 90px, nowrap) + tabular-nums",
+    "Inputs: .qty width 110→120px for larger numbers",
+    "Markets: 2-column summary card (Total Value | Total P&L + ROI%)",
+    "Markets: per-stock clean cards (left name+price+badge+sparkline, right holdings+P&L+ROI)",
+    "Markets: buy/sell/MAX/All buttons moved to bottom of card",
+    "Markets: responsive stacking on mobile",
+    "Version bumped to v13.9"
   ]
 }

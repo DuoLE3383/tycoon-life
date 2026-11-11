@@ -4075,3 +4075,11 @@ export function fmt(n: number): string {
   }
   return (neg ? '\u2212' : '') + '$' + out;
 }
+// v13.9 — fmtFull: full dollar value with thousand separators (en-US grouping)
+// for TABLE CELLS and DETAILED DISPLAYS where compact $1.2K/$3.4M would be
+// unreadable for very large numbers (> 100 tỷ = > $100B). Use this in tables,
+// item rows, banking breakdowns, etc. Keep fmt() for chips/badges/toasts.
+export function fmtFull(n: number): string {
+  const neg = n < 0; n = Math.abs(n);
+  return (neg ? '\u2212' : '') + '$' + Math.floor(n).toLocaleString('en-US');
+}

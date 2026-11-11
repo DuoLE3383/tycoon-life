@@ -263,7 +263,7 @@ html[data-theme="dark"] .tgame #ttoast{box-shadow:0 0 0 3px rgba(251,191,36,.12)
 .tgame .rt button{padding:7px 13px;border-radius:999px;border:1px solid var(--line);background:var(--card);font-size:.84rem;color:var(--mute);font-weight:600}
 .tgame .rt button[aria-pressed="true"]{background:var(--ink);border-color:var(--ink);color:var(--paper);font-weight:700}
 .tgame .trade{display:flex;gap:6px;align-items:center;flex-wrap:wrap;justify-content:flex-end}
-.tgame .qty{width:64px;padding:7px 6px;text-align:center}
+.tgame .qty{width:88px;padding:7px 6px;text-align:center}
 .tgame .tbuy,.tgame .tsell{border:1px solid transparent;border-radius:10px;padding:8px 13px;font-weight:750;color:#fff;min-width:66px;transition:background .2s,opacity .2s}
 .tgame .tbuy{background:var(--sage)}
 .tgame .tbuy:hover:not(:disabled){background:#527d61}
@@ -1246,5 +1246,62 @@ html[data-theme="dark"] .tgame .pchip-big.income-chip.down{color:#fca5a5;backgro
   .tgame .dash-chart-legend .asset-leg-item{font-size:.75rem}
   .tgame .uid-chip{font-size:.7rem}
   .tgame .tag{font-size:.74rem}
+}
+
+/* ===== v13.9 — thousand-separated numbers + collapsible assets + stock cards ===== */
+/* Numeric display helpers. .num-full applies tabular-nums to any inline number
+   so columns line up; .num-cell is for table cells where we also want a
+   min-width + nowrap so very large figures ($100,000,000,000) don't wrap or
+   collapse the column. */
+.tgame .num-full{font-variant-numeric:tabular-nums;white-space:nowrap}
+.tgame .num-cell{min-width:90px;white-space:nowrap;font-variant-numeric:tabular-nums}
+
+/* ----- Assets 'own' — collapsible category headers ----- */
+.tgame .own-cat{background:var(--card);border:1px solid var(--line);border-radius:14px;margin-bottom:8px;overflow:hidden}
+.tgame .own-cat-header{display:flex;align-items:center;gap:10px;width:100%;padding:11px 14px;background:transparent;border:0;text-align:left;font-weight:700;color:var(--ink);transition:background .15s}
+.tgame .own-cat-header:hover{background:var(--paper2)}
+.tgame .own-cat-icon{font-size:1.15rem;flex:none;line-height:1}
+.tgame .own-cat-label{flex:0 1 auto;font-weight:750}
+.tgame .own-cat-meta{margin-left:auto;display:flex;align-items:center;gap:8px;color:var(--mute);font-weight:600;font-size:.84rem}
+.tgame .own-cat-count{font-weight:600}
+.tgame .own-cat-total{color:var(--ink);font-weight:800}
+.tgame .own-cat-toggle{flex:none;color:var(--faint);font-size:.85rem;transition:transform .2s;margin-left:4px}
+.tgame .own-cat[data-expanded="true"] .own-cat-toggle{transform:rotate(0)}
+.tgame .own-cat-body{padding:0 8px 8px;display:flex;flex-direction:column;gap:8px}
+.tgame .own-cat-body .row{margin-bottom:0}
+
+/* ----- StockTab v13.9 — clean card layout ----- */
+/* Summary card: 2-column compact (Total Value | Total P&L + ROI). */
+.tgame .stk-summary{display:grid;grid-template-columns:1fr 1fr;gap:14px;padding:14px}
+.tgame .stk-summary-col{display:flex;flex-direction:column;gap:2px;min-width:0}
+.tgame .stk-summary-num{font-size:1.15rem;font-weight:800;line-height:1.2}
+.tgame .stk-movers{display:flex;align-items:center;gap:6px;flex-wrap:wrap;padding:8px 12px;font-size:.82rem}
+.tgame .stk-movers .mini{font-weight:700}
+/* Per-stock card: main row (left + right) + bottom trade row. */
+.tgame .stk-card{padding:12px;margin-bottom:10px}
+.tgame .stk-card-main{display:flex;gap:12px;align-items:stretch;flex-wrap:wrap}
+.tgame .stk-card-left{flex:1 1 180px;min-width:0;display:flex;flex-direction:column;gap:3px}
+.tgame .stk-card-right{flex:0 0 200px;display:flex;flex-direction:column;gap:2px;border-left:1px solid var(--line);padding-left:12px}
+.tgame .stk-card-right .lb{padding:2px 0;font-size:.82rem}
+.tgame .stk-card-right .lb span{color:var(--mute)}
+.tgame .stk-card-title{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.tgame .stk-card-title b{font-size:1rem;font-weight:800;letter-spacing:.3px}
+.tgame .stk-card-name{font-size:.82rem;color:var(--mute);margin-top:1px}
+.tgame .stk-card-price{font-size:1.05rem;font-weight:750;color:var(--ink);font-variant-numeric:tabular-nums;margin-top:2px}
+.tgame .stk-daily{font-size:.78rem;font-weight:700;padding:2px 7px;border-radius:999px;background:rgba(0,0,0,.05)}
+.tgame .stk-daily.up{color:var(--up);background:rgba(47,122,82,.12)}
+.tgame .stk-daily.down{color:var(--down);background:rgba(184,84,74,.12)}
+.tgame .stk-card-spark{width:100%;height:34px;margin-top:4px;flex:none}
+.tgame .stk-card-none{align-items:center;justify-content:center;color:var(--faint);font-style:italic}
+.tgame .stk-card-trade{display:flex;gap:6px;align-items:center;flex-wrap:wrap;justify-content:flex-end;margin-top:10px;padding-top:10px;border-top:1px dashed var(--line)}
+.tgame .stk-card-trade .qty{width:88px}
+
+/* Mobile: stack the stock card vertically + halve summary columns. */
+@media (max-width:540px){
+  .tgame .stk-summary{grid-template-columns:1fr;gap:8px}
+  .tgame .stk-summary-num{font-size:1.05rem}
+  .tgame .stk-card-right{flex:1 1 100%;border-left:0;padding-left:0;border-top:1px solid var(--line);padding-top:8px}
+  .tgame .stk-card-trade{justify-content:flex-start}
+  .tgame .stk-card-trade .qty{flex:1 1 100px}
 }
 
