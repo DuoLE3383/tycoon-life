@@ -1149,15 +1149,19 @@ html[data-theme="dark"] .tgame .pchip-big.income-chip.down{color:#fca5a5;backgro
   }
 
   /* --- (5) Bottom nav shell — fixed at viewport bottom, stacks subnav
-     strip (optional) + icon bar. Hidden on desktop by the root default. */
+     strip (optional) + icon bar. Hidden on desktop by the root default.
+     v13.7 — z-index raised 50→9999, backdrop-filter removed (was causing
+     stacking context issues that blocked taps), solid bg instead.
+     pointer-events:auto + touch-action:manipulation for snappy taps. */
   .tgame .mobile-nav-shell{
     display:flex;flex-direction:column;
-    position:fixed;left:0;right:0;bottom:0;z-index:50;
-    background:color-mix(in srgb,var(--paper) 92%,transparent);
-    backdrop-filter:blur(10px);
+    position:fixed;left:0;right:0;bottom:0;z-index:9999;
+    background:var(--paper);
     border-top:1px solid var(--line);
-    box-shadow:0 -4px 14px rgba(60,55,40,.10);
+    box-shadow:0 -4px 14px rgba(60,55,40,.12);
     padding-bottom:env(safe-area-inset-bottom,0px);
+    pointer-events:auto;
+    touch-action:manipulation;
   }
 
   /* Sub-tab strip — horizontal scroll, shown only when the active group
