@@ -3144,8 +3144,14 @@ function AssetsTab({ s, act, curCat, setCurCat }: { s: GameState; act: Act; curC
 function PurchaseConfirm({ s, pending, onConfirm, onCancel }: { s: GameState; pending: { kind: 'new'; item: ItemDef } | { kind: 'used'; used: UsedItem }; onConfirm: () => void; onCancel: () => void }) {
   const { t } = useT();
   const isNew = pending.kind === 'new';
-  const it: ItemDef = isNew ? pending.item : ITEM_BY[(pending.used as UsedItem).baseId];
   const u: UsedItem | null = isNew ? null : pending.used;
+  // Legacy/custom used listings can reference a catalogue item that no longer
+  // exists. Render from the listing snapshot rather than dereferencing undefined.
+  const it: ItemDef = isNew ? pending.item : (ITEM_BY[(u as UsedItem).baseId] ?? {
+    id: (u as UsedItem).baseId, cat: (u as UsedItem).cat, brand: (u as UsedItem).brand,
+    name: (u as UsedItem).name, c: (u as UsedItem).c, price: (u as UsedItem).newPrice,
+    lux: (u as UsedItem).lux, rate: (u as UsedItem).rate, art: (u as UsedItem).art,
+  });
   const price = isNew ? (pending.item as ItemDef).price : (u as UsedItem).askPrice;
   const cashAfter = s.money - price;
   const canAfford = cashAfter >= 0;
