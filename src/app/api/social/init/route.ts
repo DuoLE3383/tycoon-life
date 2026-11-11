@@ -34,6 +34,12 @@ export async function POST(req: Request) {
       people,
     });
   } catch (e) {
-    return NextResponse.json({ error: e instanceof Error ? e.message : 'init-failed' }, { status: 500 });
+    // Keep the client response generic; log the full server-side cause for VPS diagnosis.
+    console.error('[api/social/init] failed:', e);
+    const message = e instanceof Error ? e.message : 'init-failed';
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }
+
+export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
