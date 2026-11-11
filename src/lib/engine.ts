@@ -203,6 +203,11 @@ export interface GameState {
   brands: Record<string, { name: string; logo: string }>;
   cause: 'age' | 'health' | null;
   social: { followers: number; posts: Post[]; verified?: boolean; lastPostDay?: number };
+  // v12.5 — social post queue: AI event auto-posts are queued here instead
+  // of pushed directly to s.social.posts (which caps at 12 and could lose
+  // posts when multiple events fire simultaneously). The tick() function
+  // releases one queued post per game day.
+  socialQueue: { text: string; day: number; likes: number; reactions?: NonNullable<Post['reactions']> }[];
   ach: string[];
   // v10.4 — used-market purchases and player Hall of Fame entry written at
   // game over. Kept on the same GameState shape so save migration is trivial.
@@ -678,7 +683,7 @@ export function fresh(): GameState {
     prices: {}, hist: {}, eraBiz: 1, eraFac: 1,
     log: [], over: false, pending: null, aiEv: null,
     partner: false, married: false, kids: 0, m1: false, story: { used: [] },
-    level: 1, xp: 0, gigs: {}, space: {}, social: { followers: 0, posts: [] },
+    level: 1, xp: 0, gigs: {}, space: {}, social: { followers: 0, posts: [] }, socialQueue: [],
     health: 92, spirit: 18, karma: 0, diet: false, well: {}, cause: null,
     sleepHours: 6, sleepDebt: 0, timeline: [], ach: [],
     txSeq: 0, transactions: [], costBasis: {},
@@ -819,6 +824,8 @@ export function migrate(raw: unknown): GameState {
   s.costBasis = s.costBasis && typeof s.costBasis === 'object' ? s.costBasis : {};
   // v11.50 — backfill brand customization map for old saves.
   s.brands = s.brands && typeof s.brands === 'object' ? s.brands : {};
+  // v12.5 — backfill social post queue for old saves.
+  s.socialQueue = Array.isArray(s.socialQueue) ? s.socialQueue : [];
   s.timeline = Array.isArray(s.timeline) ? s.timeline.slice(-45) : [];
   BIZ.forEach(b => (s.branches[b.id] || []).forEach((br, i) => {
     if (br.paid == null) br.paid = b.base * Math.pow(BRANCH_GROWTH, i);
@@ -1468,6 +1475,15 @@ export function processDay(s: GameState, d: number, rng: () => number = Math.ran
   if (s.study) s.study.end -= (studyPace(s.sleepHours) - 1) * debtMult;
   if (s.sideStudy) s.sideStudy.end -= (studyPace(s.sleepHours) - 1) * debtMult;
   if (s.diet) s.money -= DIET_COST;
+  // v12.5 — drain one queued social post per game day. AI events push to
+  // s.socialQueue instead of directly to s.social.posts so multiple
+  // simultaneous events don't get lost (posts array caps at 12).
+  if (s.socialQueue && s.socialQueue.length > 0) {
+    const next = s.socialQueue.shift()!;
+    s.social.posts.unshift({ d: next.day, t: next.text, likes: next.likes, reactions: next.reactions });
+    s.social.lastPostDay = s.lastDay;
+    if (s.social.posts.length > 12) s.social.posts.pop();
+  }
   if (s.health <= 15 && d % 30 === 0) pushLog(s, 'Your health is fragile — eat well, rest, see a doctor.');
   if (d % 14 === 0) {
     const net = jobIncome(s) / 26 + (s.age >= RETIRE ? PENSION / 26 : 0);
@@ -2573,9 +2589,17 @@ export function applyAIChoice(s: GameState, idx: number, rng: () => number = Mat
   // player's relationship state — friends comment supportive, rivals snark.
   const rumorText = rumorHeadline(ev.title, ev.kind);
   const reactions = generateNpcReactions(s, ev.title);
-  s.social.posts.unshift({ d: s.lastDay, t: rumorText, likes: Math.round(5 + (s.social.followers > 1000 ? Math.sqrt(s.social.followers) : 0)), reactions: reactions.length ? reactions : undefined });
-  s.social.lastPostDay = s.lastDay;
-  if (s.social.posts.length > 12) s.social.posts.pop();
+  // v12.5 — queue the post instead of pushing directly. The tick() function
+  // releases one queued post per game day so multiple simultaneous events
+  // don't overwrite each other (the posts array caps at 12).
+  s.socialQueue = s.socialQueue || [];
+  s.socialQueue.push({
+    text: rumorText,
+    day: s.lastDay,
+    likes: Math.round(5 + (s.social.followers > 1000 ? Math.sqrt(s.social.followers) : 0)),
+    reactions: reactions.length ? reactions : undefined,
+  });
+  if (s.socialQueue.length > 20) s.socialQueue = s.socialQueue.slice(-20); // cap queue
   if (reactions.length) {
     pushLog(s, `NPCs reacted: ${reactions.map(r => `${r.name} (${r.sentiment})`).join(' · ')}`);
   }
