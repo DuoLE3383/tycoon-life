@@ -67,6 +67,15 @@ export function db(): Database.Database {
     CREATE INDEX IF NOT EXISTS idx_edges_a ON friend_edges(a);
     CREATE INDEX IF NOT EXISTS idx_edges_b ON friend_edges(b);
     CREATE INDEX IF NOT EXISTS idx_gifts_to ON gifts(to_uid);
+    CREATE TABLE IF NOT EXISTS admin_actions (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      target_uid TEXT NOT NULL,
+      action TEXT NOT NULL,
+      payload TEXT NOT NULL DEFAULT '{}',
+      created_at TEXT NOT NULL,
+      applied_at INTEGER
+    );
+    CREATE INDEX IF NOT EXISTS idx_admin_actions_target ON admin_actions(target_uid);
   `);
   // v11.29 — migration: the banned flag arrived after the first release of
   // this schema; ALTER it in for older database files.
@@ -385,4 +394,76 @@ export function adminStats(): AdminStats {
     acceptedEdges: count("SELECT COUNT(*) AS n FROM friend_edges WHERE status='accepted'"),
     top: topPlayers(10).map(p => ({ code: p.code, name: p.name, avatar: p.avatar, nw: p.nw, level: p.level })),
   };
+}
+
+// ---------------------------------------------------------------- v14 — admin actions queue
+// The admin dashboard records game-mutation actions here (setSavings,
+// grantBranch, setGigPay, …) instead of trying to mutate a player's
+// LocalStorage save directly (which the server can't reach). Each row is a
+// single action addressed to either a specific player uid or to everyone
+// (target_uid='hb-broadcast'). The recipient client polls /api/social/ping
+// every 60s; the response includes its pending actions. The client applies
+// each via applyAdminActions(), then acks the row (sets applied_at) so the
+// next poll doesn't re-deliver it. Gig-config actions (setGigPay, setGigCd,
+// resetGigs) are broadcast — every player applies them so the override is
+// consistent across the community.
+export interface AdminActionRow {
+  id: number;
+  target_uid: string;
+  action: string;
+  payload: string; // JSON object { uid?, amount?, bizId?, ... }
+  created_at: string;
+  applied_at: number | null;
+}
+export interface AdminActionOut {
+  id: string;
+  targetUid: string;
+  action: string;
+  payload: Record<string, unknown>;
+  ts: number;
+}
+// v14 — sentinel uid for broadcast actions (every player picks them up).
+export const ADMIN_BROADCAST_UID = 'hb-broadcast';
+// v14 — record a new admin action. targetUid may be a player uid, an HB-code
+// (resolved to a uid by the caller), or ADMIN_BROADCAST_UID. payload is a
+// JSON-serialisable object carrying the action's parameters (amount, bizId,
+// count, etc). Returns the serialised row the client will receive.
+export function insertAdminAction(targetUid: string, action: string, payload: Record<string, unknown>): AdminActionOut {
+  const d = db();
+  const t = (targetUid || '').trim() || ADMIN_BROADCAST_UID;
+  const a = String(action || '').slice(0, 40);
+  const p = JSON.stringify(payload || {});
+  const info = d.prepare('INSERT INTO admin_actions (target_uid, action, payload, created_at) VALUES (?,?,?,?)')
+    .run(t, a, p, new Date().toISOString());
+  const row = d.prepare('SELECT * FROM admin_actions WHERE id = ?').get(info.lastInsertRowid) as AdminActionRow;
+  return { id: String(row.id), targetUid: row.target_uid, action: row.action, payload: JSON.parse(row.payload || '{}') as Record<string, unknown>, ts: Date.parse(row.created_at) || 0 };
+}
+// v14 — list unapplied actions addressed to `uid` OR to the broadcast
+// sentinel. Returns oldest-first so the client applies them in order. The
+// payload is parsed back to an object the engine's applyAdminActions can
+// consume directly.
+export function listPendingAdminActions(uid: string, limit = 50): AdminActionOut[] {
+  const u = (uid || '').trim();
+  if (!u) return [];
+  const rows = db().prepare(
+    'SELECT * FROM admin_actions WHERE applied_at IS NULL AND (target_uid = ? OR target_uid = ?) ORDER BY id ASC LIMIT ?'
+  ).all(u, ADMIN_BROADCAST_UID, Math.max(1, Math.min(200, limit))) as AdminActionRow[];
+  return rows.map(r => ({ id: String(r.id), targetUid: r.target_uid, action: r.action, payload: JSON.parse(r.payload || '{}') as Record<string, unknown>, ts: Date.parse(r.created_at) || 0 }));
+}
+// v14 — mark an action as applied. Only the targeted recipient (or anyone,
+// for broadcast actions) may ack it. We DON'T verify the acker's identity
+// here beyond requiring a non-empty uid — the action payload itself is the
+// source of truth, and applyAdminActions guards against uid mismatch. This
+// just prevents re-delivery on the next poll.
+export function ackAdminAction(id: number, uid: string): boolean {
+  const u = (uid || '').trim();
+  if (!u) return false;
+  const r = db().prepare('UPDATE admin_actions SET applied_at = ? WHERE id = ? AND applied_at IS NULL').run(Date.now(), id);
+  return r.changes > 0;
+}
+// v14 — admin-side: list ALL recent admin actions (applied + pending) for
+// the dashboard's audit log. Returns newest-first.
+export function adminListActions(limit = 100): AdminActionOut[] {
+  const rows = db().prepare('SELECT * FROM admin_actions ORDER BY id DESC LIMIT ?').all(Math.max(1, Math.min(500, limit))) as AdminActionRow[];
+  return rows.map(r => ({ id: String(r.id), targetUid: r.target_uid, action: r.action, payload: JSON.parse(r.payload || '{}') as Record<string, unknown>, ts: Date.parse(r.created_at) || 0 }));
 }

@@ -207,3 +207,77 @@ test('v11.29: admin — search/update players, moderate chat, broadcast, delete'
   S.adminDeletePlayer('adminq-a-111');
   assert.equal(S.getPlayer('adminq-a-111'), undefined);
 });
+
+// ================= v14 — admin_actions queue (ADMIN_ACTION delivery) =================
+
+test('v14: insertAdminAction records a row targeted at a specific uid; listPendingAdminActions returns it oldest-first', () => {
+  if (!S) return; // bun runtime cannot load better-sqlite3 — see setup
+  S.upsertPlayer('admqueue-aaaa', { name: 'QueueAlice' });
+  const row = S.insertAdminAction('admqueue-aaaa', 'setMoney', { uid: 'admqueue-aaaa', amount: 999 });
+  assert.equal(row.action, 'setMoney');
+  assert.equal(row.targetUid, 'admqueue-aaaa');
+  assert.equal(row.payload.amount, 999);
+  assert.ok(row.ts > 0);
+  // pending list returns the row.
+  const pending = S.listPendingAdminActions('admqueue-aaaa');
+  assert.ok(pending.some(p => p.id === row.id));
+  assert.equal(pending[0].action, 'setMoney');
+});
+
+test('v14: broadcast actions (target_uid=ADMIN_BROADCAST_UID) are delivered to every player', () => {
+  if (!S) return; // bun runtime cannot load better-sqlite3 — see setup
+  S.upsertPlayer('admqueue-bbbb', { name: 'QueueBob' });
+  S.upsertPlayer('admqueue-cccc', { name: 'QueueCy' });
+  const bc = S.insertAdminAction(S.ADMIN_BROADCAST_UID, 'setGigPay', { gigId: 'delivery', basePay: 500 });
+  // Both players see the broadcast in their pending list.
+  const pb = S.listPendingAdminActions('admqueue-bbbb');
+  const pc = S.listPendingAdminActions('admqueue-cccc');
+  assert.ok(pb.some(p => p.id === bc.id), 'Bob must see the broadcast action');
+  assert.ok(pc.some(p => p.id === bc.id), 'Cy must see the broadcast action');
+});
+
+test('v14: ackAdminAction marks a row as applied so it no longer appears in pending lists', () => {
+  if (!S) return; // bun runtime cannot load better-sqlite3 — see setup
+  S.upsertPlayer('admqueue-dddd', { name: 'QueueDan' });
+  const row = S.insertAdminAction('admqueue-dddd', 'setHealth', { uid: 'admqueue-dddd', amount: 50 });
+  // Before ack → present.
+  assert.ok(S.listPendingAdminActions('admqueue-dddd').some(p => p.id === row.id));
+  // Ack it.
+  const ok = S.ackAdminAction(Number(row.id), 'admqueue-dddd');
+  assert.equal(ok, true);
+  // After ack → gone from pending.
+  assert.ok(!S.listPendingAdminActions('admqueue-dddd').some(p => p.id === row.id));
+  // Double-ack → false (already applied).
+  assert.equal(S.ackAdminAction(Number(row.id), 'admqueue-dddd'), false);
+});
+
+test('v14: ackAdminAction rejects empty uid (no anonymous acks)', () => {
+  if (!S) return; // bun runtime cannot load better-sqlite3 — see setup
+  S.upsertPlayer('admqueue-eeee', { name: 'QueueEve' });
+  const row = S.insertAdminAction('admqueue-eeee', 'setSpirit', { uid: 'admqueue-eeee', amount: 80 });
+  assert.equal(S.ackAdminAction(Number(row.id), ''), false, 'empty uid must reject');
+  // Row must still be pending (ack failed).
+  assert.ok(S.listPendingAdminActions('admqueue-eeee').some(p => p.id === row.id));
+});
+
+test('v14: listPendingAdminActions returns [] for empty/whitespace uid', () => {
+  if (!S) return; // bun runtime cannot load better-sqlite3 — see setup
+  assert.deepEqual(S.listPendingAdminActions(''), []);
+  assert.deepEqual(S.listPendingAdminActions('   '), []);
+});
+
+test('v14: adminListActions returns recent actions newest-first (audit log)', () => {
+  if (!S) return; // bun runtime cannot load better-sqlite3 — see setup
+  S.upsertPlayer('admqueue-ffff', { name: 'QueueFifi' });
+  const r1 = S.insertAdminAction('admqueue-ffff', 'setMoney', { amount: 100 });
+  const r2 = S.insertAdminAction('admqueue-ffff', 'setFame', { amount: 5 });
+  const r3 = S.insertAdminAction('admqueue-ffff', 'setHealth', { amount: 80 });
+  const all = S.adminListActions(20);
+  // Newest first → r3, r2, r1 (in that order) somewhere in the list.
+  const ids = all.map(a => a.id);
+  const i1 = ids.indexOf(r1.id);
+  const i2 = ids.indexOf(r2.id);
+  const i3 = ids.indexOf(r3.id);
+  assert.ok(i3 < i2 && i2 < i1, 'newest-first: r3 should come before r2 before r1');
+});
+

@@ -539,6 +539,9 @@
       <div class="nav-item" data-tab="gifts"><span class="ic">🎁</span> Quà tặng <span class="count" id="cnt-gifts">—</span></div>
       <div class="nav-item" data-tab="leaderboard"><span class="ic">🏆</span> Bảng XH</div>
       <div class="nav-item" data-tab="game"><span class="ic">🎮</span> Điều khiển</div>
+      <div class="nav-item" data-tab="bank"><span class="ic">🏦</span> Ngân hàng</div>
+      <div class="nav-item" data-tab="biz"><span class="ic">🏢</span> Kinh doanh</div>
+      <div class="nav-item" data-tab="gigs"><span class="ic">⚡</span> Việc nhanh</div>
       <div class="nav-item" data-tab="db"><span class="ic">🗄</span> CSDL</div>
     </nav>
     <div class="key-box">
@@ -787,6 +790,97 @@
             <div class="field"><label>Stock</label><input id="gi-stock" type="number" placeholder="trống = ∞" /></div>
             <div class="field shrink"><label>&nbsp;</label><button class="btn primary" id="btn-game-create">Tạo item</button></div>
           </div>
+        </div>
+      </section>
+
+      <!-- ============= TAB: BANK (v14) ============= -->
+      <section class="tab-pane" id="pane-bank">
+        <h2>🏦 Ngân hàng — điều khiển tiết kiệm &amp; vay</h2>
+        <div class="note">Ghi chú: server không lưu <code>s.bank</code> của người chơi (nằm trong LocalStorage). Mỗi thao tác bên dưới ghi một ADMIN_ACTION row vào SQLite — client của người chơi sẽ poll <code>/api/social/ping?uid=…</code> mỗi 60s, nhận action, áp dụng vào <code>s.bank.dep</code> / <code>s.bank.loan</code>, rồi ack. Số tiền hiện tại KHÔNG xem được từ đây.</div>
+        <div class="form-card">
+          <div class="head"><b>🎯 Người chơi mục tiêu</b></div>
+          <div class="form-row">
+            <div class="field" style="flex:0 0 280px"><label>UID hoặc HB-code</label><input id="bank-uid" placeholder="HB-XXXXXX hoặc UID" /></div>
+          </div>
+        </div>
+        <div class="form-card">
+          <div class="head"><b>💰 Đặt tiền tiết kiệm</b> — ghi đè <code>bank.dep</code></div>
+          <div class="form-row">
+            <div class="field" style="flex:0 0 200px"><label>Số tiền ($)</label><input id="bank-savings" type="number" value="1000000" /></div>
+            <div class="field shrink"><label>&nbsp;</label><button class="btn primary" id="btn-bank-savings">💰 Đặt savings</button></div>
+          </div>
+        </div>
+        <div class="form-card">
+          <div class="head"><b>📉 Đặt khoản vay</b> — ghi đè <code>bank.loan</code></div>
+          <div class="form-row">
+            <div class="field" style="flex:0 0 200px"><label>Số tiền ($)</label><input id="bank-loan" type="number" value="50000" /></div>
+            <div class="field shrink"><label>&nbsp;</label><button class="btn primary" id="btn-bank-loan">📉 Đặt loan</button></div>
+          </div>
+        </div>
+        <div class="form-card">
+          <div class="head"><b>⚙️ Điều chỉnh khoản vay</b> — cộng/trừ vào <code>bank.loan</code> (âm = trả nợ)</div>
+          <div class="form-row">
+            <div class="field" style="flex:0 0 200px"><label>Delta ($)</label><input id="bank-loan-delta" type="number" value="-10000" /></div>
+            <div class="field shrink"><label>&nbsp;</label><button class="btn" id="btn-bank-loan-delta">⚙️ Điều chỉnh loan</button></div>
+          </div>
+          <div class="hint" style="margin-top:6px">Ví dụ: <code>-10000</code> = trả bớt $10k; <code>+50000</code> = tăng khoản vay thêm $50k.</div>
+        </div>
+      </section>
+
+      <!-- ============= TAB: BIZ (v14) ============= -->
+      <section class="tab-pane" id="pane-biz">
+        <h2>🏢 Kinh doanh — chi nhánh &amp; mood</h2>
+        <div class="note">Cấp / gỡ chi nhánh bỏ qua yêu cầu bằng cấp và chi phí (admin override). Mood 0.5–1.5 ảnh hưởng đóng cửa + thu nhập. Franchise All = chuyển toàn bộ chi nhánh chưa franchise sang mô hình nhượng quyền (+phí upfront, −royalty 10%/thu nhập).</div>
+        <div class="form-card">
+          <div class="head"><b>🎯 Người chơi mục tiêu</b></div>
+          <div class="form-row">
+            <div class="field" style="flex:0 0 280px"><label>UID hoặc HB-code</label><input id="biz-uid" placeholder="HB-XXXXXX hoặc UID" /></div>
+            <div class="field" style="flex:2"><label>Business</label><select id="biz-id"></select></div>
+          </div>
+        </div>
+        <div class="form-card">
+          <div class="head"><b>➕ Cấp chi nhánh</b></div>
+          <div class="form-row">
+            <div class="field" style="flex:0 0 140px"><label>Số lượng</label><input id="biz-grant-count" type="number" value="1" min="1" max="50" /></div>
+            <div class="field shrink"><label>&nbsp;</label><button class="btn primary" id="btn-biz-grant">➕ Grant branches</button></div>
+          </div>
+        </div>
+        <div class="form-card">
+          <div class="head"><b>➖ Gỡ chi nhánh</b> (LIFO — gỡ chi nhánh mới nhất trước)</div>
+          <div class="form-row">
+            <div class="field" style="flex:0 0 140px"><label>Số lượng</label><input id="biz-remove-count" type="number" value="1" min="1" max="50" /></div>
+            <div class="field shrink"><label>&nbsp;</label><button class="btn danger" id="btn-biz-remove">➖ Remove branches</button></div>
+          </div>
+        </div>
+        <div class="form-card">
+          <div class="head"><b>🎛️ Set Mood</b> — đặt mood cho tất cả chi nhánh của biz này</div>
+          <div class="form-row">
+            <div class="field" style="flex:0 0 280px"><label>Mood: <span id="biz-mood-val">1.00</span></label><input id="biz-mood" type="range" min="0.5" max="1.5" step="0.05" value="1" style="width:100%" /></div>
+            <div class="field shrink"><label>&nbsp;</label><button class="btn" id="btn-biz-mood">🎛️ Set mood</button></div>
+          </div>
+          <div class="hint" style="margin-top:6px">&lt;0.9 = tăng rủi ro đóng cửa; &gt;1.05 = giảm rủi ro. 1.0 = chuẩn.</div>
+        </div>
+        <div class="form-card">
+          <div class="head"><b>🏪 Franchise All</b> — chuyển tất cả chi nhánh chưa franchise</div>
+          <div class="tools"><button class="btn" id="btn-biz-franchise">🏪 Franchise tất cả</button></div>
+        </div>
+      </section>
+
+      <!-- ============= TAB: GIGS (v14) ============= -->
+      <section class="tab-pane" id="pane-gigs">
+        <h2>⚡ Việc nhanh — override pay &amp; cooldown</h2>
+        <div class="note">Override lưu trong <code>GameState.gigOverrides</code> ở client — áp dụng cho mọi người chơi (broadcast). Reset All = xoá toàn bộ override về default. Bảng dưới là danh sách GIGS mặc định (từ <code>src/lib/gameData.ts</code>); sửa rồi bấm Save để ghi override mới.</div>
+        <div class="tools">
+          <b>GIGS config</b>
+          <div class="spacer"></div>
+          <button class="btn ghost sm" id="btn-gigs-refresh">↻ Nạp lại</button>
+          <button class="btn danger sm" id="btn-gigs-reset">♻️ Reset All về default</button>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Gig ID</th><th>Base pay ($)</th><th>Cooldown (ngày)</th><th>Hành động</th></tr></thead>
+            <tbody id="gigs-body"><tr class="loading-row"><td colspan="4">Đang tải danh sách gigs…</td></tr></tbody>
+          </table>
         </div>
       </section>
 
@@ -1077,6 +1171,9 @@
     gifts:       ['Quà tặng',       '/admin · gifts'],
     leaderboard: ['Bảng xếp hạng',  '/admin · leaderboard'],
     game:        ['Điều khiển game','/admin · game-control'],
+    bank:        ['Ngân hàng',      '/admin · banking'],
+    biz:         ['Kinh doanh',     '/admin · business'],
+    gigs:        ['Việc nhanh',     '/admin · gigs'],
     db:          ['Cơ sở dữ liệu',  '/admin · database'],
   };
   function renderTab(name) {
@@ -1103,6 +1200,9 @@
     else if (name === 'gifts') loadGifts();
     else if (name === 'leaderboard') loadLeaderboard();
     else if (name === 'game') loadGameControl();
+    else if (name === 'bank') loadBank();
+    else if (name === 'biz') loadBiz();
+    else if (name === 'gigs') loadGigs();
     else if (name === 'db') loadDb();
   }
   function scheduleAutoRefresh() {
@@ -1857,6 +1957,191 @@
   function openSidebarMobile() { $('sidebar').classList.add('open'); $('scrim').classList.add('open'); }
   function closeSidebarMobile() { $('sidebar').classList.remove('open'); $('scrim').classList.remove('open'); }
 
+  /* ============= v14 — BANK / BIZ / GIGS constants ============= */
+  // v14 — BIZ + GIGS mirrors of src/lib/gameData.ts. Hardcoded in admin.html
+  // (a static file with no build step) so the dashboard doesn't need a new
+  // API endpoint just to list 20 biz + 13 gigs. If a new biz/gig is added in
+  // gameData.ts, this list needs a matching update — there's a note in the
+  // GIGS tab body reminding the operator of this.
+  var BIZ_LIST = [
+    { id: 'cafe',        name: 'Coffee shop',          base: 800 },
+    { id: 'shop',        name: 'Convenience store',    base: 8000 },
+    { id: 'street',      name: 'Street food stall',    base: 300 },
+    { id: 'gym',         name: 'Boutique gym',         base: 25000 },
+    { id: 'salon',       name: 'Beauty salon chain',   base: 18000 },
+    { id: 'farm',        name: 'Organic farm',         base: 60000 },
+    { id: 'fac',         name: 'Factory',              base: 90000 },
+    { id: 'restaurant',  name: 'Restaurant chain',     base: 120000 },
+    { id: 'logistics',   name: 'Logistics & courier',  base: 350000 },
+    { id: 'clinic',      name: 'Private clinic',       base: 500000 },
+    { id: 'school',      name: 'Private school',       base: 800000 },
+    { id: 'realestate',  name: 'Real estate dev',      base: 2000000 },
+    { id: 'hotel',       name: 'Boutique hotel',       base: 2500000 },
+    { id: 'ret',         name: 'Retail chain',         base: 900000 },
+    { id: 'esports',     name: 'Esports arena',        base: 3500000 },
+    { id: 'tech',        name: 'Software studio',      base: 6000000 },
+    { id: 'franchise',   name: 'Franchise network',    base: 8000000 },
+    { id: 'bank',        name: 'Private bank',         base: 12000000 },
+    { id: 'studio',      name: 'Film studio',          base: 40000000 },
+    { id: 'corp',        name: 'Conglomerate',         base: 150000000 },
+  ];
+  var GIGS_LIST = [
+    { id: 'ad',           base: 15,   cd: 0 },
+    { id: 'delivery',     base: 60,   cd: 1 },
+    { id: 'busk',         base: 45,   cd: 1 },
+    { id: 'freelance',    base: 150,  cd: 2 },
+    { id: 'tutor',        base: 130,  cd: 2 },
+    { id: 'sponsored',    base: 80,   cd: 4 },
+    { id: 'petcare',      base: 90,   cd: 2 },
+    { id: 'photoshoot',   base: 220,  cd: 3 },
+    { id: 'coding',       base: 280,  cd: 3 },
+    { id: 'medical',      base: 340,  cd: 4 },
+    { id: 'consult',      base: 550,  cd: 6 },
+    { id: 'endorsement',  base: 1200, cd: 8 },
+    { id: 'speaking',     base: 1800, cd: 10 },
+  ];
+
+  /* ============= v14 — LOADERS: BANK / BIZ / GIGS ============= */
+  function populateBizSelect() {
+    var sel = $('biz-id');
+    if (!sel) return;
+    var cur = sel.value;
+    sel.innerHTML = '';
+    BIZ_LIST.forEach(function (b) {
+      sel.appendChild(el('option', { value: b.id, text: b.name + ' — base $' + fmtN(b.base) }));
+    });
+    if (cur) sel.value = cur;
+  }
+  function loadBank() {
+    // No data to fetch — the inputs are static. Just refresh mark.
+    markRefresh();
+  }
+  function loadBiz() {
+    populateBizSelect();
+    markRefresh();
+  }
+  function loadGigs() {
+    renderGigs();
+    markRefresh();
+  }
+
+  /* ============= RENDER: GIGS ============= */
+  function renderGigs() {
+    var body = $('gigs-body');
+    body.innerHTML = '';
+    GIGS_LIST.forEach(function (g) {
+      var payInput = el('input', { type: 'number', value: String(g.base), min: '0', step: '1', id: 'gig-pay-' + g.id });
+      var cdInput = el('input', { type: 'number', value: String(g.cd), min: '0', max: '365', step: '1', id: 'gig-cd-' + g.id });
+      body.appendChild(el('tr', null, [
+        el('td', null, el('code', { text: g.id })),
+        el('td', null, payInput),
+        el('td', null, cdInput),
+        el('td', { class: 'actions' }, [
+          el('button', { class: 'btn primary sm', dataset: { gigId: g.id }, onclick: function () { gigsSave(g.id); } }, '💾 Lưu'),
+        ]),
+      ]));
+    });
+  }
+
+  /* ============= v14 — ACTION SENDERS ============= */
+  // v14 — shared POST /api/admin/game sender for the new tabs. Builds the
+  // body from the action + extra fields, fires the request, toasts the
+  // result. Throws on network error (caught by handleErr).
+  function postGameAction(action, extra, okLabel) {
+    var body = Object.assign({ action: action }, extra || {});
+    return api('/api/admin/game', { method: 'POST', body: body }).then(function (j) {
+      if (!j.ok) throw Object.assign(new Error(j.error || 'failed'), { code: j.error });
+      toast('✓ ' + (okLabel || action) + ' — đã ghi ADMIN_ACTION row', 'ok');
+      return j;
+    });
+  }
+  function bankSetSavings() {
+    var uid = $('bank-uid').value.trim();
+    var amt = Number($('bank-savings').value);
+    if (!uid) { toast('❌ Nhập UID hoặc HB-code mục tiêu', 'err'); return; }
+    if (!Number.isFinite(amt)) { toast('❌ Số tiền không hợp lệ', 'err'); return; }
+    postGameAction('setSavings', { uid: uid, amount: amt }, '💰 Savings = ' + fmtMoney(amt))
+      .catch(function (e) { handleErr(e, 'Set savings thất bại'); });
+  }
+  function bankSetLoan() {
+    var uid = $('bank-uid').value.trim();
+    var amt = Number($('bank-loan').value);
+    if (!uid) { toast('❌ Nhập UID hoặc HB-code mục tiêu', 'err'); return; }
+    if (!Number.isFinite(amt) || amt < 0) { toast('❌ Số tiền phải ≥ 0', 'err'); return; }
+    postGameAction('setLoan', { uid: uid, amount: amt }, '📉 Loan = ' + fmtMoney(amt))
+      .catch(function (e) { handleErr(e, 'Set loan thất bại'); });
+  }
+  function bankAdjustLoan() {
+    var uid = $('bank-uid').value.trim();
+    var d = Number($('bank-loan-delta').value);
+    if (!uid) { toast('❌ Nhập UID hoặc HB-code mục tiêu', 'err'); return; }
+    if (!Number.isFinite(d)) { toast('❌ Delta không hợp lệ', 'err'); return; }
+    var label = '⚙️ Loan ' + (d >= 0 ? '+' : '') + fmtMoney(d);
+    postGameAction('adjustLoan', { uid: uid, delta: d }, label)
+      .catch(function (e) { handleErr(e, 'Adjust loan thất bại'); });
+  }
+  function bizGrant() {
+    var uid = $('biz-uid').value.trim();
+    var bizId = $('biz-id').value;
+    var count = Math.round(Number($('biz-grant-count').value) || 1);
+    if (!uid) { toast('❌ Nhập UID hoặc HB-code mục tiêu', 'err'); return; }
+    if (!bizId) { toast('❌ Chọn business', 'err'); return; }
+    postGameAction('grantBranch', { uid: uid, bizId: bizId, count: count }, '➕ Grant ' + count + ' branches')
+      .catch(function (e) { handleErr(e, 'Grant branches thất bại'); });
+  }
+  function bizRemove() {
+    var uid = $('biz-uid').value.trim();
+    var bizId = $('biz-id').value;
+    var count = Math.round(Number($('biz-remove-count').value) || 1);
+    if (!uid) { toast('❌ Nhập UID hoặc HB-code mục tiêu', 'err'); return; }
+    if (!bizId) { toast('❌ Chọn business', 'err'); return; }
+    postGameAction('removeBranch', { uid: uid, bizId: bizId, count: count }, '➖ Remove ' + count + ' branches')
+      .catch(function (e) { handleErr(e, 'Remove branches thất bại'); });
+  }
+  function bizSetMood() {
+    var uid = $('biz-uid').value.trim();
+    var bizId = $('biz-id').value;
+    var mood = Number($('biz-mood').value);
+    if (!uid) { toast('❌ Nhập UID hoặc HB-code mục tiêu', 'err'); return; }
+    if (!bizId) { toast('❌ Chọn business', 'err'); return; }
+    if (!Number.isFinite(mood)) { toast('❌ Mood không hợp lệ', 'err'); return; }
+    postGameAction('setBizMood', { uid: uid, bizId: bizId, mood: mood }, '🎛️ Mood = ' + mood.toFixed(2))
+      .catch(function (e) { handleErr(e, 'Set mood thất bại'); });
+  }
+  function bizFranchise() {
+    var uid = $('biz-uid').value.trim();
+    var bizId = $('biz-id').value;
+    if (!uid) { toast('❌ Nhập UID hoặc HB-code mục tiêu', 'err'); return; }
+    if (!bizId) { toast('❌ Chọn business', 'err'); return; }
+    modalConfirm('🏪 Franchise tất cả chi nhánh', 'Franchise TOÀN BỘ chi nhánh chưa franchise của business này?<br>Mỗi chi nhánh nhận phí upfront (×1.8 paid) nhưng thu nhập bị −10% royalty.', function () {
+      postGameAction('franchiseAll', { uid: uid, bizId: bizId }, '🏪 Franchise all')
+        .catch(function (e) { handleErr(e, 'Franchise thất bại'); });
+    }, 'Franchise');
+  }
+  function gigsSave(gigId) {
+    var payInput = $('gig-pay-' + gigId);
+    var cdInput = $('gig-cd-' + gigId);
+    if (!payInput || !cdInput) return;
+    var pay = Math.round(Number(payInput.value));
+    var cd = Math.round(Number(cdInput.value));
+    if (!Number.isFinite(pay) || pay < 0) { toast('❌ Base pay phải ≥ 0', 'err'); return; }
+    if (!Number.isFinite(cd) || cd < 0) { toast('❌ Cooldown phải ≥ 0', 'err'); return; }
+    // v14 — fire both setGigPay + setGigCd in parallel; broadcast actions
+    // (no uid needed). Toast once both resolve.
+    Promise.all([
+      postGameAction('setGigPay', { gigId: gigId, basePay: pay }, ''),
+      postGameAction('setGigCd', { gigId: gigId, cd: cd }, ''),
+    ]).then(function () {
+      toast('💾 ' + gigId + ' → pay $' + fmtN(pay) + ' / cd ' + cd + 'd', 'ok');
+    }).catch(function (e) { handleErr(e, 'Lưu gig thất bại'); });
+  }
+  function gigsResetAll() {
+    modalConfirm('♻️ Reset toàn bộ gig override', 'Xoá TOÀN BỘ gig override (pay + cd) cho MỌI người chơi?<br>Mọi gig sẽ trở về default trong gameData.ts.', function () {
+      postGameAction('resetGigs', {}, '♻️ Reset all gigs')
+        .catch(function (e) { handleErr(e, 'Reset gigs thất bại'); });
+    }, 'Reset');
+  }
+
   /* ============= BIND ============= */
   function bind() {
     // nav
@@ -1907,6 +2192,27 @@
     $('btn-grant-item').addEventListener('click', grantItem);
     $('btn-grant-refresh').addEventListener('click', loadItems);
     $('btn-game-create').addEventListener('click', createItemGame);
+
+    // v14 — bank
+    $('btn-bank-savings').addEventListener('click', bankSetSavings);
+    $('btn-bank-loan').addEventListener('click', bankSetLoan);
+    $('btn-bank-loan-delta').addEventListener('click', bankAdjustLoan);
+
+    // v14 — biz
+    $('btn-biz-grant').addEventListener('click', bizGrant);
+    $('btn-biz-remove').addEventListener('click', bizRemove);
+    $('btn-biz-mood').addEventListener('click', bizSetMood);
+    $('btn-biz-franchise').addEventListener('click', bizFranchise);
+    var bizMoodInput = $('biz-mood');
+    if (bizMoodInput) bizMoodInput.addEventListener('input', function () {
+      var v = Number(bizMoodInput.value);
+      var lab = $('biz-mood-val');
+      if (lab) lab.textContent = Number.isFinite(v) ? v.toFixed(2) : '—';
+    });
+
+    // v14 — gigs
+    $('btn-gigs-refresh').addEventListener('click', loadGigs);
+    $('btn-gigs-reset').addEventListener('click', gigsResetAll);
 
     // db
     $('btn-db-vacuum').addEventListener('click', dbVacuum);

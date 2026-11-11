@@ -308,6 +308,13 @@ export interface GameState {
   // counter here. Items with no `stock` field stay unlimited (undefined).
   // `itemStockLeft(s, id)` returns null (unlimited) or the remaining count.
   itemStock: Record<string, number>;
+  // v14 — admin gig overrides. Keyed by gig id. An entry with `base` replaces
+  // the gig's GIGS[].base pay (used by gigPay); an entry with `cd` replaces
+  // the gig's cooldown (used by gigReady + gigLock). Empty {} = no overrides
+  // → all gigs fall back to the GIGS array defaults. Cleared by the admin
+  // `resetGigs` action; set by `setGigPay` / `setGigCd`. Survives save/load
+  // + reincarnation (it's just a GameState field, like aiDifficulty).
+  gigOverrides: Record<string, { base?: number; cd?: number }>;
 }
 // v12.2 — AI event difficulty enum.
 export type AiDifficulty = 'easy' | 'normal' | 'hard';
@@ -457,9 +464,24 @@ export function addXp(s: GameState, n: number, rng: () => number = Math.random):
     if (s.level % 5 === 0) addPost(s, `Level ${s.level}. Building an empire, one day at a time.`, 1.4, rng);
   }
 }
+// v14 — admin gig overrides: helpers that consult s.gigOverrides first,
+// then fall back to the GIGS array defaults. gigPay / gigReady / gigLock all
+// call these so a `setGigPay` / `setGigCd` admin action takes effect
+// immediately (the next time the player taps the gig button or the Gigs tab
+// re-renders). Returns NaN / undefined-safe when the override is missing.
+export function gigBase(s: GameState, g: GigDef): number {
+  const ov = s.gigOverrides && s.gigOverrides[g.id];
+  const b = ov && typeof ov.base === 'number' && Number.isFinite(ov.base) ? ov.base : g.base;
+  return Math.max(0, b);
+}
+export function gigCd(s: GameState, g: GigDef): number {
+  const ov = s.gigOverrides && s.gigOverrides[g.id];
+  const c = ov && typeof ov.cd === 'number' && Number.isFinite(ov.cd) ? ov.cd : g.cd;
+  return Math.max(0, c);
+}
 export function gigReady(s: GameState, g: GigDef): boolean {
   const last = s.gigs[g.id];
-  if (last != null && s.lastDay - last < g.cd) return false;
+  if (last != null && s.lastDay - last < gigCd(s, g)) return false;
   if (g.minFollowers && s.social.followers < g.minFollowers) return false;
   return meets(s, g.req);
 }
@@ -469,7 +491,7 @@ export function gigLock(s: GameState, g: GigDef): string {
   return '';
 }
 export function gigPay(s: GameState, g: GigDef): number {
-  let pay = g.base + 0.05 * Math.sqrt(Math.max(0, yearIncome(s)));
+  let pay = gigBase(s, g) + 0.05 * Math.sqrt(Math.max(0, yearIncome(s)));
   // v11.1 fix: scale sponsored pay by sqrt(followers) not linear — prevents
   // the $7.5T-per-ad explosion when followers get large.
   if (g.id === 'sponsored') pay += Math.sqrt(Math.max(0, s.social.followers)) * 2;
@@ -703,6 +725,7 @@ export function fresh(): GameState {
     entity: freshEntity(),
     aiDifficulty: 'normal',
     itemStock: {},
+    gigOverrides: {},
   };
   STOCKS.forEach(x => { s.prices[x.id] = x.p; s.hist[x.id] = [x.p]; });
   return s;
@@ -796,6 +819,10 @@ export function migrate(raw: unknown): GameState {
   // rather than synthesising values — limited-quantity items only exist via
   // custom_items created after this change.
   s.itemStock = s.itemStock && typeof s.itemStock === 'object' ? s.itemStock : {};
+  // v14 — gigOverrides backfill for old saves. Pre-v14 saves have no
+  // gigOverrides map; default to {} so gigPay / gigReady / gigLock fall
+  // straight through to the GIGS array defaults.
+  s.gigOverrides = s.gigOverrides && typeof s.gigOverrides === 'object' ? s.gigOverrides : {};
   // v11.6 — zodiac / gender / birthMonth / psychic. Old saves have none;
   // backfill from freshPsychic() + defaults. gender defaults to
   // 'nonbinary', birthMonth to 1 (Jan), zodiac to 'capricorn'.
@@ -2038,6 +2065,211 @@ export function adminAdvanceTime(s: GameState, days: number): string {
   s.day += d;
   pushLog(s, `Admin advanced time by ${d} days.`);
   return `✅ Advanced ${d} days`;
+}
+
+// ---------------------------------------------------------------- v14 — admin banking / business / gigs control
+// Per-action mutators the new admin dashboard tabs (🏦 Ngân hàng / 🏢 Kinh
+// doanh / ⚡ Việc nhanh) drive via /api/admin/game. Each takes the GameState
+// already loaded by the client polling loop (the API itself only writes an
+// ADMIN_ACTION row; the client picks it up and calls applyAdminActions).
+// Returns a toast string. Defensive on inputs (NaN / out-of-range / unknown
+// ids → returns a clear "skipped" message rather than throwing).
+export function adminSetSavings(s: GameState, amount: number): string {
+  const a = Math.max(-1e12, Math.min(1e15, Number(amount) || 0));
+  s.bank = s.bank || { dep: 0, loan: 0 };
+  s.bank.dep = a;
+  pushLog(s, `Admin set savings to $${a.toLocaleString()}.`);
+  return `✅ Savings set to $${a.toLocaleString()}`;
+}
+export function adminSetLoan(s: GameState, amount: number): string {
+  const a = Math.max(0, Math.min(1e15, Number(amount) || 0));
+  s.bank = s.bank || { dep: 0, loan: 0 };
+  s.bank.loan = a;
+  pushLog(s, `Admin set loan to $${a.toLocaleString()}.`);
+  return `✅ Loan set to $${a.toLocaleString()}`;
+}
+export function adminAdjustLoan(s: GameState, delta: number): string {
+  const d = Number(delta) || 0;
+  s.bank = s.bank || { dep: 0, loan: 0 };
+  s.bank.loan = Math.max(0, s.bank.loan + d);
+  pushLog(s, `Admin adjusted loan by ${d >= 0 ? '+' : ''}$${d.toLocaleString()} → $${s.bank.loan.toLocaleString()}.`);
+  return `✅ Loan ${d >= 0 ? '+' : ''}${d.toLocaleString()} → $${s.bank.loan.toLocaleString()}`;
+}
+// v14 — grant N branches of a biz, bypassing the degree requirement + cost.
+// Each new branch is tagged paid = bizCost at the time of grant (so net worth
+// + resale value still work), day = s.day, mood = 1 (full health). Splits the
+// region list across the granted count so each branch lands in a different
+// region (mirrors openBranch's behaviour).
+export function adminGrantBranch(s: GameState, bizId: string, count: number): string {
+  const b = BIZ.find(x => x.id === bizId);
+  if (!b) return `⚠️ Unknown business: ${bizId}`;
+  const n = Math.max(1, Math.min(50, Math.round(Number(count) || 1)));
+  const list = s.branches[bizId] || [];
+  const c = bizCost(s, b);
+  for (let i = 0; i < n; i++) {
+    const idx = list.length;
+    list.push({ r: idx % 6, mood: 1, paid: c, day: s.day });
+  }
+  s.branches[bizId] = list;
+  s.biz[bizId] = list.length;
+  pushLog(s, `Admin granted ${n} × ${b.name} branch(es).`);
+  return `✅ Granted ${n} × ${b.name}`;
+}
+export function adminRemoveBranch(s: GameState, bizId: string, count: number): string {
+  const b = BIZ.find(x => x.id === bizId);
+  if (!b) return `⚠️ Unknown business: ${bizId}`;
+  const list = s.branches[bizId] || [];
+  const n = Math.max(1, Math.min(list.length, Math.round(Number(count) || 1)));
+  if (n === 0) return `ℹ️ No branches to remove`;
+  // v14 — splice from the end (LIFO) so the oldest branches survive; this
+  // keeps region numbering stable for any UI that shows branches in order.
+  list.splice(list.length - n, n);
+  if (list.length === 0) {
+    delete s.branches[bizId];
+    delete s.biz[bizId];
+  } else {
+    s.branches[bizId] = list;
+    s.biz[bizId] = list.length;
+  }
+  pushLog(s, `Admin removed ${n} × ${b.name} branch(es).`);
+  return `✅ Removed ${n} × ${b.name}`;
+}
+export function adminSetBizMood(s: GameState, bizId: string, mood: number): string {
+  const b = BIZ.find(x => x.id === bizId);
+  if (!b) return `⚠️ Unknown business: ${bizId}`;
+  const m = Math.max(0.5, Math.min(1.5, Number(mood) || 1));
+  const list = s.branches[bizId];
+  if (!list || !list.length) return `ℹ️ No branches of ${b.name}`;
+  for (const br of list) br.mood = m;
+  pushLog(s, `Admin set ${b.name} branch mood → ${m}.`);
+  return `✅ ${b.name} mood = ${m}`;
+}
+export function adminFranchiseAll(s: GameState, bizId: string): string {
+  const b = BIZ.find(x => x.id === bizId);
+  if (!b) return `⚠️ Unknown business: ${bizId}`;
+  const list = s.branches[bizId];
+  if (!list || !list.length) return `ℹ️ No branches of ${b.name}`;
+  let count = 0;
+  let fee = 0;
+  for (const br of list) {
+    if (br.franchised) continue;
+    br.franchised = true;
+    const f = Math.round(br.paid * FRANCHISE_FEE_MULT);
+    s.money += f;
+    s.fame += 1;
+    fee += f;
+    count++;
+  }
+  if (count === 0) return `ℹ️ All ${b.name} branches already franchised`;
+  addXp(s, count * 10);
+  pushLog(s, `Admin franchised ${count} × ${b.name} branch(es) — +$${fee.toLocaleString()} upfront.`);
+  addPost(s, `Franchised ${count} × ${b.name} outlet(s) — cash boost of $${fee.toLocaleString()}!`, 1.1);
+  recordTx(s, { kind: 'income', asset: 'branch', ref: bizId, name: `Franchise fee: ${b.name} × ${count}`, qty: count, unit: Math.round(fee / count), amount: fee });
+  return `✅ Franchised ${count} × ${b.name} (+$${fee.toLocaleString()})`;
+}
+// v14 — gig pay / cd overrides stored on GameState (not the GIGS table —
+// that's a build-time constant). The override map persists across save/load
+// + reincarnation (fresh() resets it to {}). Passing undefined / NaN /
+// negative resets that field back to the GIGS default.
+export function adminSetGigPay(s: GameState, gigId: string, basePay: number): string {
+  const g = GIGS.find(x => x.id === gigId);
+  if (!g) return `⚠️ Unknown gig: ${gigId}`;
+  s.gigOverrides = s.gigOverrides || {};
+  const ov = s.gigOverrides[gigId] || {};
+  const bp = Number(basePay);
+  if (!Number.isFinite(bp) || bp < 0) {
+    delete ov.base;
+  } else {
+    ov.base = Math.max(0, Math.min(1e9, Math.round(bp)));
+  }
+  if (Object.keys(ov).length) s.gigOverrides[gigId] = ov;
+  else delete s.gigOverrides[gigId];
+  pushLog(s, `Admin set gig pay [${gigId}] → ${ov.base != null ? ov.base : 'default'}.`);
+  return `✅ ${gigId} base pay → ${ov.base != null ? '$' + ov.base.toLocaleString() : 'default'}`;
+}
+export function adminSetGigCd(s: GameState, gigId: string, cd: number): string {
+  const g = GIGS.find(x => x.id === gigId);
+  if (!g) return `⚠️ Unknown gig: ${gigId}`;
+  s.gigOverrides = s.gigOverrides || {};
+  const ov = s.gigOverrides[gigId] || {};
+  const c = Number(cd);
+  if (!Number.isFinite(c) || c < 0) {
+    delete ov.cd;
+  } else {
+    ov.cd = Math.max(0, Math.min(365, Math.round(c)));
+  }
+  if (Object.keys(ov).length) s.gigOverrides[gigId] = ov;
+  else delete s.gigOverrides[gigId];
+  pushLog(s, `Admin set gig cd [${gigId}] → ${ov.cd != null ? ov.cd : 'default'}.`);
+  return `✅ ${gigId} cooldown → ${ov.cd != null ? ov.cd + 'd' : 'default'}`;
+}
+export function adminResetGigs(s: GameState): string {
+  s.gigOverrides = {};
+  pushLog(s, 'Admin reset all gig overrides to defaults.');
+  return '✅ Gig overrides cleared';
+}
+
+// v14 — the dispatcher. Given a list of { action, uid, ... } action records
+// (each one mirrors a row the admin API wrote as an ADMIN_ACTION message),
+// apply each to the GameState and return the corresponding toast per action.
+// Unknown actions produce a "skipped" message rather than throwing, so a
+// malformed action never breaks the rest of the batch. The `uid` field is
+// matched against s.uid; an action targeting a different uid is silently
+// skipped (the polling client only fetches its own actions, but this guards
+// against a misrouted message).
+export interface AdminAction {
+  action: string;
+  uid?: string;
+  [key: string]: unknown;
+}
+export function applyAdminActions(s: GameState, actions: AdminAction[]): string[] {
+  const out: string[] = [];
+  for (const a of actions) {
+    if (!a || typeof a !== 'object') { out.push('⚠️ Skipped malformed action'); continue; }
+    const act = String(a.action || '');
+    // v14 — gig actions target the gig, not a player; they always apply to
+    // the local state (no uid match). Same for resetGigs.
+    const isGlobalGigAction = act === 'setGigPay' || act === 'setGigCd' || act === 'resetGigs';
+    if (!isGlobalGigAction) {
+      const targetUid = String(a.uid || '').trim();
+      // v14 — match the target uid against this player's uid OR their HB-
+      // code (saved players don't store their HB-code on GameState; the
+      // server-side player row does, but the client polling doesn't have it).
+      // Practically the client only fetches ADMIN_ACTION messages addressed
+      // to it (filtered at the API), so an empty targetUid means "broadcast"
+      // and is accepted.
+      if (targetUid && s.uid && targetUid !== s.uid) {
+        out.push(`⚙️ Admin: ${act} skipped (different uid)`);
+        continue;
+      }
+    }
+    switch (act) {
+      case 'setMoney':       out.push(adminSetMoney(s, Number(a.amount))); break;
+      case 'setFame':        out.push(adminSetFame(s, Number(a.amount))); break;
+      case 'setHealth':      out.push(adminSetHealth(s, Number(a.amount))); break;
+      case 'setSpirit':      out.push(adminSetSpirit(s, Number(a.amount))); break;
+      case 'setLevel':       out.push(adminSetLevel(s, Number(a.level ?? a.amount))); break;
+      case 'triggerElection':out.push(adminTriggerElection(s)); break;
+      case 'advanceTime':    out.push(adminAdvanceTime(s, Number(a.days ?? a.amount))); break;
+      case 'grantItem': {
+        const r = adminGrantItem(s, String(a.itemId || ''));
+        out.push(r || '⚠️ grantItem: unknown item');
+        break;
+      }
+      case 'setSavings':     out.push(adminSetSavings(s, Number(a.amount))); break;
+      case 'setLoan':        out.push(adminSetLoan(s, Number(a.amount))); break;
+      case 'adjustLoan':     out.push(adminAdjustLoan(s, Number(a.delta ?? a.amount))); break;
+      case 'grantBranch':    out.push(adminGrantBranch(s, String(a.bizId || ''), Number(a.count ?? 1))); break;
+      case 'removeBranch':   out.push(adminRemoveBranch(s, String(a.bizId || ''), Number(a.count ?? 1))); break;
+      case 'setBizMood':     out.push(adminSetBizMood(s, String(a.bizId || ''), Number(a.mood ?? 1))); break;
+      case 'franchiseAll':   out.push(adminFranchiseAll(s, String(a.bizId || ''))); break;
+      case 'setGigPay':      out.push(adminSetGigPay(s, String(a.gigId || ''), Number(a.basePay))); break;
+      case 'setGigCd':       out.push(adminSetGigCd(s, String(a.gigId || ''), Number(a.cd))); break;
+      case 'resetGigs':      out.push(adminResetGigs(s)); break;
+      default: out.push(`⚠️ Unknown admin action: ${act}`);
+    }
+  }
+  return out;
 }
 export function buyFarmLine(s: GameState, id: string): string | null {
   const l = FARM_LINES.find(x => x.id === id); if (!l || s.farm[l.id]) return null;

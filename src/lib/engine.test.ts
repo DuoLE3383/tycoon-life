@@ -20,6 +20,12 @@ import {
   // v12.2 — AI event difficulty + risk-roll helpers
   rollRiskOutcome, choiceRisk, applyAIChoice, normaliseDifficulty, type AiDifficulty,
   dateOf, worldYear, type GameState, type Transaction,
+  // v14 — admin banking / business / gigs + applyAdminActions dispatcher
+  applyAdminActions, type AdminAction,
+  adminSetSavings, adminSetLoan, adminAdjustLoan,
+  adminGrantBranch, adminRemoveBranch, adminSetBizMood, adminFranchiseAll,
+  adminSetGigPay, adminSetGigCd, adminResetGigs,
+  gigBase, gigCd, gigReady, gigLock,
 } from './engine';
 
 function seeded(seed: number): () => number {
@@ -1622,5 +1628,230 @@ test('v12.2: applyAIChoice passes s.aiDifficulty through to rollRiskOutcome', ()
   // auto-donate also scales: normal 20% of 30000 = 6000; hard 20% of 45000 = 9000.
   assert.equal(sNormal.donated, 6000);
   assert.equal(sHard.donated, 9000);
+});
+
+// ================= v14 — admin banking / business / gigs + gigOverrides =================
+
+test('v14: fresh() initialises gigOverrides to an empty object', () => {
+  const s = fresh();
+  assert.ok(s.gigOverrides && typeof s.gigOverrides === 'object');
+  assert.deepEqual(s.gigOverrides, {});
+});
+
+test('v14: migrate() backfills gigOverrides as {} for old saves (pre-v14)', () => {
+  const pre = { schemaVersion: 4, name: 'Old' } as Partial<GameState>;
+  const m = migrate(pre);
+  assert.ok(m.gigOverrides && typeof m.gigOverrides === 'object');
+  assert.deepEqual(m.gigOverrides, {}, 'migrate must default gigOverrides to {}');
+});
+
+test('v14: migrate() preserves an existing gigOverrides map', () => {
+  const ov = { sponsored: { base: 500 } };
+  const m = migrate({ schemaVersion: 4, gigOverrides: ov });
+  assert.deepEqual(m.gigOverrides, ov, 'migrate must keep an existing gigOverrides map');
+});
+
+test('v14: gigBase / gigCd fall back to GIGS defaults when no override set', () => {
+  const s = fresh();
+  const g = GIGS.find(x => x.id === 'delivery')!;
+  assert.equal(gigBase(s, g), g.base, 'no override → gigBase returns g.base');
+  assert.equal(gigCd(s, g), g.cd, 'no override → gigCd returns g.cd');
+});
+
+test('v14: gigBase / gigCd consult s.gigOverrides first when set', () => {
+  const s = fresh();
+  const g = GIGS.find(x => x.id === 'sponsored')!;
+  s.gigOverrides.sponsored = { base: 999, cd: 7 };
+  assert.equal(gigBase(s, g), 999, 'override base wins');
+  assert.equal(gigCd(s, g), 7, 'override cd wins');
+});
+
+test('v14: gigPay reflects a base-pay override (other multipliers still apply)', () => {
+  const s = fresh();
+  s.job = 'clerk';
+  s.health = 100;
+  const g = GIGS.find(x => x.id === 'delivery')!;
+  const baseline = gigPay(s, g);
+  // v14 — set a high override; gigPay must rise proportionally. The exact
+  // post-multiplier number isn't checked (levelMult / healthMult / sqrt
+  // income all stay constant), only that the override moved the needle.
+  s.gigOverrides.delivery = { base: 1000 };
+  const overridden = gigPay(s, g);
+  assert.ok(overridden > baseline + 900, `override must bump gigPay: baseline=${baseline}, overridden=${overridden}`);
+});
+
+test('v14: gigReady respects a cd override (cd=0 → always ready)', () => {
+  const s = fresh();
+  const g = GIGS.find(x => x.id === 'delivery')!; // default cd=1
+  s.gigs[g.id] = s.lastDay; // just did the gig → normally on cooldown
+  assert.equal(gigReady(s, g), false, 'default cd=1 → not ready immediately');
+  s.gigOverrides.delivery = { cd: 0 };
+  assert.equal(gigReady(s, g), true, 'override cd=0 → ready immediately');
+});
+
+test('v14: adminSetGigPay writes the override; adminSetGigCd writes the cd; adminResetGigs clears', () => {
+  const s = fresh();
+  adminSetGigPay(s, 'delivery', 1234);
+  assert.equal(s.gigOverrides.delivery?.base, 1234);
+  adminSetGigCd(s, 'delivery', 9);
+  assert.equal(s.gigOverrides.delivery?.cd, 9);
+  adminResetGigs(s);
+  assert.deepEqual(s.gigOverrides, {}, 'resetGigs clears the override map');
+});
+
+test('v14: adminSetGigPay with NaN/undefined resets that field back to default', () => {
+  const s = fresh();
+  s.gigOverrides.delivery = { base: 500, cd: 9 };
+  // Passing NaN must clear `base` but keep `cd`.
+  adminSetGigPay(s, 'delivery', Number.NaN);
+  assert.equal(s.gigOverrides.delivery?.base, undefined, 'NaN base must be cleared');
+  assert.equal(s.gigOverrides.delivery?.cd, 9, 'cd untouched');
+});
+
+test('v14: adminSetGigPay rejects unknown gig ids (returns warning, no mutation)', () => {
+  const s = fresh();
+  const r = adminSetGigPay(s, 'nonsense-gig', 1000);
+  assert.ok(r.startsWith('⚠️'), `unknown gig must return warning, got: ${r}`);
+  assert.deepEqual(s.gigOverrides, {}, 'no override written for unknown gig');
+});
+
+test('v14: adminSetSavings / adminSetLoan / adminAdjustLoan mutate s.bank correctly', () => {
+  const s = fresh();
+  adminSetSavings(s, 50000);
+  assert.equal(s.bank.dep, 50000);
+  adminSetLoan(s, 12000);
+  assert.equal(s.bank.loan, 12000);
+  // Repay 5000 → loan = 7000
+  adminAdjustLoan(s, -5000);
+  assert.equal(s.bank.loan, 7000);
+  // Borrow 3000 → loan = 10000
+  adminAdjustLoan(s, 3000);
+  assert.equal(s.bank.loan, 10000);
+  // Repay MORE than the balance → clamped at 0 (no negative loan).
+  adminAdjustLoan(s, -99999);
+  assert.equal(s.bank.loan, 0, 'loan must never go negative');
+});
+
+test('v14: adminGrantBranch adds N branches bypassing degree + cost requirements', () => {
+  const s = fresh();
+  // 'realestate' requires business degree 2 + base $2M — a fresh player
+  // has neither. adminGrantBranch bypasses both.
+  const before = s.branches.realestate?.length ?? 0;
+  const r = adminGrantBranch(s, 'realestate', 3);
+  assert.ok(r.startsWith('✅'));
+  assert.equal((s.branches.realestate || []).length, before + 3);
+  // Each granted branch must have mood=1 and a sane paid value.
+  for (const br of s.branches.realestate || []) {
+    assert.equal(br.mood, 1);
+    assert.ok(br.paid > 0);
+    assert.equal(br.day, s.day);
+  }
+  // biz counter must track.
+  assert.equal(s.biz.realestate, 3);
+});
+
+test('v14: adminRemoveBranch removes N branches (LIFO) and cleans up empty biz', () => {
+  const s = fresh();
+  adminGrantBranch(s, 'cafe', 2);
+  assert.equal((s.branches.cafe || []).length, 2);
+  const r = adminRemoveBranch(s, 'cafe', 1);
+  assert.ok(r.startsWith('✅'));
+  assert.equal((s.branches.cafe || []).length, 1, 'one branch removed');
+  // Remove the last one — biz + branches must both be deleted.
+  adminRemoveBranch(s, 'cafe', 1);
+  assert.equal(s.branches.cafe, undefined, 'branches.cafe deleted when empty');
+  assert.equal(s.biz.cafe, undefined, 'biz.cafe deleted when empty');
+});
+
+test('v14: adminSetBizMood sets mood on all branches of a biz (clamped 0.5–1.5)', () => {
+  const s = fresh();
+  adminGrantBranch(s, 'cafe', 2);
+  adminSetBizMood(s, 'cafe', 0.7);
+  for (const br of s.branches.cafe || []) assert.equal(br.mood, 0.7);
+  // Clamp high → 1.5
+  adminSetBizMood(s, 'cafe', 5);
+  for (const br of s.branches.cafe || []) assert.equal(br.mood, 1.5, 'mood clamped at 1.5');
+  // Clamp low → 0.5
+  adminSetBizMood(s, 'cafe', -1);
+  for (const br of s.branches.cafe || []) assert.equal(br.mood, 0.5, 'mood clamped at 0.5');
+});
+
+test('v14: adminFranchiseAll franchises every non-franchised branch + grants upfront fee', () => {
+  const s = fresh();
+  adminGrantBranch(s, 'cafe', 3);
+  const before = s.money;
+  // All 3 branches are non-franchised → 3 × (paid × 1.8) total fee.
+  const r = adminFranchiseAll(s, 'cafe');
+  assert.ok(r.startsWith('✅'));
+  for (const br of s.branches.cafe || []) assert.equal(br.franchised, true);
+  assert.ok(s.money > before, 'admin must receive the upfront franchise fee');
+  // Running again → "already franchised" warning, no further fee.
+  const r2 = adminFranchiseAll(s, 'cafe');
+  assert.ok(r2.startsWith('ℹ️'), `second franchiseAll must info-skip, got: ${r2}`);
+});
+
+test('v14: applyAdminActions applies a batch in order and returns one toast per action', () => {
+  const s = fresh();
+  s.uid = 'uid-test123';
+  const batch: AdminAction[] = [
+    { action: 'setMoney', uid: 'uid-test123', amount: 999 },
+    { action: 'setSavings', uid: 'uid-test123', amount: 5000 },
+    { action: 'setLoan', uid: 'uid-test123', amount: 1000 },
+    { action: 'grantBranch', uid: 'uid-test123', bizId: 'cafe', count: 2 },
+    { action: 'setGigPay', gigId: 'delivery', basePay: 500 },  // broadcast — no uid needed
+    { action: 'resetGigs' },                                    // broadcast — clears the override above
+  ];
+  const results = applyAdminActions(s, batch);
+  assert.equal(results.length, batch.length, 'one toast per action');
+  assert.equal(s.money, 999);
+  assert.equal(s.bank.dep, 5000);
+  assert.equal(s.bank.loan, 1000);
+  assert.equal((s.branches.cafe || []).length, 2);
+  // resetGigs was the last action → gigOverrides ends up empty (the
+  // setGigPay at index 4 wrote delivery.base=500, but resetGigs at index 5
+  // cleared it).
+  assert.deepEqual(s.gigOverrides, {}, 'resetGigs (last in batch) clears overrides');
+});
+
+test('v14: applyAdminActions setGigPay without a trailing resetGigs persists the override', () => {
+  const s = fresh();
+  s.uid = 'uid-x';
+  applyAdminActions(s, [{ action: 'setGigPay', gigId: 'delivery', basePay: 500 }]);
+  assert.equal(s.gigOverrides.delivery?.base, 500, 'without resetGigs, override persists');
+});
+
+test('v14: applyAdminActions skips actions targeting a different uid', () => {
+  const s = fresh();
+  s.uid = 'uid-mine';
+  const batch: AdminAction[] = [
+    { action: 'setMoney', uid: 'uid-someone-else', amount: 1_000_000 },
+    { action: 'setMoney', uid: 'uid-mine', amount: 12345 },
+  ];
+  const results = applyAdminActions(s, batch);
+  assert.equal(s.money, 12345, 'only the matching-uid action applies');
+  assert.ok(results[0].includes('skipped'), `first result must say skipped, got: ${results[0]}`);
+});
+
+test('v14: applyAdminActions always applies broadcast gig actions (no uid match)', () => {
+  const s = fresh();
+  s.uid = 'uid-mine';
+  applyAdminActions(s, [{ action: 'setGigPay', gigId: 'delivery', basePay: 777 }]);
+  assert.equal(s.gigOverrides.delivery?.base, 777, 'broadcast gig action must apply regardless of uid');
+});
+
+test('v14: applyAdminActions handles unknown actions with a warning (no throw)', () => {
+  const s = fresh();
+  const r = applyAdminActions(s, [{ action: 'totallyBogusAction', uid: s.uid }]);
+  assert.equal(r.length, 1);
+  assert.ok(r[0].includes('Unknown admin action'), `unknown action must warn, got: ${r[0]}`);
+});
+
+test('v14: applyAdminActions handles an empty payload gracefully (NaN inputs default to 0)', () => {
+  const s = fresh();
+  s.uid = 'uid-x';
+  // No `amount` field — Number(undefined) = NaN → adminSetMoney treats as 0.
+  const r = applyAdminActions(s, [{ action: 'setMoney', uid: 'uid-x' }]);
+  assert.equal(r.length, 1);
+  assert.equal(s.money, 0, 'missing amount field → defaults to 0, not crash');
 });
 

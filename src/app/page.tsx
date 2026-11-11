@@ -81,6 +81,9 @@ import {
   type ZodiacSign, type Gender, type ZodiacDef, type PsychicState,
   // v11.6 — MONTHS array renamed to avoid clashing with month names below
   MONTHS as MONTHS_NAMES,
+  // v14 — admin actions queue: applies pending ADMIN_ACTION rows polled from
+  // /api/social/ping?uid=xxx (banking / business / gigs / player-stat tweaks).
+  applyAdminActions, type AdminAction,
 } from '@/lib/engine';
 import { localTwist, pickKind } from '@/lib/story';
 import { ChatView, FriendsView, BoardView } from './community';
@@ -392,6 +395,77 @@ export default function Page() {
       window.removeEventListener('beforeunload', onUnload);
     };
   }, [showToast, achToast, t]);
+
+  // v14 — admin action queue polling. Every 60s, GET /api/social/ping?uid=xxx
+  // returns the player's pending ADMIN_ACTION rows (banking / business /
+  // gigs / player-stat tweaks). We apply each via applyAdminActions(), show
+  // a toast per applied action, persist the updated state, and ack each row
+  // so the next poll doesn't re-deliver it. Only runs once the player has
+  // begun (s.uid is set + s.started is true); on the static GitHub Pages
+  // build the fetch fails silently — the demo backend has no admin queue.
+  // The poll skips while the tab is hidden (saves a request when the player
+  // isn't looking) and re-runs immediately on visibility regain.
+  useEffect(() => {
+    const ADMIN_POLL_MS = 60_000;
+    let alive = true;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const base = (process.env.NEXT_PUBLIC_BASE_PATH || '');
+    const poll = async () => {
+      if (!alive) return;
+      const st0 = getState();
+      // Only poll when the player has started AND has a uid (don't poll the
+      // intro screen — s.uid is '' until begin() runs).
+      if (!st0.started || !st0.uid) return;
+      if (document.hidden) return; // skip while the tab is hidden
+      try {
+        const url = base + '/api/social/ping?uid=' + encodeURIComponent(st0.uid);
+        const res = await fetch(url, { cache: 'no-store' });
+        if (!res.ok) return;
+        const j = await res.json() as { actions?: Array<{ id: string; action: string; payload: Record<string, unknown>; ts: number }> };
+        if (!j.actions || !j.actions.length) return;
+        // Build AdminAction[] the engine can consume. The payload already
+        // carries uid (for player actions) so applyAdminActions' uid-match
+        // guard works correctly.
+        const actions: AdminAction[] = j.actions.map(a => ({
+          action: a.action,
+          ...(a.payload || {}),
+        }));
+        const st = getState();
+        const results = applyAdminActions(st, actions);
+        // Persist + bump so the UI reflects the mutation immediately.
+        persist(); bump();
+        // Toast each result so the player sees what the admin did.
+        results.forEach((msg, i) => setTimeout(() => showToast('⚙️ Admin: ' + msg), i * 600));
+        // Ack each row so it doesn't re-deliver. Acks are best-effort — if
+        // the POST fails, the next poll will simply re-apply (the engine's
+        // mutators are idempotent for set* actions; grant/remove/franchise
+        // would double-apply, but the ack is fire-and-forget and usually
+        // succeeds).
+        for (const a of j.actions) {
+          try {
+            await fetch(base + '/api/social/ping', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ uid: st.uid, ackId: Number(a.id) }),
+              cache: 'no-store',
+            });
+          } catch { /* ignore — next poll will retry */ }
+        }
+      } catch { /* offline — next sweep retries */ }
+    };
+    // v14 — first poll 6s after boot (gives the social backend time to init),
+    // then every 60s thereafter.
+    timer = setTimeout(poll, 6000);
+    const iv = setInterval(poll, ADMIN_POLL_MS);
+    const onVis = () => { if (!document.hidden) poll(); };
+    document.addEventListener('visibilitychange', onVis);
+    return () => {
+      alive = false;
+      if (timer) clearTimeout(timer);
+      clearInterval(iv);
+      document.removeEventListener('visibilitychange', onVis);
+    };
+  }, [showToast]);
 
   const askAI = useCallback(async () => {
     setAiBusy(true); setAiNoteKey('oracle.thinking');

@@ -27,10 +27,20 @@
 // `stock` (INTEGER NULLABLE). custom_items table gains a stock column via
 // ALTER TABLE on read so existing installs upgrade transparently. Mythic
 // items MUST carry a 1-10 stock; the patch rejects bad stock values.
+// v14 — banking / business / gigs actions added (setSavings, setLoan,
+// adjustLoan, grantBranch, removeBranch, setBizMood, franchiseAll,
+// setGigPay, setGigCd, resetGigs). ALL player-mutation actions now record
+// an ADMIN_ACTION row in the new `admin_actions` table instead of returning
+// 501 — the client polls /api/social/ping?uid=xxx every 60s, picks up its
+// pending actions, applies them via applyAdminActions(), and acks each one.
+// Gig-config actions (setGigPay, setGigCd, resetGigs) target the broadcast
+// sentinel so EVERY player applies them (overrides live on GameState, so
+// gig pay / cd stay consistent across the community).
 import { NextResponse } from 'next/server';
 import { adminGuard, readBody } from '@/lib/server/adminAuth';
-import { ITEMS, RARE_ITEMS } from '@/lib/gameData';
+import { ITEMS, RARE_ITEMS, BIZ, GIGS } from '@/lib/gameData';
 import type { Rarity } from '@/lib/gameData';
+import { getPlayerByCode, insertAdminAction, ADMIN_BROADCAST_UID } from '@/lib/server/socialDb';
 
 // Lazy SQLite loader — returns null if better-sqlite3 or the DB file can't
 // be initialised (permissions, missing data/ dir, native module issue).
@@ -60,6 +70,53 @@ function ensureStockColumn(d: { exec: (sql: string) => void }): void {
 // v13.2 — the rarity tiers the API accepts. Matches the Rarity type in
 // gameData.ts so admin-created items flow through itemRarity() untouched.
 const VALID_RARITIES: Rarity[] = ['common', 'uncommon', 'rare', 'legendary', 'mythic'];
+
+// v14 — set of action names that mutate the player's GameState. These are
+// recorded as ADMIN_ACTION rows in the admin_actions table; the targeted
+// player's client polls /api/social/ping?uid=xxx, picks up its pending
+// actions, applies each via applyAdminActions(), and acks the row.
+const PLAYER_ACTIONS = new Set([
+  'grantItem', 'setMoney', 'setFame', 'setHealth', 'setSpirit', 'setLevel',
+  'triggerElection', 'advanceTime', 'setDifficulty',
+  // v14 — banking
+  'setSavings', 'setLoan', 'adjustLoan',
+  // v14 — business
+  'grantBranch', 'removeBranch', 'setBizMood', 'franchiseAll',
+]);
+// v14 — gig-config actions broadcast to every player (overrides live on
+// GameState.gigOverrides; consistency across the community matters).
+const BROADCAST_ACTIONS = new Set(['setGigPay', 'setGigCd', 'resetGigs']);
+
+// v14 — resolve the target uid from the admin's input. Accepts either a
+// player's server-side uid (uid-xxx) directly or their HB-code (HB-XXXXXX)
+// which is resolved to a uid via the players table. Returns null if the
+// input is empty / malformed / unrecognised. Always returns a non-broadcast
+// uid (broadcast actions skip this resolver entirely).
+async function resolveTargetUid(raw: unknown): Promise<string | null> {
+  const s = String(raw ?? '').trim();
+  if (!s) return null;
+  // v14 — HB-code form? resolve via the players table.
+  if (/^HB-[A-HJ-NP-Z2-9]{6}$/.test(s)) {
+    const d = await tryDb();
+    if (!d) return null;
+    const p = getPlayerByCode(s);
+    return p && p.id ? p.id : null;
+  }
+  // v14 — otherwise treat as a uid and accept verbatim. The polling client
+  // filters by its own s.uid, so a bogus uid simply never gets delivered.
+  // We DO require it to look like a uid (alphanumeric, 6-64 chars) to keep
+  // the audit log readable + reject obvious garbage.
+  if (/^[A-Za-z0-9_-]{6,64}$/.test(s)) return s;
+  return null;
+}
+
+// v14 — clamp a number into a safe range; NaN/Infinity → 0. Used by every
+// numeric admin action so the recorded payload is always finite.
+function clampNum(v: unknown, lo: number, hi: number): number {
+  const n = Number(v);
+  if (!Number.isFinite(n)) return 0;
+  return Math.max(lo, Math.min(hi, n));
+}
 
 // v12.2 — normalise + clamp a custom-item patch shared by createItem and
 // updateItem. Returns null when the patch has no valid URL (URL is required
@@ -120,7 +177,16 @@ export async function POST(req: Request) {
 
   try {
     const action = String(b.action ?? '');
-    const validActions = ['grantItem', 'setMoney', 'setFame', 'setHealth', 'setSpirit', 'setLevel', 'triggerElection', 'advanceTime', 'createItem', 'updateItem', 'setDifficulty'];
+    const validActions = [
+      'grantItem', 'setMoney', 'setFame', 'setHealth', 'setSpirit', 'setLevel',
+      'triggerElection', 'advanceTime', 'createItem', 'updateItem', 'setDifficulty',
+      // v14 — banking
+      'setSavings', 'setLoan', 'adjustLoan',
+      // v14 — business
+      'grantBranch', 'removeBranch', 'setBizMood', 'franchiseAll',
+      // v14 — gigs
+      'setGigPay', 'setGigCd', 'resetGigs',
+    ];
     if (!validActions.includes(action)) return NextResponse.json({ ok: false, error: 'bad-action' }, { status: 400 });
 
     // Custom catalogue changes must be durable; never fall back to process memory.
@@ -169,17 +235,128 @@ export async function POST(req: Request) {
       return NextResponse.json({ ok: true, itemId, name: patch.name });
     }
 
-    // Player saves currently live in browser LocalStorage, not in the server DB.
-    // Refuse mutations rather than reporting success after only writing an audit note.
-    const uid = String(b.uid ?? '').trim();
-    if (!uid) return NextResponse.json({ ok: false, error: 'bad-uid' }, { status: 400 });
-    return NextResponse.json({
-      ok: false,
-      error: 'player-save-not-server-managed',
-      message: 'Disabled until player saves are migrated to authenticated server-side storage.',
-      action,
-      uid,
-    }, { status: 501 });
+    // v14 — ALL player-mutation + gig-config actions record an ADMIN_ACTION
+    // row in the admin_actions table. The targeted client polls
+    // /api/social/ping?uid=xxx every 60s, picks up the pending action,
+    // applies it via applyAdminActions(), and acks the row. This replaces
+    // the old 501 "player-save-not-server-managed" stub — saves STILL live
+    // in browser localStorage; we just deliver the mutation request to the
+    // client instead of refusing it.
+    if (PLAYER_ACTIONS.has(action) || BROADCAST_ACTIONS.has(action)) {
+      const d = await tryDb();
+      if (!d) return NextResponse.json({ ok: false, error: 'sqlite-unavailable' }, { status: 503 });
+
+      // --- target uid resolution -------------------------------------------
+      // Gig-config actions go to the broadcast sentinel (every player applies
+      // them). Player-specific actions resolve the admin's HB-code / uid
+      // input to a real player uid via the players table.
+      let targetUid: string;
+      if (BROADCAST_ACTIONS.has(action)) {
+        targetUid = ADMIN_BROADCAST_UID;
+      } else {
+        const resolved = await resolveTargetUid(b.uid);
+        if (!resolved) return NextResponse.json({ ok: false, error: 'bad-uid' }, { status: 400 });
+        targetUid = resolved;
+      }
+
+      // --- per-action input validation + payload build ---------------------
+      // Each branch produces a payload object the engine's applyAdminActions
+      // can consume directly. NaN / out-of-range inputs are rejected with a
+      // 400 rather than silently recorded — the operator should see the
+      // error immediately, not after the client fails to apply the action.
+      const payload: Record<string, unknown> = {};
+      try {
+        switch (action) {
+          // --- existing player actions (v11.39 / v12.2) -------------------
+          case 'grantItem': {
+            const itemId = String(b.itemId ?? '').trim();
+            if (!itemId) throw new Error('bad-itemId');
+            payload.itemId = itemId;
+            payload.uid = targetUid;
+            break;
+          }
+          case 'setMoney':   payload.amount = clampNum(b.amount, -1e12, 1e15); payload.uid = targetUid; break;
+          case 'setFame':    payload.amount = clampNum(b.amount, 0, 1e6);     payload.uid = targetUid; break;
+          case 'setHealth':  payload.amount = clampNum(b.amount, 0, 100);      payload.uid = targetUid; break;
+          case 'setSpirit':  payload.amount = clampNum(b.amount, 0, 100);      payload.uid = targetUid; break;
+          case 'setLevel':   payload.level  = clampNum(b.level ?? b.amount, 1, 999); payload.uid = targetUid; break;
+          case 'triggerElection': payload.uid = targetUid; break;
+          case 'advanceTime': payload.days = clampNum(b.days ?? b.amount, 0, 3650); payload.uid = targetUid; break;
+          case 'setDifficulty': {
+            const lvl = String(b.level ?? '').toLowerCase();
+            if (lvl !== 'easy' && lvl !== 'normal' && lvl !== 'hard') throw new Error('bad-difficulty');
+            payload.level = lvl;
+            payload.uid = targetUid;
+            break;
+          }
+          // --- v14 banking --------------------------------------------------
+          case 'setSavings': payload.amount = clampNum(b.amount, -1e12, 1e15); payload.uid = targetUid; break;
+          case 'setLoan':    payload.amount = clampNum(b.amount, 0, 1e15);     payload.uid = targetUid; break;
+          case 'adjustLoan': payload.delta  = clampNum(b.delta ?? b.amount, -1e15, 1e15); payload.uid = targetUid; break;
+          // --- v14 business -------------------------------------------------
+          case 'grantBranch':
+          case 'removeBranch': {
+            const bizId = String(b.bizId ?? '').trim();
+            if (!BIZ.some(x => x.id === bizId)) throw new Error('bad-bizId');
+            payload.bizId = bizId;
+            payload.count = clampNum(b.count ?? 1, 1, 50);
+            payload.uid = targetUid;
+            break;
+          }
+          case 'setBizMood': {
+            const bizId = String(b.bizId ?? '').trim();
+            if (!BIZ.some(x => x.id === bizId)) throw new Error('bad-bizId');
+            const mood = clampNum(b.mood, 0.5, 1.5);
+            payload.bizId = bizId;
+            payload.mood = mood;
+            payload.uid = targetUid;
+            break;
+          }
+          case 'franchiseAll': {
+            const bizId = String(b.bizId ?? '').trim();
+            if (!BIZ.some(x => x.id === bizId)) throw new Error('bad-bizId');
+            payload.bizId = bizId;
+            payload.uid = targetUid;
+            break;
+          }
+          // --- v14 gigs -----------------------------------------------------
+          case 'setGigPay': {
+            const gigId = String(b.gigId ?? '').trim();
+            if (!GIGS.some(x => x.id === gigId)) throw new Error('bad-gigId');
+            const basePay = clampNum(b.basePay, 0, 1e9);
+            payload.gigId = gigId;
+            payload.basePay = basePay;
+            break;
+          }
+          case 'setGigCd': {
+            const gigId = String(b.gigId ?? '').trim();
+            if (!GIGS.some(x => x.id === gigId)) throw new Error('bad-gigId');
+            const cd = clampNum(b.cd, 0, 365);
+            payload.gigId = gigId;
+            payload.cd = cd;
+            break;
+          }
+          case 'resetGigs':
+            // no extra params — broadcast clears everyone's overrides.
+            break;
+          default:
+            // Unreachable (validActions gate above caught it), but keep TS happy.
+            throw new Error('bad-action');
+        }
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : 'bad-input';
+        return NextResponse.json({ ok: false, error: msg }, { status: 400 });
+      }
+
+      // --- record the action ----------------------------------------------
+      // insertAdminAction never throws on valid input; a SQLite failure
+      // bubbles up to the outer catch below.
+      const row = insertAdminAction(targetUid, action, payload);
+      return NextResponse.json({ ok: true, action, targetUid, id: row.id, ts: row.ts });
+    }
+
+    // v14 — fallback for actions that somehow slip past the gates above.
+    return NextResponse.json({ ok: false, error: 'bad-action' }, { status: 400 });
   } catch (e) {
     console.error('[admin/game] POST failed:', e instanceof Error ? e.message : e);
     return NextResponse.json({ ok: false, error: e instanceof Error ? e.message : 'game-action-failed' }, { status: 500 });
