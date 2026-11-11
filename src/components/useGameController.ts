@@ -2,6 +2,21 @@
 
 import { type AdminAction, type AIEvent, type AIEventKind, applyAdminActions, applyOffline, asset, bump, BUNDLED_VERSION, checkAch, eraOf, type GameState, getState, GROUPS, ITEM_BY, ITEM_IMAGES, type ItemDef, localTwist, persist, pickKind, type Rarity, recordActivity, registerItem, SEEN_KEY, snapshot, stageOf, STAGES, tick, useCallback, useCommunity, useEffect, useGame, useRef, useState, useT, VERSION_POLL_MS } from '@/components/gameDeps';
 
+function isNewerVersion(candidate: string, current: string): boolean {
+  const parse = (version: string) => {
+    const parts = version.replace(/^v/i, '').split('.');
+    if (!parts.length || parts.some(part => !/^\d+$/.test(part))) return null;
+    return parts.map(Number);
+  };
+  const next = parse(candidate);
+  const installed = parse(current);
+  if (!next || !installed) return false;
+  for (let i = 0; i < Math.max(next.length, installed.length); i++) {
+    const difference = (next[i] || 0) - (installed[i] || 0);
+    if (difference !== 0) return difference > 0;
+  }
+  return false;
+}
 
 export function useGameController() {
 
@@ -104,7 +119,7 @@ export function useGameController() {
         const res = await fetch(asset('/version.json'), { cache: 'no-store' });
         if (!res.ok) return;
         const j = await res.json() as { version?: string; headline?: string };
-        if (j.version && j.version !== BUNDLED_VERSION) {
+        if (j.version && isNewerVersion(j.version, BUNDLED_VERSION)) {
           setReloadPrompt({ version: j.version, headline: j.headline || j.version });
         }
       } catch { /* ignore */ }

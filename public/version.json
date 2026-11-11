@@ -1,14 +1,12 @@
 {
-  "version": "v13.10",
+  "version": "v13.11",
   "releasedAt": "2026-11-11",
-  "headline": "HuyenBao v13.10 — Collapsible assets + thousand separators + market redesign + items in DB",
-  "summary": "v13.10: Assets owned items collapsible by category. Thousand separators (fmtFull) in all tables. Market tab redesigned with stock cards. Items moved to SQLite database for admin management. Version notification system fixed.",
+  "headline": "HuyenBao v13.11 — Assets update + refactored app",
+  "summary": "v13.11: Improved asset organization and refactored the application into separate layout, tab, and modal components while preserving game features.",
   "features": [
-    "Assets: owned items collapsed by 12 categories (tap to expand)",
-    "fmtFull(): thousand-separated numbers ($100,000,000) in all tables",
-    "Market tab: stock cards with sparkline + portfolio info",
-    "Items in SQLite database (admin can edit ALL items)",
-    "Public /api/items route for client to fetch DB items",
-    "Version bumped to v13.10"
+    "Assets: improved organization of owned items and categories",
+    "App structure: tabs, layout, and modals are separated into components",
+    "Game features and behavior preserved across the refactor",
+    "Version bumped to v13.11"
   ]
 }
