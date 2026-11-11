@@ -458,7 +458,7 @@ export default function AdminPage() {
           {tab === 'game' && (
             <section className="adm-top">
               <h2 style={{ marginTop: 0 }}>🎮 Điều khiển game</h2>
-              <p className="adm-note">Cấp item, đặt money/fame/health/level, mở bầu cử, tăng thời gian. Hành động ghi vào audit log — client áp dụng khi player ping tiếp.</p>
+              <p className="adm-note">Tạo và chỉnh sửa catalogue item được lưu trong SQLite. Các thao tác thay đổi save người chơi (money, fame, health, spirit, level, election, thời gian, cấp item và AI difficulty) hiện bị khóa an toàn: save game vẫn nằm trong LocalStorage của trình duyệt nên server chưa thể sửa đúng tài khoản. API sẽ trả 501 thay vì báo thành công giả.</p>
               <div className="adm-bcast">
                 <b>Người chơi mục tiêu (UID hoặc HB-code)</b>
                 <div className="adm-row">
@@ -523,7 +523,7 @@ export default function AdminPage() {
                   it on every AI event roll. */}
               <div className="adm-bcast">
                 <b>🎯 Độ khó AI event (cho người chơi mục tiêu)</b>
-                <p className="adm-note">Easy = tỷ lệ thắng +10% & penalty ×0.5. Normal = mặc định. Hard = tỷ lệ thắng −10% & penalty ×1.5. Mức chọn được ghi vào audit log; engine áp dụng qua <code>aiDifficulty</code> trên GameState.</p>
+                <p className="adm-note">Easy = tỷ lệ thắng +10% & penalty ×0.5. Normal = mặc định. Hard = tỷ lệ thắng −10% & penalty ×1.5. Điều khiển này tạm khóa cùng các thao tác save game cho đến khi có lưu trữ server-side được xác thực.</p>
                 <div className="adm-row">
                   {(['easy', 'normal', 'hard'] as const).map(lvl => (
                     <label key={lvl} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, cursor: 'pointer' }}>
