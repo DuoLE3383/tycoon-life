@@ -1,23 +1,13 @@
 {
-  "version": "v12.0",
+  "version": "v12.8",
   "releasedAt": "2026-11-11",
-  "headline": "HuyenBao v12.0 — UID system + popup overlap ROOT CAUSE fix + admin create-item bug fix + tips card",
-  "summary": "MAJOR VERSION. (1) UID generation — every player gets a unique ID on new life; old saves backfilled on migrate; shown in PinZone + admin dashboard; duplicate names on social/leaderboard auto-suffixed with -last5UID. (2) Popup overlap ROOT CAUSE found + fixed — the toast at top-right was sitting EXACTLY over the modal ✕ close button, blocking dismissal. Now: MutationObserver detects open modals → shifts toast to bottom-right while modal is open → ✕ is fully clickable. Also fixed admin .adm-flash pushing forms down (now floating bottom-center) + .adm-btn:disabled opacity 0.4→0.55 (was invisible on dark bg). (3) Admin create-item-from-URL was BROKEN — the createItem API branch was after the uid guard, so every call returned 400. Fixed: moved above the guard. The ➕ Tạo button now actually works. (4) Tips card on HomeTab — 6 curated tips rotating every 30s, clickable → relevant tab. (5) GYM_CD raised to 30 days (1 month) per user request. 4 new tests (201→205).",
+  "headline": "HuyenBao v12.8 — Quick gigs to header + BizTab P&L detail + Power tab explanation",
+  "summary": "v12.8: Quick gigs button moved to header (always visible on every tab). BizTab P&L expanded with per-business revenue breakdown + national + international market share. Power tab influence + scrutiny values explained with labels + callouts. Thousand separators in amount inputs.",
   "features": [
-    "NEW: UID system — genUid() helper, GameState.uid field, begin() assigns on new life, migrate() backfills old saves",
-    "NEW: UID shown in PinZone as small monospace chip (last 6 chars) next to player name",
-    "NEW: UID column in admin dashboard player table (full id in tooltip, truncated head…tail display)",
-    "NEW: dedupeNames() helper — duplicate names on social/leaderboard get -last5UID suffix automatically",
-    "NEW: useDedupe() hook wired into ChatView, FriendsView, BoardView for name disambiguation",
-    "FIX: popup overlap ROOT CAUSE — toast at top-right was blocking modal ✕ close button. MutationObserver shifts toast to bottom-right while modal is open",
-    "FIX: admin .adm-flash was pushing forms down (inline element) → now position:fixed bottom-center floating toast",
-    "FIX: admin .adm-btn:disabled opacity 0.4→0.55 so the ➕ Tạo button is visible even when disabled on dark background",
-    "FIX: admin create-item-from-URL API was BROKEN — createItem branch was after uid guard → 400 error. Moved above guard → works now",
-    "FIX: .modal-x close button hit target enlarged (min-width:36px, min-height:32px) for easier mobile tapping",
-    "NEW: Tips card on HomeTab — 6 curated tips rotating every 30s, clickable → relevant tab (assets/home/bank/biz/edu/finance-overview)",
-    "NEW: tip.title + tip.1-6 i18n keys (EN/VI/中文)",
-    "CHANGE: GYM_CD raised to 30 days (1 month) — was 3 days in v11.57, user requested 1 month",
-    "NEW: 4 new tests (201→205): GYM_CD regression, UID lifecycle, migrate backfill, genUid uniqueness (1000-call collision check)",
-    "Version bumped to v12.0"
+    "Quick gigs button in header (always visible, every tab)",
+    "BizTab P&L: per-business revenue + national + international market share",
+    "Power tab: influence + scrutiny explained with labels + callouts",
+    "Thousand separators in amount inputs",
+    "Version bumped to v12.8"
   ]
 }
