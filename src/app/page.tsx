@@ -17,7 +17,17 @@
 // life-overview bar (age + the four key numbers) visible on every tab.
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Art, Ic, ART_DEFS } from '@/lib/art';
+<<<<<<< HEAD
 import { useGame, getState, persist, bump, resetState, reincarnateState } from '@/lib/store';
+=======
+import { useGame, getState, persist, bump, resetState } from '@/lib/store';
+import { Header } from '@/components/layout/Header';
+import { NavBar } from '@/components/layout/NavBar';
+import { PinZone } from '@/components/layout/PinZone';
+import { EventModal, GameOverModal } from '@/components/modals/EventModal';
+import { IntroModal } from '@/components/modals/IntroModal';
+import { Btn, Row, useReqLabel } from '@/components/shared';
+>>>>>>> 870ae02 (refactor)
 import {
   START, END_AGE, RETIRE, RESALE_FEE, FOUND_COST, FOUND_MIN_NW, OWN_CLUB_MULT,
   SAVE_RATE, LOAN_RATE, TAX_FREE, TAX_BRACKETS, ALLNEWS, eraOf, NATIONS, NAME_POOLS, INTERESTS, TALENTS, PATHS,
@@ -134,8 +144,6 @@ export default function Page() {
   const { t, lang } = useT();
   const [tab, setTab] = useState('home');
   const [lastTab, setLastTab] = useState<Record<string, string>>({});
-  const activeGroup = GROUPS.find(g => g[3].some(([k]) => k === tab))?.[0] || 'life';
-  const curSubs = (GROUPS.find(g => g[0] === activeGroup) || GROUPS[0])[3];
   const [rankBoard, setRankBoard] = useState<'all' | 'young' | 'industry' | 'nation'>('all');
   const [curCat, setCurCat] = useState<string | null>(null);
   // v11.36 — edit-profile modal state. Opened from PinZone ✏️ button.
@@ -588,6 +596,7 @@ export default function Page() {
     <div className={'tgame life-' + healthState(s.health)}>
       <div dangerouslySetInnerHTML={{ __html: ART_DEFS }} />
       <div className="wrap">
+<<<<<<< HEAD
         <Header s={s} eraName={eraName} speed={speed} setSpeed={setSpeed} act={act} />
         {/* v11.48 — reverted to simple inline nav bars (popups were buggy/confusing).
             PinZone dashboard stays; nav is back to horizontal scroll pills. */}
@@ -623,6 +632,14 @@ export default function Page() {
             );
           })()}
         </div>
+=======
+        <Header s={s} onReset={resetState} eraName={eraName} />
+        <PinZone s={s} />
+        <NavBar tab={tab} lastTab={lastTab} onSelectTab={(tabId, groupId, remember) => {
+          setTab(tabId);
+          if (remember) setLastTab(lt => ({ ...lt, [groupId]: tabId }));
+        }} />
+>>>>>>> 870ae02 (refactor)
         <main id="tview" key={tab} className="enter">
           {tab === 'home' && <HomeTab s={s} act={act} askAI={askAI} aiBusy={aiBusy} aiNote={t(aiNoteKey)} eraName={eraName} onNav={(k: string) => { setTab(k); setLastTab(lt => ({ ...lt, [activeGroup]: k })); }} />}
           {tab === 'career' && <CareerTab s={s} act={act} />}
@@ -717,8 +734,9 @@ export default function Page() {
 
       {toast && <div id="ttoast" key={toast.id} className="on">{toast.msg}</div>}
 
-      {!s.started && <Intro onBegin={opts => act(st => { begin(st, opts); showToast(`${t('begin')}: ${opts.name} 🎉`); })} />}
+      {!s.started && <IntroModal onBegin={opts => act(st => { begin(st, opts); showToast(`${t('begin')}: ${opts.name} 🎉`); })} />}
       {(s.pending || s.aiEv) && <EventModal s={s} act={act} />}
+<<<<<<< HEAD
       {s.over && <GameOver s={s} onAgain={() => { reincarnateState(); showToast(t('reincarnate.toast')); }} />}
 
       {/* v11 — reload-to-update banner (no F5 needed; polled every 5 min) */}
@@ -769,10 +787,14 @@ function WhatsNewModal({ onDismiss, content }: { onDismiss: () => void; content:
           <Ic id="ic-check" className="bsi" /><span>{t('v11.gotIt')}</span>
         </button>
       </div>
+=======
+      {s.over && <GameOverModal s={s} onAgain={resetState} />}
+>>>>>>> 870ae02 (refactor)
     </div>
   );
 }
 
+<<<<<<< HEAD
 // ================= shared bits =================
 type Act = (fn: (st: GameState) => string | null | void) => void;
 type TFn = ReturnType<typeof useT>['t'];
@@ -1348,6 +1370,8 @@ function TravelSection({ s, act, t }: { s: GameState; act: Act; t: TFn }) {
   );
 }
 
+=======
+>>>>>>> 870ae02 (refactor)
 // ================= HOME =================
 function HomeTab({ s, act, askAI, aiBusy, aiNote, eraName, onNav }: { s: GameState; act: Act; askAI: () => void; aiBusy: boolean; aiNote: string; eraName: (y: number) => string; onNav: (k: string) => void }) {
   const { t, lang } = useT();
@@ -5183,6 +5207,7 @@ function LinksTab({ s, onNav }: { s: GameState; onNav?: (k: string) => void }) {
     </>
   );
 }
+<<<<<<< HEAD
 
 // ================= INTRO =================
 function Intro({ onBegin }: { onBegin: (o: { name: string; byear: number; nation: string; religion: Religion; ints: string[]; tals: string[]; gender: Gender; birthMonth: number; birthDay: number }) => void }) {
@@ -5490,3 +5515,5 @@ function GameOver({ s, onAgain }: { s: GameState; onAgain: () => void }) {
     </div></div>
   );
 }
+=======
+>>>>>>> 870ae02 (refactor)
