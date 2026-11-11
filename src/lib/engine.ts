@@ -2593,6 +2593,10 @@ export function choiceRisk(c: { cost?: number; money?: number; fame?: number; de
 // colours honest: green = nearly always pays as advertised, red = usually pays
 // less (or costs more) than advertised.
 export function rollRiskOutcome(c: { cost?: number; money?: number; fame?: number; decline?: number }, risk: ChoiceRisk, rng: () => number = Math.random): { money: number; fame: number; decline: number; success: boolean } {
+  // v12.3 — difficulty reduced per user request. Win chances unchanged but
+  // failure penalties are lighter:
+  //   high failure: money -30% (was -50%), decline 3 (was 5)
+  //   medium failure: decline 1 (was 2)
   const winChance = risk === 'safe' ? 0.8 : risk === 'medium' ? 0.5 : 0.2;
   const success = rng() < winChance;
   if (success) {
@@ -2606,13 +2610,13 @@ export function rollRiskOutcome(c: { cost?: number; money?: number; fame?: numbe
   }
   if (risk === 'medium') {
     // medium failure: zero upside, small decline
-    return { money: 0, fame: c.fame ? -Math.abs(c.fame) : 0, decline: 2, success: false };
+    return { money: 0, fame: c.fame ? -Math.abs(c.fame) : 0, decline: 1, success: false };
   }
-  // high failure: negative money (lost the cost AND a bit more), decline, fame drop
+  // high failure: negative money (reduced from -50% to -30%), decline 3 (was 5)
   return {
-    money: c.money ? -Math.round(Math.abs(c.money) * 0.5) : (c.cost ? -Math.round(c.cost * 0.2) : 0),
+    money: c.money ? -Math.round(Math.abs(c.money) * 0.3) : (c.cost ? -Math.round(c.cost * 0.1) : 0),
     fame: c.fame ? -Math.abs(c.fame) : 0,
-    decline: c.decline ? Math.max(c.decline, 5) : 5,
+    decline: c.decline ? Math.min(c.decline, 3) : 3,
     success: false
   };
 }

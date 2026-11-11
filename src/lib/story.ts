@@ -527,12 +527,33 @@ export function localTwist(snap: Snap, used: string[], kind?: AIEventKind, lang:
   const finalPool = freshPool.length ? freshPool : usable;
   const pick = finalPool[Math.floor(Math.random() * finalPool.length)];
   const ev = pick.make(ctx, lang);
-  // keep numbers sane relative to wealth
-  const cap = Math.max(5000, Math.round(Math.max(0, snap.netWorth || 0) * 0.4));
+  // v12.3 — filter out choices that can't apply to the player's current state.
+  // liquidate: only if they have branches. dropout: only if they're studying.
+  ev.choices = ev.choices.filter(c => {
+    if (c.liquidate) {
+      // Check if player has branches of the specified biz type.
+      // snap.businesses is a list of biz names, not ids — but the liquidate
+      // target is a biz id like 'cafe'. We check if ANY business exists.
+      const hasBranches = (snap.businesses?.length || 0) > 0;
+      if (!hasBranches) return false;
+    }
+    if (c.dropout) {
+      // Only show dropout if the player is actually studying.
+      const isStudying = (snap.studying?.length || 0) > 0;
+      if (!isStudying) return false;
+    }
+    return true;
+  });
+  // If filtering removed ALL choices, add a safe fallback.
+  if (ev.choices.length === 0) {
+    ev.choices = [{ l: 'Move on', cost: 0, money: 0, out: 'Nothing happens. The moment passes.' }];
+  }
+  // keep numbers sane relative to wealth — v12.3: reduced cap from 40% to 25%
+  const cap = Math.max(3000, Math.round(Math.max(0, snap.netWorth || 0) * 0.25));
   ev.choices = ev.choices.map(c => ({
     ...c,
     cost: c.cost ? Math.min(c.cost, cap) : undefined,
-    money: c.money ? Math.max(-cap * 3, Math.min(c.money, cap * 3)) : undefined
+    money: c.money ? Math.max(-cap * 2, Math.min(c.money, cap * 2)) : undefined
   }));
   return { ...ev, source: 'local', kind: chosenKind };
 }

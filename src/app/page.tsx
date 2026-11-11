@@ -1544,6 +1544,11 @@ function BizTab({ s, act }: { s: GameState; act: Act }) {
         <div className="mini" style={{ textTransform: 'uppercase', letterSpacing: '.4px' }}>{t('v11.twoPaths')}</div>
         <p className="sub" style={{ margin: '4px 0 0' }}>{t('v11.twoPathsNote')}</p>
       </div>
+      {/* v12.3 — degree requirement explanation card (user: "bằng cấp là sao??") */}
+      <div className="card" style={{ marginBottom: 10, padding: 10, background: 'rgba(127,127,127,.04)', border: '1px dashed var(--line)' }}>
+        <div className="mini" style={{ fontWeight: 700, opacity: .8 }}>🎓 {t('biz.degreeTitle', 'Degree requirements')}</div>
+        <p className="sub" style={{ margin: '4px 0 0', fontSize: '.78rem', lineHeight: 1.45 }}>{t('biz.degreeExplain')}</p>
+      </div>
       {/* v11.50 — franchise explainer card (clear economics + when-to-use tip). */}
       <div className="card" style={{ marginBottom: 10, padding: 12, background: 'linear-gradient(180deg,rgba(125,148,132,.06) 0%,rgba(125,148,132,0) 60%)', border: '1px solid rgba(125,148,132,.3)' }}>
         <div className="mini" style={{ textTransform: 'uppercase', letterSpacing: '.4px', color: 'var(--sage)' }}>{t('biz.franchiseTitle')}</div>

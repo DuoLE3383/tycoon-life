@@ -1179,6 +1179,9 @@ const D: Record<string, [string, string, string]> = {
   'biz.brandSave': ['Save brand', 'Lưu thương hiệu', '保存品牌'],
   'biz.brandReset': ['Reset to default', 'Đặt lại mặc định', '恢复默认'],
   'biz.brandSet': ['Brand updated: {x}', 'Đã cập nhật thương hiệu: {x}', '品牌已更新：{x}'],
+  // v12.3 — degree requirement explanation (user: "bằng cấp là sao??")
+  'biz.degreeTitle': ['Degree requirements', 'Yêu cầu bằng cấp', '学位要求'],
+  'biz.degreeExplain': ['Some businesses require a degree before you can open them. "Requires Business BBA" means you must enrol in the Business field and graduate with a BBA (4 years). "Requires Engineering B.Eng" needs an Engineering degree. The Capital path (2.5× cost + manager) lets you skip the degree requirement by paying more upfront. Go to the Education tab to enrol.', 'Một số doanh nghiệp yêu cầu bằng cấp trước khi mở. "Yêu cầu Business BBA" nghĩa là bạn phải học ngành Business và tốt nghiệp BBA (4 năm). "Yêu cầu Engineering B.Eng" cần bằng Engineering. Đường Capital (2.5× chi phí + quản lý) cho phép bỏ qua yêu cầu bằng cấp bằng cách trả thêm tiền. Vào tab Học vấn để ghi danh.', '部分业务需要学位才能开设。"要求 Business BBA" 表示你必须就读商科并毕业获得 BBA（4年）。"要求 Engineering B.Eng" 需要工程学位。资本路径（2.5倍费用 + 经理）可以通过多付费用来跳过学位要求。前往教育标签注册。'],
   // v11.37 — new gigs
   'gig.busk': ['Street performance', 'Diễn đường phố', '街头表演'],
   'gig.petcare': ['Pet sitting', 'Trông thú cưng', '宠物看护'],
