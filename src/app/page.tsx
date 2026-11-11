@@ -2807,11 +2807,14 @@ function AssetsTab({ s, act, curCat, setCurCat }: { s: GameState; act: Act; curC
     <button className={'favbtn' + (favOn(id) ? ' on' : '')} title={t('fav.toggle')} aria-pressed={favOn(id)}
       onClick={() => act(st => { toggleFav(st, id); return null; })}>★</button>
   );
-  const ownLots = (g: ItemGroup) => s.lots.map((l, i) => ({ l, i })).filter(({ l }) => itemGroup(ITEM_BY[l.id]) === g);
+  // v13.1 — null-safe ITEM_BY access: filter out lots whose item id doesn't
+  // exist in ITEM_BY (e.g. custom items from admin/LLM not in static data).
+  // Without this, ITEM_BY[l.id] returns undefined → .rarity crash.
+  const ownLots = (g: ItemGroup) => s.lots.map((l, i) => ({ l, i })).filter(({ l }) => { const it = ITEM_BY[l.id]; return it && itemGroup(it) === g; });
   const ownUsed = (g: ItemGroup) => s.used.map((u, i) => ({ u, i })).filter(({ u }) => itemGroup({ cat: u.cat, lux: u.lux }) === g);
   const repLots = s.lots.map((l, i) => ({ l, i })).filter(({ l }) => (l.condition == null ? 100 : l.condition) < 100);
   const repUsed = s.used.map((u, i) => ({ u, i })).filter(({ u }) => u.condition < 100);
-  const rareLots = s.lots.map((l, i) => ({ l, i })).filter(({ l }) => rareIds.includes(itemRarity(ITEM_BY[l.id])) || RARE_IDS.has(l.id));
+  const rareLots = s.lots.map((l, i) => ({ l, i })).filter(({ l }) => { const it = ITEM_BY[l.id]; return it && (rareIds.includes(itemRarity(it)) || RARE_IDS.has(l.id)); });
   const rareUsed = s.used.map((u, i) => ({ u, i })).filter(({ u }) => rareIds.includes(itemRarity(u)) || RARE_IDS.has(u.baseId));
 
   // v11.51 — reordered: 'own' (currently held assets) first so players see
@@ -2828,8 +2831,11 @@ function AssetsTab({ s, act, curCat, setCurCat }: { s: GameState; act: Act; curC
   ];
 
   // ---- shared row renderers (called as plain functions, not components) ----
+  // v13.1 — null-safe: skip lots whose item id isn't in ITEM_BY.
   const lotRow = (l: GameState['lots'][number], idx: number, mode: 'sell' | 'workshop') => {
-    const it = ITEM_BY[l.id], v = lotValue(s, l), resale = v * (1 - RESALE_FEE);
+    const it = ITEM_BY[l.id];
+    if (!it) return null; // item not in static data (custom/admin item) — skip
+    const v = lotValue(s, l), resale = v * (1 - RESALE_FEE);
     const rar = itemRarity(it);
     const cond = l.condition == null ? 100 : l.condition;
     const ask = Math.round(v * RARITY_MULT[rar] * 1.4);
@@ -2965,7 +2971,7 @@ function AssetsTab({ s, act, curCat, setCurCat }: { s: GameState; act: Act; curC
   // ---- v11.33 — live rare lot + schedule renderers (auction & rare sections) ----
   const rareLiveBlock = () => {
     const L = s.rareLive; if (!L) return null;
-    const it = ITEM_BY[L.id];
+    const it = ITEM_BY[L.id]; if (!it) return null; // v13.1 null-safe
     const min = Math.ceil(L.bid * 1.05);
     const left = Math.max(0, Math.ceil(L.endDay - s.day));
     return <div className="card rare-live" data-lead={L.leader}>
@@ -2994,7 +3000,7 @@ function AssetsTab({ s, act, curCat, setCurCat }: { s: GameState; act: Act; curC
   const rareSchedBlock = () => (s.rareUp || []).length === 0 ? null : <>
     <h3>📅 {t('auction.sched')}</h3>
     {(s.rareUp || []).map((u, i) => {
-      const it = ITEM_BY[u.id];
+      const it = ITEM_BY[u.id]; if (!it) return null; // v13.1 null-safe
       const left = Math.max(0, Math.ceil(u.atDay - s.day));
       return <Row key={u.id + i} art={it.art} image={ITEM_IMAGES[u.id]} right={<span className="tag dark">{t('auction.in', '', { n: left })}</span>}>
         <b>{favBtn(u.id)}{it.name}</b>
@@ -3007,8 +3013,9 @@ function AssetsTab({ s, act, curCat, setCurCat }: { s: GameState; act: Act; curC
   const isHouseCat = (c: string) => c === 'Property';
   const isWheelCat = (c: string) => c === 'Car' || c === 'Classic car' || c === 'Sport bike';
   const isCollCat = (c: string) => c === 'Art' || c === 'Collectibles';
+  // v13.1 — null-safe: skip lots whose ITEM_BY lookup returns undefined.
   const ownRowsFor = (pred: (cat: string) => boolean) => <>
-    {s.lots.map((l, i) => ({ l, i })).filter(({ l }) => pred(ITEM_BY[l.id].cat)).map(({ l, i }) => lotRow(l, i, 'sell'))}
+    {s.lots.map((l, i) => ({ l, i })).filter(({ l }) => { const it = ITEM_BY[l.id]; return it && pred(it.cat); }).map(({ l, i }) => lotRow(l, i, 'sell'))}
     {s.used.map((u, i) => ({ u, i })).filter(({ u }) => pred(u.cat)).map(({ u, i }) => usedRow(u, i, 'sell'))}
   </>;
   const ownAllEmpty = s.lots.length === 0 && s.used.length === 0;
