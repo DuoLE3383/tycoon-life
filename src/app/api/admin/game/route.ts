@@ -79,19 +79,19 @@ export async function POST(req: Request) {
   const b = await readBody(req);
   const denied = adminGuard(req, b.key);
   if (denied) return denied;
+
   try {
     const action = String(b.action ?? '');
     const validActions = ['grantItem', 'setMoney', 'setFame', 'setHealth', 'setSpirit', 'setLevel', 'triggerElection', 'advanceTime', 'createItem', 'updateItem', 'setDifficulty'];
     if (!validActions.includes(action)) return NextResponse.json({ ok: false, error: 'bad-action' }, { status: 400 });
 
-    // Custom catalogue mutations must be durable. Never report success for RAM-only writes.
+    // Custom catalogue changes must be durable; never fall back to process memory.
     if (action === 'createItem') {
       const patch = readItemPatch(b);
       if (!patch) return NextResponse.json({ ok: false, error: 'bad-patch' }, { status: 400 });
       const d = await tryDb();
       if (!d) return NextResponse.json({ ok: false, error: 'sqlite-unavailable' }, { status: 503 });
       const itemId = 'custom-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 8);
-      const createdAt = new Date().toISOString();
       try {
         d.exec(`CREATE TABLE IF NOT EXISTS custom_items (
           id TEXT PRIMARY KEY, name TEXT NOT NULL, cat TEXT NOT NULL DEFAULT 'Custom', brand TEXT,
@@ -100,7 +100,7 @@ export async function POST(req: Request) {
           image_url TEXT NOT NULL, created_at TEXT NOT NULL
         )`);
         d.prepare('INSERT INTO custom_items (id, name, cat, brand, price, lux, rate, art, rarity, image_url, created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)')
-          .run(itemId, patch.name, patch.cat, patch.brand || null, patch.price, 1, 0, 'ic-bag', 'common', patch.imageUrl, createdAt);
+          .run(itemId, patch.name, patch.cat, patch.brand || null, patch.price, 1, 0, 'ic-bag', 'common', patch.imageUrl, new Date().toISOString());
       } catch (e) {
         console.error('[admin/game] createItem failed:', e instanceof Error ? e.message : e);
         return NextResponse.json({ ok: false, error: 'item-save-failed' }, { status: 500 });
@@ -108,7 +108,6 @@ export async function POST(req: Request) {
       return NextResponse.json({ ok: true, itemId, name: patch.name });
     }
 
-    // Update custom catalogue items in persistent storage only.
     if (action === 'updateItem') {
       const itemId = String(b.id ?? '').trim();
       if (!itemId) return NextResponse.json({ ok: false, error: 'bad-id' }, { status: 400 });
@@ -128,44 +127,18 @@ export async function POST(req: Request) {
     }
 
     // Player saves currently live in browser LocalStorage, not in the server DB.
-    // Refuse these mutations rather than returning a false success after writing only an audit note.
+    // Refuse mutations rather than reporting success after only writing an audit note.
     const uid = String(b.uid ?? '').trim();
     if (!uid) return NextResponse.json({ ok: false, error: 'bad-uid' }, { status: 400 });
     return NextResponse.json({
       ok: false,
       error: 'player-save-not-server-managed',
-      message: 'This action is disabled until player saves are migrated to authenticated server-side storage.',
+      message: 'Disabled until player saves are migrated to authenticated server-side storage.',
       action,
       uid,
     }, { status: 501 });
   } catch (e) {
-          console.error('[admin/game] setDifficulty audit log failed (non-fatal):', e instanceof Error ? e.message : e);
-        }
-      }
-      return NextResponse.json({ ok: true, action, uid, level });
-    }
-
-    // For grantItem, validate the itemId exists.
-    if (action === 'grantItem') {
-      const itemId = String(b.itemId ?? '');
-      const exists = [...ITEMS, ...RARE_ITEMS].some(i => i.id === itemId);
-      if (!exists) return NextResponse.json({ ok: false, error: 'bad-itemId' }, { status: 400 });
-    }
-
-    // Record the action in the messages table as a system note (audit trail).
-    const d = await tryDb();
-    if (d) {
-      try {
-        const note = JSON.stringify({ action, uid, itemId: b.itemId, amount: b.amount, level: b.level, days: b.days, ts: Date.now() });
-        d.prepare('INSERT INTO messages (uid, name, avatar, text, created_at) VALUES (?,?,?,?,?)')
-          .run('hb-system', 'HuyenBao Admin', '⚙️', '⚙️ ADMIN_ACTION:' + note, new Date().toISOString());
-      } catch (e) {
-        console.error('[admin/game] audit log failed (non-fatal):', e);
-      }
-    }
-
-    return NextResponse.json({ ok: true, action, uid });
-  } catch (e) {
+    console.error('[admin/game] POST failed:', e instanceof Error ? e.message : e);
     return NextResponse.json({ ok: false, error: e instanceof Error ? e.message : 'game-action-failed' }, { status: 500 });
   }
 }
