@@ -1131,19 +1131,22 @@ export function financeActions(s: GameState): FinanceAction[] {
   return out.sort((a, b) => order[a.priority] - order[b.priority]);
 }
 export const lotValue = (s: GameState, l: { id: string; paid: number; day: number; condition?: number }) => {
-  const it = ITEM_BY[l.id];
-  const itemRate = it.rate;
+  // Saves may outlive catalogue revisions. Unknown legacy lots must not crash valuation.
+  const it = l?.id ? ITEM_BY[l.id] : undefined;
+  const rawRate = Number(it?.rate);
+  const itemRate = Number.isFinite(rawRate) ? rawRate : ASSET_DEPRECIATION_RATE;
   const rate = Math.min(itemRate, ASSET_DEPRECIATION_RATE);
-  const yrs = Math.max(0, (s.day - l.day) / 365.25);
-  const base = l.paid * Math.pow(1 + rate, yrs);
+  const paid = Number.isFinite(Number(l?.paid)) ? Math.max(0, Number(l.paid)) : 0;
+  const boughtDay = Number.isFinite(Number(l?.day)) ? Number(l.day) : s.day;
+  const yrs = Math.max(0, (s.day - boughtDay) / 365.25);
+  const base = paid * Math.pow(1 + rate, yrs);
   // v10.5: condition multiplies value (40-100% range → 0.4-1.0 of base).
-  // Rare/legendary items decay slower (condition floor higher).
-  const cond = l.condition == null ? 100 : l.condition;
-  const rarity = itemRarity(it);
+  // Unknown legacy items use common rarity and conservative depreciation.
+  const cond = Number.isFinite(Number(l?.condition)) ? Number(l.condition) : 100;
+  const rarity = it ? itemRarity(it) : 'common';
   const floor = rarity === 'legendary' ? 70 : rarity === 'rare' ? 55 : rarity === 'uncommon' ? 45 : 35;
-  const eff = Math.max(floor, cond);
+  const eff = Math.max(floor, Math.min(100, Math.max(0, cond)));
   const condFactor = 0.4 + 0.6 * (eff / 100);
-  // Rare/legendary get a rarity premium on top.
   return base * condFactor * (rarity === 'legendary' ? 1.6 : rarity === 'rare' ? 1.2 : rarity === 'uncommon' ? 1.05 : 1);
 };
 // v11 — upkeep now includes optional crew cost for Yacht / Private jet.
