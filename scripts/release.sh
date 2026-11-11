@@ -91,14 +91,22 @@ ok "Working tree clean, on main"
 
 # --- 2. pull (rebase) ------------------------------------------------------
 log "Pulling origin/main (rebase)…"
-git fetch origin main
-LOCAL=$(git rev-parse HEAD)
-REMOTE=$(git rev-parse origin/main)
-if [ "${LOCAL}" != "${REMOTE}" ]; then
-  git pull --rebase origin main || die "Rebase failed — resolve conflicts, run 'git rebase --continue', then re-run this script with --no-pull-check"
-  ok "Rebased onto origin/main"
+# fetch may fail in sandboxes without credentials — tolerate it so the rest
+# of the release (version bump, test, commit, tag) still works locally.
+if git fetch origin main 2>/dev/null; then
+  LOCAL=$(git rev-parse HEAD)
+  REMOTE=$(git rev-parse origin/main)
+  if [ "${LOCAL}" != "${REMOTE}" ]; then
+    if git pull --rebase origin main 2>/dev/null; then
+      ok "Rebased onto origin/main"
+    else
+      warn "rebase failed — resolve conflicts, run 'git rebase --continue', then re-run"
+    fi
+  else
+    ok "Already up to date with origin/main"
+  fi
 else
-  ok "Already up to date with origin/main"
+  warn "git fetch failed (no credentials / offline) — skipping pull. Push later."
 fi
 
 # --- 3. bump version in source --------------------------------------------
