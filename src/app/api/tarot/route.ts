@@ -14,7 +14,7 @@ import ZAI from 'z-ai-web-dev-sdk';
 import type { Lang } from '@/lib/i18n';
 import type { TarotCard } from '@/lib/tarot';
 
-const LLM_BASE_URL = process.env.LLM_BASE_URL || 'http://0.0.0.0:8888';
+const LLM_BASE_URL = process.env.LLM_BASE_URL || 'http://127.0.0.1:8888';
 const LLM_MODEL = process.env.LLM_MODEL || 'qwen2.5:7b';
 const LLM_TIMEOUT_MS = Number(process.env.LLM_TIMEOUT_MS || 30000);
 

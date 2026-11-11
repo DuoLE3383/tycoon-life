@@ -1,12 +1,12 @@
 // POST /api/post — generates one in-game social-media post for the player's
 // exact situation (era, nation, wealth, businesses, fame). Tries the local
-// LLM at LLM_BASE_URL (default http://0.0.0.0:8888) first, falls back to ZAI
+// LLM at LLM_BASE_URL (default http://127.0.0.1:8888) first, falls back to ZAI
 // cloud, then to a static template. The client (SocialTab.aiPost) does its
 // own local fallback as well, so this endpoint always returns SOMETHING.
 import { NextRequest, NextResponse } from 'next/server';
 import ZAI from 'z-ai-web-dev-sdk';
 
-const LLM_BASE_URL = process.env.LLM_BASE_URL || 'http://0.0.0.0:8888';
+const LLM_BASE_URL = process.env.LLM_BASE_URL || 'http://127.0.0.1:8888';
 const LLM_MODEL = process.env.LLM_MODEL || 'qwen2.5:7b';
 const LLM_TIMEOUT_MS = Number(process.env.LLM_TIMEOUT_MS || 12000);
 

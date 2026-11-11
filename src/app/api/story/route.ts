@@ -4,7 +4,7 @@
 // endpoint ALWAYS returns a valid event.
 //
 // v10.4: tries a local LLM (Ollama-style) at LLM_BASE_URL (default
-// http://0.0.0.0:8888) FIRST. If unreachable, falls back to ZAI cloud, then
+// http://127.0.0.1:8888) FIRST. If unreachable, falls back to ZAI cloud, then
 // to the deterministic local template engine. Also accepts a `kind` hint so
 // the random "luck / badluck / lifestage / story" dispatch on the client can
 // be honoured by the LLM prompt.
@@ -14,7 +14,7 @@ import { localTwist, pickKind } from '@/lib/story';
 import type { AIEvent, AIEventKind } from '@/lib/engine';
 import type { Lang } from '@/lib/i18n';
 
-const LLM_BASE_URL = process.env.LLM_BASE_URL || 'http://0.0.0.0:8888';
+const LLM_BASE_URL = process.env.LLM_BASE_URL || 'http://127.0.0.1:8888';
 const LLM_MODEL = process.env.LLM_MODEL || 'qwen2.5:7b';
 const LLM_TIMEOUT_MS = Number(process.env.LLM_TIMEOUT_MS || 20000);
 
@@ -221,7 +221,7 @@ export async function POST(req: NextRequest) {
   ].filter(Boolean).join(' ');
   const user = JSON.stringify({ player: state, avoidThesePremises: used, direction, kind, responseLanguage: LANG_NAME[lang] });
 
-  // 1. Try the local LLM first (0.0.0.0:8888 by default).
+  // 1. Try the local LLM first (127.0.0.1:8888 by default).
   try {
     const raw = await callLocalLLM(sys, user);
     if (raw) {

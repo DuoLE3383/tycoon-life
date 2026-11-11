@@ -2,7 +2,7 @@
 // Lightweight i18n for EN / TIẾNG VIỆT / 中文. No routing — the language is a
 // client preference persisted in localStorage, which keeps the GitHub Pages
 // static export simple.
-import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
+import { createContext, useContext, useEffect, useState, useSyncExternalStore, type ReactNode } from 'react';
 
 export type Lang = 'en' | 'vi' | 'zh';
 export const LANGS: { id: Lang; label: string }[] = [
@@ -383,7 +383,7 @@ const D: Record<string, [string, string, string]> = {
   'oracle.backend': ['Written fresh by the LLM backend — it remembers your past twists and avoids repeating them.', 'Viết bởi backend LLM — nó nhớ các bước ngoặt cũ và tránh lặp lại.', '由LLM后端实时撰写 — 它记得过去的转折并避免重复。'],
   'oracle.local': ['Written by the built-in story engine (LLM backend not reachable here).', 'Viết bởi bộ máy truyện tích hợp (backend LLM không truy cập được ở đây).', '由内置故事引擎撰写（此处无法连接LLM后端）。'],
   'oracle.fail': ['The oracle is unreachable — try again later.', 'Tiên tri không phản hồi — thử lại sau.', '神谕暂时无法连接 — 请稍后再试。'],
-  'oracle.backend-local': ['Deduced by your local LLM at 0.0.0.0:8888 — every twist is generated on your own machine.', 'Do LLM local ở 0.0.0.0:8888 suy diễn — mọi bước ngoặt sinh trên chính máy bạn.', '由本机 0.0.0.0:8888 的本地 LLM 推演 — 每次转折都在你自己的机器上生成。'],
+  'oracle.backend-local': ['Deduced by your local LLM at 127.0.0.1:8888 — every twist is generated on your own machine.', 'Do LLM local ở 127.0.0.1:8888 suy diễn — mọi bước ngoặt sinh trên chính máy bạn.', '由本机 127.0.0.1:8888 的本地 LLM 推演 — 每次转折都在你自己的机器上生成。'],
   // v10.4 — AI event kind labels (shown as a badge on the modal)
   'ev.kind.story': ['Life twist', 'Bước ngoặt', '人生转折'],
   'ev.kind.luck': ['Lucky break', 'May mắn', '好运降临'],
@@ -1490,22 +1490,41 @@ const Ctx = createContext<{ lang: Lang; setLang: (l: Lang) => void; t: ReturnTyp
   lang: 'en', setLang: () => {}, t: makeT('en')
 });
 
+// v12.9 — read language through useSyncExternalStore with a server snapshot of
+// 'en'. The previous initializer read localStorage directly inside useState,
+// which gave the SSR pass 'en' (no localStorage) and the client's first render
+// the saved value — a guaranteed text mismatch that surfaced as React #418
+// whenever a VI/ZH player reloaded the page. With getServerSnapshot pinned to
+// 'en', server HTML and the client's hydration pass agree; React then re-reads
+// getSnapshot once mounted, picks up the real saved language, and re-renders.
+// Listeners are also notified when setLang writes localStorage on the same tab
+// (the native `storage` event only fires across OTHER tabs).
+const LANG_KEY = 'tycoon_lang';
+const listeners = new Set<() => void>();
+function emitLangChange() { listeners.forEach(l => l()); }
+function subscribeLang(callback: () => void): () => void {
+  listeners.add(callback);
+  const onStorage = (e: StorageEvent) => { if (e.key === LANG_KEY) callback(); };
+  try { window.addEventListener('storage', onStorage); } catch { /* SSR / restricted */ }
+  return () => {
+    listeners.delete(callback);
+    try { window.removeEventListener('storage', onStorage); } catch { /* ignore */ }
+  };
+}
+function getLangSnapshot(): Lang {
+  try {
+    const v = localStorage.getItem(LANG_KEY);
+    if (v === 'en' || v === 'vi' || v === 'zh') return v;
+  } catch { /* ignore */ }
+  return 'en';
+}
+function getLangServerSnapshot(): Lang { return 'en'; }
+
 export function LangProvider({ children }: { children: ReactNode }) {
-  // v11.39 — lazy-init lang from localStorage so the FIRST render already has
-  // the right language. Previously lang defaulted to 'en' and was only updated
-  // inside a useEffect (which runs AFTER first render), so askAI's stale
-  // closure captured 'en' even for Vietnamese players — causing AI events to
-  // render in English.
-  const [lang, setLang] = useState<Lang>(() => {
-    try {
-      const v = localStorage.getItem('tycoon_lang') as Lang | null;
-      if (v === 'en' || v === 'vi' || v === 'zh') return v;
-    } catch { /* ignore */ }
-    return 'en';
-  });
+  const lang = useSyncExternalStore(subscribeLang, getLangSnapshot, getLangServerSnapshot);
   const set = (l: Lang) => {
-    setLang(l);
-    try { localStorage.setItem('tycoon_lang', l); } catch { /* ignore */ }
+    try { localStorage.setItem(LANG_KEY, l); } catch { /* ignore */ }
+    emitLangChange();
   };
   return <Ctx.Provider value={{ lang, setLang: set, t: makeT(lang) }}>{children}</Ctx.Provider>;
 }

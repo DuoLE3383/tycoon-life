@@ -1,5 +1,5 @@
 // POST /api/deduce — given an event + chosen option + player state, asks the
-// local LLM at LLM_BASE_URL (default http://0.0.0.0:8888) to deduce / extend
+// local LLM at LLM_BASE_URL (default http://127.0.0.1:8888) to deduce / extend
 // the outcome text. Falls back to the static `out` from the choice if the LLM
 // is unreachable, so the engine always has SOMETHING to show.
 //
@@ -8,7 +8,7 @@
 // Returns: { out: string, source: 'backend-local' | 'static' }
 import { NextRequest, NextResponse } from 'next/server';
 
-const LLM_BASE_URL = process.env.LLM_BASE_URL || 'http://0.0.0.0:8888';
+const LLM_BASE_URL = process.env.LLM_BASE_URL || 'http://127.0.0.1:8888';
 const LLM_MODEL = process.env.LLM_MODEL || 'qwen2.5:7b';
 const LLM_TIMEOUT_MS = Number(process.env.LLM_TIMEOUT_MS || 12000);
 

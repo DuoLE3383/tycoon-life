@@ -22,8 +22,11 @@ export const viewport: Viewport = {
   themeColor: "#17181d",
 };
 
-// Applies the saved theme before first paint (default: dark).
-const themeInit = `try{var t=localStorage.getItem('tycoon_theme');document.documentElement.setAttribute('data-theme',t==='light'?'light':'dark');}catch(e){document.documentElement.setAttribute('data-theme','dark');}`;
+// Applies the saved theme (and lang, for SEO/accessibility) before first paint.
+// React marks <html>/<body> with suppressHydrationWarning so the inline script
+// can safely mutate attributes that React will later manage — see LangProvider
+// in @/lib/i18n for the matching useSyncExternalStore that fixes React #418.
+const themeInit = `try{var t=localStorage.getItem('tycoon_theme');document.documentElement.setAttribute('data-theme',t==='light'?'light':'dark');}catch(e){document.documentElement.setAttribute('data-theme','dark');}try{var l=localStorage.getItem('tycoon_lang');document.documentElement.setAttribute('lang',(l==='vi'||l==='zh')?l:'en');}catch(e){document.documentElement.setAttribute('lang','en');}`;
 
 export default function RootLayout({
   children,

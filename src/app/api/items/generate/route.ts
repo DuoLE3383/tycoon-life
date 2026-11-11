@@ -19,8 +19,11 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 // LLM server (llama.cpp / Ollama / vLLM — anything that speaks OpenAI's
-// /v1/chat/completions). Default is the host:port the task spec calls out.
-const LLAMA_SERVER_URL = process.env.LLAMA_SERVER_URL || 'http://172.31.144.1:8888';
+// /v1/chat/completions). Shares the same LLM_BASE_URL env var as every other
+// LLM-backed route in this app; default to localhost so a single-machine
+// Ollama install works out of the box (0.0.0.0 is a bind address, not a
+// request target — some HTTP clients refuse it).
+const LLM_BASE_URL = process.env.LLM_BASE_URL || 'http://127.0.0.1:8888';
 const LLM_MODEL = process.env.LLM_MODEL || 'qwen2.5:7b';
 const LLM_TIMEOUT_MS = Number(process.env.LLM_TIMEOUT_MS || 20000);
 
@@ -96,7 +99,7 @@ async function callLlama(prompt: string): Promise<LLMItemFields | null> {
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), LLM_TIMEOUT_MS);
   try {
-    const res = await fetch(`${LLAMA_SERVER_URL}/v1/chat/completions`, {
+    const res = await fetch(`${LLM_BASE_URL}/v1/chat/completions`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({

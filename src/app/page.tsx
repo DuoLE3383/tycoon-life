@@ -3318,7 +3318,7 @@ function SocialTab({ s, act }: { s: GameState; act: Act }) {
   const canHype = BIZ.some(b => branchCount(s, b.id) > 0);
   const canCharity = s.donated > 0;
   const [aiBusy, setAiBusy] = useState(false);
-  // v10.5 — generate a post from the local LLM at 0.0.0.0:8888. Falls back
+  // v10.5 — generate a post from the local LLM at 127.0.0.1:8888. Falls back
   // to creativePost() if the LLM is unreachable. Mirrors the /api/story
   // pattern: backend local → local template fallback.
   const aiPost = async () => {
