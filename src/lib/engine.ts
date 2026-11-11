@@ -529,10 +529,12 @@ export const postCooldownLeft = (s: GameState): number =>
 // v11.50 — addPost now returns the created Post (or null if on cooldown)
 // so callers like applyAIChoice can attach NPC reactions to it.
 export function addPost(s: GameState, t: string, boost = 1, rng: () => number = Math.random): Post | null {
-  // v11.9 — engine-side cooldown guard (the UI also disables the buttons).
-  // Keeps the console hook (__tycoon) and any future callers from bypassing
-  // the one-post-per-day limit.
-  if (!canPost(s)) return null;
+  // v13.2 — removed the canPost cooldown guard. Engine-generated posts (from
+  // openBranch, buyItem, franchise, graduation, etc.) were being silently
+  // dropped when the player had already posted today. The posts array is
+  // already capped at 12 (oldest popped), so spam isn't an issue. The manual
+  // post buttons in SocialTab are still disabled via `canPost(s)` in the UI
+  // `disabled` attribute — that cooldown is enforced client-side, not here.
   // v11.20 — advertising/hype posts reduce health. Posts with boost ≥ 1.4
   // (hype = 1.6, viral brand deals = 2.0, etc.) are 'ad-flavoured' and the
   // promo grind wears the player down: 0.5-2 health per hype post, scaled

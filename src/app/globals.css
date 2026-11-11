@@ -904,6 +904,11 @@ html[data-theme="dark"] .tgame .pchip-big.income-chip.down{color:#fca5a5;backgro
   /* Toast v11.57 — top-right corner, compact on mobile. */
   .tgame #ttoast{font-size:.82rem;padding:8px 12px;border-radius:10px;max-width:min(280px,88vw);right:8px;top:8px}
   .tgame #ttoast.long{font-size:.76rem}
+  /* v13.2 — on mobile, keep toast at TOP-right even when modal is open.
+     The .has-modal class shifts toast to bottom-right on desktop, but on
+     mobile the bottom-right overlaps the fixed bottom nav bar (z-index:50),
+     blocking nav button clicks. Force top-right on mobile always. */
+  .tgame.has-modal #ttoast{top:calc(8px + env(safe-area-inset-top,0px));bottom:auto;right:8px}
   /* Avatar picker in modals: 5 cols on very narrow screens (was 6). */
   .tgame .avatar-picker{grid-template-columns:repeat(5,1fr);gap:5px}
   .tgame .av-opt{padding:6px 4px;font-size:1rem}
