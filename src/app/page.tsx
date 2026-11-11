@@ -2914,7 +2914,7 @@ function AssetsTab({ s, act, curCat, setCurCat }: { s: GameState; act: Act; curC
   const { t } = useT();
   // v11.51 — default to 'own' (currently held assets) so the tab opens on the
   // player's portfolio instead of the buy catalogue. Was 'bds'.
-  const [sec, setSec] = useState<AssetSec>('own');
+  const [sec, setSec] = useState<AssetSec>('bds');
   // v11.18 — pending purchase confirmation modal (unchanged this version).
   const [pendingBuy, setPendingBuy] = useState<{ kind: 'new'; item: ItemDef } | { kind: 'used'; used: UsedItem } | null>(null);
   // v11.33 — draft amount for the live rare-auction bid box.
@@ -2963,16 +2963,16 @@ function AssetsTab({ s, act, curCat, setCurCat }: { s: GameState; act: Act; curC
   const rareUsed = s.used.map((u, i) => ({ u, i })).filter(({ u }) => rareIds.includes(itemRarity(u)) || RARE_IDS.has(u.baseId));
 
   // v11.51 — reordered: 'own' (currently held assets) first so players see
-  // their portfolio immediately, then the buy-catalogue groups, then auctions
-  // + rare + workshop (the action panels). Was bds → lux → budget → own.
+  // v13.11 — reordered per user request: 'own' moved to BOTTOM (was first).
+  // Buy catalogue first, then auctions + rare + workshop, then owned items last.
   const secs: [AssetSec, string, string, number][] = [
-    ['own', 'ic-bag', 'astsec.own', s.lots.length + s.used.length],
     ['bds', 'i-house', 'astsec.bds', ownLots('bds').length],
     ['lux', 'i-ring', 'astsec.lux', ownLots('lux').length + ownUsed('lux').length],
     ['budget', 'i-shoe', 'astsec.budget', ownLots('budget').length + ownUsed('budget').length],
     ['auction', 'ic-up', 'astsec.auction', s.mkt.length + (s.rareUp || []).length + (s.rareLive ? 1 : 0)],
     ['rare', 'ic-star', 'astsec.rare', (s.rareUp || []).length + (s.rareLive ? 1 : 0) + rareLots.length + rareUsed.length],
     ['workshop', 'ic-check', 'astsec.workshop', repLots.length + repUsed.length],
+    ['own', 'ic-bag', 'astsec.own', s.lots.length + s.used.length],
   ];
 
   // ---- shared row renderers (called as plain functions, not components) ----
