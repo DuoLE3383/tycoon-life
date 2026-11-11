@@ -1,13 +1,14 @@
 {
-  "version": "v12.10",
+  "version": "v12.11",
   "releasedAt": "2026-11-11",
-  "headline": "fix UI bugs from screenshots + auto pull/push hooks",
-  "summary": "v12.10: fix UI bugs from screenshots + auto pull/push hooks",
+  "headline": "fix header overflow + bigger clearer numbers in PinZone",
+  "summary": "v12.11: fix header overflow + bigger clearer numbers in PinZone",
   "features": [
-    "fix Social media label truncation in income BarChart",
-    "fix More button + modal title i18n (EN/VI/ZH)",
-    "fix 7giờ missing space in sleep dropdown",
-    "add scripts/release.sh atomic version-bump helper",
-    "add scripts/post-commit auto-sync hook"
+    "fix header era-line overflow (Vietnam · 互联网普及) — truncate with ellipsis + flex shrink",
+    "fix hardcoded v12.8 in header — now reads BUNDLED_VERSION (v12.11)",
+    "make NW chip gold accent + bigger (was muted grey)",
+    "make Income chip color-coded green/red + bigger",
+    "make Cash/Health/Spirit/Level chips bigger too (1rem desktop",
+    "0.84-0.96rem mobile)"
   ]
 }
