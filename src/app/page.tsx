@@ -2852,7 +2852,7 @@ function AssetsTab({ s, act, curCat, setCurCat }: { s: GameState; act: Act; curC
       </>}
       {mode === 'workshop' && cond < 100 && <Btn ic="ic-check" label={t('workshop.repair') + ' ' + fmt(repCost)} kind="ghost" disabled={s.money < repCost} onClick={() => act(st => repairLot(st, idx))} />}
     </div>}>
-      <b>{favBtn(l.id)}{it.brand ? <span className="bchip" style={{ background: it.c }}>{it.brand}</span> : null}{it.name} <span className="rarity-chip" data-rarity={rar} style={{ '--rc': RARITY_COLOR[rar] } as React.CSSProperties}>{t('rarity.' + rar)}</span></b>
+      <b>{favBtn(l.id)}{it.brand ? <span className="bchip" style={{ background: it.c }}>{it.brand}</span> : null}{it.name} <span className="rarity-chip" data-rarity={rar} style={{ '--rc': RARITY_COLOR[rar] } as React.CSSProperties}>{t('rarity.' + rar)}</span>{l.serial != null && l.serialOf != null && <span className="serial-chip" style={{ background: 'var(--accent)', color: '#fff' }}>#{l.serial} of {l.serialOf}</span>}</b>
       <span className="sub">
         {mode === 'workshop'
           ? <span className="cond-pill" data-cond={condTxtOf(cond)}>{t('used.cond')} {cond} · {condTxtOf(cond)}</span>

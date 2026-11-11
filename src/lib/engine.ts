@@ -152,7 +152,7 @@ export interface GameState {
   farm: Record<string, number>; fac: Record<string, number>; space: Record<string, number>;
   farmBought: Record<string, number>; facBought: Record<string, number>; spaceBought: Record<string, number>;
   spaceUpgrade: { startedDay: number; completesDay: number } | null; spaceTravel: boolean;
-  lots: { id: string; paid: number; day: number; condition?: number; condDay?: number; repaired?: number }[]; stk: Record<string, number>;
+  lots: { id: string; paid: number; day: number; condition?: number; condDay?: number; repaired?: number; serial?: number; serialOf?: number }[]; stk: Record<string, number>;
   club: string | null; ownClub: string | null; job: string | null; sideJob: string | null;
   // v11.39 — career system: experience per job-id, contract end-day, raise history.
   jobExp: Record<string, number>;       // XP accumulated per job-id (resets on quit)
@@ -2061,16 +2061,24 @@ export function buyItem(s: GameState, id: string): string | null {
   const it = ITEM_BY[id]; if (!it || s.money < it.price) return null;
   // v13.2 — limited-quantity items: an item with `stock: number` decrements a
   // per-item counter on purchase. Sold-out items (0 left) can't be bought.
-  // Lazily initialises s.itemStock[id] from it.stock on first lookup so newly
-  // registered items (admin/LLM) with stock start counting from their cap.
+  // v13.4 — compute serial number BEFORE decrementing: serial = original - remaining + 1.
+  //   stock=10, first buy: serial = 10 - 10 + 1 = 1 → "1 of 10"
+  //   stock=10, last buy:  serial = 10 - 1 + 1 = 10 → "10 of 10"
+  //   stock=1, only buy:   serial = 1 - 1 + 1 = 1 → "1 of 1" (unique piece)
+  let serial: number | undefined;
+  let serialOf: number | undefined;
   if (typeof it.stock === 'number') {
     if (s.itemStock[id] == null) s.itemStock[id] = it.stock;
     if (s.itemStock[id] <= 0) return null;
+    serial = it.stock - s.itemStock[id] + 1;
+    serialOf = it.stock;
     s.itemStock[id] -= 1;
   }
-  s.money -= it.price; addLot(s, id);
+  s.money -= it.price;
+  // v13.4 — addLot with serial info for limited items.
+  s.lots.push({ id, paid: it.price, day: s.day, condition: 100, condDay: s.day, repaired: 0, serial, serialOf });
   s.fame = s.fame + (it.lux >= 100 ? 3 : it.lux >= 30 ? 1 : 0);
-  if (it.price >= 10000) addPost(s, `Just picked up a new ${it.name}. Life is good.`, it.lux >= 100 ? 2 : 1);
+  if (it.price >= 10000) addPost(s, `Just picked up a new ${it.name}${serial ? ` (#${serial}/${serialOf})` : ''}. Life is good.`, it.lux >= 100 ? 2 : 1);
   recordTx(s, { kind: 'buy', asset: 'lot', ref: id, name: it.name, qty: 1, unit: it.price, amount: -it.price });
   return 'Bought ' + it.name;
 }
