@@ -639,8 +639,10 @@ function Header({ s, eraName, speed, setSpeed, act }: { s: GameState; eraName: (
     <header className="top">
       <div className="brand">
         <Art id="s-coin" className="logo" />
-        <div><h1><span className="mini">v12.8</span> HuyenBao</h1>
-          <div className="mini">{s.started ? `${s.nation} · ${eraName(worldYear(s))}` : t('tagline')}</div></div>
+        <div className="brand-txt">
+          <h1><span className="mini ver">{BUNDLED_VERSION}</span> HuyenBao</h1>
+          <div className="mini era-line">{s.started ? `${s.nation} · ${eraName(worldYear(s))}` : t('tagline')}</div>
+        </div>
       </div>
       {/* v11.46 — removed Cash/NW/Income from header (was duplicate of PinZone).
           Header now only carries language + theme + level chip. */}
@@ -785,8 +787,8 @@ function PinZone({ s, t, onEdit, act, onNav }: { s: GameState; t: TFn; onEdit: (
         </span>
         <span className="hpill hpill-big"><Ic id="w-lotus" className="bsi" />{Math.round(s.spirit)}</span>
         <span className="pchip pchip-big" data-tip={`Lv ${s.level} · ${s.xp}/${xpNeed(s.level)} XP (${xpPct}%)`}>⭐ {s.level}</span>
-        {(nw > 0 || yi !== 0) && <span className="pchip pchip-big" data-tip={t('netWorth')}><Ic id="t-bank" className="bsi" />{fmt(nw)}</span>}
-        {yi !== 0 && <span className={'pchip pchip-big ' + (yi >= 0 ? 'up' : 'down')} data-tip={t('inc.total', 'Income/yr')}>{yi >= 0 ? '+' : ''}{fmt(yi)}{t('perYear')}</span>}
+        {(nw > 0 || yi !== 0) && <span className="pchip pchip-big nw-chip" data-tip={t('netWorth')}><Ic id="t-bank" className="bsi" />{fmt(nw)}</span>}
+        {yi !== 0 && <span className={'pchip pchip-big income-chip ' + (yi >= 0 ? 'up' : 'down')} data-tip={t('inc.total', 'Income/yr')}>{yi >= 0 ? '+' : ''}{fmt(yi)}{t('perYear')}</span>}
       </div>
 
       {/* Row 3: Charts — bigger donut + bar + sleep, 3-col desktop / 1-col mobile */}

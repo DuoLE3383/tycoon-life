@@ -29,10 +29,12 @@ html[data-theme="light"] body{background:#e2e7df}
 .tgame :focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .tgame .wrap{max-width:860px;margin:0 auto;padding:14px;isolation:isolate}
 .tgame .top{display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding:4px 0 10px}
-.tgame .brand{display:flex;align-items:center;gap:10px;flex:1;min-width:210px}
+.tgame .brand{display:flex;align-items:center;gap:10px;flex:1 1 240px;min-width:0;max-width:520px}
 .tgame .logo{width:46px;height:46px;flex:none;border-radius:12px;background:var(--card);border:1px solid var(--line);padding:4px}
-.tgame .brand h1{margin:0;font-weight:750;font-size:1.28rem;letter-spacing:.2px;color:var(--ink)}
-.tgame .brand h1 .mini{font-weight:500;margin-left:6px}
+.tgame .brand-txt{min-width:0;flex:1 1 auto;overflow:hidden}
+.tgame .brand h1{margin:0;font-weight:750;font-size:1.28rem;letter-spacing:.2px;color:var(--ink);display:flex;align-items:baseline;gap:6px;flex-wrap:wrap}
+.tgame .brand h1 .mini.ver{font-weight:500;font-size:.7rem;color:var(--mute);background:var(--paper2);border:1px solid var(--line);border-radius:6px;padding:1px 6px;letter-spacing:.02em}
+.tgame .brand .era-line{font-size:.78rem;color:var(--mute);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
 .tgame .mini{font-size:.8rem;color:var(--mute)}
 .tgame #tcash{font-size:1.7rem;font-weight:750;font-variant-numeric:tabular-nums;color:var(--ink);line-height:1.15}
 .tgame .hstack{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
@@ -797,10 +799,21 @@ html[data-theme="dark"] .tgame .cash-chip.low{color:#f87171;border-color:rgba(24
 .tgame .identity-row .mini{font-size:.76rem}
 /* Stats row — bigger chips, clear grouping. */
 .tgame .stats-row{align-items:center;gap:6px;margin-bottom:6px}
-.tgame .hpill-big{font-size:.88rem !important;padding:3px 10px !important;font-weight:700}
-.tgame .hpill-big svg{width:14px;height:14px}
-.tgame .pchip-big{font-size:.84rem !important;padding:3px 10px !important;font-weight:750}
-.tgame .pchip-big svg{width:13px;height:13px}
+.tgame .hpill-big{font-size:.98rem !important;padding:4px 12px !important;font-weight:750}
+.tgame .hpill-big svg{width:15px;height:15px}
+.tgame .pchip-big{font-size:1rem !important;padding:4px 13px !important;font-weight:800}
+.tgame .pchip-big svg{width:14px;height:14px}
+/* v12.11 — net-worth chip: bigger, brighter (gold accent), stands out as the
+   player's single most-watched number. Replaces the muted default pchip look. */
+.tgame .pchip-big.nw-chip{font-size:1.08rem !important;padding:5px 15px !important;font-weight:800;color:#ca8a04;background:linear-gradient(180deg,rgba(202,138,4,.16) 0%,rgba(202,138,4,.06) 100%);border:1.5px solid rgba(202,138,4,.5);box-shadow:0 0 0 3px rgba(202,138,4,.07),0 2px 8px rgba(202,138,4,.15);text-shadow:0 0 4px rgba(202,138,4,.18);letter-spacing:.2px}
+.tgame .pchip-big.nw-chip svg{color:#ca8a04}
+html[data-theme="dark"] .tgame .pchip-big.nw-chip{color:#fbbf24;background:linear-gradient(180deg,rgba(251,191,36,.2) 0%,rgba(251,191,36,.06) 100%);border-color:rgba(251,191,36,.5);box-shadow:0 0 0 3px rgba(251,191,36,.1),0 2px 12px rgba(251,191,36,.22);text-shadow:0 0 6px rgba(251,191,36,.35)}
+/* v12.11 — income chip: also bigger + bolder, color-coded by direction. */
+.tgame .pchip-big.income-chip{font-size:1.02rem !important;padding:5px 13px !important;font-weight:800}
+.tgame .pchip-big.income-chip.up{color:var(--sage);background:linear-gradient(180deg,rgba(46,125,84,.16) 0%,rgba(46,125,84,.05) 100%);border:1.5px solid rgba(46,125,84,.5);box-shadow:0 0 0 3px rgba(46,125,84,.06)}
+html[data-theme="dark"] .tgame .pchip-big.income-chip.up{color:#86efac;background:linear-gradient(180deg,rgba(134,239,172,.16) 0%,rgba(134,239,172,.05) 100%);border-color:rgba(134,239,172,.5)}
+.tgame .pchip-big.income-chip.down{color:var(--brick);background:linear-gradient(180deg,rgba(192,71,60,.16) 0%,rgba(192,71,60,.05) 100%);border:1.5px solid rgba(192,71,60,.5)}
+html[data-theme="dark"] .tgame .pchip-big.income-chip.down{color:#fca5a5;background:linear-gradient(180deg,rgba(252,165,165,.16) 0%,rgba(252,165,165,.05) 100%);border-color:rgba(252,165,165,.5)}
 /* Bigger dash-chart-box for readability. */
 .tgame .pinzone-v55 .dash-chart-box{padding:8px}
 .tgame .pinzone-v55 .dash-chart-legend{font-size:.72rem;gap:2px}
@@ -920,9 +933,11 @@ html[data-theme="dark"] .tgame .cash-chip.low{color:#f87171;border-color:rgba(24
   .tgame .identity-row{flex-wrap:wrap;gap:5px;margin-bottom:4px}
   .tgame .identity-row .mini{font-size:.7rem}
   .tgame .stats-row{gap:5px;row-gap:4px}
-  .tgame .hpill-big{font-size:.8rem !important;padding:3px 8px !important}
-  .tgame .pchip-big{font-size:.76rem !important;padding:3px 8px !important}
-  .tgame .cash-chip{font-size:.86rem;padding:3px 9px}
+  .tgame .hpill-big{font-size:.86rem !important;padding:3px 9px !important}
+  .tgame .pchip-big{font-size:.84rem !important;padding:3px 9px !important}
+  .tgame .pchip-big.nw-chip{font-size:.92rem !important;padding:4px 11px !important}
+  .tgame .pchip-big.income-chip{font-size:.88rem !important;padding:4px 10px !important}
+  .tgame .cash-chip{font-size:.96rem;padding:4px 11px}
   .tgame .pinzone-v55 .dash-chart-legend{font-size:.68rem}
 }
 
