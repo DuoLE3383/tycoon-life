@@ -1,13 +1,13 @@
 {
-  "version": "v12.8",
+  "version": "v12.10",
   "releasedAt": "2026-11-11",
-  "headline": "HuyenBao v12.8 — Quick gigs to header + BizTab P&L detail + Power tab explanation",
-  "summary": "v12.8: Quick gigs button moved to header (always visible on every tab). BizTab P&L expanded with per-business revenue breakdown + national + international market share. Power tab influence + scrutiny values explained with labels + callouts. Thousand separators in amount inputs.",
+  "headline": "fix UI bugs from screenshots + auto pull/push hooks",
+  "summary": "v12.10: fix UI bugs from screenshots + auto pull/push hooks",
   "features": [
-    "Quick gigs button in header (always visible, every tab)",
-    "BizTab P&L: per-business revenue + national + international market share",
-    "Power tab: influence + scrutiny explained with labels + callouts",
-    "Thousand separators in amount inputs",
-    "Version bumped to v12.8"
+    "fix Social media label truncation in income BarChart",
+    "fix More button + modal title i18n (EN/VI/ZH)",
+    "fix 7giờ missing space in sleep dropdown",
+    "add scripts/release.sh atomic version-bump helper",
+    "add scripts/post-commit auto-sync hook"
   ]
 }
