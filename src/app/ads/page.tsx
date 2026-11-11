@@ -109,8 +109,9 @@ export default function AdminPage() {
   const flash = useCallback((m: string) => { setNote(m); setTimeout(() => setNote(''), 4500); }, []);
 
   const adminGet = useCallback(async <T,>(path: string, params: Record<string, string> = {}): Promise<T> => {
-    const usp = new URLSearchParams({ key: keyRef.current, ...params });
-    const r = await fetch(asset(path) + '?' + usp.toString(), { cache: 'no-store' });
+    const usp = new URLSearchParams(params);
+    const url = asset(path) + (usp.size ? '?' + usp.toString() : '');
+    const r = await fetch(url, { headers: { authorization: 'Bearer ' + keyRef.current }, cache: 'no-store' });
     if (r.status === 403) {
       const j = await r.json().catch(() => ({})) as { error?: string };
       throw new Error(j.error === 'admin-key-not-set' ? 'noserver' : 'badkey');
@@ -121,8 +122,8 @@ export default function AdminPage() {
 
   const adminPost = useCallback(async <T,>(path: string, body: Record<string, unknown>): Promise<T> => {
     const r = await fetch(asset(path), {
-      method: 'POST', headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ ...body, key: keyRef.current }), cache: 'no-store',
+      method: 'POST', headers: { 'content-type': 'application/json', authorization: 'Bearer ' + keyRef.current },
+      body: JSON.stringify(body), cache: 'no-store',
     });
     if (r.status === 403) {
       const j = await r.json().catch(() => ({})) as { error?: string };
@@ -345,7 +346,7 @@ export default function AdminPage() {
                   <tbody>
                     {(players ?? []).map(p => {
                       if (gifting && gifting.id === p.id) {
-                        return (<tr key={p.id} className="adm-editrow"><td colSpan={8}><div className="adm-bcast"><b>🎁 Gửi quà từ HuyenBao 📢 tới {p.avatar} {p.name} ({p.code})</b><div className="adm-row"><input className="adm-input" type="number" value={giftAmt} aria-label="amount" onChange={e => setGiftAmt(e.target.value)} style={{ flex: '0 0 140px' }} /><input className="adm-input" value={giftNote} placeholder="Lời nhắn (tuỳ chọn)" onChange={e => setGiftNote(e.target.value)} style={{ flex: 1 }} /></div><div className="adm-row"><button className="adm-btn" onClick={() => void sendGiftToPlayer}>🎁 Gửi quà</button><button className="adm-btn adm-ghost" onClick={() => setGifting(null)}>Huỷ</button></div></div></td></tr>);
+                        return (<tr key={p.id} className="adm-editrow"><td colSpan={8}><div className="adm-bcast"><b>🎁 Gửi quà từ HuyenBao 📢 tới {p.avatar} {p.name} ({p.code})</b><div className="adm-row"><input className="adm-input" type="number" value={giftAmt} aria-label="amount" onChange={e => setGiftAmt(e.target.value)} style={{ flex: '0 0 140px' }} /><input className="adm-input" value={giftNote} placeholder="Lời nhắn (tuỳ chọn)" onChange={e => setGiftNote(e.target.value)} style={{ flex: 1 }} /></div><div className="adm-row"><button className="adm-btn" onClick={() => void sendGiftToPlayer()}>🎁 Gửi quà</button><button className="adm-btn adm-ghost" onClick={() => setGifting(null)}>Huỷ</button></div></div></td></tr>);
                       }
                       return editing && editing.id === p.id ? (
                         <tr key={p.id} className="adm-editrow">
