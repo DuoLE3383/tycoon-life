@@ -1,4 +1,6 @@
-// v11.29 — admin player management.
+// v11.29 — admin player management. v12.2 — tryDb() so SQLite failures no
+// longer 500 the whole dashboard. Each branch falls through to a graceful
+// JSON error instead of crashing the route.
 // GET  /api/admin/players?key=…&q=<search>&limit= → { players: AdminPlayerRow[] }
 // POST /api/admin/players { key, action, uid, … }
 //   action=update { uid, name?, avatar?, level?, nw? } → { ok, player }
@@ -7,21 +9,41 @@
 //   action=delete { uid }                             → { ok }  (wipes player + chat + edges + gifts)
 import { NextResponse } from 'next/server';
 import {
-  db, validUid, listPlayersAdmin, adminUpdatePlayer, adminSetBanned, adminDeletePlayer,
+  validUid, listPlayersAdmin, adminUpdatePlayer, adminSetBanned, adminDeletePlayer,
 } from '@/lib/server/socialDb';
 import { adminGuard, readBody } from '@/lib/server/adminAuth';
 
-export function GET(req: Request) {
+// v12.2 — lazy SQLite loader (mirrors /api/admin/game/route.ts). Returns null
+// when better-sqlite3 or the DB file can't be initialised (permissions,
+// missing data/ dir, native-module issue). Every handler below checks the
+// result and responds with a graceful 503 instead of crashing with 500.
+type DbLike = {
+  exec: (sql: string) => void;
+  prepare: (sql: string) => { run: (...args: unknown[]) => void; get: (...args: unknown[]) => unknown; all: (...args: unknown[]) => unknown[] };
+};
+async function tryDb(): Promise<DbLike | null> {
+  try {
+    const { db } = await import('@/lib/server/socialDb');
+    return db() as unknown as DbLike;
+  } catch (e) {
+    console.error('[admin/players] SQLite unavailable:', e instanceof Error ? e.message : e);
+    return null;
+  }
+}
+
+export async function GET(req: Request) {
   const denied = adminGuard(req);
   if (denied) return denied;
+  const d = await tryDb();
+  if (!d) return NextResponse.json({ error: 'sqlite-unavailable', players: [] }, { status: 503 });
   try {
-    db();
     const u = new URL(req.url);
     const q = u.searchParams.get('q') ?? '';
     const limit = Math.min(500, Math.max(1, Math.round(Number(u.searchParams.get('limit')) || 200)));
     return NextResponse.json({ players: listPlayersAdmin(q, limit) });
   } catch (e) {
-    return NextResponse.json({ error: e instanceof Error ? e.message : 'list-failed' }, { status: 500 });
+    console.error('[admin/players] GET failed:', e instanceof Error ? e.message : e);
+    return NextResponse.json({ error: e instanceof Error ? e.message : 'list-failed', players: [] }, { status: 500 });
   }
 }
 
@@ -29,8 +51,9 @@ export async function POST(req: Request) {
   const b = await readBody(req);
   const denied = adminGuard(req, b.key);
   if (denied) return denied;
+  const d = await tryDb();
+  if (!d) return NextResponse.json({ ok: false, error: 'sqlite-unavailable' }, { status: 503 });
   try {
-    db();
     const uid = b.uid;
     if (!validUid(uid)) return NextResponse.json({ ok: false, error: 'bad-uid' }, { status: 400 });
     const action = String(b.action ?? '');
@@ -51,6 +74,10 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ ok: false, error: 'bad-action' }, { status: 400 });
   } catch (e) {
+    console.error('[admin/players] POST failed:', e instanceof Error ? e.message : e);
     return NextResponse.json({ ok: false, error: e instanceof Error ? e.message : 'player-failed' }, { status: 500 });
   }
 }
+
+export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';

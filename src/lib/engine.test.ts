@@ -17,6 +17,8 @@ import {
   yearExpenses, incomeBreakdown, expenseBreakdown, assetBreakdown, financeActions,
   // v12 — player UID generator (regression test for the new UID field)
   genUid,
+  // v12.2 — AI event difficulty + risk-roll helpers
+  rollRiskOutcome, choiceRisk, applyAIChoice, normaliseDifficulty, type AiDifficulty,
   dateOf, worldYear, type GameState, type Transaction,
 } from './engine';
 
@@ -1457,5 +1459,168 @@ test('v12: genUid() returns unique-shaped ids across rapid successive calls', ()
     assert.ok(!seen.has(u), `genUid collision at i=${i}: ${u}`);
     seen.add(u);
   }
+});
+
+// ================= v12.2 — AI event difficulty + auto-donate =================
+
+test('v12.2: normaliseDifficulty accepts easy/hard and defaults anything else to normal', () => {
+  assert.equal(normaliseDifficulty('easy'), 'easy');
+  assert.equal(normaliseDifficulty('hard'), 'hard');
+  assert.equal(normaliseDifficulty('normal'), 'normal');
+  // junk / missing values collapse to 'normal'
+  assert.equal(normaliseDifficulty(undefined), 'normal');
+  assert.equal(normaliseDifficulty('Hard'), 'normal');
+  assert.equal(normaliseDifficulty(''), 'normal');
+  assert.equal(normaliseDifficulty(42), 'normal');
+});
+
+test('v12.2: migrate() backfills aiDifficulty as "normal" on old saves', () => {
+  const s = migrate({ schemaVersion: 4, name: 'Old' });
+  assert.equal(s.aiDifficulty, 'normal', 'old saves must default to normal difficulty');
+  // explicit values are preserved
+  assert.equal(migrate({ schemaVersion: 4, aiDifficulty: 'hard' }).aiDifficulty, 'hard');
+  assert.equal(migrate({ schemaVersion: 4, aiDifficulty: 'easy' }).aiDifficulty, 'easy');
+  // junk values collapse to normal
+  assert.equal(migrate({ schemaVersion: 4, aiDifficulty: 'lunatic' }).aiDifficulty, 'normal');
+});
+
+test('v12.2: fresh() sets aiDifficulty = "normal" on new games', () => {
+  assert.equal(fresh().aiDifficulty, 'normal');
+});
+
+// Seeded rng helpers for deterministic roll tests. rngBelow(threshold) always
+// returns < threshold so the roll is a "success"; rngAbove(threshold) always
+// returns >= threshold so the roll is a "failure".
+const rngBelow = () => 0.0;
+const rngAbove = () => 0.999;
+
+test('v12.2: rollRiskOutcome — normal difficulty keeps the legacy win chance (safe 80%)', () => {
+  // 0.0 < 0.8 → success; upside returned verbatim
+  const r = rollRiskOutcome({ money: 1000, fame: 2 }, 'safe', rngBelow, 'normal');
+  assert.equal(r.success, true);
+  assert.equal(r.money, 1000);
+  assert.equal(r.fame, 2);
+});
+
+test('v12.2: rollRiskOutcome — easy mode shifts win chance by +10% (safe 90%)', () => {
+  // rng=0.85 loses under normal (>=0.8) but wins under easy (<0.9). We can't
+  // pass different rngs per difficulty, so verify via threshold boundaries:
+  // winChance base for safe = 0.8; easy adds 0.1 → 0.9. Verify the *failure*
+  // penalty also softens by ×0.5 (penMult for easy).
+  const failNormal = rollRiskOutcome({ money: 1000 }, 'safe', rngAbove, 'normal');
+  const failEasy = rollRiskOutcome({ money: 1000 }, 'safe', rngAbove, 'easy');
+  assert.equal(failNormal.success, false);
+  assert.equal(failEasy.success, false);
+  // normal safe-failure gives 30% of upside: 300. easy halves → 150.
+  assert.equal(failNormal.money, 300);
+  assert.equal(failEasy.money, 150, 'easy mode must halve the safe-failure consolation');
+});
+
+test('v12.2: rollRiskOutcome — hard mode widens penalties ×1.5', () => {
+  // high-risk failure with money upside = 10000. Normal: -30% = -3000. Hard: -45% = -4500.
+  const failNormal = rollRiskOutcome({ money: 10000 }, 'high', rngAbove, 'normal');
+  const failHard = rollRiskOutcome({ money: 10000 }, 'high', rngAbove, 'hard');
+  assert.equal(failNormal.success, false);
+  assert.equal(failHard.success, false);
+  assert.equal(failNormal.money, -3000);
+  assert.equal(failHard.money, -4500, 'hard mode must bump the money penalty by 50%');
+  // decline: normal = 3, hard = round(3 * 1.5) = 5 (rounded). Easy = round(3*0.5)=2.
+  assert.equal(failNormal.decline, 3);
+  assert.equal(failHard.decline, 5);
+  const failEasy = rollRiskOutcome({ money: 10000 }, 'high', rngAbove, 'easy');
+  assert.equal(failEasy.money, -1500);
+  assert.equal(failEasy.decline, 2, 'easy halves the high-risk decline (round(3*0.5)=2)');
+});
+
+test('v12.2: rollRiskOutcome — default difficulty is normal (legacy callers unaffected)', () => {
+  // Omit the difficulty arg → behaves like 'normal'.
+  const r = rollRiskOutcome({ money: 500 }, 'medium', rngAbove);
+  assert.equal(r.success, false);
+  assert.equal(r.money, 0);
+  assert.equal(r.decline, 1, 'medium failure decline = 1 in normal mode (legacy)');
+});
+
+test('v12.2: rollRiskOutcome — easy shifts the win boundary by +0.1 (verified via a borderline rng)', () => {
+  // rng that returns exactly 0.85 — within easy's safe-window (0.9) but above
+  // normal's (0.8). Under easy: success. Under normal: failure.
+  const rng85 = () => 0.85;
+  const easy = rollRiskOutcome({ money: 1000 }, 'safe', rng85, 'easy');
+  const normal = rollRiskOutcome({ money: 1000 }, 'safe', rng85, 'normal');
+  assert.equal(easy.success, true, 'rng=0.85 should be a win under easy (winChance 0.9)');
+  assert.equal(normal.success, false, 'rng=0.85 should be a loss under normal (winChance 0.8)');
+});
+
+test('v12.2: choiceRisk classifies choices by their magnitude + commitment', () => {
+  // free upside small magnitude → safe
+  assert.equal(choiceRisk({ money: 1000 }), 'safe');
+  // decline ≥ 5 → high
+  assert.equal(choiceRisk({ decline: 7 }), 'high');
+  // negative money → high
+  assert.equal(choiceRisk({ money: -500 }), 'high');
+  // dropout → high
+  assert.equal(choiceRisk({ dropout: { slot: 'study' } }), 'high');
+});
+
+test('v12.2: applyAIChoice auto-donates 20% of cash losses to charity (s.donated)', () => {
+  // Build a minimal GameState with an AI event whose high-risk choice has a
+  // large money upside. rngAbove forces a failure → roll.money = -30% * 100000 = -30000.
+  // Auto-donate: 20% of |loss| = 6000 added to s.donated + fame + karma.
+  const s = fresh();
+  s.started = true;
+  s.money = 1_000_000;
+  s.fame = 0; s.karma = 0; s.donated = 0;
+  s.aiDifficulty = 'normal';
+  // inject an AI event directly (bypass askAI which needs the LLM backend).
+  // Explicit risk:'high' forces choiceRisk to 'high' so the failure path
+  // produces a strictly-negative money roll (medium failures return 0).
+  s.aiEv = { title: 'Bad Bet', text: 'x', choices: [{ l: 'go', money: 100000, risk: 'high' }] };
+  applyAIChoice(s, 0, rngAbove);
+  // high-risk failure: -30% of 100000 = -30000
+  assert.equal(s.money, 1_000_000 - 30000, 'money must drop by the rolled loss');
+  // auto-donate: 20% of 30000 = 6000
+  assert.equal(s.donated, 6000, '20% of |loss| must be added to s.donated');
+  // fame granted (g for amt 6000 < 10000 → 1)
+  assert.ok(s.fame >= 1, 'auto-donate must grant at least 1 fame');
+  // karma granted (ka for 6000 < 10000 → 1)
+  assert.ok(s.karma >= 1, 'auto-donate must grant at least 1 karma');
+  // log entry mentioning the donated amount
+  assert.ok(s.log.some(l => l.includes('Part of the loss') && l.includes('charity')),
+    `log must mention the donation, got: ${JSON.stringify(s.log.slice(-3))}`);
+});
+
+test('v12.2: applyAIChoice does NOT auto-donate when the roll is a win (roll.money >= 0)', () => {
+  const s = fresh();
+  s.started = true;
+  s.money = 500_000;
+  s.donated = 0;
+  s.aiDifficulty = 'easy'; // winChance 0.9 + rngBelow=0 → success
+  s.aiEv = { title: 'Windfall', text: 'x', choices: [{ l: 'take', money: 50000, risk: 'high' }] };
+  applyAIChoice(s, 0, rngBelow);
+  // success → money = +50000, donated stays 0
+  assert.equal(s.money, 500_000 + 50000);
+  assert.equal(s.donated, 0, 'wins must not trigger the auto-donate');
+  // no donation log line
+  assert.ok(!s.log.some(l => l.includes('Part of the loss')),
+    'wins must not log a donation message');
+});
+
+test('v12.2: applyAIChoice passes s.aiDifficulty through to rollRiskOutcome', () => {
+  // Under hard mode, the same high-risk failure loses more money than normal.
+  const sNormal = fresh();
+  sNormal.started = true; sNormal.money = 1_000_000; sNormal.donated = 0;
+  sNormal.aiDifficulty = 'normal';
+  sNormal.aiEv = { title: 'x', text: 'x', choices: [{ l: 'go', money: 100000, risk: 'high' }] };
+  applyAIChoice(sNormal, 0, rngAbove);
+  const sHard = fresh();
+  sHard.started = true; sHard.money = 1_000_000; sHard.donated = 0;
+  sHard.aiDifficulty = 'hard';
+  sHard.aiEv = { title: 'x', text: 'x', choices: [{ l: 'go', money: 100000, risk: 'high' }] };
+  applyAIChoice(sHard, 0, rngAbove);
+  // hard loses 50% more: -45000 vs -30000. money reflects the difference.
+  assert.equal(sNormal.money, 1_000_000 - 30000);
+  assert.equal(sHard.money, 1_000_000 - 45000);
+  // auto-donate also scales: normal 20% of 30000 = 6000; hard 20% of 45000 = 9000.
+  assert.equal(sNormal.donated, 6000);
+  assert.equal(sHard.donated, 9000);
 });
 

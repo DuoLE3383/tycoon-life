@@ -9,6 +9,8 @@
 //   action='triggerElection' { uid }     → forces next yearEnd to run election
 //   action='advanceTime' { uid, days }   → advances player's game time
 //   action='createItem' { name, cat, price, imageUrl, brand } → creates custom item
+//   action='updateItem' { id, name?, cat?, price?, imageUrl?, brand? } → updates a custom item (v12.2)
+//   action='setDifficulty' { uid, level: 'easy'|'normal'|'hard' } → AI event difficulty (v12.2)
 //
 // v12.1 — fixed 500 error: db() was called at the TOP of POST (line 47) before
 // any action check. If SQLite init failed (permissions, missing data/ dir,
@@ -16,6 +18,11 @@
 // createItem which doesn't even need the player DB. Now db() is called lazily
 // ONLY inside the branches that need it, and createItem has an in-memory
 // fallback if SQLite is unavailable.
+// v12.2 — updateItem + setDifficulty added. updateItem patches the
+// custom_items row by id (or the matching in-memory entry) and reuses the
+// same SQLite-or-fallback path as createItem. setDifficulty is an audit-log
+// action that records the operator's chosen AI difficulty for a player; the
+// engine applies it via GameState.aiDifficulty (defaults to 'normal').
 import { NextResponse } from 'next/server';
 import { adminGuard, readBody } from '@/lib/server/adminAuth';
 import { ITEMS, RARE_ITEMS } from '@/lib/gameData';
@@ -25,13 +32,30 @@ const memoryItems: { id: string; name: string; cat: string; brand?: string; pric
 
 // Lazy SQLite loader — returns null if better-sqlite3 or the DB file can't
 // be initialised (permissions, missing data/ dir, native module issue).
-async function tryDb(): Promise<{ exec: (sql: string) => void; prepare: (sql: string) => { run: (...args: unknown[]) => void; all: () => unknown[] } } | null> {
+type DbPrepared = { run: (...args: unknown[]) => { changes: number; lastInsertRowid: number | bigint }; get: (...args: unknown[]) => unknown; all: (...args: unknown[]) => unknown[] };
+async function tryDb(): Promise<{ exec: (sql: string) => void; prepare: (sql: string) => DbPrepared } | null> {
   try {
     const { db } = await import('@/lib/server/socialDb');
-    return db() as { exec: (sql: string) => void; prepare: (sql: string) => { run: (...args: unknown[]) => void; all: () => unknown[] } };
-  } catch {
+    return db() as unknown as { exec: (sql: string) => void; prepare: (sql: string) => DbPrepared };
+  } catch (e) {
+    console.error('[admin/game] SQLite unavailable:', e instanceof Error ? e.message : e);
     return null;
   }
+}
+
+// v12.2 — normalise + clamp a custom-item patch shared by createItem and
+// updateItem. Returns null when the patch has no valid URL (URL is required
+// for custom items since they have no built-in art fallback).
+function readItemPatch(b: Record<string, unknown>): { name: string; cat: string; price: number; imageUrl: string; brand: string } | null {
+  const name = String(b.name ?? '').trim().slice(0, 60);
+  const cat = String(b.cat ?? 'Custom').trim().slice(0, 30);
+  const price = Math.max(1, Math.min(1e9, Math.round(Number(b.price) || 1000)));
+  const imageUrl = String(b.imageUrl ?? '').trim().slice(0, 500);
+  const brand = String(b.brand ?? '').trim().slice(0, 30);
+  if (!name) return null;
+  if (!imageUrl) return null;
+  try { const u = new URL(imageUrl); if (!u.protocol.startsWith('http')) throw new Error('bad-proto'); } catch { return null; }
+  return { name, cat, price, imageUrl, brand };
 }
 
 export async function GET(req: Request) {
@@ -62,7 +86,7 @@ export async function POST(req: Request) {
   if (denied) return denied;
   try {
     const action = String(b.action ?? '');
-    const validActions = ['grantItem', 'setMoney', 'setFame', 'setHealth', 'setSpirit', 'setLevel', 'triggerElection', 'advanceTime', 'createItem'];
+    const validActions = ['grantItem', 'setMoney', 'setFame', 'setHealth', 'setSpirit', 'setLevel', 'triggerElection', 'advanceTime', 'createItem', 'updateItem', 'setDifficulty'];
     if (!validActions.includes(action)) return NextResponse.json({ ok: false, error: 'bad-action' }, { status: 400 });
 
     // v12.1 — createItem FIRST, before any db() call. This action targets the
@@ -113,9 +137,74 @@ export async function POST(req: Request) {
       return NextResponse.json({ ok: true, itemId, name });
     }
 
+    // v12.2 — updateItem: edit an existing custom item by id. Same SQLite-or-
+    // in-memory path as createItem so it works without a DB too. Requires the
+    // item id and (at minimum) a fresh URL since custom items always have one.
+    if (action === 'updateItem') {
+      const itemId = String(b.id ?? '').trim();
+      if (!itemId) return NextResponse.json({ ok: false, error: 'bad-id' }, { status: 400 });
+      const patch = readItemPatch(b);
+      if (!patch) return NextResponse.json({ ok: false, error: 'bad-patch' }, { status: 400 });
+      const d = await tryDb();
+      let updated = false;
+      if (d) {
+        try {
+          d.exec(`CREATE TABLE IF NOT EXISTS custom_items (
+            id TEXT PRIMARY KEY,
+            name TEXT NOT NULL,
+            cat TEXT NOT NULL DEFAULT 'Custom',
+            brand TEXT,
+            price REAL NOT NULL DEFAULT 1000,
+            lux INTEGER NOT NULL DEFAULT 1,
+            rate REAL NOT NULL DEFAULT 0,
+            art TEXT NOT NULL DEFAULT 'ic-bag',
+            rarity TEXT NOT NULL DEFAULT 'common',
+            image_url TEXT NOT NULL,
+            created_at TEXT NOT NULL
+          )`);
+          const r = d.prepare('UPDATE custom_items SET name=?, cat=?, brand=?, price=?, image_url=? WHERE id=?')
+            .run(patch.name, patch.cat, patch.brand || null, patch.price, patch.imageUrl, itemId);
+          updated = r ? r.changes > 0 : false;
+        } catch (e) {
+          console.error('[admin/game] SQLite update failed:', e instanceof Error ? e.message : e);
+        }
+      }
+      // Also patch the in-memory copy (if present) so the dashboard reflects
+      // the change even on a SQLite-less deployment.
+      const mem = memoryItems.find(it => it.id === itemId);
+      if (mem) {
+        mem.name = patch.name; mem.cat = patch.cat; mem.brand = patch.brand || undefined;
+        mem.price = patch.price; mem.image_url = patch.imageUrl;
+        updated = true;
+      }
+      if (!updated) return NextResponse.json({ ok: false, error: 'not-found' }, { status: 404 });
+      return NextResponse.json({ ok: true, itemId, name: patch.name });
+    }
+
     // All remaining actions target a specific player — uid required.
     const uid = String(b.uid ?? '').trim();
     if (!uid) return NextResponse.json({ ok: false, error: 'bad-uid' }, { status: 400 });
+
+    // v12.2 — setDifficulty: validate the level then record an audit-log row.
+    // The engine reads GameState.aiDifficulty (default 'normal'); this action
+    // tells the operator what was requested for a given player.
+    if (action === 'setDifficulty') {
+      const level = String(b.level ?? 'normal');
+      if (level !== 'easy' && level !== 'normal' && level !== 'hard') {
+        return NextResponse.json({ ok: false, error: 'bad-level' }, { status: 400 });
+      }
+      const d = await tryDb();
+      if (d) {
+        try {
+          const note = JSON.stringify({ action, uid, level, ts: Date.now() });
+          d.prepare('INSERT INTO messages (uid, name, avatar, text, created_at) VALUES (?,?,?,?,?)')
+            .run('hb-system', 'HuyenBao Admin', '⚙️', '⚙️ ADMIN_ACTION:' + note, new Date().toISOString());
+        } catch (e) {
+          console.error('[admin/game] setDifficulty audit log failed (non-fatal):', e instanceof Error ? e.message : e);
+        }
+      }
+      return NextResponse.json({ ok: true, action, uid, level });
+    }
 
     // For grantItem, validate the itemId exists.
     if (action === 'grantItem') {

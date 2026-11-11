@@ -290,6 +290,20 @@ export interface GameState {
   // conglomerate at $1M net worth; later tiers require deliberate actions
   // (declareAutonomy, declareIndependence) plus thresholds + recognition.
   entity: EntityState;
+  // v12.2 — AI event difficulty. Set by the admin dashboard's "🎮 Điều khiển"
+  // tab via the setDifficulty admin action; the engine reads it in
+  // rollRiskOutcome() to scale win chances + failure penalties:
+  //   easy   → win +10% (safe 90 / med 60 / high 30), penalties -50%
+  //   normal → current values (safe 80 / med 50 / high 20)
+  //   hard   → win -10% (safe 70 / med 40 / high 10), penalties +50%
+  // Defaults to 'normal'; migrate() backfills it on old saves.
+  aiDifficulty: AiDifficulty;
+}
+// v12.2 — AI event difficulty enum.
+export type AiDifficulty = 'easy' | 'normal' | 'hard';
+export const AI_DIFFICULTIES: AiDifficulty[] = ['easy', 'normal', 'hard'];
+export function normaliseDifficulty(v: unknown): AiDifficulty {
+  return v === 'easy' || v === 'hard' ? v : 'normal';
 }
 
 // ---------- wellbeing: body & mind ----------
@@ -675,6 +689,7 @@ export function fresh(): GameState {
     bizRnd: null, spiritGainToday: null,
     power: freshPower(),
     entity: freshEntity(),
+    aiDifficulty: 'normal',
   };
   STOCKS.forEach(x => { s.prices[x.id] = x.p; s.hist[x.id] = [x.p]; });
   return s;
@@ -760,6 +775,8 @@ export function migrate(raw: unknown): GameState {
   s.entity = s.entity && typeof s.entity === 'object'
     ? Object.assign(freshEntity(), s.entity)
     : freshEntity();
+  // v12.2 — aiDifficulty backfill for old saves.
+  s.aiDifficulty = normaliseDifficulty(s.aiDifficulty);
   // v11.6 — zodiac / gender / birthMonth / psychic. Old saves have none;
   // backfill from freshPsychic() + defaults. gender defaults to
   // 'nonbinary', birthMonth to 1 (Jan), zodiac to 'capricorn'.
@@ -2479,7 +2496,7 @@ export function applyEventChoice(s: GameState, idx: number, rng: () => number = 
   s.pending = null;
   return msg;
 }
-export function applyAIChoice(s: GameState, idx: number): string {
+export function applyAIChoice(s: GameState, idx: number, rng: () => number = Math.random): string {
   const ev = s.aiEv; if (!ev) return '';
   const c = ev.choices[idx]; if (!c) return '';
   // v10.5: risk-weighted outcome. The choice's static money/fame/decline are
@@ -2487,12 +2504,35 @@ export function applyAIChoice(s: GameState, idx: number): string {
   // roll against the player. Cost is always paid (the player committed to it).
   if (c.cost) s.money -= c.cost;
   const risk = choiceRisk(c, Math.max(100000, netWorth(s)));
-  const roll = rollRiskOutcome(c, risk);
+  // v12.2 — pass s.aiDifficulty so the admin-set difficulty flows through.
+  const roll = rollRiskOutcome(c, risk, rng, s.aiDifficulty);
   s.money += roll.money;
   if (roll.fame) s.fame = Math.max(0, s.fame + roll.fame);
   if (roll.decline) {
     s.health = Math.max(0, s.health - roll.decline);
     s.spirit = Math.max(0, s.spirit - Math.round(roll.decline * 0.6));
+  }
+  // v12.2 — auto-donate 20% of any cash LOSS to charity. This softens the
+  // blow: the donated amount adds to s.donated (which feeds the philanthropist
+  // achievement + karma/influence in donate()), and the player gets fame +
+  // karma + influence as if they'd made the donation themselves. No extra
+  // cash is deducted (the loss already happened). Only triggers on a strictly
+  // negative roll.money so windfalls aren't double-counted.
+  if (roll.money < 0) {
+    const amt = Math.round(Math.abs(roll.money) * 0.2);
+    if (amt > 0) {
+      s.donated += amt;
+      // Mirror the fame/karma/xp/influence grants from donate() (without the
+      // money deduction since the loss already happened).
+      const g = amt >= 100000 ? 5 : amt >= 10000 ? 2 : 1;
+      const ka = amt >= 100000 ? 8 : amt >= 10000 ? 3 : 1;
+      s.fame = Math.max(0, s.fame + g);
+      s.karma += ka;
+      addXp(s, Math.max(2, Math.round(amt / 10000)));
+      const baseInf = influenceFromCharity(amt);
+      if (baseInf > 0) addInfluence(s, baseInf, 'charity');
+      pushLog(s, `Part of the loss (${fmt(amt)}) was donated to charity.`);
+    }
   }
   // v10.4: life-stage outcomes (always applied regardless of risk roll —
   // these are the choice's structural consequence, not a gamble).
@@ -2592,31 +2632,47 @@ export function choiceRisk(c: { cost?: number; money?: number; fame?: number; de
 // scaled-down or negative outcome is applied instead. This makes the risk
 // colours honest: green = nearly always pays as advertised, red = usually pays
 // less (or costs more) than advertised.
-export function rollRiskOutcome(c: { cost?: number; money?: number; fame?: number; decline?: number }, risk: ChoiceRisk, rng: () => number = Math.random): { money: number; fame: number; decline: number; success: boolean } {
-  // v12.3 — difficulty reduced per user request. Win chances unchanged but
-  // failure penalties are lighter:
-  //   high failure: money -30% (was -50%), decline 3 (was 5)
+//
+// v12.2 — optional `difficulty` parameter (defaults to 'normal') scales win
+// chances + failure penalties per the admin-set AI difficulty:
+//   easy   → win +10% (safe 90 / med 60 / high 30), penalties ×0.5
+//   normal → unchanged (safe 80 / med 50 / high 20)
+//   hard   → win −10% (safe 70 / med 40 / high 10), penalties ×1.5
+// applyAIChoice() passes s.aiDifficulty in so the player's setting flows
+// through. Other callers can omit it to keep the legacy behaviour.
+export function rollRiskOutcome(c: { cost?: number; money?: number; fame?: number; decline?: number }, risk: ChoiceRisk, rng: () => number = Math.random, difficulty: AiDifficulty = 'normal'): { money: number; fame: number; decline: number; success: boolean } {
+  // v12.3 — base failure penalties kept light per user request. v12.2 then
+  // applies a difficulty multiplier on top (0.5 for easy, 1.5 for hard).
+  //   high failure: money -30% (was -50% pre-v12.3), decline 3 (was 5)
   //   medium failure: decline 1 (was 2)
-  const winChance = risk === 'safe' ? 0.8 : risk === 'medium' ? 0.5 : 0.2;
+  const winChanceBase = risk === 'safe' ? 0.8 : risk === 'medium' ? 0.5 : 0.2;
+  const winChance = difficulty === 'easy' ? winChanceBase + 0.1 : difficulty === 'hard' ? winChanceBase - 0.1 : winChanceBase;
+  const penMult = difficulty === 'easy' ? 0.5 : difficulty === 'hard' ? 1.5 : 1;
   const success = rng() < winChance;
   if (success) {
     // upside as advertised
     return { money: c.money || 0, fame: c.fame || 0, decline: 0, success: true };
   }
-  // failure — commensurate downside (scales with risk)
+  // failure — commensurate downside (scales with risk); penalties scaled by
+  // the difficulty multiplier (rounded to keep the legacy integer shape).
   if (risk === 'safe') {
-    // safe failure: small partial upside (80/20 means even the 20% case isn't terrible)
-    return { money: Math.round((c.money || 0) * 0.3), fame: 0, decline: 0, success: false };
+    // safe failure: small partial upside (80/20 means even the 20% case isn't terrible).
+    // Hard mode shrinks the consolation prize; easy mode widens it.
+    return { money: Math.round((c.money || 0) * 0.3 * penMult), fame: 0, decline: 0, success: false };
   }
   if (risk === 'medium') {
-    // medium failure: zero upside, small decline
-    return { money: 0, fame: c.fame ? -Math.abs(c.fame) : 0, decline: 1, success: false };
+    // medium failure: zero upside, small decline (rounded; min 1 when hard)
+    const dec = Math.max(1, Math.round(1 * penMult));
+    return { money: 0, fame: c.fame ? -Math.round(Math.abs(c.fame) * penMult) : 0, decline: dec, success: false };
   }
-  // high failure: negative money (reduced from -50% to -30%), decline 3 (was 5)
+  // high failure: negative money (reduced from -50% to -30% in v12.3), decline 3 (was 5).
+  // Easy halves the loss + decline; hard bumps them ~50%.
+  const moneyPen = c.money ? -Math.round(Math.abs(c.money) * 0.3 * penMult) : (c.cost ? -Math.round(c.cost * 0.1 * penMult) : 0);
+  const baseDecline = c.decline ? Math.min(c.decline, 3) : 3;
   return {
-    money: c.money ? -Math.round(Math.abs(c.money) * 0.3) : (c.cost ? -Math.round(c.cost * 0.1) : 0),
-    fame: c.fame ? -Math.abs(c.fame) : 0,
-    decline: c.decline ? Math.min(c.decline, 3) : 3,
+    money: moneyPen,
+    fame: c.fame ? -Math.round(Math.abs(c.fame) * penMult) : 0,
+    decline: Math.max(1, Math.round(baseDecline * penMult)),
     success: false
   };
 }
