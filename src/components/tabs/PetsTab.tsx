@@ -1,8 +1,7 @@
 'use client';
 
 import { abandonPet, adoptPet, Art, careForPet, fmt, type GameState, MAX_PETS, PET_BY, petFameBonus, PETS, useState, useT } from '@/components/gameDeps';
-import { type Act, Btn, Row } from '@/components/shared';
-import { Btn, Row } from '@/components/shared';
+import { type Act, Btn, Row, useEscapeKey, useReqLabel } from '@/components/shared';
 
 
 

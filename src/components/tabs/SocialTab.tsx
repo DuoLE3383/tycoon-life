@@ -1,8 +1,7 @@
 'use client';
 
 import { addPost, Art, asset, BIZ, branchCount, canPost, creativePost, fmt, type GameState, getState, postCooldownLeft, snapshot, socialIncome, stageOf, useState, useT } from '@/components/gameDeps';
-import { type Act, Btn } from '@/components/shared';
-import { Btn } from '@/components/shared';
+import { type Act, Btn, Row, useEscapeKey, useReqLabel } from '@/components/shared';
 
 
 

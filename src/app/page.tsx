@@ -1,6 +1,6 @@
 'use client';
 
-import { ART_DEFS, begin, BoardView, ChatView, entityTierOf, FriendsView, GROUPS, healthState, Ic, reincarnateState } from '@/components/gameDeps';
+import { ART_DEFS, begin, BoardView, bump, ChatView, entityTierOf, FriendsView, getState, GROUPS, healthState, Ic, persist, processDay, reincarnateState, spaceIncome, tick, yearEnd } from '@/components/gameDeps';
 
 import { Header } from '@/components/layout/Header';
 import { PinZone } from '@/components/layout/PinZone';
@@ -56,7 +56,7 @@ export default function Page() {
           onNav={(k: string) => { setTab(k); setLastTab(lt => ({ ...lt, [activeGroup]: k })); }}
           expanded={pzExpanded} onToggleExpand={() => setPzExpanded(v => !v)} />
         <NavBar s={s} t={t} tab={tab} activeGroup={activeGroup} curSubs={curSubs}
-          lastTab={lastTab} friendActivity={comm.ready && (comm.incoming.length > 0 || comm.unclaimedGifts.length > 0)}
+          friendActivity={comm.ready && (comm.incoming.length > 0 || comm.unclaimedGifts.length > 0)}
           onSelectGroup={(gid: string, first: string) => setTab(lastTab[gid] || first)}
           onSelectTab={(key: string) => { setTab(key); setLastTab(lt => ({ ...lt, [activeGroup]: key })); }} />
       </div>
@@ -115,7 +115,6 @@ export default function Page() {
           bar doesn't cover main content. env(safe-area-inset-bottom) handles
           notched phones. */}
       <MobileNav s={s} t={t} tab={tab} activeGroup={activeGroup} curSubs={curSubs}
-        lastTab={lastTab}
         onSelectGroup={(gid: string, first: string) => setTab(lastTab[gid] || first)}
         onSelectTab={(key: string) => { setTab(key); setLastTab(lt => ({ ...lt, [activeGroup]: key })); }} />
       {editingProfile && <EditProfileModal s={s} act={act} onClose={() => setEditingProfile(false)} />}

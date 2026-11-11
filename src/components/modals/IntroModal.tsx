@@ -1,6 +1,8 @@
 'use client';
 
 import { analyze, Art, eraOf, FIELDS, fmt, type Gender, Ic, INTERESTS, type Lang, LANGS, MONTHS_NAMES, NAME_POOLS, NATIONS, PATHS, type Religion, RELIGIONS, TALENTS, useEffect, useState, useT, zodiacById, zodiacIntroSuggestion, zodiacOf } from '@/components/gameDeps';
+import { Btn, Row, useEscapeKey, useReqLabel } from '@/components/shared';
+
 
 
 // ================= INTRO =================

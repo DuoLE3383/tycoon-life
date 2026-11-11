@@ -2,7 +2,6 @@
 
 import { acceptBizOffer, BIZ, bizBrandOf, bizCost, bizCosts, bizMarketShare, bizMultiplier, bizNet, type BizOffer, bizRevenue, BOTS, branchCount, branchNet, buyFacLine, buyFarmLine, capitalPathCost, FAC_LINES, facIncome, FARM_LINES, farmIncome, fmt, franchiseBranch, type GameState, investBizRnd, MANAGER_MONTHLY, meets, negotiateBizSell, openBranch, openBranchCapital, pushBizOffer, REG_MULT, useState, useT, worldYear } from '@/components/gameDeps';
 import { type Act, Btn, Row, useEscapeKey, useReqLabel } from '@/components/shared';
-import { Btn, Row, useEscapeKey, useReqLabel } from '@/components/shared';
 import { BrandEditorModal } from '@/components/modals/BrandEditorModal';
 
 

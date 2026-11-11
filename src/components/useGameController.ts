@@ -13,9 +13,9 @@ export function useGameController() {
 
   const [lastTab, setLastTab] = useState<Record<string, string>>({});
 
-  const activeGroup = GROUPS.find(group => group[3].some(([key]) => key === tab))?.[0] || 'life';
+  const activeGroup = GROUPS.find(g => g[3].some(([k]) => k === tab))?.[0] || 'life';
 
-  const curSubs = (GROUPS.find(group => group[0] === activeGroup) || GROUPS[0])[3];
+  const curSubs = (GROUPS.find(g => g[0] === activeGroup) || GROUPS[0])[3];
 
   const [rankBoard, setRankBoard] = useState<'all' | 'young' | 'industry' | 'nation'>('all');
 

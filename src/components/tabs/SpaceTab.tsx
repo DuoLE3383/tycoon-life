@@ -1,8 +1,7 @@
 'use client';
 
 import { asset, buySpace, fmt, type GameState, SPACE_LINES, SPACE_TRAVEL_COST, spaceIncome, spaceUpgradeDays, spaceUpgradeReady, startSpaceUpgrade, useT, worldYear, xpNeed } from '@/components/gameDeps';
-import { type Act, Btn, Row } from '@/components/shared';
-import { Btn, Row } from '@/components/shared';
+import { type Act, Btn, Row, useEscapeKey, useReqLabel } from '@/components/shared';
 
 
 

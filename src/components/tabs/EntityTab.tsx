@@ -1,8 +1,7 @@
 'use client';
 
 import { actCourtRecognition, actDeclareAutonomy, actDeclareIndependence, type Constitution, constitutionById, CONSTITUTIONS, ENTITY_TIERS, entityTierOf, fmt, type GameState, Ic, type Lang, netWorth, nextEntityTier, useState, useT } from '@/components/gameDeps';
-import { type Act, Row } from '@/components/shared';
-import { Row } from '@/components/shared';
+import { type Act, Btn, Row, useEscapeKey, useReqLabel } from '@/components/shared';
 
 
 

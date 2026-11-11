@@ -1,8 +1,7 @@
 'use client';
 
 import { CHECKUP_CD, CHECKUP_COST, decayPerYear, DIET_COST, doWell, effWellCd, fmt, type GameState, GYM_CD, GYM_COST, healthMult, healthState, healthWarnings, toggleDiet, TREAT_CD, TREAT_COST, useT, wellLeft, wellReady } from '@/components/gameDeps';
-import { type Act, Btn, Row } from '@/components/shared';
-import { Btn, Row } from '@/components/shared';
+import { type Act, Btn, Row, useEscapeKey, useReqLabel } from '@/components/shared';
 
 
 

@@ -1,6 +1,7 @@
 'use client';
 
 import { botRows, eraOf, fmt, type GameState, HALL_OF_FAME, playerHallEntry, useMemo, useT, worldYear } from '@/components/gameDeps';
+import { Btn, Row, useEscapeKey, useReqLabel } from '@/components/shared';
 
 
 

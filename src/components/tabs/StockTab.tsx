@@ -1,8 +1,7 @@
 'use client';
 
 import { Art, effDemand, effEraBiz, effLoanRate, effRisk, fmt, fmtFull, type GameState, Ic, researchCost, researchMarket, stocksOf, trade, useT } from '@/components/gameDeps';
-import { type Act, Row } from '@/components/shared';
-import { Row } from '@/components/shared';
+import { type Act, Btn, Row, useEscapeKey, useReqLabel } from '@/components/shared';
 
 
 

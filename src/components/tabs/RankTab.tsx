@@ -1,6 +1,7 @@
 'use client';
 
 import { botRows, fmt, type GameState, useT } from '@/components/gameDeps';
+import { Btn, Row, useEscapeKey, useReqLabel } from '@/components/shared';
 
 
 

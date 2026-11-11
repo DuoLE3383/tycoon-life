@@ -1,8 +1,7 @@
 'use client';
 
 import { ACHIEVEMENTS, ALLNEWS, Art, asset, assetVal, bizIncome, bizVal, dateOf, eraOf, fmt, type GameState, Ic, jobIncome, jobsOf, RETIRE, sleepHealthMult, sleepHealthRecovery, socialIncome, spaceIncome, stockVal, travel, TRAVEL, travelCooldownLeft, travelReady, useEffect, useState, useT, worldYear, xpNeed, yearIncome } from '@/components/gameDeps';
-import { type Act, Btn, type TFn, useEscapeKey } from '@/components/shared';
-import { Btn, useEscapeKey } from '@/components/shared';
+import { type Act, Btn, Row, type TFn, useEscapeKey, useReqLabel } from '@/components/shared';
 import { HealthAlerts } from '@/components/tabs/HealthTab';
 
 

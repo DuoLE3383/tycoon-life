@@ -1,7 +1,7 @@
 'use client';
 
 import { assetBreakdown, expenseBreakdown, type FinanceAction, financeActions, fmtFull, type GameState, incomeBreakdown, netWorth, useT, yearExpenses, yearIncome } from '@/components/gameDeps';
-import { type Act } from '@/components/shared';
+import { type Act, Btn, Row, useEscapeKey, useReqLabel } from '@/components/shared';
 
 
 

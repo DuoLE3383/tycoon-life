@@ -1,8 +1,7 @@
 'use client';
 
 import { castHexagram, type CastResult, doWell, drawCards, FAITH_PRACTICE_CD, FAITH_PRACTICE_COST, fmt, type GameState, grantSpirit, type Huong, HUONG, Ic, lapLaSo, type LaSo, phanTichToanDien, type PhongThuyReading, RETREAT_CD, RETREAT_COST, SPIRIT_DAILY_CAP, spiritGainTodayLeft, spiritState, spreadLabels, TAROT_GHI_CHU, type TarotCard, tarotDraw, TEMPLE_CD, TEMPLE_COST, togglePsychic, useRef, useState, useT, validateQuestion, wellLeft, wellReady } from '@/components/gameDeps';
-import { type Act, Btn, Row } from '@/components/shared';
-import { Btn, Row } from '@/components/shared';
+import { type Act, Btn, Row, useEscapeKey, useReqLabel } from '@/components/shared';
 
 
 

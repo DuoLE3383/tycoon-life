@@ -1,8 +1,7 @@
 'use client';
 
 import { type GameState, useState, useT } from '@/components/gameDeps';
-import { type Act, useEscapeKey } from '@/components/shared';
-import { useEscapeKey } from '@/components/shared';
+import { type Act, Btn, Row, useEscapeKey, useReqLabel } from '@/components/shared';
 
 
 

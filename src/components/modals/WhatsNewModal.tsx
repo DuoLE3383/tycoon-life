@@ -1,8 +1,7 @@
 'use client';
 
 import { Ic, type Lang, LANGS, useT } from '@/components/gameDeps';
-import { useEscapeKey } from '@/components/shared';
-import { useEscapeKey } from '@/components/shared';
+import { Btn, Row, useEscapeKey, useReqLabel } from '@/components/shared';
 
 
 

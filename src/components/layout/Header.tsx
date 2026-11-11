@@ -1,7 +1,7 @@
 'use client';
 
 import { Art, BUNDLED_VERSION, type GameState, Ic, type Lang, LANGS, useEffect, useState, useT, worldYear, xpNeed } from '@/components/gameDeps';
-import { type Act } from '@/components/shared';
+import { type Act, Btn, Row, useEscapeKey, useReqLabel } from '@/components/shared';
 import { GigsPopup } from '@/components/modals/GigsPopup';
 
 

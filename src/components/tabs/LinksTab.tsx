@@ -1,6 +1,7 @@
 'use client';
 
 import { bizIncome, bizMultiplier, branchCount, clubMult, cosmicMult, decayPerYear, fameBonus, type FieldKey, FIELDS, fmt, type GameState, healthMult, jobIncome, jobsOf, knowledgeText, levelMult, SAVE_RATE, socialIncome, spaceIncome, spaceMultiplier, spiritBizMult, taxOf, useT, yearIncome } from '@/components/gameDeps';
+import { Btn, Row, useEscapeKey, useReqLabel } from '@/components/shared';
 
 
 

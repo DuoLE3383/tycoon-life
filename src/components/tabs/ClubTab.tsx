@@ -1,8 +1,7 @@
 'use client';
 
 import { clubMult, CLUBS, fmt, FOUND_COST, FOUND_MIN_NW, foundClub, type GameState, joinClub, leaveClub, netWorth, OWN_CLUB_MULT, useState, useT } from '@/components/gameDeps';
-import { type Act, Btn, Row } from '@/components/shared';
-import { Btn, Row } from '@/components/shared';
+import { type Act, Btn, Row, useEscapeKey, useReqLabel } from '@/components/shared';
 
 
 

@@ -1,7 +1,7 @@
 'use client';
 
 import { assetVal, bizIncome, bizVal, END_AGE, fmt, type GameState, healthState, Ic, jobIncome, jobsOf, living, netWorth, RETIRE, sleepHealthMult, sleepHealthRecovery, sleepHoursOptions, socialIncome, spaceIncome, stageOf, STAGES, START, stockVal, studyPace, studyTuition, upkeep, usedItemValue, useT, xpNeed, yearIncome } from '@/components/gameDeps';
-import { type Act, type TFn } from '@/components/shared';
+import { type Act, Btn, Row, type TFn, useEscapeKey, useReqLabel } from '@/components/shared';
 import { BarChart, DonutChart } from '@/components/charts';
 
 

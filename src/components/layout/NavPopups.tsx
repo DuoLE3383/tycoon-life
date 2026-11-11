@@ -1,7 +1,7 @@
 'use client';
 
 import { entityTierOf, type GameState, GROUPS, Ic, useState } from '@/components/gameDeps';
-import { type TFn } from '@/components/shared';
+import { Btn, Row, type TFn, useEscapeKey, useReqLabel } from '@/components/shared';
 
 
 

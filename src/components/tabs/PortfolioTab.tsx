@@ -1,7 +1,7 @@
 'use client';
 
 import { assetVal, bizVal, cashFlowLastDays, fmtFull, type GameState, ITEM_BY, lotValue, netWorth, portfolioIncome, portfolioInvested, portfolioRealizedGains, portfolioROI, portfolioUnrealizedGains, stocksOf, stockVal, TX_CAP, type TxKind, useT } from '@/components/gameDeps';
-import { type Act } from '@/components/shared';
+import { type Act, Btn, Row, useEscapeKey, useReqLabel } from '@/components/shared';
 import { DonutChart } from '@/components/charts';
 
 

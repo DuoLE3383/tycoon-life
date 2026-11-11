@@ -1,8 +1,7 @@
 'use client';
 
 import { Art, fmt, type GameState, interactNPC, NPCS, proposeToNPC, relationState, useT } from '@/components/gameDeps';
-import { type Act, Btn } from '@/components/shared';
-import { Btn } from '@/components/shared';
+import { type Act, Btn, Row, useEscapeKey, useReqLabel } from '@/components/shared';
 
 
 

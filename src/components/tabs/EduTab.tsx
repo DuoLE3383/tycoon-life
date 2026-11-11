@@ -1,8 +1,7 @@
 'use client';
 
 import { changeInterest, dropStudySlot, effYears, enrollDeg, enrollLic, enrollShortCourse, type FieldKey, FIELDS, fmt, type GameState, INTERESTS, LIC_FOR, LICENSES, SHORT_BY, SHORT_COURSES, tuitionOf, useT } from '@/components/gameDeps';
-import { type Act, Btn, Row } from '@/components/shared';
-import { Btn, Row } from '@/components/shared';
+import { type Act, Btn, Row, useEscapeKey, useReqLabel } from '@/components/shared';
 
 
 

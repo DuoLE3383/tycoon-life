@@ -1,8 +1,7 @@
 'use client';
 
 import { Art, doGig, fmt, type GameState, gigLock, gigPay, gigReady, GIGS, useState } from '@/components/gameDeps';
-import { type Act, type TFn, useEscapeKey } from '@/components/shared';
-import { useEscapeKey } from '@/components/shared';
+import { type Act, Btn, Row, type TFn, useEscapeKey, useReqLabel } from '@/components/shared';
 
 
 

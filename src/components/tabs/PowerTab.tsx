@@ -1,8 +1,7 @@
 'use client';
 
 import { ADVOCACY_ACTIONS, BOTS, breakWith, doAdvocacy, doTransparency, electionParamsFor, fmt, type GameState, Ic, INFLUENCE_SOURCE_LABELS, type Lang, netWorth, nextTierOf, offerAlliance, POWER_TIERS, powerTierOf, runElection, TRANSPARENCY_ACTIONS, useT, worldYear } from '@/components/gameDeps';
-import { type Act, Row } from '@/components/shared';
-import { Row } from '@/components/shared';
+import { type Act, Btn, Row, useEscapeKey, useReqLabel } from '@/components/shared';
 
 
 

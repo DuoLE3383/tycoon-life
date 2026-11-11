@@ -1,8 +1,7 @@
 'use client';
 
 import { bankOp, donate, fameBonus, fmtFull, type GameState, Ic, LOAN_RATE, maxLoanOf, SAVE_RATE, TAX_BRACKETS, TAX_FREE, useState, useT } from '@/components/gameDeps';
-import { type Act, Row } from '@/components/shared';
-import { Row } from '@/components/shared';
+import { type Act, Btn, Row, useEscapeKey, useReqLabel } from '@/components/shared';
 
 
 

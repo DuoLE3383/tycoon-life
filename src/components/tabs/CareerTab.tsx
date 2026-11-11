@@ -1,8 +1,7 @@
 'use client';
 
 import { fmt, type GameState, hire, JOBS, jobsOf, meets, negotiateRaise, quitJob, RETIRE, studyWorkMult, useT } from '@/components/gameDeps';
-import { type Act, Btn, Row, useReqLabel } from '@/components/shared';
-import { Btn, Row, useReqLabel } from '@/components/shared';
+import { type Act, Btn, Row, useEscapeKey, useReqLabel } from '@/components/shared';
 
 
 
