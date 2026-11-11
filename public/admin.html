@@ -542,6 +542,7 @@
       <div class="nav-item" data-tab="bank"><span class="ic">🏦</span> Ngân hàng</div>
       <div class="nav-item" data-tab="biz"><span class="ic">🏢</span> Kinh doanh</div>
       <div class="nav-item" data-tab="gigs"><span class="ic">⚡</span> Việc nhanh</div>
+      <div class="nav-item" data-tab="stocks"><span class="ic">📈</span> Thị trường</div>
       <div class="nav-item" data-tab="db"><span class="ic">🗄</span> CSDL</div>
     </nav>
     <div class="key-box">
@@ -884,6 +885,37 @@
         </div>
       </section>
 
+      <!-- ============= TAB: STOCKS (v14.1) ============= -->
+      <section class="tab-pane" id="pane-stocks">
+        <h2>📈 Thị trường — quản lý cổ phiếu</h2>
+        <div class="note">Sửa giá / volatility của stock built-in (lưu vào <code>GameState.stockOverrides</code>). Tạo stock mới (lưu vào <code>GameState.customStocks</code>). Mọi thay đổi broadcast cho mọi người chơi. Reset = xoá toàn bộ override + custom, reseed giá built-in về default.</div>
+        <div class="tools">
+          <b>STOCKS config</b>
+          <div class="spacer"></div>
+          <button class="btn ghost sm" id="btn-stocks-refresh">↻ Nạp lại</button>
+          <button class="btn danger sm" id="btn-stocks-reset">♻️ Reset All</button>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>ID</th><th>Tên</th><th>Giá ($)</th><th>Volatility</th><th>Loại</th><th>Hành động</th></tr></thead>
+            <tbody id="stocks-body"><tr class="loading-row"><td colspan="6">Đang tải danh sách stocks…</td></tr></tbody>
+          </table>
+        </div>
+
+        <h3>➕ Tạo stock mới</h3>
+        <div class="form-card">
+          <div class="form-row">
+            <div class="field" style="flex:0 0 140px"><label>ID (viết hoa)</label><input id="st-id" placeholder="TECH2" /></div>
+            <div class="field" style="flex:2"><label>Tên</label><input id="st-name" placeholder="Nova Tech 2" /></div>
+            <div class="field"><label>Giá</label><input id="st-p" type="number" value="100" min="1" /></div>
+            <div class="field"><label>Volatility</label><input id="st-vol" type="number" step="0.005" min="0" max="1" value="0.03" /></div>
+            <div class="field"><label>Art icon</label><input id="st-art" value="s-tech" /></div>
+            <div class="field shrink"><label>&nbsp;</label><button class="btn primary" id="btn-stocks-create">➕ Tạo stock</button></div>
+          </div>
+          <div class="hint" style="margin-top:6px">ID: 1–16 ký tự (A-Z, 0-9, _-, bắt đầu bằng chữ). Volatility 0–1 (mặc định 0.03 = ±3%/ngày-game). Art icon là id của SVG icon trong <code>src/lib/art.tsx</code> (vd: <code>s-tech</code>, <code>b-bank</code>, <code>s-coin</code>).</div>
+        </div>
+      </section>
+
       <!-- ============= TAB: DB ============= -->
       <section class="tab-pane" id="pane-db">
         <h2>🗄 Cơ sở dữ liệu SQLite</h2>
@@ -1174,6 +1206,7 @@
     bank:        ['Ngân hàng',      '/admin · banking'],
     biz:         ['Kinh doanh',     '/admin · business'],
     gigs:        ['Việc nhanh',     '/admin · gigs'],
+    stocks:      ['Thị trường',     '/admin · stocks'],
     db:          ['Cơ sở dữ liệu',  '/admin · database'],
   };
   function renderTab(name) {
@@ -1203,6 +1236,7 @@
     else if (name === 'bank') loadBank();
     else if (name === 'biz') loadBiz();
     else if (name === 'gigs') loadGigs();
+    else if (name === 'stocks') loadStocks();
     else if (name === 'db') loadDb();
   }
   function scheduleAutoRefresh() {
@@ -2142,6 +2176,86 @@
     }, 'Reset');
   }
 
+  /* ============= v14.1 — STOCKS TAB ============= */
+  // Same shape as the GIGS tab: a static list mirroring src/lib/gameData.ts
+  // STOCKS array so the operator can edit price + volatility inline and
+  // Save per-row. Custom stocks (created below) are NOT shown back here
+  // because the admin API is broadcast-only — there's no per-player state
+  // to read. The row's "Built-in" badge tells the operator it can't be
+  // deleted (only edited). Custom stocks live in GameState.customStocks
+  // on each client once the broadcast ADMIN_ACTION row reaches them.
+  var STOCKS_LIST = [
+    { id: 'TECH',   name: 'Nova Technologies (large-cap tech)', p: 230, vol: 0.035, art: 's-tech' },
+    { id: 'BANK',   name: 'Continental Banking Group',           p: 60,  vol: 0.02,  art: 'b-bank' },
+    { id: 'OIL',    name: 'Petrorig Global Energy',              p: 75,  vol: 0.04,  art: 's-oil' },
+    { id: 'COIN',   name: 'Ledger crypto fund (BTC proxy)',      p: 95,  vol: 0.09,  art: 's-coin' },
+    { id: 'PHARMA', name: 'Helix BioPharma',                     p: 85,  vol: 0.03,  art: 's-pharma' },
+    { id: 'RETAIL', name: 'Metro Retail Holdings',               p: 55,  vol: 0.025, art: 'b-ret' },
+    { id: 'SOLAR',  name: 'Solaris Dynamics',                    p: 35,  vol: 0.045, art: 's-solar' },
+    { id: 'AI',     name: 'NeuroAI Labs (frontier AI)',          p: 580, vol: 0.07,  art: 's-ai' },
+    { id: 'SKY',    name: 'SkyAtlantic Airlines',                p: 30,  vol: 0.05,  art: 'i-jet' },
+  ];
+  function loadStocks() {
+    renderStocks();
+    markRefresh();
+  }
+  function renderStocks() {
+    var body = $('stocks-body');
+    if (!body) return;
+    body.innerHTML = '';
+    STOCKS_LIST.forEach(function (st) {
+      var pInput = el('input', { type: 'number', value: String(st.p), min: '1', step: '1', id: 'st-p-' + st.id });
+      var vInput = el('input', { type: 'number', value: String(st.vol), min: '0', max: '1', step: '0.005', id: 'st-vol-' + st.id });
+      body.appendChild(el('tr', null, [
+        el('td', null, el('code', { text: st.id })),
+        el('td', null, st.name),
+        el('td', null, pInput),
+        el('td', null, vInput),
+        el('td', null, el('span', { class: 'badge gray', text: 'Built-in' })),
+        el('td', { class: 'actions' }, [
+          el('button', { class: 'btn primary sm', dataset: { stockId: st.id }, onclick: function () { stocksSave(st.id); } }, '💾 Lưu'),
+        ]),
+      ]));
+    });
+  }
+  function stocksSave(stockId) {
+    var pInput = $('st-p-' + stockId);
+    var vInput = $('st-vol-' + stockId);
+    if (!pInput || !vInput) return;
+    var p = Number(pInput.value);
+    var v = Number(vInput.value);
+    if (!Number.isFinite(p) || p < 1) { toast('❌ Giá phải ≥ 1', 'err'); return; }
+    if (!Number.isFinite(v) || v < 0 || v > 1) { toast('❌ Volatility phải 0–1', 'err'); return; }
+    postGameAction('editStock', { id: stockId, p: p, vol: v }, '💾 ' + stockId + ' → $' + fmtN(p) + ' / vol ' + v.toFixed(3))
+      .catch(function (e) { handleErr(e, 'Lưu stock thất bại'); });
+  }
+  function stocksCreate() {
+    var id = $('st-id').value.trim().toUpperCase();
+    var name = $('st-name').value.trim();
+    var p = Number($('st-p').value);
+    var vol = Number($('st-vol').value);
+    var art = $('st-art').value.trim() || 's-tech';
+    if (!/^[A-Z][A-Z0-9_-]{0,15}$/.test(id)) { toast('❌ ID phải viết hoa, 1–16 ký tự, bắt đầu bằng chữ', 'err'); return; }
+    if (!name) { toast('❌ Nhập tên stock', 'err'); return; }
+    if (!Number.isFinite(p) || p < 1) { toast('❌ Giá phải ≥ 1', 'err'); return; }
+    if (!Number.isFinite(vol) || vol < 0 || vol > 1) { toast('❌ Volatility phải 0–1', 'err'); return; }
+    postGameAction('createStock', { id: id, name: name, p: p, vol: vol, art: art }, '➕ Created stock ' + id)
+      .then(function () {
+        $('st-id').value = '';
+        $('st-name').value = '';
+        $('st-p').value = '100';
+        $('st-vol').value = '0.03';
+        $('st-art').value = 's-tech';
+      })
+      .catch(function (e) { handleErr(e, 'Tạo stock thất bại'); });
+  }
+  function stocksResetAll() {
+    modalConfirm('♻️ Reset toàn bộ stock', 'Xoá TOÀN BỘ override + custom stock cho MỌI người chơi?<br>Mọi stock built-in trở về default trong gameData.ts. Custom stock bị xoá; holdings được hoàn tiền theo giá hiện tại.', function () {
+      postGameAction('resetStocks', {}, '♻️ Reset all stocks')
+        .catch(function (e) { handleErr(e, 'Reset stocks thất bại'); });
+    }, 'Reset');
+  }
+
   /* ============= BIND ============= */
   function bind() {
     // nav
@@ -2213,6 +2327,11 @@
     // v14 — gigs
     $('btn-gigs-refresh').addEventListener('click', loadGigs);
     $('btn-gigs-reset').addEventListener('click', gigsResetAll);
+
+    // v14.1 — stocks
+    $('btn-stocks-refresh').addEventListener('click', loadStocks);
+    $('btn-stocks-reset').addEventListener('click', stocksResetAll);
+    $('btn-stocks-create').addEventListener('click', stocksCreate);
 
     // db
     $('btn-db-vacuum').addEventListener('click', dbVacuum);

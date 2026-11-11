@@ -36,6 +36,13 @@
 // Gig-config actions (setGigPay, setGigCd, resetGigs) target the broadcast
 // sentinel so EVERY player applies them (overrides live on GameState, so
 // gig pay / cd stay consistent across the community).
+// v14.1 — stock catalogue actions added (createStock, editStock, deleteStock,
+// resetStocks). All four target the broadcast sentinel — every player's
+// GameState.stockOverrides / customStocks stays in sync so the market is
+// identical across the community. createStock adds a brand-new ticker,
+// editStock patches a built-in (override) or custom (direct mutate),
+// deleteStock removes a custom ticker (refunding any holdings), and
+// resetStocks clears overrides + customs + reseeds built-in prices.
 import { NextResponse } from 'next/server';
 import { adminGuard, readBody } from '@/lib/server/adminAuth';
 import { ITEMS, RARE_ITEMS, BIZ, GIGS } from '@/lib/gameData';
@@ -85,7 +92,12 @@ const PLAYER_ACTIONS = new Set([
 ]);
 // v14 — gig-config actions broadcast to every player (overrides live on
 // GameState.gigOverrides; consistency across the community matters).
-const BROADCAST_ACTIONS = new Set(['setGigPay', 'setGigCd', 'resetGigs']);
+// v14.1 — stock catalogue actions broadcast the same way: every player
+// applies them so the market stays consistent.
+const BROADCAST_ACTIONS = new Set([
+  'setGigPay', 'setGigCd', 'resetGigs',
+  'createStock', 'editStock', 'deleteStock', 'resetStocks',
+]);
 
 // v14 — resolve the target uid from the admin's input. Accepts either a
 // player's server-side uid (uid-xxx) directly or their HB-code (HB-XXXXXX)
@@ -186,6 +198,8 @@ export async function POST(req: Request) {
       'grantBranch', 'removeBranch', 'setBizMood', 'franchiseAll',
       // v14 — gigs
       'setGigPay', 'setGigCd', 'resetGigs',
+      // v14.1 — stock catalogue
+      'createStock', 'editStock', 'deleteStock', 'resetStocks',
     ];
     if (!validActions.includes(action)) return NextResponse.json({ ok: false, error: 'bad-action' }, { status: 400 });
 
@@ -338,6 +352,43 @@ export async function POST(req: Request) {
           }
           case 'resetGigs':
             // no extra params — broadcast clears everyone's overrides.
+            break;
+          // v14.1 — stock catalogue actions (all broadcast).
+          case 'createStock': {
+            const id = String(b.id ?? '').trim().toUpperCase();
+            // Same id rules as the engine: 1–16 chars, starts with a letter,
+            // alphanumeric + underscore/hyphen only.
+            if (!/^[A-Z][A-Z0-9_-]{0,15}$/.test(id)) throw new Error('bad-stockId');
+            const name = String(b.name ?? '').trim().slice(0, 60);
+            if (!name) throw new Error('bad-name');
+            payload.id = id;
+            payload.name = name;
+            payload.p = clampNum(b.p ?? 100, 1, 1e9);
+            payload.vol = clampNum(b.vol ?? 0.02, 0, 1);
+            payload.art = String(b.art ?? 's-tech').trim().slice(0, 30) || 's-tech';
+            break;
+          }
+          case 'editStock': {
+            const id = String(b.id ?? '').trim().toUpperCase();
+            if (!id) throw new Error('bad-stockId');
+            payload.id = id;
+            // All patch fields are optional: empty / missing / NaN means
+            // "leave this field alone". The engine's adminEditStock mirrors
+            // this — only finite, non-empty values are written.
+            if (b.p != null && String(b.p).trim() !== '') payload.p = clampNum(b.p, 1, 1e9);
+            if (b.vol != null && String(b.vol).trim() !== '') payload.vol = clampNum(b.vol, 0, 1);
+            if (b.name != null && String(b.name).trim()) payload.name = String(b.name).trim().slice(0, 60);
+            if (b.art != null && String(b.art).trim()) payload.art = String(b.art).trim().slice(0, 30);
+            break;
+          }
+          case 'deleteStock': {
+            const id = String(b.id ?? '').trim().toUpperCase();
+            if (!id) throw new Error('bad-stockId');
+            payload.id = id;
+            break;
+          }
+          case 'resetStocks':
+            // no extra params — broadcast clears overrides + custom stocks.
             break;
           default:
             // Unreachable (validActions gate above caught it), but keep TS happy.

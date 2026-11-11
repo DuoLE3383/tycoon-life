@@ -315,6 +315,18 @@ export interface GameState {
   // `resetGigs` action; set by `setGigPay` / `setGigCd`. Survives save/load
   // + reincarnation (it's just a GameState field, like aiDifficulty).
   gigOverrides: Record<string, { base?: number; cd?: number }>;
+  // v14.1 — admin stock management. stockOverrides patches built-in STOCKS
+  // entries (price / volatility / display name / art icon) without removing
+  // them from the catalogue. customStocks is the runtime list of entirely
+  // admin-created tickers (id / name / p / vol / art). Both broadcast to
+  // every player (same pattern as gigOverrides) so the market stays
+  // consistent across the community. Cleared by `resetStocks`; mutated by
+  // `createStock` / `editStock` / `deleteStock`. Reads happen via
+  // stocksOf(s) which merges built-ins + overrides + custom into a single
+  // array that stockVal, processDay's price-walk, trade, and the StockTab
+  // UI all consume.
+  stockOverrides: Record<string, { p?: number; vol?: number; name?: string; art?: string }>;
+  customStocks: { id: string; name: string; p: number; vol: number; art: string }[];
 }
 // v12.2 — AI event difficulty enum.
 export type AiDifficulty = 'easy' | 'normal' | 'hard';
@@ -726,6 +738,11 @@ export function fresh(): GameState {
     aiDifficulty: 'normal',
     itemStock: {},
     gigOverrides: {},
+    // v14.1 — admin stock overrides + custom stocks. Both start empty on a
+    // fresh game; migrate() backfills them for old saves. The built-in
+    // STOCKS array provides the seed prices + history just below.
+    stockOverrides: {},
+    customStocks: [],
   };
   STOCKS.forEach(x => { s.prices[x.id] = x.p; s.hist[x.id] = [x.p]; });
   return s;
@@ -823,6 +840,20 @@ export function migrate(raw: unknown): GameState {
   // gigOverrides map; default to {} so gigPay / gigReady / gigLock fall
   // straight through to the GIGS array defaults.
   s.gigOverrides = s.gigOverrides && typeof s.gigOverrides === 'object' ? s.gigOverrides : {};
+  // v14.1 — stockOverrides + customStocks backfill for old saves. Pre-v14.1
+  // saves have neither field; default to {} / [] so stocksOf(s) returns
+  // the plain STOCKS array unchanged. customStocks entries are filtered
+  // defensively (must have a string id) so a corrupted save can't crash
+  // the price-walk loop. Prices + history for any custom stock the save
+  // already references are seeded here so the player's holdings stay live.
+  s.stockOverrides = s.stockOverrides && typeof s.stockOverrides === 'object' ? s.stockOverrides : {};
+  s.customStocks = Array.isArray(s.customStocks)
+    ? s.customStocks.filter(c => c && typeof c === 'object' && typeof c.id === 'string'
+        && typeof c.name === 'string' && typeof c.p === 'number' && typeof c.vol === 'number')
+    : [];
+  s.customStocks.forEach(c => {
+    if (s.prices[c.id] == null) { s.prices[c.id] = c.p; s.hist[c.id] = [c.p]; }
+  });
   // v11.6 — zodiac / gender / birthMonth / psychic. Old saves have none;
   // backfill from freshPsychic() + defaults. gender defaults to
   // 'nonbinary', birthMonth to 1 (Jan), zodiac to 'capricorn'.
@@ -1265,8 +1296,49 @@ export const bizVal = (s: GameState) => {
   SPACE_LINES.forEach(l => { if (s.space[l.id]) total += valueAt(l.cost, s.spaceBought[l.id] ?? s.day); });
   return total;
 };
-export const stockVal = (s: GameState) => STOCKS.reduce((a, x) => a + (s.stk[x.id] || 0) * s.prices[x.id], 0);
+export const stockVal = (s: GameState) => stocksOf(s).reduce((a, x) => a + (s.stk[x.id] || 0) * s.prices[x.id], 0);
 export const netWorth = (s: GameState) => s.money + stockVal(s) + assetVal(s) + bizVal(s) + s.bank.dep - s.bank.loan + marketVal(s);
+
+// v14.1 — admin stock catalogue helpers. The built-in STOCKS array is the
+// immutable seed list shipped in gameData.ts; stockOverrides patches the
+// built-ins (price / volatility / name / art) without removing them, and
+// customStocks adds entirely new tickers. stocksOf(s) merges all three into
+// a single StockDef[] that stockVal, processDay's price-walk, trade(),
+// portfolioUnrealizedGains, and the StockTab UI consume — so adding /
+// editing / deleting a stock takes effect everywhere the market is read.
+export type StockDef = { id: string; name: string; p: number; vol: number; art: string };
+export function stocksOf(s: GameState): StockDef[] {
+  const out: StockDef[] = STOCKS.map(x => {
+    const ov = s.stockOverrides && s.stockOverrides[x.id];
+    if (!ov) return x;
+    return {
+      id: x.id,
+      name: typeof ov.name === 'string' && ov.name.trim() ? ov.name.trim() : x.name,
+      p: typeof ov.p === 'number' && Number.isFinite(ov.p) && ov.p > 0 ? ov.p : x.p,
+      vol: typeof ov.vol === 'number' && Number.isFinite(ov.vol) && ov.vol >= 0 ? ov.vol : x.vol,
+      art: typeof ov.art === 'string' && ov.art.trim() ? ov.art.trim() : x.art,
+    };
+  });
+  const customs = Array.isArray(s.customStocks) ? s.customStocks : [];
+  for (const c of customs) {
+    if (c && typeof c.id === 'string' && !out.some(x => x.id === c.id)) {
+      out.push({ id: c.id, name: c.name, p: c.p, vol: c.vol, art: c.art });
+    }
+  }
+  return out;
+}
+// v14.1 — register a stock into s.customStocks (idempotent: re-registering an
+// existing id is a no-op). Mirrors registerItem() in gameData.ts but writes
+// to the durable GameState field so admin-created stocks survive save/load.
+// Called by adminCreateStock; exposed for direct engine callers (tests,
+// future server-side scripts) that need to seed a custom ticker without going
+// through the ADMIN_ACTION broadcast.
+export function registerStock(s: GameState, stock: StockDef): void {
+  if (!s.customStocks) s.customStocks = [];
+  if (s.customStocks.some(x => x.id === stock.id)) return;
+  if (STOCKS.some(x => x.id === stock.id)) return; // don't shadow a built-in
+  s.customStocks.push({ id: stock.id, name: stock.name, p: stock.p, vol: stock.vol, art: stock.art });
+}
 
 // ================= v11.49 — PORTFOLIO DASHBOARD =================
 // Transaction log + cost-basis tracking so the Portfolio tab can show P&L,
@@ -1290,7 +1362,8 @@ export const portfolioRealizedGains = (s: GameState): number =>
 export const portfolioUnrealizedGains = (s: GameState): number => {
   let gains = 0;
   // Stocks: weighted-avg cost basis tracked in s.costBasis[id].
-  for (const x of STOCKS) {
+  // v14.1 — iterates stocksOf(s) so custom + overridden stocks are included.
+  for (const x of stocksOf(s)) {
     const qty = s.stk[x.id] || 0;
     if (qty <= 0) continue;
     const basis = s.costBasis[x.id] || 0;
@@ -1488,7 +1561,10 @@ export function processDay(s: GameState, d: number, rng: () => number = Math.ran
   // reversion toward the listing price so prices can't wander to 0 or ∞.
   // History is appended (capped at 60 points) so sparklines finally move.
   if (s.started && !s.over) {
-    STOCKS.forEach(x => {
+    // v14.1 — walk every stock (built-ins + overridden + custom) so the
+    // admin-managed market moves in lockstep with the seed tickers. The
+    // override's p / vol take effect here automatically via stocksOf(s).
+    stocksOf(s).forEach(x => {
       const cur = s.prices[x.id] || x.p;
       const vol = x.vol || 0.02;
       const walk = (rng() * 2 - 1) * vol;
@@ -2209,6 +2285,147 @@ export function adminResetGigs(s: GameState): string {
   return '✅ Gig overrides cleared';
 }
 
+// v14.1 — admin stock management. createStock pushes a brand-new ticker into
+// s.customStocks (refuses to clobber an existing built-in or custom id).
+// editStock either patches a customStock entry directly OR writes an override
+// for a built-in ticker. deleteStock removes a custom stock (built-ins are
+// protected) and refunds the player's holdings at the current price. resetStocks
+// wipes overrides + customs (refunding any custom-stock holdings) and reseeds
+// the built-in prices back to the STOCKS defaults. All four are broadcast
+// actions (no per-uid targeting) so every player sees the same market.
+export function adminCreateStock(s: GameState, stock: { id: string; name: string; p: number; vol: number; art: string }): string {
+  const id = String(stock.id || '').trim().toUpperCase();
+  // 1-16 chars, starts with a letter, alphanumeric + underscore/hyphen only —
+  // keeps ticker ids readable + safe for use as React keys + object keys.
+  if (!/^[A-Z][A-Z0-9_-]{0,15}$/.test(id)) return '⚠️ Bad stock id (1–16 chars, starts with a letter, A-Z/0-9/_/-)';
+  if (STOCKS.some(x => x.id === id) || (s.customStocks || []).some(x => x.id === id)) {
+    return `⚠️ Stock id already exists: ${id}`;
+  }
+  const name = String(stock.name || '').trim().slice(0, 60);
+  if (!name) return '⚠️ Stock name required';
+  const pNum = Number(stock.p);
+  if (!Number.isFinite(pNum) || pNum <= 0) return '⚠️ Price must be > 0';
+  const p = Math.max(1, Math.min(1e9, pNum));
+  const vNum = Number(stock.vol);
+  const vol = Number.isFinite(vNum) && vNum >= 0 ? Math.max(0, Math.min(1, vNum)) : 0.02;
+  const art = String(stock.art || 's-tech').trim().slice(0, 30) || 's-tech';
+  const def: StockDef = { id, name, p, vol, art };
+  registerStock(s, def);
+  // Seed price + history so the new ticker shows up immediately in the UI
+  // and the daily random-walk loop picks it up next tick.
+  if (s.prices[id] == null) { s.prices[id] = p; s.hist[id] = [p]; }
+  pushLog(s, `Admin created stock ${id} (${name}) @ ${fmt(p)} vol ${(vol * 100).toFixed(1)}%`);
+  return `✅ Created stock ${id} (${name})`;
+}
+export function adminEditStock(s: GameState, id: string, patch: { p?: number; vol?: number; name?: string; art?: string }): string {
+  const sid = String(id || '').trim().toUpperCase();
+  if (!sid) return '⚠️ Stock id required';
+  const builtIn = STOCKS.find(x => x.id === sid);
+  const custom = (s.customStocks || []).find(x => x.id === sid);
+  if (!builtIn && !custom) return `⚠️ Unknown stock id: ${sid}`;
+  // Normalise the patch fields. Missing / NaN fields are skipped (the caller
+  // can send a partial patch). Empty strings are treated as missing for the
+  // name + art fields so the admin can't accidentally blank out a stock.
+  const name = patch.name != null ? String(patch.name).trim().slice(0, 60) : '';
+  const pNum = patch.p != null ? Number(patch.p) : NaN;
+  const vNum = patch.vol != null ? Number(patch.vol) : NaN;
+  const art = patch.art != null ? String(patch.art).trim().slice(0, 30) : '';
+  if (custom) {
+    // Directly mutate the customStocks entry — these are mutable by design.
+    if (name) custom.name = name;
+    if (Number.isFinite(pNum) && pNum > 0) {
+      custom.p = Math.max(1, Math.min(1e9, pNum));
+      // Re-seed price + history so the new base takes effect immediately
+      // (otherwise the mean-reversion formula would yank the price back
+      // toward the old base for days).
+      s.prices[sid] = custom.p;
+      s.hist[sid] = [custom.p];
+    }
+    if (Number.isFinite(vNum) && vNum >= 0) custom.vol = Math.max(0, Math.min(1, vNum));
+    if (art) custom.art = art;
+    pushLog(s, `Admin edited custom stock ${sid}.`);
+    return `✅ Edited custom stock ${sid}`;
+  }
+  // Built-in stock → write an override patch.
+  s.stockOverrides = s.stockOverrides || {};
+  const ov = s.stockOverrides[sid] || {};
+  let hasChange = false;
+  if (name) { ov.name = name; hasChange = true; }
+  if (Number.isFinite(pNum) && pNum > 0) {
+    ov.p = Math.max(1, Math.min(1e9, pNum));
+    // Apply the new base price immediately (the random walk continues from
+    // here). Player holdings keep their qty; the new base only sets the
+    // mean-reversion anchor + the clamp band.
+    s.prices[sid] = ov.p;
+    s.hist[sid] = [ov.p];
+    hasChange = true;
+  }
+  if (Number.isFinite(vNum) && vNum >= 0) { ov.vol = Math.max(0, Math.min(1, vNum)); hasChange = true; }
+  if (art) { ov.art = art; hasChange = true; }
+  if (!hasChange) return `ℹ️ No changes for ${sid}`;
+  s.stockOverrides[sid] = ov;
+  pushLog(s, `Admin edited stock ${sid} (override: ${Object.keys(ov).join(', ')}).`);
+  return `✅ Edited stock ${sid}`;
+}
+export function adminDeleteStock(s: GameState, id: string): string {
+  const sid = String(id || '').trim().toUpperCase();
+  if (!sid) return '⚠️ Stock id required';
+  if (STOCKS.some(x => x.id === sid)) return `⚠️ Cannot delete built-in stock: ${sid}`;
+  const before = (s.customStocks || []).length;
+  s.customStocks = (s.customStocks || []).filter(x => x.id !== sid);
+  if (s.customStocks.length === before) return `⚠️ No custom stock with id: ${sid}`;
+  // Refund the player's holdings at the current price so deletion doesn't
+  // silently wipe their stake. Built-in stocks can't be deleted, so this
+  // only ever runs on custom tickers the admin created.
+  const held = s.stk[sid] || 0;
+  let refund = 0;
+  if (held > 0) {
+    const price = s.prices[sid] || 0;
+    refund = held * price;
+    s.money += refund;
+    recordTx(s, { kind: 'sell', asset: 'stock', ref: sid, name: `Deleted stock ${sid}`, qty: held, unit: price, amount: refund, realizedPnL: refund - (s.costBasis[sid] || 0) });
+  }
+  delete s.stk[sid];
+  delete s.costBasis[sid];
+  delete s.prices[sid];
+  delete s.hist[sid];
+  // Clean up any stale override for the same id (defensive — a built-in
+  // override couldn't have applied since this was a custom stock, but a
+  // corrupted save could carry a stray entry).
+  if (s.stockOverrides) delete s.stockOverrides[sid];
+  pushLog(s, `Admin deleted custom stock ${sid}${held > 0 ? ` (refunded ${fmt(refund)} for ${held} shares)` : ''}.`);
+  return held > 0
+    ? `✅ Deleted ${sid} (refunded ${fmt(refund)} for ${held} shares)`
+    : `✅ Deleted custom stock ${sid}`;
+}
+export function adminResetStocks(s: GameState): string {
+  let refund = 0;
+  // Refund any holdings in custom stocks before wiping (the player bought
+  // those shares with real cash; wiping them silently would be a bug).
+  for (const c of s.customStocks || []) {
+    const held = s.stk[c.id] || 0;
+    if (held > 0) {
+      const proceeds = held * (s.prices[c.id] || c.p);
+      refund += proceeds;
+      recordTx(s, { kind: 'sell', asset: 'stock', ref: c.id, name: `Reset stock ${c.id}`, qty: held, unit: s.prices[c.id] || c.p, amount: proceeds, realizedPnL: proceeds - (s.costBasis[c.id] || 0) });
+    }
+    delete s.stk[c.id];
+    delete s.costBasis[c.id];
+    delete s.prices[c.id];
+    delete s.hist[c.id];
+  }
+  if (refund > 0) s.money += refund;
+  s.stockOverrides = {};
+  s.customStocks = [];
+  // Re-apply built-in stock defaults so a price that drifted under an
+  // override snaps back to the seed value immediately. Without this, an
+  // overridden TECH at $500 with the override cleared would keep trading
+  // at $500 (drifted) instead of snapping back to the $230 seed.
+  STOCKS.forEach(x => { s.prices[x.id] = x.p; s.hist[x.id] = [x.p]; });
+  pushLog(s, `Admin reset all stocks${refund > 0 ? ` (refunded ${fmt(refund)})` : ''}.`);
+  return refund > 0 ? `✅ Reset all stocks (refunded ${fmt(refund)})` : '✅ Reset all stocks';
+}
+
 // v14 — the dispatcher. Given a list of { action, uid, ... } action records
 // (each one mirrors a row the admin API wrote as an ADMIN_ACTION message),
 // apply each to the GameState and return the corresponding toast per action.
@@ -2229,7 +2446,10 @@ export function applyAdminActions(s: GameState, actions: AdminAction[]): string[
     const act = String(a.action || '');
     // v14 — gig actions target the gig, not a player; they always apply to
     // the local state (no uid match). Same for resetGigs.
-    const isGlobalGigAction = act === 'setGigPay' || act === 'setGigCd' || act === 'resetGigs';
+    // v14.1 — stock catalogue actions (createStock / editStock / deleteStock /
+    // resetStocks) are also broadcast — every player sees the same market.
+    const isGlobalGigAction = act === 'setGigPay' || act === 'setGigCd' || act === 'resetGigs'
+      || act === 'createStock' || act === 'editStock' || act === 'deleteStock' || act === 'resetStocks';
     if (!isGlobalGigAction) {
       const targetUid = String(a.uid || '').trim();
       // v14 — match the target uid against this player's uid OR their HB-
@@ -2266,6 +2486,16 @@ export function applyAdminActions(s: GameState, actions: AdminAction[]): string[
       case 'setGigPay':      out.push(adminSetGigPay(s, String(a.gigId || ''), Number(a.basePay))); break;
       case 'setGigCd':       out.push(adminSetGigCd(s, String(a.gigId || ''), Number(a.cd))); break;
       case 'resetGigs':      out.push(adminResetGigs(s)); break;
+      // v14.1 — admin stock management (broadcast).
+      case 'createStock':   out.push(adminCreateStock(s, { id: String(a.id || ''), name: String(a.name || ''), p: Number(a.p ?? 100), vol: Number(a.vol ?? 0.02), art: String(a.art || 's-tech') })); break;
+      case 'editStock':     out.push(adminEditStock(s, String(a.id || ''), {
+        p: a.p != null ? Number(a.p) : undefined,
+        vol: a.vol != null ? Number(a.vol) : undefined,
+        name: a.name != null ? String(a.name) : undefined,
+        art: a.art != null ? String(a.art) : undefined,
+      })); break;
+      case 'deleteStock':   out.push(adminDeleteStock(s, String(a.id || ''))); break;
+      case 'resetStocks':   out.push(adminResetStocks(s)); break;
       default: out.push(`⚠️ Unknown admin action: ${act}`);
     }
   }
@@ -2336,7 +2566,9 @@ export function sellLot(s: GameState, idx: number): string | null {
 }
 export function trade(s: GameState, id: string, action: 'buy' | 'sell', qty: number): { ok: boolean; msg: string } {
   const p = s.prices[id]; const q = Math.max(1, Math.floor(qty || 1));
-  const stock = STOCKS.find(x => x.id === id);
+  // v14.1 — look up the stock name across built-ins + overridden + custom so
+  // the transaction ledger shows the right label even for admin tickers.
+  const stock = stocksOf(s).find(x => x.id === id);
   const stockName = stock ? stock.name : id;
   if (action === 'buy') {
     const cost = p * q;

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { ASSET_DEPRECIATION_RATE, DAY_MS, GIGS, YEAR_EVENTS, BIZ, NPCS } from './gameData';
+import { ASSET_DEPRECIATION_RATE, DAY_MS, GIGS, YEAR_EVENTS, BIZ, NPCS, STOCKS } from './gameData';
 import {
   addPost, bankOp, bizMultiplier, begin, bizVal, checkAch, doGig, effYears, enrollDeg, enrollLic, fresh, gigPay,
   lotValue, migrate, processDay, sleepHealthMult, sleepHealthRecovery, sleepDebtStudyMult, sleepDebtHealthMult, studyPace, studyWorkMult,
@@ -10,6 +10,8 @@ import {
   effEraBiz, effEraFac, effLoanRate, effRisk, effDemand, researchCost, researchMarket,
   // v11.49 — Portfolio Dashboard helpers
   recordTx, portfolioRealizedGains, portfolioUnrealizedGains, portfolioInvested, portfolioIncome, portfolioROI, stockROI, cashFlowLastDays,
+  // v14.1 — stock value aggregator (used by stockVal / netWorth)
+  stockVal,
   buyItem, sellLot, buySpace,
   // v11.50 — brand customization + NPC reactions
   setBizBrand, bizBrandOf, generateNpcReactions, openBranch, franchiseBranch, FRANCHISE_FEE_MULT, FRANCHISE_ROYALTY,
@@ -26,6 +28,9 @@ import {
   adminGrantBranch, adminRemoveBranch, adminSetBizMood, adminFranchiseAll,
   adminSetGigPay, adminSetGigCd, adminResetGigs,
   gigBase, gigCd, gigReady, gigLock,
+  // v14.1 — admin stock catalogue: stocksOf + registerStock + admin stock mutators
+  stocksOf, registerStock, type StockDef,
+  adminCreateStock, adminEditStock, adminDeleteStock, adminResetStocks,
 } from './engine';
 
 function seeded(seed: number): () => number {
@@ -1853,5 +1858,311 @@ test('v14: applyAdminActions handles an empty payload gracefully (NaN inputs def
   const r = applyAdminActions(s, [{ action: 'setMoney', uid: 'uid-x' }]);
   assert.equal(r.length, 1);
   assert.equal(s.money, 0, 'missing amount field → defaults to 0, not crash');
+});
+
+// ================= v14.1 — admin stock catalogue =================
+// stocksOf merges built-in + overridden + custom stocks into one list, so the
+// engine reads a single source of truth. The admin mutators (createStock /
+// editStock / deleteStock / resetStocks) write to s.stockOverrides +
+// s.customStocks and broadcast to every player. The price-walk in processDay
+// and stockVal / portfolioUnrealizedGains all consume stocksOf(s), so an
+// admin-created ticker takes effect everywhere immediately.
+
+test('v14.1: fresh() initialises stockOverrides + customStocks to empty', () => {
+  const s = fresh();
+  assert.ok(s.stockOverrides && typeof s.stockOverrides === 'object');
+  assert.deepEqual(s.stockOverrides, {});
+  assert.ok(Array.isArray(s.customStocks));
+  assert.deepEqual(s.customStocks, []);
+});
+
+test('v14.1: migrate() backfills stockOverrides + customStocks for old saves', () => {
+  const pre = { schemaVersion: 4, name: 'Old' } as Partial<GameState>;
+  const m = migrate(pre);
+  assert.ok(m.stockOverrides && typeof m.stockOverrides === 'object');
+  assert.deepEqual(m.stockOverrides, {}, 'migrate must default stockOverrides to {}');
+  assert.ok(Array.isArray(m.customStocks));
+  assert.deepEqual(m.customStocks, [], 'migrate must default customStocks to []');
+});
+
+test('v14.1: migrate() preserves existing stockOverrides + customStocks', () => {
+  const ov = { TECH: { p: 999 } };
+  const cs = [{ id: 'GOLD', name: 'Gold Fund', p: 200, vol: 0.05, art: 's-coin' }];
+  const m = migrate({ schemaVersion: 4, stockOverrides: ov, customStocks: cs });
+  assert.deepEqual(m.stockOverrides, ov, 'migrate keeps existing overrides');
+  assert.deepEqual(m.customStocks, cs, 'migrate keeps existing custom stocks');
+  // Seed prices + history for the custom stock so the player's prior
+  // holdings stay live.
+  assert.equal(m.prices.GOLD, 200);
+  assert.deepEqual(m.hist.GOLD, [200]);
+});
+
+test('v14.1: migrate() filters out corrupt customStocks entries', () => {
+  // A corrupted save with a non-string id shouldn't crash migrate or
+  // leak into stocksOf / the price-walk loop.
+  const cs = [
+    { id: 'GOOD', name: 'Good', p: 100, vol: 0.03, art: 's-tech' },
+    { id: 42, name: 'Bad', p: 100, vol: 0.03, art: 's-tech' },          // numeric id
+    { id: 'NOPRICE', name: 'NoPrice', vol: 0.03, art: 's-tech' },        // missing p
+    null,
+  ] as unknown as GameState['customStocks'];
+  const m = migrate({ schemaVersion: 4, customStocks: cs });
+  assert.equal(m.customStocks.length, 1, 'only the well-formed entry survives');
+  assert.equal(m.customStocks[0].id, 'GOOD');
+});
+
+test('v14.1: stocksOf() returns built-ins when no overrides or customs set', () => {
+  const s = fresh();
+  const list = stocksOf(s);
+  assert.equal(list.length, STOCKS.length);
+  // Same shape + same ids as the static catalogue.
+  for (let i = 0; i < STOCKS.length; i++) {
+    assert.equal(list[i].id, STOCKS[i].id);
+    assert.equal(list[i].p, STOCKS[i].p);
+    assert.equal(list[i].vol, STOCKS[i].vol);
+  }
+});
+
+test('v14.1: stocksOf() applies stockOverrides to built-ins', () => {
+  const s = fresh();
+  s.stockOverrides.TECH = { p: 500, vol: 0.1, name: 'Renamed Tech' };
+  const list = stocksOf(s);
+  const tech = list.find(x => x.id === 'TECH')!;
+  assert.equal(tech.p, 500, 'override p wins');
+  assert.equal(tech.vol, 0.1, 'override vol wins');
+  assert.equal(tech.name, 'Renamed Tech', 'override name wins');
+  // Other built-ins are untouched.
+  const bank = list.find(x => x.id === 'BANK')!;
+  assert.equal(bank.p, 60, 'BANK keeps default p');
+});
+
+test('v14.1: stocksOf() appends customStocks after built-ins', () => {
+  const s = fresh();
+  s.customStocks.push({ id: 'GOLD', name: 'Gold Fund', p: 200, vol: 0.05, art: 's-coin' });
+  const list = stocksOf(s);
+  assert.equal(list.length, STOCKS.length + 1);
+  const gold = list.find(x => x.id === 'GOLD')!;
+  assert.equal(gold.p, 200);
+  assert.equal(gold.name, 'Gold Fund');
+});
+
+test('v14.1: stocksOf() ignores a custom stock whose id collides with a built-in', () => {
+  // A corrupted save with a custom stock id that collides with a built-in
+  // must NOT shadow the built-in. (adminCreateStock rejects this case, but
+  // stocksOf should be defensive — a hand-edited save could violate it.)
+  const s = fresh();
+  s.customStocks.push({ id: 'TECH', name: 'Fake TECH', p: 1, vol: 1, art: 's-tech' });
+  const list = stocksOf(s);
+  const tech = list.find(x => x.id === 'TECH')!;
+  assert.equal(tech.p, 230, 'built-in TECH wins (override + custom skip collisions)');
+  assert.equal(list.filter(x => x.id === 'TECH').length, 1, 'no duplicate TECH');
+});
+
+test('v14.1: registerStock pushes into customStocks (idempotent, refuses built-in id)', () => {
+  const s = fresh();
+  registerStock(s, { id: 'GOLD', name: 'Gold Fund', p: 200, vol: 0.05, art: 's-coin' });
+  assert.equal(s.customStocks.length, 1);
+  // Re-registering the same id is a no-op.
+  registerStock(s, { id: 'GOLD', name: 'Ignored', p: 999, vol: 1, art: 'x' });
+  assert.equal(s.customStocks.length, 1);
+  assert.equal(s.customStocks[0].name, 'Gold Fund');
+  // Refuses to shadow a built-in id.
+  registerStock(s, { id: 'TECH', name: 'Fake', p: 1, vol: 1, art: 'x' });
+  assert.equal(s.customStocks.length, 1, 'built-in id not added');
+});
+
+test('v14.1: adminCreateStock validates id + writes the stock + seeds price', () => {
+  const s = fresh();
+  const r = adminCreateStock(s, { id: 'gold', name: 'Gold Fund', p: 200, vol: 0.05, art: 's-coin' });
+  assert.ok(r.startsWith('✅'), `expected success, got: ${r}`);
+  // ID is upper-cased before storage.
+  assert.equal(s.customStocks[0].id, 'GOLD');
+  assert.equal(s.prices.GOLD, 200, 'price seeded');
+  assert.deepEqual(s.hist.GOLD, [200], 'history seeded');
+});
+
+test('v14.1: adminCreateStock rejects bad ids, duplicates, missing name, bad price', () => {
+  const s = fresh();
+  // lowercase-only id rejected.
+  assert.ok(adminCreateStock(s, { id: 'tech', name: 'X', p: 100, vol: 0.03, art: 'x' }).startsWith('⚠️'));
+  // Built-in id rejected.
+  assert.ok(adminCreateStock(s, { id: 'TECH', name: 'Fake', p: 100, vol: 0.03, art: 'x' }).startsWith('⚠️'));
+  // Duplicate custom id rejected.
+  adminCreateStock(s, { id: 'GOLD', name: 'Gold Fund', p: 200, vol: 0.05, art: 's-coin' });
+  assert.ok(adminCreateStock(s, { id: 'GOLD', name: 'Dup', p: 100, vol: 0.03, art: 'x' }).startsWith('⚠️'));
+  // Empty name rejected.
+  assert.ok(adminCreateStock(s, { id: 'NEW1', name: '', p: 100, vol: 0.03, art: 'x' }).startsWith('⚠️'));
+  // Non-positive price rejected.
+  assert.ok(adminCreateStock(s, { id: 'NEW2', name: 'X', p: -5, vol: 0.03, art: 'x' }).startsWith('⚠️'));
+});
+
+test('v14.1: adminEditStock patches a custom stock directly (re-seeds price)', () => {
+  const s = fresh();
+  adminCreateStock(s, { id: 'GOLD', name: 'Gold Fund', p: 200, vol: 0.05, art: 's-coin' });
+  const r = adminEditStock(s, 'gold', { p: 250, name: 'Gold Fund Pro' });
+  assert.ok(r.startsWith('✅'), `expected success, got: ${r}`);
+  assert.equal(s.customStocks[0].p, 250);
+  assert.equal(s.customStocks[0].name, 'Gold Fund Pro');
+  // Re-seeded price + history take effect immediately.
+  assert.equal(s.prices.GOLD, 250);
+  assert.deepEqual(s.hist.GOLD, [250]);
+});
+
+test('v14.1: adminEditStock writes an override when patching a built-in', () => {
+  const s = fresh();
+  const r = adminEditStock(s, 'TECH', { p: 500, vol: 0.08 });
+  assert.ok(r.startsWith('✅'), `expected success, got: ${r}`);
+  assert.ok(s.stockOverrides.TECH, 'override written');
+  assert.equal(s.stockOverrides.TECH.p, 500);
+  assert.equal(s.stockOverrides.TECH.vol, 0.08);
+  // Price + history re-seeded so the new base takes effect immediately.
+  assert.equal(s.prices.TECH, 500);
+  assert.deepEqual(s.hist.TECH, [500]);
+  // stocksOf now returns the overridden values.
+  const tech = stocksOf(s).find(x => x.id === 'TECH')!;
+  assert.equal(tech.p, 500);
+  assert.equal(tech.vol, 0.08);
+});
+
+test('v14.1: adminEditStock rejects unknown ids + returns info when patch has no valid fields', () => {
+  const s = fresh();
+  assert.ok(adminEditStock(s, 'NOPE', { p: 100 }).startsWith('⚠️'));
+  // Patch with only NaN values → "no changes" info, not a write.
+  const before = s.stockOverrides.TECH;
+  const r = adminEditStock(s, 'TECH', { p: Number.NaN });
+  assert.ok(r.startsWith('ℹ️'));
+  assert.equal(s.stockOverrides.TECH, before, 'no override written for NaN patch');
+});
+
+test('v14.1: adminDeleteStock refuses built-ins; removes custom + refunds holdings', () => {
+  const s = fresh();
+  s.money = 1_000_000;
+  adminCreateStock(s, { id: 'GOLD', name: 'Gold Fund', p: 200, vol: 0.05, art: 's-coin' });
+  // Buy 5 shares at $200 → costBasis = $1000, qty = 5.
+  trade(s, 'GOLD', 'buy', 5);
+  const moneyBefore = s.money;
+  const r = adminDeleteStock(s, 'GOLD');
+  assert.ok(r.startsWith('✅'), `expected success, got: ${r}`);
+  // Refund: 5 × current price (still 200, untouched by delete) = $1000.
+  assert.equal(s.money, moneyBefore + 1000);
+  // Holdings, cost basis, price + history all wiped.
+  assert.equal(s.stk.GOLD, undefined);
+  assert.equal(s.costBasis.GOLD, undefined);
+  assert.equal(s.prices.GOLD, undefined);
+  assert.equal(s.hist.GOLD, undefined);
+  assert.equal(s.customStocks.length, 0);
+  // Built-in deletion refused.
+  assert.ok(adminDeleteStock(s, 'TECH').startsWith('⚠️'));
+});
+
+test('v14.1: adminResetStocks clears overrides + customs, refunds holdings, reseeds built-ins', () => {
+  const s = fresh();
+  s.money = 1_000_000;
+  // Override TECH + create a custom stock with a holding.
+  adminEditStock(s, 'TECH', { p: 500 });
+  adminCreateStock(s, { id: 'GOLD', name: 'Gold Fund', p: 200, vol: 0.05, art: 's-coin' });
+  trade(s, 'GOLD', 'buy', 3);
+  // Drift the TECH price so we can verify the reset re-seeds it.
+  s.prices.TECH = 750;
+  const moneyBefore = s.money;
+  const r = adminResetStocks(s);
+  assert.ok(r.startsWith('✅'), `expected success, got: ${r}`);
+  // Refund for the GOLD holding: 3 × 200 = $600.
+  assert.equal(s.money, moneyBefore + 600);
+  // Overrides + customs cleared.
+  assert.deepEqual(s.stockOverrides, {});
+  assert.deepEqual(s.customStocks, []);
+  // Built-in price re-seeded (the drifted $750 snaps back to $230).
+  assert.equal(s.prices.TECH, 230);
+  assert.deepEqual(s.hist.TECH, [230]);
+  // Custom stock price + history wiped.
+  assert.equal(s.prices.GOLD, undefined);
+  assert.equal(s.hist.GOLD, undefined);
+});
+
+test('v14.1: stockVal includes custom stocks (built-in + overridden + custom all summed)', () => {
+  const s = fresh();
+  s.money = 10_000_000;
+  // Buy 10 TECH @ ~230 and 5 GOLD @ 200 (custom).
+  adminCreateStock(s, { id: 'GOLD', name: 'Gold Fund', p: 200, vol: 0.05, art: 's-coin' });
+  trade(s, 'TECH', 'buy', 10);
+  trade(s, 'GOLD', 'buy', 5);
+  const expected = 10 * s.prices.TECH + 5 * s.prices.GOLD;
+  assert.equal(stockVal(s), expected, 'stockVal sums built-in + custom holdings at current prices');
+});
+
+test('v14.1: portfolioUnrealizedGains includes custom stocks', () => {
+  const s = fresh();
+  s.money = 10_000_000;
+  adminCreateStock(s, { id: 'GOLD', name: 'Gold Fund', p: 200, vol: 0.05, art: 's-coin' });
+  trade(s, 'GOLD', 'buy', 5);
+  // After buying, basis = 5 × 200 = $1000; value = same; P&L = 0 (no walk yet).
+  assert.equal(portfolioUnrealizedGains(s), 0, 'freshly bought custom stock has zero unrealized P&L');
+  // Bump the price manually; unrealized P&L should reflect the diff.
+  s.prices.GOLD = 250;
+  // 5 × 250 − 1000 = 250.
+  assert.equal(portfolioUnrealizedGains(s), 250);
+});
+
+test('v14.1: processDay walks custom stock prices (market stays alive for admin tickers)', () => {
+  const s = fresh();
+  s.started = true;
+  adminCreateStock(s, { id: 'GOLD', name: 'Gold Fund', p: 200, vol: 0.05, art: 's-coin' });
+  const startPrice = s.prices.GOLD;
+  let seed = 0.42;
+  const rng = () => { seed = (seed * 9301 + 49297) % 233280; return seed / 233280; };
+  for (let d = 0; d < 20; d++) {
+    s.lastDay = d; s.day = d;
+    processDay(s, d, rng);
+  }
+  // History grew + the price moved off the seed (mean-reversion keeps it
+  // inside the clamp band 0.25p..6p).
+  assert.ok(s.hist.GOLD.length > 1, `expected GOLD history grown, len=${s.hist.GOLD.length}`);
+  const ratio = s.prices.GOLD / startPrice;
+  assert.ok(Math.abs(ratio - 1) > 0.001 || s.hist.GOLD.length > 1, 'GOLD should be walking');
+  assert.ok(ratio >= 0.25 && ratio <= 6, `GOLD inside clamp band, ratio=${ratio}`);
+});
+
+test('v14.1: applyAdminActions dispatches the four stock actions (broadcast — no uid needed)', () => {
+  const s = fresh();
+  s.uid = 'uid-mine';
+  const batch: AdminAction[] = [
+    { action: 'createStock', id: 'gold', name: 'Gold Fund', p: 200, vol: 0.05, art: 's-coin' },
+    { action: 'editStock', id: 'GOLD', p: 250 },
+    { action: 'editStock', id: 'TECH', p: 500 },
+    { action: 'deleteStock', id: 'GOLD' },
+    { action: 'resetStocks' },
+  ];
+  const results = applyAdminActions(s, batch);
+  assert.equal(results.length, batch.length, 'one toast per action');
+  // createStock + first editStock both ran on GOLD (created then edited);
+  // after deleteStock GOLD is gone; resetStocks then wipes the TECH override.
+  assert.deepEqual(s.customStocks, [], 'GOLD created then deleted → empty');
+  assert.deepEqual(s.stockOverrides, {}, 'TECH override cleared by resetStocks');
+  // All five toasts are non-warning (no "Unknown admin action" / skipped).
+  for (const r of results) {
+    assert.ok(!r.includes('Unknown'), `unexpected unknown-action toast: ${r}`);
+    assert.ok(!r.includes('skipped'), `unexpected skipped toast: ${r}`);
+  }
+});
+
+test('v14.1: applyAdminActions stock actions are broadcast (apply regardless of uid)', () => {
+  // Even when the action row carries a different uid, the broadcast stock
+  // actions still apply — the same way gig-config actions do.
+  const s = fresh();
+  s.uid = 'uid-mine';
+  applyAdminActions(s, [{ action: 'createStock', uid: 'uid-someone-else', id: 'GOLD', name: 'Gold', p: 200, vol: 0.05, art: 's-coin' }]);
+  assert.equal(s.customStocks.length, 1, 'broadcast stock action applies regardless of uid');
+});
+
+test('v14.1: trade() on a custom stock uses its display name in the transaction ledger', () => {
+  const s = fresh();
+  s.money = 10_000_000;
+  adminCreateStock(s, { id: 'GOLD', name: 'Gold Fund', p: 200, vol: 0.05, art: 's-coin' });
+  trade(s, 'GOLD', 'buy', 3);
+  const tx = s.transactions[s.transactions.length - 1];
+  assert.equal(tx.name, 'Gold Fund', 'tx.name reflects the custom stock display name');
+  assert.equal(tx.asset, 'stock');
+  assert.equal(tx.qty, 3);
 });
 

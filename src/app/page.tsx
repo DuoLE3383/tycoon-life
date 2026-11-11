@@ -21,7 +21,7 @@ import { useGame, getState, persist, bump, resetState, reincarnateState } from '
 import {
   START, END_AGE, RETIRE, RESALE_FEE, FOUND_COST, FOUND_MIN_NW, OWN_CLUB_MULT,
   SAVE_RATE, LOAN_RATE, TAX_FREE, TAX_BRACKETS, ALLNEWS, eraOf, NATIONS, NAME_POOLS, INTERESTS, TALENTS, PATHS,
-  analyze, FIELDS, LICENSES, LIC_BY, LIC_FOR, STAGES, BIZ, FARM_LINES, FAC_LINES, ITEM_BY, ITEM_IMAGES, USED_IMAGES, STOCKS, ASSET_DEPRECIATION_RATE,
+  analyze, FIELDS, LICENSES, LIC_BY, LIC_FOR, STAGES, BIZ, FARM_LINES, FAC_LINES, ITEM_BY, ITEM_IMAGES, USED_IMAGES, ASSET_DEPRECIATION_RATE,
   CLUBS, JOBS, GIGS, SPACE_LINES, TABS, GROUPS, xpNeed, ITEMS, USED_MARKET, HALL_OF_FAME, itemRarity, RARITY_COLOR, RARITY_MULT, NPCS, NPC_BY, PETS, PET_BY, MAX_PETS, CREW_COST, SHORT_COURSES, SHORT_BY, BOTS, REG_MULT, type Rarity, type FieldKey, type Req, type ItemDef, type UsedItem,
   RARE_ITEMS, RARE_IDS, itemGroup, type ItemGroup,
   TRAVEL, registerItem,
@@ -84,6 +84,10 @@ import {
   // v14 — admin actions queue: applies pending ADMIN_ACTION rows polled from
   // /api/social/ping?uid=xxx (banking / business / gigs / player-stat tweaks).
   applyAdminActions, type AdminAction,
+  // v14.1 — admin stock catalogue: stocksOf merges built-in + overridden +
+  // custom stocks into a single list so the StockTab + trade() read the same
+  // market the admin dashboard mutates.
+  stocksOf, type StockDef,
 } from '@/lib/engine';
 import { localTwist, pickKind } from '@/lib/story';
 import { ChatView, FriendsView, BoardView } from './community';
@@ -113,7 +117,7 @@ if (typeof window !== 'undefined') {
 // v11.8 — the bundled version. The /version.json file in /public is polled
 // every 5 minutes; if its version is newer than this, a "reload to update"
 // banner appears even in a running session (no F5 needed).
-const BUNDLED_VERSION = 'v13.0';
+const BUNDLED_VERSION = 'v13.8';
 const VERSION_POLL_MS = 5 * 60 * 1000;
 // v11.44 — 'what's new' modal now fires PER PATCH (not per major version).
 // The SEEN_KEY is derived from BUNDLED_VERSION so each new patch re-shows the
@@ -3429,9 +3433,25 @@ function PurchaseConfirm({ s, pending, onConfirm, onCancel }: { s: GameState; pe
 // before 1990, rises after); the brief is cached on s.researchBrief until
 // the next Jan 1. The noise model lives in researchMarket() — false
 // negatives ~15%, false positives ~10%.
+// v14.1 — the per-stock rows now also surface portfolio info that used to
+// live only in the separate Portfolio tab: holdings value, cost basis,
+// unrealized P&L (green/red), ROI%. A summary card at the top rolls those
+// numbers up across all owned tickers (built-in + custom). The tab also
+// iterates stocksOf(s) so admin-created / overridden stocks show up here
+// immediately, with the same sparkline + trade buttons.
 function StockTab({ s, act, qtyMap, setQtyMap }: { s: GameState; act: Act; qtyMap: Record<string, number>; setQtyMap: (m: Record<string, number>) => void }) {
   const { t } = useT();
   const cost = researchCost(s);
+  // v14.1 — single source of truth for the catalogue: built-ins + overridden
+  // + custom. The pulse card + per-stock rows both consume this so a newly
+  // created admin ticker appears in both places on the next render.
+  const stocks = stocksOf(s);
+  // Summary numbers across all owned stocks (cost basis lives on s.costBasis,
+  // unrealized P&L = current value − cost basis per holding).
+  const totalValue = stocks.reduce((a, x) => a + (s.stk[x.id] || 0) * s.prices[x.id], 0);
+  const totalBasis = stocks.reduce((a, x) => a + (s.costBasis[x.id] || 0), 0);
+  const totalPnL = totalValue - totalBasis;
+  const overallRoi = totalBasis > 0 ? (totalPnL / totalBasis) * 100 : null;
   return (
     <>
       {/* v11.2 — active crisis banner. effEraBiz / effLoanRate / effRisk /
@@ -3468,10 +3488,34 @@ function StockTab({ s, act, qtyMap, setQtyMap }: { s: GameState; act: Act; qtyMa
           </div>
         )}
       </Row>
-      {/* v11.27 — portfolio pulse: total holdings value + today's movers */}
+      {/* v14.1 — portfolio summary card. Rolls up value / cost basis / P&L /
+          ROI across every owned ticker (built-in + custom) so the player
+          gets the headline numbers without flipping to the Portfolio tab.
+          Only renders when the player actually owns something (avoids a
+          row of zeros confusing a fresh player). */}
+      {totalValue > 0 && (
+        <div className="card" style={{ marginBottom: 8 }}>
+          <div className="lb"><span>{t('mk.portfolio')} · {t('pf.value')}</span><b>{fmt(totalValue)}</b></div>
+          <div className="lb"><span>{t('pf.cost')}</span><b>{fmt(totalBasis)}</b></div>
+          <div className="lb">
+            <span>{t('pf.unrealized')}</span>
+            <b style={{ color: totalPnL >= 0 ? 'var(--up)' : 'var(--down)' }}>
+              {(totalPnL >= 0 ? '+' : '') + fmt(totalPnL)}
+            </b>
+          </div>
+          <div className="lb">
+            <span>{t('pf.roiCol')}</span>
+            <b style={{ color: (overallRoi ?? 0) >= 0 ? 'var(--up)' : 'var(--down)' }}>
+              {overallRoi == null ? '—' : (overallRoi >= 0 ? '+' : '') + overallRoi.toFixed(1) + '%'}
+            </b>
+          </div>
+        </div>
+      )}
+      {/* v11.27 — portfolio pulse: total holdings value + today's movers.
+          v14.1 — uses stocksOf(s) so custom tickers join the movers list. */}
       {(() => {
-        const val = STOCKS.reduce((a, x) => a + (s.stk[x.id] || 0) * s.prices[x.id], 0);
-        const movers = STOCKS.map(x => { const hh = s.hist[x.id]; return { id: x.id, ch: hh.length > 1 ? (s.prices[x.id] / hh[hh.length - 2] - 1) * 100 : 0 }; }).sort((a, b) => b.ch - a.ch);
+        const val = totalValue;
+        const movers = stocks.map(x => { const hh = s.hist[x.id] || []; return { id: x.id, ch: hh.length > 1 ? (s.prices[x.id] / hh[hh.length - 2] - 1) * 100 : 0 }; }).sort((a, b) => b.ch - a.ch);
         const best = movers[0], worst = movers[movers.length - 1];
         return (
           <Row art="s-coin">
@@ -3483,11 +3527,23 @@ function StockTab({ s, act, qtyMap, setQtyMap }: { s: GameState; act: Act; qtyMa
           </Row>
         );
       })()}
-      {STOCKS.map(st => {
-        const p = s.prices[st.id], h = s.hist[st.id];
+      {stocks.map(st => {
+        const p = s.prices[st.id], h = s.hist[st.id] || [];
         const ch = h.length > 1 ? (p / h[h.length - 2] - 1) * 100 : 0, q = s.stk[st.id] || 0;
-        const mn = Math.min(...h), mx = Math.max(...h), r = (mx - mn) || 1;
-        const pts = h.map((v, i) => `${(i / Math.max(h.length - 1, 1) * 96).toFixed(1)},${(28 - (v - mn) / r * 24).toFixed(1)}`).join(' ');
+        // v14.1 — per-stock portfolio breakdown. Only meaningful when the
+        // player owns shares; otherwise we show "—" so the row stays compact
+        // for the dozens of tickers a fresh player hasn't touched yet.
+        const owned = q > 0;
+        const value = owned ? q * p : 0;
+        const basis = owned ? (s.costBasis[st.id] || 0) : 0;
+        const pnl = owned ? value - basis : 0;
+        const roiPct = owned && basis > 0 ? (pnl / basis) * 100 : null;
+        // Sparkline points: cap at the last 30 history values so the chart
+        // stays readable when the history array is full (60 points). The
+        // viewBox stays 96×30; we just rescale the x axis to the slice.
+        const spark = h.slice(-30);
+        const mn = spark.length ? Math.min(...spark) : p, mx = spark.length ? Math.max(...spark) : p, r = (mx - mn) || 1;
+        const pts = spark.map((v, i) => `${(i / Math.max(spark.length - 1, 1) * 96).toFixed(1)},${(28 - (v - mn) / r * 24).toFixed(1)}`).join(' ');
         return <Row key={st.id} art={st.art}
           right={<div className="trade">
             <input className="qty" type="number" min={1} step={1} value={qtyMap[st.id] || 1} aria-label={`Quantity for ${st.id}`}
@@ -3500,7 +3556,22 @@ function StockTab({ s, act, qtyMap, setQtyMap }: { s: GameState; act: Act; qtyMa
           </div>}>
           <b>{st.id} <span className={ch >= 0 ? 'up' : 'down'}>{ch >= 0 ? '▲' : '▼'}{Math.abs(ch).toFixed(1)}%</span></b>
           <span className="sub">{st.name} · {fmt(p)} · {t('hold', '', { n: q })}</span>
-          <svg className="spark" viewBox="0 0 96 30"><polyline fill="none" stroke={h[h.length - 1] >= h[0] ? '#4f7d5f' : '#a3524a'} strokeWidth="2.4" points={pts} /></svg>
+          {/* v14.1 — per-stock portfolio line. Rendered inline (below the
+              subtitle) so the row stays a single .info block; the trade
+              buttons live in `right` as before. */}
+          {owned ? (
+            <span className="mini" style={{ display: 'block', marginTop: 2 }}>
+              {t('pf.value')}: <b>{fmt(value)}</b>
+              {' · '}{t('pf.cost')}: <b>{fmt(basis)}</b>
+              {' · '}{t('pf.pnl')}: <b style={{ color: pnl >= 0 ? 'var(--up)' : 'var(--down)' }}>{(pnl >= 0 ? '+' : '') + fmt(pnl)}</b>
+              {' · '}{t('pf.roiCol')}: <b style={{ color: (roiPct ?? 0) >= 0 ? 'var(--up)' : 'var(--down)' }}>{roiPct == null ? '—' : (roiPct >= 0 ? '+' : '') + roiPct.toFixed(1) + '%'}</b>
+            </span>
+          ) : (
+            <span className="mini" style={{ display: 'block', marginTop: 2, opacity: .55 }}>
+              {t('pf.value')}: — · {t('pf.cost')}: — · {t('pf.pnl')}: — · {t('pf.roiCol')}: —
+            </span>
+          )}
+          <svg className="spark" viewBox="0 0 96 30"><polyline fill="none" stroke={spark.length && spark[spark.length - 1] >= spark[0] ? '#4f7d5f' : '#a3524a'} strokeWidth="2.4" points={pts} /></svg>
         </Row>;
       })}
       {/* v11.19 — crypto hook: link to the companion Elliott Wave crypto app.
@@ -3788,8 +3859,11 @@ function PortfolioTab({ s }: { s: GameState; act: Act }) {
   const income = portfolioIncome(s);
   const roi = portfolioROI(s);
   const cashFlow = cashFlowLastDays(s, 30);
-  // Stock holdings with non-zero qty.
-  const stockHoldings = STOCKS.map(x => {
+  // Stock holdings with non-zero qty. v14.1 — iterates stocksOf(s) so custom
+  // + overridden tickers appear here alongside the built-in catalogue (this
+  // keeps the Portfolio tab consistent with the StockTab summary card and
+  // the engine's portfolioUnrealizedGains, both of which already use it).
+  const stockHoldings = stocksOf(s).map(x => {
     const qty = s.stk[x.id] || 0;
     if (qty <= 0) return null;
     const basis = s.costBasis[x.id] || 0;
