@@ -1228,10 +1228,18 @@ const TIP_ICONS: Record<string, string> = {
   'tip.4': '🏪', 'tip.5': '🎓', 'tip.6': '📊',
 };
 function TipsCard({ t, onNav }: { t: TFn; onNav: (k: string) => void }) {
-  const [idx, setIdx] = useState(() => Math.floor(Math.random() * TIP_KEYS.length));
+  // v12.12 — start at index 0 on both server and client to avoid React #418
+  // hydration mismatch (Math.random() in the initializer gave server and
+  // client different tip text). The useEffect below picks a random index
+  // AFTER hydration, so the first paint matches and the rotation still feels
+  // random per session.
+  const [idx, setIdx] = useState(0);
   // v12 — advance every 30 seconds. Re-uses one interval; cleanup on unmount.
   // The index wraps via modulo so it always lands on a valid tip.
   useEffect(() => {
+    // After hydration, jump to a random tip so different sessions start on
+    // different tips (preserves the v11.39 UX intent without breaking SSR).
+    setIdx(Math.floor(Math.random() * TIP_KEYS.length));
     const iv = setInterval(() => setIdx(i => (i + 1) % TIP_KEYS.length), 30000);
     return () => clearInterval(iv);
   }, []);
@@ -4757,8 +4765,13 @@ function Intro({ onBegin }: { onBegin: (o: { name: string; byear: number; nation
   // intro only shows for a new life, so this is the natural consent gate).
   const [ack, setAck] = useState(false);
   const years: number[] = [];
-  const nowY = new Date().getUTCFullYear();
-  for (let y = nowY - 126; y <= nowY - 18; y++) years.push(y);
+  // v12.12 — compute year list in a useEffect + useState so the server and
+  // client agree on the same list. Reading new Date() during render caused a
+  // hydration mismatch (#418) when server and client crossed a year boundary
+  // at different instants, and also made the year list non-deterministic.
+  const [nowY, setNowY] = useState<number | null>(null);
+  useEffect(() => { setNowY(new Date().getUTCFullYear()); }, []);
+  if (nowY !== null) for (let y = nowY - 126; y <= nowY - 18; y++) years.push(y);
   const a = analyze(ints, tals);
   const toggle = (arr: string[], set: (v: string[]) => void, id: string, max: number) => {
     const i = arr.indexOf(id);
@@ -4772,6 +4785,7 @@ function Intro({ onBegin }: { onBegin: (o: { name: string; byear: number; nation
   // a birth year weighted toward the modern era (1960-now-18), random
   // religion, 1-3 interests, 1-2 talents.
   const randomise = () => {
+    if (nowY === null) return;
     const nat = NATIONS[Math.floor(Math.random() * NATIONS.length)];
     const pool = NAME_POOLS[nat] || ['Alex'];
     const nm = pool[Math.floor(Math.random() * pool.length)];
@@ -4828,7 +4842,7 @@ function Intro({ onBegin }: { onBegin: (o: { name: string; byear: number; nation
           <div className="field"><label>{t('name')}</label><input maxLength={24} placeholder="e.g. Minh" value={name} onChange={e => setName(e.target.value)} /></div>
           {/* v11.46 — birth year as a number input (was 100+ dropdown). Validates 18+. */}
           <div className="field"><label>{t('birthYear')}</label>
-            <input type="number" min={nowY - 126} max={nowY - 18} value={byear} onChange={e => setByear(Math.max(nowY - 126, Math.min(nowY - 18, +e.target.value || nowY - 18)))} /></div>
+            <input type="number" disabled={nowY === null} min={nowY !== null ? nowY - 126 : undefined} max={nowY !== null ? nowY - 18 : undefined} value={byear} onChange={e => setByear(nowY !== null ? Math.max(nowY - 126, Math.min(nowY - 18, +e.target.value || nowY - 18)) : byear)} /></div>
           {/* v11.6 — gender + birth month */}
           <div className="field"><label>{t('v11.gender')}</label>
             <select value={gender} onChange={e => setGender(e.target.value as Gender)}>
