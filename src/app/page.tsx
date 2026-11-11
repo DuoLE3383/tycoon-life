@@ -3820,6 +3820,40 @@ function FinanceOverviewTab({ s, onNav }: { s: GameState; act: Act; onNav: (k: s
   );
 }
 
+// ================= v12.6 — AMOUNT INPUT ROW =================
+// Reusable row with a number input + optional "All" button + submit button.
+// Replaces the old hard-coded +$10K / +$100K buttons with a flexible input
+// where the player can type any amount.
+function AmountRow({ label, sub, icon, max, allLabel, allAction, onSubmit, danger, t }: {
+  label: string; sub: string; icon: string; max: number;
+  allLabel?: string; allAction?: () => void; onSubmit: (amt: number) => void;
+  danger?: boolean; t: TFn;
+}) {
+  const [val, setVal] = useState('');
+  const submit = () => {
+    const amt = Math.max(1, Math.floor(Number(val) || 0));
+    if (amt > 0) { onSubmit(amt); setVal(''); }
+  };
+  return (
+    <Row art="ic-coins" right={<div className="trade" style={{ gap: 5 }}>
+      <input className="qty" type="number" min={1} step={1000} placeholder="0" value={val}
+        inputMode="numeric"
+        onChange={e => setVal(e.target.value.replace(/[^\d]/g, ''))}
+        onKeyDown={e => { if (e.key === 'Enter') submit(); }}
+        style={{ width: 90, textAlign: 'right' }}
+        aria-label={label} />
+      <button className={danger ? 'tsell' : 'tbuy'} disabled={!val || Number(val) <= 0} onClick={submit}>
+        <Ic id={icon} className="bsi" /><span>{label}</span>
+      </button>
+      {allLabel && allAction && (
+        <button className="ibtn ghost" style={{ minWidth: 'auto', padding: '5px 10px', fontSize: '.78rem' }} disabled={max <= 0} onClick={allAction}>{allLabel}</button>
+      )}
+    </div>}>
+      <b>{label}</b><span className="sub">{sub}</span>
+    </Row>
+  );
+}
+
 // ================= BANK =================
 function BankTab({ s, act }: { s: GameState; act: Act }) {
   const { t } = useT();
@@ -3849,45 +3883,17 @@ function BankTab({ s, act }: { s: GameState; act: Act }) {
         </div>
       </div>
       <h3>{t('savings')}</h3>
-      <Row art="ic-coins" right={<div className="trade">
-        <Btn ic="ic-plus" label="+$10K" disabled={s.money < 10000} onClick={() => act(st => bankOp(st, 'dep', 10000))} />
-        <Btn ic="ic-plus" label="+$100K" disabled={s.money < 100000} onClick={() => act(st => bankOp(st, 'dep', 100000))} />
-        <Btn ic="ic-plus" label={t('allIn')} disabled={s.money <= 0} onClick={() => act(st => bankOp(st, 'dep', 'all'))} />
-      </div>}>
-        <b>{t('deposit')}</b><span className="sub">{t('whileSleep', '', { x: fmt(s.bank.dep * SAVE_RATE) })}</span>
-      </Row>
-      <Row art="ic-coins" right={<div className="trade">
-        <Btn ic="ic-down" label="−$10K" kind="danger" disabled={s.bank.dep < 10000} onClick={() => act(st => bankOp(st, 'wd', 10000))} />
-        <Btn ic="ic-down" label="−$100K" kind="danger" disabled={s.bank.dep < 100000} onClick={() => act(st => bankOp(st, 'wd', 100000))} />
-        <Btn ic="ic-down" label={t('allOut')} kind="danger" disabled={s.bank.dep <= 0} onClick={() => act(st => bankOp(st, 'wd', 'all'))} />
-      </div>}>
-        <b>{t('withdraw')}</b><span className="sub">{t('moveCash')}</span>
-      </Row>
+      <AmountRow label={t('deposit')} sub={t('whileSleep', '', { x: fmt(s.bank.dep * SAVE_RATE) })} icon="ic-plus" max={Math.floor(s.money)} allLabel={t('allIn')} allAction={() => act(st => bankOp(st, 'dep', 'all'))} onSubmit={amt => act(st => bankOp(st, 'dep', amt))} t={t} />
+      <AmountRow label={t('withdraw')} sub={t('moveCash')} icon="ic-down" danger max={Math.floor(s.bank.dep)} allLabel={t('allOut')} allAction={() => act(st => bankOp(st, 'wd', 'all'))} onSubmit={amt => act(st => bankOp(st, 'wd', amt))} t={t} />
       <h3>{t('loan')}</h3>
-      <Row art="ic-coins" right={<div className="trade">
-        <Btn ic="ic-up" label={'$100K'} disabled={maxLoan < 100000} onClick={() => act(st => bankOp(st, 'loan', 100000))} />
-        <Btn ic="ic-up" label={t('borrowMax')} disabled={maxLoan <= 0} onClick={() => act(st => bankOp(st, 'loan', 'all'))} />
-      </div>}>
-        <b>{t('borrow')}</b><span className="sub">{t('upTo', '', { x: fmt(maxLoan) })}</span>
-      </Row>
-      <Row art="ic-coins" right={<div className="trade">
-        <Btn ic="ic-check" label={'$10K'} disabled={s.bank.loan <= 0 || s.money < 10000} onClick={() => act(st => bankOp(st, 'repay', 10000))} />
-        <Btn ic="ic-check" label={t('repayAll')} disabled={s.bank.loan <= 0} onClick={() => act(st => bankOp(st, 'repay', 'all'))} />
-      </div>}>
-        <b>{t('repay')}</b><span className="sub">{t('owe', '', { x: fmt(s.bank.loan), i: fmt(s.bank.loan * LOAN_RATE) })}</span>
-      </Row>
+      <AmountRow label={t('borrow')} sub={t('upTo', '', { x: fmt(maxLoan) })} icon="ic-up" max={maxLoan} allLabel={t('borrowMax')} allAction={() => act(st => bankOp(st, 'loan', 'all'))} onSubmit={amt => act(st => bankOp(st, 'loan', amt))} t={t} />
+      <AmountRow label={t('repay')} sub={t('owe', '', { x: fmt(s.bank.loan), i: fmt(s.bank.loan * LOAN_RATE) })} icon="ic-check" danger max={Math.min(s.bank.loan, Math.floor(s.money))} allLabel={t('repayAll')} allAction={() => act(st => bankOp(st, 'repay', 'all'))} onSubmit={amt => act(st => bankOp(st, 'repay', amt))} t={t} />
       <h3>{t('charityFame')}</h3>
       <div className="card" style={{ marginBottom: 8 }}>
         <div className="famewrap"><span className="mini">{t('fame')}</span><div className="famebar"><i style={{ width: Math.min(100, Math.log10(Math.max(1, s.fame + 1)) * 25) + '%' }} /></div><b>{Math.round(s.fame)}</b></div>
         <div className="mini">{fameTxt} · {t('bizIncomeFame', '', { n: ((fameBonus(s) - 1) * 100).toFixed(1) })}</div>
       </div>
-      <Row art="i-art" right={<div className="trade">
-        <Btn ic="ic-heart" label="+$1K" disabled={s.money < 1000} onClick={() => act(st => donate(st, 1000))} />
-        <Btn ic="ic-heart" label="+$10K" disabled={s.money < 10000} onClick={() => act(st => donate(st, 10000))} />
-        <Btn ic="ic-heart" label="+$100K" disabled={s.money < 100000} onClick={() => act(st => donate(st, 100000))} />
-      </div>}>
-        <b>{t('donate')}</b><span className="sub">{t('totalDonated')}: {fmt(s.donated)} · {t('fameFades')}</span>
-      </Row>
+      <AmountRow label={t('donate')} sub={`${t('totalDonated')}: ${fmt(s.donated)} · ${t('fameFades')}`} icon="ic-heart" max={Math.floor(s.money)} onSubmit={amt => act(st => donate(st, amt))} t={t} />
     </>
   );
 }
