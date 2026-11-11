@@ -507,14 +507,19 @@ html[data-theme="dark"] .tgame .ibtn.ghost{background:linear-gradient(180deg,#32
 
 /* ================= v11.27 — life tint · 3D nav · attention · admin ================= */
 /* Life-status tint: the root .tgame gets life-0..4 from healthState(); a fixed,
-   transparent radial wash tells the player how their life is going at a glance
-   (best → danger). pointer-events:none so nothing becomes unclickable. */
+   full-screen overlay tints the app. v12.2 — user request: health < 30 →
+   transparent RED on the entire app; healthy → GREEN.
+   - life-0 (≥80): green full-screen tint — "you're healthy"
+   - life-1 (60-79): light green tint
+   - life-2 (40-59): subtle yellow — "recovering"
+   - life-3 (20-39): RED transparent overlay — health < 30 territory
+   - life-4 (<20): STRONGER red + faster pulsing danger animation */
 .tgame::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:3;transition:background 1.4s ease}
-.tgame.life-0::before{background:radial-gradient(1100px 560px at 50% -8%, rgba(46,158,91,.11), transparent 62%)}
-.tgame.life-1::before{background:radial-gradient(1100px 560px at 50% -8%, rgba(123,201,111,.09), transparent 62%)}
-.tgame.life-2::before{background:radial-gradient(1100px 560px at 50% -8%, rgba(216,177,58,.11), transparent 62%)}
-.tgame.life-3::before{background:radial-gradient(1100px 560px at 50% -8%, rgba(224,123,46,.14), transparent 62%)}
-.tgame.life-4::before{background:radial-gradient(1100px 560px at 50% -8%, rgba(192,57,43,.19), transparent 66%);animation:lifeDanger 2.4s ease-in-out infinite alternate}
+.tgame.life-0::before{background:linear-gradient(180deg,rgba(46,158,91,.10) 0%,rgba(46,158,91,.04) 40%,transparent 80%)}
+.tgame.life-1::before{background:linear-gradient(180deg,rgba(123,201,111,.08) 0%,rgba(123,201,111,.03) 40%,transparent 80%)}
+.tgame.life-2::before{background:linear-gradient(180deg,rgba(216,177,58,.10) 0%,rgba(216,177,58,.03) 40%,transparent 80%)}
+.tgame.life-3::before{background:linear-gradient(180deg,rgba(192,57,43,.18) 0%,rgba(192,57,43,.08) 50%,rgba(192,57,43,.03) 100%);animation:lifeDanger 3s ease-in-out infinite alternate}
+.tgame.life-4::before{background:linear-gradient(180deg,rgba(192,57,43,.28) 0%,rgba(192,57,43,.14) 50%,rgba(192,57,43,.05) 100%);animation:lifeDanger 1.8s ease-in-out infinite alternate}
 @keyframes lifeDanger{from{opacity:.75}to{opacity:1}}
 
 /* 3D menu — group + sub nav buttons tilt toward the cursor and lift on press */
