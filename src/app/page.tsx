@@ -3820,29 +3820,37 @@ function FinanceOverviewTab({ s, onNav }: { s: GameState; act: Act; onNav: (k: s
   );
 }
 
-// ================= v12.6 — AMOUNT INPUT ROW =================
-// Reusable row with a number input + optional "All" button + submit button.
-// Replaces the old hard-coded +$10K / +$100K buttons with a flexible input
-// where the player can type any amount.
-function AmountRow({ label, sub, icon, max, allLabel, allAction, onSubmit, danger, t }: {
+// v12.6 — AMOUNT INPUT ROW with thousand separators.
+// Reusable row with a number input (formatted with thousand dots) + optional
+// "All" button + submit button. Replaces the old hard-coded +$10K / +$100K
+// buttons with a flexible input where the player can type any amount.
+// v12.7 — added thousand separator formatting (1,000,000 style) for readability.
+function formatThousands(n: string): string {
+  const digits = n.replace(/[^\d]/g, '');
+  if (!digits) return '';
+  return Number(digits).toLocaleString('en-US');
+}
+function parseAmount(s: string): number {
+  return Math.max(1, Math.floor(Number(s.replace(/[^\d]/g, '')) || 0));
+}
+function AmountRow({ label, sub, icon, max, allLabel, allAction, onSubmit, danger }: {
   label: string; sub: string; icon: string; max: number;
   allLabel?: string; allAction?: () => void; onSubmit: (amt: number) => void;
-  danger?: boolean; t: TFn;
+  danger?: boolean;
 }) {
   const [val, setVal] = useState('');
   const submit = () => {
-    const amt = Math.max(1, Math.floor(Number(val) || 0));
+    const amt = parseAmount(val);
     if (amt > 0) { onSubmit(amt); setVal(''); }
   };
   return (
     <Row art="ic-coins" right={<div className="trade" style={{ gap: 5 }}>
-      <input className="qty" type="number" min={1} step={1000} placeholder="0" value={val}
-        inputMode="numeric"
-        onChange={e => setVal(e.target.value.replace(/[^\d]/g, ''))}
+      <input className="qty" type="text" inputMode="numeric" placeholder="0" value={val}
+        onChange={e => setVal(formatThousands(e.target.value))}
         onKeyDown={e => { if (e.key === 'Enter') submit(); }}
-        style={{ width: 90, textAlign: 'right' }}
+        style={{ width: 110, textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}
         aria-label={label} />
-      <button className={danger ? 'tsell' : 'tbuy'} disabled={!val || Number(val) <= 0} onClick={submit}>
+      <button className={danger ? 'tsell' : 'tbuy'} disabled={!val || parseAmount(val) <= 0} onClick={submit}>
         <Ic id={icon} className="bsi" /><span>{label}</span>
       </button>
       {allLabel && allAction && (
@@ -3883,17 +3891,17 @@ function BankTab({ s, act }: { s: GameState; act: Act }) {
         </div>
       </div>
       <h3>{t('savings')}</h3>
-      <AmountRow label={t('deposit')} sub={t('whileSleep', '', { x: fmt(s.bank.dep * SAVE_RATE) })} icon="ic-plus" max={Math.floor(s.money)} allLabel={t('allIn')} allAction={() => act(st => bankOp(st, 'dep', 'all'))} onSubmit={amt => act(st => bankOp(st, 'dep', amt))} t={t} />
-      <AmountRow label={t('withdraw')} sub={t('moveCash')} icon="ic-down" danger max={Math.floor(s.bank.dep)} allLabel={t('allOut')} allAction={() => act(st => bankOp(st, 'wd', 'all'))} onSubmit={amt => act(st => bankOp(st, 'wd', amt))} t={t} />
+      <AmountRow label={t('deposit')} sub={t('whileSleep', '', { x: fmt(s.bank.dep * SAVE_RATE) })} icon="ic-plus" max={Math.floor(s.money)} allLabel={t('allIn')} allAction={() => act(st => bankOp(st, 'dep', 'all'))} onSubmit={amt => act(st => bankOp(st, 'dep', amt))} />
+      <AmountRow label={t('withdraw')} sub={t('moveCash')} icon="ic-down" danger max={Math.floor(s.bank.dep)} allLabel={t('allOut')} allAction={() => act(st => bankOp(st, 'wd', 'all'))} onSubmit={amt => act(st => bankOp(st, 'wd', amt))} />
       <h3>{t('loan')}</h3>
-      <AmountRow label={t('borrow')} sub={t('upTo', '', { x: fmt(maxLoan) })} icon="ic-up" max={maxLoan} allLabel={t('borrowMax')} allAction={() => act(st => bankOp(st, 'loan', 'all'))} onSubmit={amt => act(st => bankOp(st, 'loan', amt))} t={t} />
-      <AmountRow label={t('repay')} sub={t('owe', '', { x: fmt(s.bank.loan), i: fmt(s.bank.loan * LOAN_RATE) })} icon="ic-check" danger max={Math.min(s.bank.loan, Math.floor(s.money))} allLabel={t('repayAll')} allAction={() => act(st => bankOp(st, 'repay', 'all'))} onSubmit={amt => act(st => bankOp(st, 'repay', amt))} t={t} />
+      <AmountRow label={t('borrow')} sub={t('upTo', '', { x: fmt(maxLoan) })} icon="ic-up" max={maxLoan} allLabel={t('borrowMax')} allAction={() => act(st => bankOp(st, 'loan', 'all'))} onSubmit={amt => act(st => bankOp(st, 'loan', amt))} />
+      <AmountRow label={t('repay')} sub={t('owe', '', { x: fmt(s.bank.loan), i: fmt(s.bank.loan * LOAN_RATE) })} icon="ic-check" danger max={Math.min(s.bank.loan, Math.floor(s.money))} allLabel={t('repayAll')} allAction={() => act(st => bankOp(st, 'repay', 'all'))} onSubmit={amt => act(st => bankOp(st, 'repay', amt))} />
       <h3>{t('charityFame')}</h3>
       <div className="card" style={{ marginBottom: 8 }}>
         <div className="famewrap"><span className="mini">{t('fame')}</span><div className="famebar"><i style={{ width: Math.min(100, Math.log10(Math.max(1, s.fame + 1)) * 25) + '%' }} /></div><b>{Math.round(s.fame)}</b></div>
         <div className="mini">{fameTxt} · {t('bizIncomeFame', '', { n: ((fameBonus(s) - 1) * 100).toFixed(1) })}</div>
       </div>
-      <AmountRow label={t('donate')} sub={`${t('totalDonated')}: ${fmt(s.donated)} · ${t('fameFades')}`} icon="ic-heart" max={Math.floor(s.money)} onSubmit={amt => act(st => donate(st, amt))} t={t} />
+      <AmountRow label={t('donate')} sub={`${t('totalDonated')}: ${fmt(s.donated)} · ${t('fameFades')}`} icon="ic-heart" max={Math.floor(s.money)} onSubmit={amt => act(st => donate(st, amt))} />
     </>
   );
 }
