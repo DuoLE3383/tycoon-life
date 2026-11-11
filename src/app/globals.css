@@ -1040,3 +1040,176 @@ html[data-theme="dark"] .tgame .pchip-big.income-chip.down{color:#fca5a5;backgro
 .admpage .adm-uid{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:.68rem;opacity:.55;white-space:nowrap}
 @media (max-width:640px){.admpage .adm-uid{display:block;margin-top:2px}}
 
+/* ================= v12.13 — MOBILE-FIRST REDESIGN =================
+   Desktop layout is unchanged — every rule below lives inside
+   @media (max-width:700px), and the two NEW root defaults
+   (.pinzone-toggle, .mobile-nav-shell) are display:none so they are a
+   complete no-op above 700px. The only JSX additions are:
+     • a ▲/▼ toggle button inside PinZone identity row (class .pinzone-toggle)
+     • a .mobile-nav-shell sibling of .wrap holding the bottom nav + subnav
+   Both are invisible on desktop, fully wired on mobile.
+
+   Mobile changes:
+   1. Bottom nav: fixed at viewport bottom, 6 GROUP icons (Character / Assets /
+      Education / Career / Finance / Business / Network / Empire), icon-only,
+      active highlighted with accent color. Sub-tabs render as a horizontal
+      scroll strip above the bar when the active group has >1 sub-tab.
+   2. Top sticky gnav + subnav hidden (replaced by the bottom bar).
+   3. PinZone collapses by default on mobile — the .pinzone-collapsed class
+      hides the warning banner + dash-charts + age track + marks so only the
+      identity row + stats chips + expand toggle are visible. Tapping the
+      ▲/▼ toggle expands/collapses.
+   4. Footer hidden on mobile (saves vertical space; the new-life button is
+      still reachable via the Game Over modal + intro).
+   5. .wrap gets padding-bottom:calc(70px + safe-area-inset-bottom) so the
+      fixed bottom bar never covers main content (notched-phone safe).
+   6. Touch-friendly: 44px min tap targets on action buttons, 48px on bottom
+      nav icons, 12px min font on body sub/mini/legend text. */
+
+/* Root defaults — desktop no-ops for the new mobile-only elements. */
+.tgame .pinzone-toggle{display:none}
+.tgame .mobile-nav-shell{display:none}
+
+@media (max-width:700px){
+  /* --- (1) Top sticky gnav + subnav hidden on mobile (replaced by bottom bar) */
+  .tgame .sticky-header .gnav,
+  .tgame .sticky-header .subnav{display:none !important}
+
+  /* The sticky-header no longer needs to be sticky (no nav inside it on
+     mobile — only the PinZone, which is short when collapsed). Drop the
+     sticky + box-shadow so it sits as a static card above main content. */
+  .tgame .sticky-header{
+    position:static !important;
+    box-shadow:none !important;
+    border-radius:0;
+    background:transparent !important;
+    backdrop-filter:none !important;
+    padding:0 !important;
+    max-width:none;
+  }
+  .tgame .sticky-header .pinzone{
+    position:static !important;
+    margin:0 0 8px !important;
+    top:auto;
+  }
+
+  /* --- (2) PinZone collapse: hide warning banner + dash-charts + age track
+     + marks when .pinzone-collapsed is present (i.e. pzExpanded === false).
+     Identity row + stats row + toggle stay visible so the player still sees
+     name/age/stage + cash/health/spirit/level/nw/income at a glance. */
+  .tgame .pinzone.pinzone-collapsed .pinzone-warns,
+  .tgame .pinzone.pinzone-collapsed .dash-charts,
+  .tgame .pinzone.pinzone-collapsed .track.slim,
+  .tgame .pinzone.pinzone-collapsed .ms{display:none !important}
+
+  /* Collapse toggle button (mobile-only — desktop hides it via the root
+     default above). Sits at the right end of the identity row. */
+  .tgame .pinzone-toggle{
+    display:inline-flex;
+    align-items:center;justify-content:center;
+    width:36px;height:36px;flex:none;margin-left:auto;
+    border:1px solid var(--line2);border-radius:9px;
+    background:var(--card);color:var(--mute);
+    font-size:1rem;line-height:1;cursor:pointer;
+    transition:background .12s,color .12s,border-color .12s,transform .08s;
+    -webkit-tap-highlight-color:transparent;
+  }
+  .tgame .pinzone-toggle:hover{color:var(--ink);border-color:var(--accent)}
+  .tgame .pinzone-toggle:active{transform:translateY(1px) scale(.97)}
+
+  /* --- (3) Footer hidden on mobile — reclaims ~60px of vertical space. */
+  .tgame .tfoot{display:none !important}
+
+  /* --- (4) .wrap bottom padding reserves room for the fixed bottom nav
+     so the last cards in main aren't hidden behind it. 70px = bar height
+     (60px) + breathing room; safe-area-inset-bottom handles iPhone notch. */
+  .tgame .wrap{
+    padding-bottom:calc(70px + env(safe-area-inset-bottom,0px)) !important;
+  }
+
+  /* --- (5) Bottom nav shell — fixed at viewport bottom, stacks subnav
+     strip (optional) + icon bar. Hidden on desktop by the root default. */
+  .tgame .mobile-nav-shell{
+    display:flex;flex-direction:column;
+    position:fixed;left:0;right:0;bottom:0;z-index:50;
+    background:color-mix(in srgb,var(--paper) 92%,transparent);
+    backdrop-filter:blur(10px);
+    border-top:1px solid var(--line);
+    box-shadow:0 -4px 14px rgba(60,55,40,.10);
+    padding-bottom:env(safe-area-inset-bottom,0px);
+  }
+
+  /* Sub-tab strip — horizontal scroll, shown only when the active group
+     has >1 sub-tab (the JSX returns null otherwise). Each button is icon-
+     only with a comfortable 34px min-height; the active sub-tab uses the
+     dark inverted-pill treatment from the desktop subnav for consistency. */
+  .tgame .mobile-subnav{
+    display:flex;gap:5px;overflow-x:auto;scrollbar-width:none;
+    padding:6px 8px;border-bottom:1px solid var(--line);
+    scroll-snap-type:x proximity;
+    -webkit-mask-image:linear-gradient(90deg,#000 calc(100% - 18px),rgba(0,0,0,0));
+    mask-image:linear-gradient(90deg,#000 calc(100% - 18px),rgba(0,0,0,0));
+  }
+  .tgame .mobile-subnav::-webkit-scrollbar{display:none}
+  .tgame .mobile-subnav-btn{
+    display:inline-flex;align-items:center;justify-content:center;
+    width:42px;height:38px;flex:none;
+    border-radius:10px;border:1px solid var(--line);
+    background:var(--card);color:var(--mute);
+    cursor:pointer;scroll-snap-align:start;
+    transition:background .12s,color .12s,border-color .12s,transform .08s;
+    -webkit-tap-highlight-color:transparent;
+  }
+  .tgame .mobile-subnav-btn .si{width:20px;height:20px}
+  .tgame .mobile-subnav-btn:hover{color:var(--ink);border-color:var(--line2)}
+  .tgame .mobile-subnav-btn:active{transform:scale(.94)}
+  .tgame .mobile-subnav-btn[aria-selected="true"]{
+    background:var(--ink);border-color:var(--ink);color:var(--paper);
+  }
+
+  /* Bottom icon nav — evenly-spaced row of GROUP icons. 48×48 tap targets,
+     active group highlighted with accent color + soft tinted background.
+     The shell's safe-area-inset-bottom padding lifts the icons above the
+     iPhone home-indicator bar. */
+  .tgame .mobile-bottom-nav{
+    display:flex;justify-content:space-around;align-items:center;
+    height:60px;
+    padding:4px 2px;
+  }
+  .tgame .mobile-nav-btn{
+    flex:1 1 0;min-width:44px;
+    display:inline-flex;align-items:center;justify-content:center;
+    height:48px;margin:0 auto;
+    border:0;background:transparent;color:var(--mute);
+    border-radius:12px;cursor:pointer;
+    transition:color .12s,background .12s,transform .08s;
+    -webkit-tap-highlight-color:transparent;
+  }
+  .tgame .mobile-nav-btn .si{width:24px;height:24px;stroke-width:1.9}
+  .tgame .mobile-nav-btn[aria-selected="true"]{
+    color:var(--accent);
+    background:rgba(176,138,62,.14);
+  }
+  html[data-theme="dark"] .tgame .mobile-nav-btn[aria-selected="true"]{
+    background:rgba(217,180,92,.16);
+  }
+  .tgame .mobile-nav-btn:active{transform:scale(.92)}
+
+  /* --- (6) Touch-friendly minimums + 12px font floor on body text. */
+  .tgame .ibtn{min-height:44px}
+  .tgame .ghost{min-height:40px}
+  .tgame .nav-popup-btn{min-height:40px}
+  .tgame .modal-foot .btn-primary,
+  .tgame .modal-foot .btn-ghost{min-height:44px}
+  /* Body / hint / legend text — bump to ≥ 12px (was as low as .62rem ≈ 10px
+     in places like .ms, .uid-chip, .dash-chart-legend). */
+  .tgame .sub{font-size:.78rem}
+  .tgame .mini{font-size:.78rem}
+  .tgame .ms{font-size:.75rem}
+  .tgame .pwarn{font-size:.78rem}
+  .tgame .dash-chart-legend{font-size:.75rem}
+  .tgame .dash-chart-legend .asset-leg-item{font-size:.75rem}
+  .tgame .uid-chip{font-size:.7rem}
+  .tgame .tag{font-size:.74rem}
+}
+

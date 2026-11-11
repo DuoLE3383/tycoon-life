@@ -1,5 +1,5 @@
 'use client';
-// HuyenBao v12.8 — React edition. Two-level grouped nav, a systems links map,
+// HuyenBao v13.0 — React edition. Mobile-first redesign with bottom nav.
 // gigs, levels, social, the cosmic frontier, EN/VI/中文, LLM oracle with
 // random kind dispatch (luck / setback / life-stage / story), pre-owned
 // market + social listings, a Hall of Fame tab, and a real player-to-player
@@ -108,7 +108,7 @@ if (typeof window !== 'undefined') {
 // v11.8 — the bundled version. The /version.json file in /public is polled
 // every 5 minutes; if its version is newer than this, a "reload to update"
 // banner appears even in a running session (no F5 needed).
-const BUNDLED_VERSION = 'v12.12';
+const BUNDLED_VERSION = 'v13.0';
 const VERSION_POLL_MS = 5 * 60 * 1000;
 // v11.44 — 'what's new' modal now fires PER PATCH (not per major version).
 // The SEEN_KEY is derived from BUNDLED_VERSION so each new patch re-shows the
@@ -131,6 +131,12 @@ export default function Page() {
   const [curCat, setCurCat] = useState<string | null>(null);
   // v11.36 — edit-profile modal state. Opened from PinZone ✏️ button.
   const [editingProfile, setEditingProfile] = useState(false);
+  // v12.13 — mobile-first PinZone collapse. Defaults to collapsed on mobile
+  // (so the dashboard doesn't eat the screen); the expand toggle in the
+  // PinZone identity row reveals the warning banner + charts + age track.
+  // On desktop this state has NO visual effect (the .pinzone-collapsed class
+  // only hides elements inside @media max-width:700px) — desktop stays full.
+  const [pzExpanded, setPzExpanded] = useState(false);
   // v11.19 — toast queue. Previously a single toast slot: rapid showToast()
   // calls would overwrite each other and the player saw only the last one.
   // Now toasts are queued; each shows for its full duration before the next
@@ -447,7 +453,7 @@ export default function Page() {
         {/* v11.48 — reverted to simple inline nav bars (popups were buggy/confusing).
             PinZone dashboard stays; nav is back to horizontal scroll pills. */}
         <div className="sticky-header">
-          <PinZone s={s} t={t} onEdit={() => setEditingProfile(true)} act={act} onNav={(k: string) => { setTab(k); setLastTab(lt => ({ ...lt, [activeGroup]: k })); }} />
+          <PinZone s={s} t={t} onEdit={() => setEditingProfile(true)} act={act} onNav={(k: string) => { setTab(k); setLastTab(lt => ({ ...lt, [activeGroup]: k })); }} expanded={pzExpanded} onToggleExpand={() => setPzExpanded(v => !v)} />
           <nav role="tablist" className="tnav gnav" aria-label="Sections">
             {GROUPS.map(([gid, gn, gic, subs]) => {
               const visibleSubs = gid === 'world' ? subs.filter(([k]) => k !== 'space' || entityTierOf(s) === 'empire' || entityTierOf(s) === 'federation') : subs;
@@ -513,6 +519,60 @@ export default function Page() {
             {t('newLife')}
           </button>
         </footer>
+      </div>
+
+      {/* v12.13 — MOBILE-FIRST BOTTOM NAV.
+          Replaces the top sticky gnav + subnav on viewports ≤ 700px (those
+          are hidden via CSS in @media max-width:700px). The shell is a
+          position:fixed container at the viewport bottom that stacks:
+            1) .mobile-subnav  — horizontal scroll strip of sub-tab icons for
+               the currently active group (only rendered when the group has
+               >1 sub-tab; otherwise the strip is omitted and only the icon
+               bar shows). Tapping a sub-tab calls the same setTab + lastTab
+               flow as the desktop subnav.
+            2) .mobile-bottom-nav — evenly-spaced row of GROUP icon buttons.
+               Active group highlighted with accent color. Tapping a group
+               icon switches to that group's last-visited (or first) sub-tab.
+          The shell is display:none on desktop (root rule in globals.css),
+          so this JSX is a no-op above 700px — desktop keeps the top nav.
+          padding-bottom on .wrap (in @media) reserves space so the fixed
+          bar doesn't cover main content. env(safe-area-inset-bottom) handles
+          notched phones. */}
+      <div className="mobile-nav-shell">
+        {(() => {
+          const visibleSubs = activeGroup === 'world'
+            ? curSubs.filter(([k]) => k !== 'space' || entityTierOf(s) === 'empire' || entityTierOf(s) === 'federation')
+            : curSubs;
+          if (visibleSubs.length <= 1) return null;
+          return (
+            <nav role="tablist" className="mobile-subnav" aria-label="Sub-sections">
+              {visibleSubs.map(([k, n, ic]) => (
+                <button key={k} type="button" role="tab" aria-selected={tab === k}
+                  className="mobile-subnav-btn"
+                  data-t={k}
+                  aria-label={t('tab.' + k, n)}
+                  onClick={() => { setTab(k); setLastTab(lt => ({ ...lt, [activeGroup]: k })); }}>
+                  {Ic({ id: ic, className: 'si' })}
+                </button>
+              ))}
+            </nav>
+          );
+        })()}
+        <nav role="tablist" className="mobile-bottom-nav" aria-label="Sections">
+          {GROUPS.map(([gid, gn, gic, subs]) => {
+            const visibleSubs = gid === 'world' ? subs.filter(([k]) => k !== 'space' || entityTierOf(s) === 'empire' || entityTierOf(s) === 'federation') : subs;
+            return (
+              <button key={gid} type="button" role="tab" aria-selected={activeGroup === gid}
+                className="mobile-nav-btn"
+                data-g={gid}
+                aria-label={t('grp.' + gid, gn)}
+                aria-current={activeGroup === gid}
+                onClick={() => setTab(lastTab[gid] || visibleSubs[0][0])}>
+                {Ic({ id: gic, className: 'si' })}
+              </button>
+            );
+          })}
+        </nav>
       </div>
       {editingProfile && <EditProfileModal s={s} act={act} onClose={() => setEditingProfile(false)} />}
 
@@ -685,7 +745,7 @@ function Header({ s, eraName, speed, setSpeed, act }: { s: GameState; eraName: (
 // numbers that matter stay visible on every tab while the player scrolls.
 // Warnings only render when something actually needs attention — no permanent
 // "all good" banner eating vertical space.
-function PinZone({ s, t, onEdit, act, onNav }: { s: GameState; t: TFn; onEdit: () => void; act: Act; onNav: (k: string) => void }) {
+function PinZone({ s, t, onEdit, act, onNav, expanded, onToggleExpand }: { s: GameState; t: TFn; onEdit: () => void; act: Act; onNav: (k: string) => void; expanded: boolean; onToggleExpand: () => void }) {
   const { t: _t } = useT();
   const a = s.age, st = stageOf(a), pct = (a - START) / (END_AGE - START) * 100;
   const p = (x: number) => ((x - START) / (END_AGE - START) * 100).toFixed(2) + '%';
@@ -745,8 +805,12 @@ function PinZone({ s, t, onEdit, act, onNav }: { s: GameState; t: TFn; onEdit: (
   ];
   const nw = netWorth(s);
   const healthColor = s.health < 20 ? 'var(--brick)' : s.health < 40 ? 'var(--amber, #c47b2c)' : s.health < 60 ? 'var(--warn, #d8b13a)' : 'var(--sage)';
+  // v12.13 — mobile-first collapse. When NOT expanded the .pinzone-collapsed
+  // class is applied; the @media (max-width:700px) rules in globals.css hide
+  // the warning banner + dash-charts + age track + marks. Desktop is untouched
+  // (no rule outside the media block, so the class is a no-op on wide screens).
   return (
-    <section className="card age pinzone pinzone-v55" data-life={healthState(s.health)}>
+    <section className={'card age pinzone pinzone-v55' + (expanded ? '' : ' pinzone-collapsed')} data-life={healthState(s.health)}>
       {/* v11.55 — WARNING BANNER at the top (was at the bottom, easy to miss).
           Each warning is a clickable chip → relevant tab. Critical = red,
           warn = orange, info = muted. */}
@@ -777,6 +841,15 @@ function PinZone({ s, t, onEdit, act, onNav }: { s: GameState; t: TFn; onEdit: (
         <span className="mini">{t('age')} {Math.floor(a)}</span>
         <span className="tag dark">{t('stage.' + STAGES.indexOf(st), st.name)}</span>
         <span className="mini" style={{ marginLeft: 'auto' }}>{dstr}</span>
+        {/* v12.13 — mobile-only collapse toggle. Hidden on desktop via CSS
+            (.pinzone-toggle {display:none} at root, shown in @media). Tapping
+            flips pzExpanded in the parent, which toggles .pinzone-collapsed. */}
+        <button type="button" className="pinzone-toggle"
+          onClick={onToggleExpand}
+          aria-label={expanded ? 'Collapse dashboard' : 'Expand dashboard'}
+          aria-expanded={expanded}>
+          {expanded ? '▲' : '▼'}
+        </button>
       </div>
 
       {/* Row 2: Key stats — bigger chips, clear grouping, color-coded */}

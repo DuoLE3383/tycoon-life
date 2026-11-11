@@ -1,11 +1,17 @@
 {
-  "version": "v12.12",
+  "version": "v13.0",
   "releasedAt": "2026-11-11",
-  "headline": "fix 2 more React #418 hydration sources (TipsCard Math.random + Intro new Date)",
-  "summary": "v12.12: fix 2 more React #418 hydration sources (TipsCard Math.random + Intro new Date)",
+  "headline": "HuyenBao v13.0 — Mobile-first redesign: bottom nav + collapsible PinZone + touch-friendly",
+  "summary": "MAJOR MOBILE REDESIGN. Bottom navigation bar (fixed at bottom, icon-only, 8 groups, thumb-friendly). Collapsible PinZone (compact by default on mobile — tap ▲ to expand charts). Top nav hidden on mobile (replaced by bottom bar). Touch-friendly minimums (44px tap targets, 12px font floor). Footer hidden on mobile. Desktop layout completely unchanged.",
   "features": [
-    "fix TipsCard Math.random() in useState — start at idx 0",
-    "jump to random in useEffect",
-    "fix Intro new Date().getUTCFullYear() in render — useState+useEffect pattern"
+    "NEW: Fixed bottom navigation bar — 8 group icons (Character/Assets/Edu/Career/Finance/Biz/Network/Empire), accent-gold active state, safe-area-inset padding for notched phones",
+    "NEW: Sub-tab strip above bottom bar — horizontal scroll, icon-only, active = dark inverted pill",
+    "NEW: Collapsible PinZone — collapsed by default on mobile (identity + stats + toggle only), tap ▲ to expand charts + warnings + age track",
+    "NEW: Top gnav + subnav hidden on mobile (replaced by bottom nav)",
+    "NEW: Touch-friendly — 44px minimum tap targets, 48px bottom nav icons, 12px font floor",
+    "NEW: Footer hidden on mobile (reclaims ~60px)",
+    "NEW: Content padding-bottom for bottom nav clearance",
+    "FIX: Desktop layout completely unchanged — all mobile rules in @media (max-width:700px)",
+    "Version bumped to v13.0"
   ]
 }
