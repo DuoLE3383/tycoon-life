@@ -22,14 +22,14 @@ import {
   START, END_AGE, RETIRE, RESALE_FEE, FOUND_COST, FOUND_MIN_NW, OWN_CLUB_MULT,
   SAVE_RATE, LOAN_RATE, TAX_FREE, TAX_BRACKETS, ALLNEWS, eraOf, NATIONS, NAME_POOLS, INTERESTS, TALENTS, PATHS,
   analyze, FIELDS, LICENSES, LIC_BY, LIC_FOR, STAGES, BIZ, FARM_LINES, FAC_LINES, ITEM_BY, ITEM_IMAGES, USED_IMAGES, STOCKS, ASSET_DEPRECIATION_RATE,
-  CLUBS, JOBS, GIGS, SPACE_LINES, TABS, GROUPS, xpNeed, ITEMS, USED_MARKET, HALL_OF_FAME, itemRarity, RARITY_COLOR, RARITY_MULT, NPCS, NPC_BY, PETS, PET_BY, MAX_PETS, CREW_COST, SHORT_COURSES, SHORT_BY, BOTS, type Rarity, type FieldKey, type Req, type ItemDef, type UsedItem,
+  CLUBS, JOBS, GIGS, SPACE_LINES, TABS, GROUPS, xpNeed, ITEMS, USED_MARKET, HALL_OF_FAME, itemRarity, RARITY_COLOR, RARITY_MULT, NPCS, NPC_BY, PETS, PET_BY, MAX_PETS, CREW_COST, SHORT_COURSES, SHORT_BY, BOTS, REG_MULT, type Rarity, type FieldKey, type Req, type ItemDef, type UsedItem,
   RARE_ITEMS, RARE_IDS, itemGroup, type ItemGroup,
   TRAVEL, registerItem,
 } from '@/lib/gameData';
 import {
   fmt, taxOf, fresh, begin, tick, applyOffline, stageOf, worldYear, branchCount, bizCost, clubMult, branchNet, fameBonus, bizMultiplier,
   bizIncome, yearIncome, living, lotValue, upkeep, assetVal, bizVal, stockVal, netWorth,
-  bizRevenue, bizCosts, bizNet, bizMarketShare, bizRndMult, investBizRnd,
+  bizRevenue, bizCosts, bizNet, bizMarketShare, bizRndMult, investBizRnd, farmIncome, facIncome,
   grantSpirit, spiritGainTodayLeft, SPIRIT_DAILY_CAP,
   effYears, tuitionOf, meets, reqText, knowledgeText, snapshot, dateOf,
   processDay, yearEnd,
@@ -443,7 +443,7 @@ export default function Page() {
     <div className={'tgame life-' + healthState(s.health)}>
       <div dangerouslySetInnerHTML={{ __html: ART_DEFS }} />
       <div className="wrap">
-        <Header s={s} eraName={eraName} speed={speed} setSpeed={setSpeed} />
+        <Header s={s} eraName={eraName} speed={speed} setSpeed={setSpeed} act={act} />
         {/* v11.48 — reverted to simple inline nav bars (popups were buggy/confusing).
             PinZone dashboard stays; nav is back to horizontal scroll pills. */}
         <div className="sticky-header">
@@ -618,7 +618,7 @@ function useReqLabel() {
   return (req?: Req) => (req && Object.keys(req).length ? reqText(req) : t('noReq'));
 }
 
-function Header({ s, eraName, speed, setSpeed }: { s: GameState; eraName: (y: number) => string; speed: 1 | 10 | 50; setSpeed: (s: 1 | 10 | 50) => void }) {
+function Header({ s, eraName, speed, setSpeed, act }: { s: GameState; eraName: (y: number) => string; speed: 1 | 10 | 50; setSpeed: (s: 1 | 10 | 50) => void; act: Act }) {
   const { t, lang, setLang } = useT();
   const xpPct = Math.min(100, Math.round(s.xp / xpNeed(s.level) * 100));
   const [theme, setTheme] = useState<'dark' | 'light'>('dark');
@@ -666,6 +666,12 @@ function Header({ s, eraName, speed, setSpeed }: { s: GameState; eraName: (y: nu
             ))}
           </span>
         )}
+        {/* v12.1 — Quick gigs button moved into the header so it stays visible
+            on EVERY tab (not just home). The PinZone is tall on mobile and was
+            pushing the home tab's quick-actions below the fold; bringing the
+            gigs trigger up here means the player can always reach it. The
+            GigsPopup component renders its own trigger button + modal. */}
+        {s.started && !s.over && <GigsPopup s={s} act={act} t={t} />}
       </div>
     </header>
   );
@@ -1179,7 +1185,9 @@ function HomeTab({ s, act, askAI, aiBusy, aiNote, eraName, onNav }: { s: GameSta
       )}
 
       <div className="quick-actions">
-        <GigsPopup s={s} act={act} t={t} />
+        {/* v12.1 — GigsPopup moved to the Header so it stays visible on every
+            tab. Only TravelSection + MoreInfoPopup remain in HomeTab's
+            quick-actions (the "More info" popup consolidates guide/news/etc). */}
         <TravelSection s={s} act={act} t={t} />
         <MoreInfoPopup s={s} t={t} lang={lang} eraName={eraName} y={y} news={news} timelineLocale={timelineLocale} onNav={onNav} />
       </div>
@@ -1483,6 +1491,30 @@ function BizTab({ s, act }: { s: GameState; act: Act }) {
   const net = bizNet(s);
   const share = bizMarketShare(s);
   const hasBranches = BIZ.some(b => branchCount(s, b.id) > 0);
+  // v12.1 — per-business revenue breakdown (matches bizRevenue's formula):
+  //   per branch: b.inc * REG_MULT[br.r % REG_MULT.length] * br.mood
+  // plus farm/fac line income as separate contributors. Used to surface
+  // which chain actually drives the player's revenue.
+  const perBizRows = BIZ.map(b => {
+    const branches = s.branches[b.id] || [];
+    const rev = branches.reduce((acc, br) => acc + b.inc * REG_MULT[br.r % REG_MULT.length] * br.mood, 0);
+    return { id: b.id, name: bizBrandOf(s, b.id).name, ind: b.ind, n: branches.length, rev };
+  }).filter(r => r.rev > 0);
+  const farmRev = farmIncome(s);
+  const facRev = facIncome(s);
+  if (farmRev > 0) perBizRows.push({ id: 'farm', name: t('biz.perBizFarm', 'Farm lines'), ind: t('biz.perBizOther', 'Other'), n: FARM_LINES.filter(l => s.farm[l.id]).length, rev: farmRev });
+  if (facRev > 0) perBizRows.push({ id: 'fac', name: t('biz.perBizFac', 'Factory lines'), ind: t('biz.perBizOther', 'Other'), n: FAC_LINES.filter(l => s.fac[l.id]).length, rev: facRev });
+  const perBizTotal = perBizRows.reduce((a, r) => a + r.rev, 0) || 1;
+  // v12.1 — market share vs NPC competitors (BOTS). Each bot's branch count
+  // is estimated from its net worth: floor(NW / 500_000), clamped to [1, 20].
+  // National share = playerBranches / (playerBranches + sameNationBots).
+  // International share = playerBranches / (playerBranches + allBots).
+  const playerBranches = BIZ.reduce((n, b) => n + branchCount(s, b.id), 0);
+  const botBranches = (nw: number) => Math.max(1, Math.min(20, Math.round(nw / 500_000)));
+  const npcSameNationBranches = BOTS.reduce((sum, [, , nat, , v]) => sum + (nat === s.nation ? botBranches(v) : 0), 0);
+  const npcAllBranches = BOTS.reduce((sum, [, , , , v]) => sum + botBranches(v), 0);
+  const nationalShare = playerBranches / Math.max(1, playerBranches + npcSameNationBranches);
+  const intlShare = playerBranches / Math.max(1, playerBranches + npcAllBranches);
   // v11.50 — Esc-to-close for the bizOffer sell-negotiation modal.
   const [bizOffer, setBizOffer] = useState<BizOffer | null>(null);
   useEscapeKey(() => setBizOffer(null), !!bizOffer);
@@ -1511,7 +1543,74 @@ function BizTab({ s, act }: { s: GameState; act: Act }) {
             <div className="lb"><span>{t('biz.revenue')}</span><b className="up">{fmt(revenue)}</b></div>
             <div className="lb"><span>{t('biz.costs')}</span><b className="down">−{fmt(costs)}</b></div>
             <div className="lb"><span>{t('biz.net')}</span><b className={net >= 0 ? 'up' : 'down'}>{net >= 0 ? '+' : '−'}{fmt(Math.abs(net))}</b></div>
-            <div className="lb"><span>{t('biz.marketShare')}</span><b>{t('biz.marketShareVal', '', { n: (share * 100).toFixed(1) })}</b></div>
+            <div className="lb"><span>{t('biz.marketShareLocal')}</span><b>{t('biz.marketShareVal', '', { n: (share * 100).toFixed(1) })}</b></div>
+
+            {/* v12.1 — per-business revenue breakdown. Each row shows the
+                business name, its branch count, its annual revenue
+                contribution, and a horizontal bar proportional to its share
+                of the player's total revenue. Surfaces which chain actually
+                drives the top line. */}
+            {perBizRows.length > 0 && (
+              <div style={{ marginTop: 10 }}>
+                <div className="mini" style={{ textTransform: 'uppercase', letterSpacing: '.4px', marginBottom: 4 }}>
+                  {t('biz.perBizRevenue')}
+                </div>
+                {perBizRows
+                  .slice()
+                  .sort((a, b) => b.rev - a.rev)
+                  .map(r => {
+                    const pct = (r.rev / perBizTotal) * 100;
+                    return (
+                      <div key={r.id} style={{ marginBottom: 5 }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 8, fontSize: '.78rem' }}>
+                          <span><b>{r.name}</b> <span className="mini" style={{ opacity: .65 }}>· {r.ind} · {r.n}× · {pct.toFixed(0)}%</span></span>
+                          <b className="up" style={{ fontVariantNumeric: 'tabular-nums' }}>+{fmt(r.rev)}</b>
+                        </div>
+                        <div style={{ height: 6, borderRadius: 999, background: 'var(--paper2)', overflow: 'hidden', marginTop: 3 }}>
+                          <div style={{ width: pct + '%', height: '100%', background: 'linear-gradient(90deg,var(--accent),#a4916f)', borderRadius: 999, transition: 'width .4s ease' }} />
+                        </div>
+                      </div>
+                    );
+                  })}
+              </div>
+            )}
+
+            {/* v12.1 — National + International market share vs NPC rivals.
+                National share compares the player's total branch count vs
+                NPC competitors (BOTS) in the same nation. International
+                share compares vs all NPCs globally. Each bot's branch count
+                is estimated from net worth (NW/500k, capped 1..20). */}
+            <div style={{ marginTop: 10 }}>
+              <div className="mini" style={{ textTransform: 'uppercase', letterSpacing: '.4px', marginBottom: 4 }}>
+                {t('biz.shareVsRivals')}
+              </div>
+              {/* National market share */}
+              <div style={{ marginBottom: 8 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 8, fontSize: '.78rem' }}>
+                  <span><b>{t('biz.nationalShare')}</b> <span className="mini" style={{ opacity: .65 }}>· {s.nation}</span></span>
+                  <b style={{ fontVariantNumeric: 'tabular-nums' }}>{(nationalShare * 100).toFixed(1)}%</b>
+                </div>
+                <div style={{ height: 9, borderRadius: 999, background: 'var(--paper2)', overflow: 'hidden', marginTop: 4 }}>
+                  <div style={{ width: (nationalShare * 100) + '%', height: '100%', background: 'var(--sage)', borderRadius: 999, transition: 'width .4s ease' }} />
+                </div>
+                <div className="mini" style={{ opacity: .65, marginTop: 2 }}>
+                  {t('biz.shareVsDetail', '', { you: playerBranches, them: npcSameNationBranches })}
+                </div>
+              </div>
+              {/* International market share */}
+              <div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 8, fontSize: '.78rem' }}>
+                  <span><b>{t('biz.intlShare')}</b> <span className="mini" style={{ opacity: .65 }}>· {t('biz.intlScope', 'global')}</span></span>
+                  <b style={{ fontVariantNumeric: 'tabular-nums' }}>{(intlShare * 100).toFixed(1)}%</b>
+                </div>
+                <div style={{ height: 9, borderRadius: 999, background: 'var(--paper2)', overflow: 'hidden', marginTop: 4 }}>
+                  <div style={{ width: (intlShare * 100) + '%', height: '100%', background: 'var(--accent)', borderRadius: 999, transition: 'width .4s ease' }} />
+                </div>
+                <div className="mini" style={{ opacity: .65, marginTop: 2 }}>
+                  {t('biz.shareVsDetail', '', { you: playerBranches, them: npcAllBranches })}
+                </div>
+              </div>
+            </div>
           </>
         )}
         {/* R&D investment panel */}
@@ -4017,9 +4116,24 @@ function PowerTab({ s, act }: { s: GameState; act: Act }) {
 
     {/* Influence resource + sources */}
     <Row art="s-coin">
-      <b>{t('v11.influenceLabel')} <span className="up">{s.power?.influence || 0}</span></b>
+      {/* v12.1 — Influence number made prominent (large accent-colored metric)
+          with a clear "Influence points:" label, so the bare number is no
+          longer ambiguous. The detailed explanation lives below the blurb. */}
+      <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, flexWrap: 'wrap' }}>
+        <span className="mini" style={{ fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.4px' }}>{t('pw.influencePointsLabel')}</span>
+        <b className="up" style={{
+          fontSize: '2rem', fontWeight: 800, lineHeight: 1,
+          color: 'var(--accent)',
+          fontVariantNumeric: 'tabular-nums',
+        }}>{s.power?.influence || 0}</b>
+      </div>
       <span className="sub">{t('v11.influenceBlurb')}</span>
-      <span className="mini" style={{ display: 'block', marginTop: 2 }}>
+      {/* v12.1 — explicit explanation of what influence IS + how to gain it.
+          Addressed the "tiêu 40 là tiêu cái gì" confusion. */}
+      <span className="mini" style={{ display: 'block', marginTop: 6, padding: '8px 10px', border: '1px solid rgba(202,138,4,.3)', borderRadius: 8, background: 'rgba(202,138,4,.06)', color: 'var(--ink)', opacity: .92 }}>
+        💡 {t('pw.influenceExplain')}
+      </span>
+      <span className="mini" style={{ display: 'block', marginTop: 6 }}>
         {t('v11.influenceSources')}:{' '}
         {(s.power?.influenceLog || []).slice(-5).reverse().map(e => {
           const src = INFLUENCE_SOURCE_LABELS[e.source as keyof typeof INFLUENCE_SOURCE_LABELS];
@@ -4041,13 +4155,30 @@ function PowerTab({ s, act }: { s: GameState; act: Act }) {
 
     {/* v11.4 — Scrutiny meter */}
     <Row art="s-tech">
-      <b>{t('v11.scrutinyLabel')} <span className={((s.power?.scrutiny || 0) >= 80) ? 'down' : 'up'}>{s.power?.scrutiny || 0}/100</span></b>
+      {/* v12.1 — Scrutiny number also made prominent with a clear label and
+          accent colour (red ≥80, amber ≥50, sage otherwise). The /100 suffix
+          and short explanation tell the player exactly what the metric means. */}
+      {(() => {
+        const sc = s.power?.scrutiny || 0;
+        const scColor = sc >= 80 ? 'var(--brick)' : sc >= 50 ? 'var(--amber, #c47b2c)' : 'var(--sage)';
+        return (
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, flexWrap: 'wrap' }}>
+            <span className="mini" style={{ fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.4px' }}>{t('pw.scrutinyPointsLabel')}</span>
+            <b style={{
+              fontSize: '2rem', fontWeight: 800, lineHeight: 1,
+              color: scColor,
+              fontVariantNumeric: 'tabular-nums',
+            }}>{sc}<span style={{ fontSize: '1rem', opacity: .6 }}> / 100</span></b>
+          </div>
+        );
+      })()}
       <span className="sub">{t('v11.scrutinyBlurb')}</span>
-      <span className="mini" style={{ display: 'block', marginTop: 2 }}>
+      <span className="mini" style={{ display: 'block', marginTop: 4 }}>
         {t('v11.transparencyLabel')}: {s.power?.transparency || 0}/100
         {((s.power?.scrutiny || 0) >= 80) && <span className="down"> · {t('v11.scrutinyHigh')}</span>}
       </span>
-      {/* v11.18 — scrutiny explanation */}
+      {/* v11.18 — scrutiny explanation (kept; the prominent number above is
+          now the headline, this is the supporting detail). */}
       <span className="mini" style={{ display: 'block', marginTop: 6, padding: '6px 8px', border: '1px solid var(--line)', borderRadius: 4, background: 'rgba(0,0,0,0.02)', opacity: .85 }}>
         {t('pw.scrutinyExplain')}
       </span>
