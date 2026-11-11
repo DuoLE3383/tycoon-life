@@ -47,7 +47,7 @@ import { NextResponse } from 'next/server';
 import { adminGuard, readBody } from '@/lib/server/adminAuth';
 import { ITEMS, RARE_ITEMS, BIZ, GIGS } from '@/lib/gameData';
 import type { Rarity } from '@/lib/gameData';
-import { getPlayerByCode, insertAdminAction, ADMIN_BROADCAST_UID } from '@/lib/server/socialDb';
+import { getPlayerByCode, insertAdminAction, ADMIN_BROADCAST_UID, listAllItems, getItem, upsertItem, deleteItem } from '@/lib/server/socialDb';
 
 // Lazy SQLite loader — returns null if better-sqlite3 or the DB file can't
 // be initialised (permissions, missing data/ dir, native module issue).
@@ -62,17 +62,11 @@ async function tryDb(): Promise<{ exec: (sql: string) => void; prepare: (sql: st
   }
 }
 
-// v13.2 — ensure the custom_items table has the stock column. SQLite doesn't
-// support adding NOT NULL columns to existing tables, so we add it NULLABLE
-// and the read path coalesces null → undefined for the client. Safe to call
-// repeatedly: ALTER TABLE only fires when the column is missing.
-function ensureStockColumn(d: { exec: (sql: string) => void }): void {
-  try {
-    // PRAGMA table_info returns rows; check for a 'stock' column.
-    // Simpler: try ALTER and swallow the "duplicate column" error.
-    d.exec('ALTER TABLE custom_items ADD COLUMN stock INTEGER');
-  } catch { /* column already exists — expected on second call */ }
-}
+// v15 — ensureStockColumn() helper previously ALTERed the custom_items table
+// for the stock column. The new unified `items` table (created in socialDb's
+// db()) ships with stock + every other column from the start, so the helper
+// is no longer needed. Kept here as a no-op for any external caller — removed
+// from the createItem / updateItem code paths above.
 
 // v13.2 — the rarity tiers the API accepts. Matches the Rarity type in
 // gameData.ts so admin-created items flow through itemRarity() untouched.
@@ -135,7 +129,27 @@ function clampNum(v: unknown, lo: number, hi: number): number {
 // for custom items since they have no built-in art fallback).
 // v13.2 — adds rarity + stock normalisation. Mythic items MUST carry a
 // 1-10 stock (enforced by the form on the client; the API double-checks).
-function readItemPatch(b: Record<string, unknown>): { name: string; cat: string; price: number; imageUrl: string; brand: string; rarity: Rarity; stock: number | null } | null {
+// v15 — extended to also normalise the used-market fields (baseId, ageYears,
+// condition, askPrice, newPrice, story, since, isUsed) so admin-created used
+// listings can be persisted into the same `items` table.
+interface ItemPatch {
+  name: string;
+  cat: string;
+  price: number;
+  imageUrl: string;
+  brand: string;
+  rarity: Rarity;
+  stock: number | null;
+  baseId: string | null;
+  ageYears: number | null;
+  condition: number | null;
+  askPrice: number | null;
+  newPrice: number | null;
+  story: string | null;
+  since: number;
+  isUsed: boolean;
+}
+function readItemPatch(b: Record<string, unknown>): ItemPatch | null {
   const name = String(b.name ?? '').trim().slice(0, 60);
   const cat = String(b.cat ?? 'Custom').trim().slice(0, 30);
   const price = Math.max(1, Math.min(1e9, Math.round(Number(b.price) || 1000)));
@@ -158,27 +172,56 @@ function readItemPatch(b: Record<string, unknown>): { name: string; cat: string;
   if (rarity === 'mythic') {
     if (stock === null || stock < 1 || stock > 10) return null;
   }
-  return { name, cat, price, imageUrl, brand, rarity, stock };
+  // v15 — optional used-market fields. If baseId is set, treat as a used
+  // listing: askPrice / ageYears / condition / newPrice / story / since all
+  // become relevant. We don't strictly require them, but if askPrice is
+  // provided it overrides `price` as the listing's current price.
+  const baseId = String(b.baseId ?? '').trim().slice(0, 60) || null;
+  const isUsed = !!b.isUsed || !!baseId;
+  const ageYears = (b.ageYears !== undefined && b.ageYears !== null && String(b.ageYears).trim() !== '')
+    ? Math.max(0, Math.min(120, Math.round(Number(b.ageYears))))
+    : null;
+  const condition = (b.condition !== undefined && b.condition !== null && String(b.condition).trim() !== '')
+    ? Math.max(0, Math.min(100, Math.round(Number(b.condition))))
+    : null;
+  const askPrice = (b.askPrice !== undefined && b.askPrice !== null && String(b.askPrice).trim() !== '')
+    ? Math.max(0, Math.min(1e9, Number(b.askPrice)))
+    : null;
+  const newPrice = (b.newPrice !== undefined && b.newPrice !== null && String(b.newPrice).trim() !== '')
+    ? Math.max(0, Math.min(1e9, Number(b.newPrice)))
+    : null;
+  const story = String(b.story ?? '').trim().slice(0, 280) || null;
+  const since = Number.isFinite(Number(b.since)) ? Math.max(1800, Math.min(2100, Math.round(Number(b.since)))) : 1900;
+  return { name, cat, price, imageUrl, brand, rarity, stock, baseId, ageYears, condition, askPrice, newPrice, story, since, isUsed };
 }
 
 export async function GET(req: Request) {
   const denied = adminGuard(req);
   if (denied) return denied;
-  // Return the full item catalogue so the admin UI can render a picker.
-  let custom: { id: string; name: string; cat: string; price: number; rarity: string; stock?: number | null; imageUrl: string }[] = [];
-  const d = await tryDb();
-  if (d) {
-    try {
-      d.exec(`CREATE TABLE IF NOT EXISTS custom_items (id TEXT PRIMARY KEY, name TEXT NOT NULL, cat TEXT NOT NULL DEFAULT 'Custom', brand TEXT, price REAL NOT NULL DEFAULT 1000, lux INTEGER NOT NULL DEFAULT 1, rate REAL NOT NULL DEFAULT 0, art TEXT NOT NULL DEFAULT 'ic-bag', rarity TEXT NOT NULL DEFAULT 'common', image_url TEXT NOT NULL, created_at TEXT NOT NULL)`);
-      ensureStockColumn(d);
-      custom = (d.prepare('SELECT id, name, cat, price, rarity, stock, image_url FROM custom_items ORDER BY created_at DESC LIMIT 200').all() as { id: string; name: string; cat: string; price: number; rarity: string; stock?: number | null; image_url: string }[])
-        .map(r => ({ id: r.id, name: r.name, cat: r.cat, price: r.price, rarity: r.rarity, stock: r.stock == null ? null : r.stock, imageUrl: r.image_url }));
-    } catch { /* table not ready — return empty */ }
+  // v15 — Return the FULL item catalogue from the SQLite `items` table
+  // (standard + rare + used + custom, all admin-editable). Falls back to
+  // the static ITEMS + RARE_ITEMS arrays if SQLite is unavailable so the
+  // admin dashboard still renders in a degraded mode.
+  try {
+    const all = listAllItems();
+    if (all.length) {
+      // Backward compat — also expose the legacy `custom` bucket (non-seed
+      // rows) so the grantItem dropdown can group standard / rare / custom.
+      return NextResponse.json({
+        items: all,
+        rare: all.filter(i => i.isRare),
+        custom: all.filter(i => !i.isSeed),
+        standard: all.filter(i => i.isSeed && !i.isRare && !i.isUsed),
+      });
+    }
+  } catch (e) {
+    console.error('[admin/game] GET listAllItems failed:', e instanceof Error ? e.message : e);
   }
+  // Fallback — DB unavailable; render the static JSON only (no custom items).
   return NextResponse.json({
     items: ITEMS.map(i => ({ id: i.id, name: i.name, cat: i.cat, price: i.price, rarity: i.rarity || 'common', stock: i.stock ?? null })),
     rare: RARE_ITEMS.map(i => ({ id: i.id, name: i.name, cat: i.cat, price: i.price, rarity: i.rarity, stock: i.stock ?? null })),
-    custom,
+    custom: [],
   });
 }
 
@@ -191,7 +234,7 @@ export async function POST(req: Request) {
     const action = String(b.action ?? '');
     const validActions = [
       'grantItem', 'setMoney', 'setFame', 'setHealth', 'setSpirit', 'setLevel',
-      'triggerElection', 'advanceTime', 'createItem', 'updateItem', 'setDifficulty',
+      'triggerElection', 'advanceTime', 'createItem', 'updateItem', 'deleteItem', 'setDifficulty',
       // v14 — banking
       'setSavings', 'setLoan', 'adjustLoan',
       // v14 — business
@@ -203,7 +246,10 @@ export async function POST(req: Request) {
     ];
     if (!validActions.includes(action)) return NextResponse.json({ ok: false, error: 'bad-action' }, { status: 400 });
 
-    // Custom catalogue changes must be durable; never fall back to process memory.
+    // v15 — Custom catalogue changes must be durable; never fall back to
+    // process memory. createItem / updateItem / deleteItem now write to the
+    // unified `items` table (seed + rare + used + custom) via the typed
+    // upsertItem / deleteItem helpers.
     if (action === 'createItem') {
       const patch = readItemPatch(b);
       if (!patch) return NextResponse.json({ ok: false, error: 'bad-patch' }, { status: 400 });
@@ -211,17 +257,28 @@ export async function POST(req: Request) {
       if (!d) return NextResponse.json({ ok: false, error: 'sqlite-unavailable' }, { status: 503 });
       const itemId = 'custom-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 8);
       try {
-        d.exec(`CREATE TABLE IF NOT EXISTS custom_items (
-          id TEXT PRIMARY KEY, name TEXT NOT NULL, cat TEXT NOT NULL DEFAULT 'Custom', brand TEXT,
-          price REAL NOT NULL DEFAULT 1000, lux INTEGER NOT NULL DEFAULT 1, rate REAL NOT NULL DEFAULT 0,
-          art TEXT NOT NULL DEFAULT 'ic-bag', rarity TEXT NOT NULL DEFAULT 'common',
-          image_url TEXT NOT NULL, created_at TEXT NOT NULL
-        )`);
-        ensureStockColumn(d);
-        // v13.2 — INSERT now includes rarity + stock. stock is NULLABLE: a
-        // NULL row means unlimited (matches ItemDef.stock === undefined).
-        d.prepare('INSERT INTO custom_items (id, name, cat, brand, price, lux, rate, art, rarity, stock, image_url, created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)')
-          .run(itemId, patch.name, patch.cat, patch.brand || null, patch.price, 1, 0, 'ic-bag', patch.rarity, patch.stock, patch.imageUrl, new Date().toISOString());
+        upsertItem({
+          id: itemId,
+          name: patch.name,
+          cat: patch.cat,
+          brand: patch.brand || undefined,
+          price: patch.price,
+          lux: 1,
+          rate: 0,
+          art: 'ic-bag',
+          c: '#888888',
+          rarity: patch.rarity,
+          stock: patch.stock,
+          imageUrl: patch.imageUrl,
+          isUsed: patch.isUsed,
+          baseId: patch.baseId || undefined,
+          ageYears: patch.ageYears ?? undefined,
+          condition: patch.condition ?? undefined,
+          askPrice: patch.askPrice ?? undefined,
+          newPrice: patch.newPrice ?? undefined,
+          story: patch.story ?? undefined,
+          since: patch.since,
+        });
       } catch (e) {
         console.error('[admin/game] createItem failed:', e instanceof Error ? e.message : e);
         return NextResponse.json({ ok: false, error: 'item-save-failed' }, { status: 500 });
@@ -237,16 +294,55 @@ export async function POST(req: Request) {
       const d = await tryDb();
       if (!d) return NextResponse.json({ ok: false, error: 'sqlite-unavailable' }, { status: 503 });
       try {
-        ensureStockColumn(d);
-        // v13.2 — UPDATE now writes rarity + stock alongside the other fields.
-        const result = d.prepare('UPDATE custom_items SET name=?, cat=?, brand=?, price=?, rarity=?, stock=?, image_url=? WHERE id=?')
-          .run(patch.name, patch.cat, patch.brand || null, patch.price, patch.rarity, patch.stock, patch.imageUrl, itemId);
-        if (!result.changes) return NextResponse.json({ ok: false, error: 'not-found' }, { status: 404 });
+        // Verify the row exists first so we can return a clean 404 (the
+        // upsert path would silently create it).
+        const existing = getItem(itemId);
+        if (!existing) return NextResponse.json({ ok: false, error: 'not-found' }, { status: 404 });
+        upsertItem({
+          id: itemId,
+          name: patch.name,
+          cat: patch.cat,
+          brand: patch.brand || undefined,
+          price: patch.askPrice ?? patch.price,
+          lux: existing.lux,
+          rate: existing.rate,
+          art: existing.art,
+          c: existing.c,
+          rarity: patch.rarity,
+          stock: patch.stock,
+          imageUrl: patch.imageUrl,
+          isRare: existing.isRare,
+          isUsed: patch.isUsed || existing.isUsed,
+          baseId: patch.baseId || undefined,
+          ageYears: patch.ageYears ?? undefined,
+          condition: patch.condition ?? undefined,
+          askPrice: patch.askPrice ?? undefined,
+          newPrice: patch.newPrice ?? undefined,
+          story: patch.story ?? undefined,
+          since: patch.since,
+        });
       } catch (e) {
         console.error('[admin/game] updateItem failed:', e instanceof Error ? e.message : e);
         return NextResponse.json({ ok: false, error: 'item-save-failed' }, { status: 500 });
       }
       return NextResponse.json({ ok: true, itemId, name: patch.name });
+    }
+
+    if (action === 'deleteItem') {
+      const itemId = String(b.id ?? '').trim();
+      if (!itemId) return NextResponse.json({ ok: false, error: 'bad-id' }, { status: 400 });
+      const d = await tryDb();
+      if (!d) return NextResponse.json({ ok: false, error: 'sqlite-unavailable' }, { status: 503 });
+      try {
+        const ok = deleteItem(itemId);
+        if (!ok) return NextResponse.json({ ok: false, error: 'seed-protected' }, { status: 409 });
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : 'item-delete-failed';
+        const status = msg === 'not-found' ? 404 : 500;
+        console.error('[admin/game] deleteItem failed:', msg);
+        return NextResponse.json({ ok: false, error: msg }, { status });
+      }
+      return NextResponse.json({ ok: true, itemId });
     }
 
     // v14 — ALL player-mutation + gig-config actions record an ADMIN_ACTION

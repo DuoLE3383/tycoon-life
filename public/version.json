@@ -1,20 +1,14 @@
 {
-  "version": "v13.9",
-  "releasedAt": "2026-11-12",
-  "headline": "HuyenBao v13.9 — collapsible assets, thousand separators, market layout",
-  "summary": "v13.9: Assets 'own' section now collapses owned items by category (Properties, Vehicles, Watches, Jewelry, Art, Collectibles, Sneakers, Handbags, Audio, Camera, Suits, Other) — each header shows the count + total value and only expands on tap. Tables and detailed displays now use full thousand-separated numbers ($1,234,567) via fmtFull() so values > 100 tỷ stay readable, with wider numeric cells and tabular-nums. Markets tab rebuilt as clean cards: 2-column summary header (Total Value | Total P&L), per-stock card with left (name + price + daily badge + sparkline) + right (holdings + P&L + ROI%) + bottom buy/sell/MAX/All, responsive on mobile.",
+  "version": "v13.10",
+  "releasedAt": "2026-11-11",
+  "headline": "HuyenBao v13.10 — Collapsible assets + thousand separators + market redesign + items in DB",
+  "summary": "v13.10: Assets owned items collapsible by category. Thousand separators (fmtFull) in all tables. Market tab redesigned with stock cards. Items moved to SQLite database for admin management. Version notification system fixed.",
   "features": [
-    "Assets 'own': owned items grouped by category with collapsible headers",
-    "Assets 'own': summary header per category (icon + name + count + total value)",
-    "Assets 'own': default collapsed — only header shown until tapped",
-    "Engine: new fmtFull() — full dollar value with thousand separators",
-    "Tables: fmtFull() in Portfolio holdings, transactions, StockTab, Finance Overview, Banking credit breakdown, Assets item rows",
-    "Tables: wider numeric cells (min-width 90px, nowrap) + tabular-nums",
-    "Inputs: .qty width 110→120px for larger numbers",
-    "Markets: 2-column summary card (Total Value | Total P&L + ROI%)",
-    "Markets: per-stock clean cards (left name+price+badge+sparkline, right holdings+P&L+ROI)",
-    "Markets: buy/sell/MAX/All buttons moved to bottom of card",
-    "Markets: responsive stacking on mobile",
-    "Version bumped to v13.9"
+    "Assets: owned items collapsed by 12 categories (tap to expand)",
+    "fmtFull(): thousand-separated numbers ($100,000,000) in all tables",
+    "Market tab: stock cards with sparkline + portfolio info",
+    "Items in SQLite database (admin can edit ALL items)",
+    "Public /api/items route for client to fetch DB items",
+    "Version bumped to v13.10"
   ]
 }

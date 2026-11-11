@@ -12,6 +12,7 @@
 import Database from 'better-sqlite3';
 import fs from 'node:fs';
 import path from 'node:path';
+import itemsData from '../../../public/items.json';
 
 export interface PlayerRow { id: string; code: string; name: string; avatar: string; level: number; nw: number; ts: number; last_seen: number; banned?: number }
 export interface MsgRow { id: number; uid: string; name: string; avatar: string; text: string; created_at: string }
@@ -76,13 +77,279 @@ export function db(): Database.Database {
       applied_at INTEGER
     );
     CREATE INDEX IF NOT EXISTS idx_admin_actions_target ON admin_actions(target_uid);
+    CREATE TABLE IF NOT EXISTS items (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      cat TEXT NOT NULL,
+      brand TEXT,
+      price REAL NOT NULL DEFAULT 1000,
+      lux INTEGER NOT NULL DEFAULT 1,
+      rate REAL NOT NULL DEFAULT 0,
+      art TEXT NOT NULL DEFAULT 'ic-bag',
+      c TEXT NOT NULL DEFAULT '#888888',
+      rarity TEXT,
+      stock INTEGER,
+      image_url TEXT,
+      is_rare INTEGER NOT NULL DEFAULT 0,
+      is_used INTEGER NOT NULL DEFAULT 0,
+      is_seed INTEGER NOT NULL DEFAULT 0,
+      base_id TEXT,
+      age_years INTEGER,
+      condition INTEGER,
+      ask_price REAL,
+      new_price REAL,
+      story TEXT,
+      since INTEGER NOT NULL DEFAULT 1900,
+      created_at TEXT NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_items_is_rare ON items(is_rare);
+    CREATE INDEX IF NOT EXISTS idx_items_is_used ON items(is_used);
   `);
   // v11.29 — migration: the banned flag arrived after the first release of
   // this schema; ALTER it in for older database files.
   const cols = (d.prepare('PRAGMA table_info(players)').all() as { name: string }[]).map(c => c.name);
   if (!cols.includes('banned')) d.exec('ALTER TABLE players ADD COLUMN banned INTEGER NOT NULL DEFAULT 0');
+  // v15 — items table column migrations for older databases. Each is gated on
+  // the column being absent so the ALTER only fires once.
+  const itemCols = new Set((d.prepare('PRAGMA table_info(items)').all() as { name: string }[]).map(c => c.name));
+  if (!itemCols.has('c')) d.exec("ALTER TABLE items ADD COLUMN c TEXT NOT NULL DEFAULT '#888888'");
+  if (!itemCols.has('is_seed')) d.exec('ALTER TABLE items ADD COLUMN is_seed INTEGER NOT NULL DEFAULT 0');
+  if (!itemCols.has('base_id')) d.exec('ALTER TABLE items ADD COLUMN base_id TEXT');
+  // Seed the items table from the static JSON on first DB access. Idempotent —
+  // INSERT OR IGNORE means existing rows (including admin-edited ones) are
+  // left untouched. Safe to call on every server start.
+  try { seedItemsFromJSON(d); } catch (e) { console.error('[socialDb] seedItemsFromJSON failed:', e instanceof Error ? e.message : e); }
   _db = d;
   return d;
+}
+
+// ---------------------------------------------------------------- v15 — items table
+// The items table mirrors /public/items.json so the admin dashboard can
+// create / edit / delete entries without re-deploying. Seed rows are
+// inserted with INSERT OR IGNORE so admin edits to seed rows survive a
+// server restart. Seed rows carry is_seed=1 — deleteItem refuses to drop
+// them so the catalogue stays intact (admins edit instead).
+export interface ItemRow {
+  id: string;
+  name: string;
+  cat: string;
+  brand: string | null;
+  price: number;
+  lux: number;
+  rate: number;
+  art: string;
+  c: string;
+  rarity: string | null;
+  stock: number | null;
+  image_url: string | null;
+  is_rare: number;
+  is_used: number;
+  is_seed: number;
+  base_id: string | null;
+  age_years: number | null;
+  condition: number | null;
+  ask_price: number | null;
+  new_price: number | null;
+  story: string | null;
+  since: number;
+  created_at: string;
+}
+// Public shape returned to clients — flattens the snake_case columns and
+// converts the SQLite integers to booleans where appropriate. This is what
+// /api/admin/game and /api/items return.
+export interface ItemOut {
+  id: string;
+  name: string;
+  cat: string;
+  brand?: string;
+  price: number;
+  lux: number;
+  rate: number;
+  art: string;
+  c: string;
+  rarity?: string;
+  stock?: number | null;
+  imageUrl?: string;
+  isRare: boolean;
+  isUsed: boolean;
+  isSeed: boolean;
+  baseId?: string;
+  ageYears?: number;
+  condition?: number;
+  askPrice?: number;
+  newPrice?: number;
+  story?: string;
+  since: number;
+  createdAt: string;
+}
+function toItemOut(r: ItemRow): ItemOut {
+  return {
+    id: r.id,
+    name: r.name,
+    cat: r.cat,
+    brand: r.brand ?? undefined,
+    price: r.price,
+    lux: r.lux,
+    rate: r.rate,
+    art: r.art,
+    c: r.c,
+    rarity: r.rarity ?? undefined,
+    stock: r.stock == null ? null : r.stock,
+    imageUrl: r.image_url ?? undefined,
+    isRare: !!r.is_rare,
+    isUsed: !!r.is_used,
+    isSeed: !!r.is_seed,
+    baseId: r.base_id ?? undefined,
+    ageYears: r.age_years ?? undefined,
+    condition: r.condition ?? undefined,
+    askPrice: r.ask_price ?? undefined,
+    newPrice: r.new_price ?? undefined,
+    story: r.story ?? undefined,
+    since: r.since,
+    createdAt: r.created_at,
+  };
+}
+// Seed every standard item, rare item, and used-market listing from the
+// static JSON into the items table. INSERT OR IGNORE guarantees existing
+// rows (admin-edited prices, custom fields, etc.) are never overwritten —
+// making this safe to run on every server start.
+function seedItemsFromJSON(d: Database.Database): void {
+  const now = new Date().toISOString();
+  // One shared prepared statement covers all three seed kinds. We pass
+  // every column value as a bound parameter (no inline literals) so the
+  // placeholder count cannot drift from the column count.
+  const ins = d.prepare(`INSERT OR IGNORE INTO items
+    (id, name, cat, brand, price, lux, rate, art, c, rarity, stock, image_url,
+     is_rare, is_used, is_seed, base_id, age_years, condition, ask_price,
+     new_price, story, since, created_at)
+    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`);
+  const items = (itemsData as { items?: unknown[] }).items;
+  const rareItems = (itemsData as { rareItems?: unknown[] }).rareItems;
+  const usedMarket = (itemsData as { usedMarket?: unknown[] }).usedMarket;
+  if (Array.isArray(items)) {
+    for (const it of items as Array<{
+      id: string; name: string; cat: string; brand?: string; price: number; lux: number; rate: number;
+      art: string; c?: string; rarity?: string; stock?: number;
+    }>) {
+      ins.run(it.id, it.name, it.cat, it.brand ?? null, it.price, it.lux ?? 1, it.rate ?? 0,
+        it.art ?? 'ic-bag', it.c ?? '#888888', it.rarity ?? null, it.stock ?? null, null,
+        0, 0, 1, null, null, null, null, null, null, 1900, now);
+    }
+  }
+  if (Array.isArray(rareItems)) {
+    for (const it of rareItems as Array<{
+      id: string; name: string; cat: string; brand?: string; price: number; lux: number; rate: number;
+      art: string; c?: string; rarity?: string; stock?: number;
+    }>) {
+      ins.run(it.id, it.name, it.cat, it.brand ?? null, it.price, it.lux ?? 1, it.rate ?? 0,
+        it.art ?? 'ic-bag', it.c ?? '#888888', it.rarity ?? null, it.stock ?? null, null,
+        1, 0, 1, null, null, null, null, null, null, 1900, now);
+    }
+  }
+  if (Array.isArray(usedMarket)) {
+    for (const u of usedMarket as Array<{
+      id: string; name: string; cat: string; brand?: string; price: number; lux: number; rate: number;
+      art: string; c?: string; baseId: string; ageYears: number; condition: number; askPrice: number;
+      newPrice: number; story: string; since: number;
+    }>) {
+      ins.run(u.id, u.name, u.cat, u.brand ?? null, u.askPrice, u.lux ?? 1, u.rate ?? 0,
+        u.art ?? 'ic-bag', u.c ?? '#888888', null, null, null,
+        0, 1, 1, u.baseId ?? null, u.ageYears ?? 0, u.condition ?? 100,
+        u.askPrice, u.newPrice, u.story ?? '', u.since ?? 1900, now);
+    }
+  }
+}
+// Return ALL items from the DB, ordered so seed rows come first (by id) and
+// admin-created rows come after (by created_at desc). The admin UI uses the
+// createdAt field to bucket rows into the three legacy sections.
+export function listAllItems(): ItemOut[] {
+  return (db().prepare('SELECT * FROM items ORDER BY is_seed DESC, id ASC, created_at DESC').all() as ItemRow[]).map(toItemOut);
+}
+// Return a single item by id, or undefined if not present in the DB.
+export function getItem(id: string): ItemOut | undefined {
+  const r = db().prepare('SELECT * FROM items WHERE id = ?').get(id) as ItemRow | undefined;
+  return r ? toItemOut(r) : undefined;
+}
+// Insert or update an item. The caller controls whether the row is flagged
+// as a seed (admins CAN overwrite seed rows via updateItem — that's the
+// whole point — but new admin-created rows are never seeds). Returns the
+// persisted row.
+export interface UpsertItemInput {
+  id: string;
+  name: string;
+  cat: string;
+  brand?: string;
+  price?: number;
+  lux?: number;
+  rate?: number;
+  art?: string;
+  c?: string;
+  rarity?: string;
+  stock?: number | null;
+  imageUrl?: string;
+  isRare?: boolean;
+  isUsed?: boolean;
+  baseId?: string;
+  ageYears?: number;
+  condition?: number;
+  askPrice?: number;
+  newPrice?: number;
+  story?: string;
+  since?: number;
+}
+export function upsertItem(input: UpsertItemInput): ItemOut {
+  const d = db();
+  const now = new Date().toISOString();
+  const id = String(input.id || '').trim();
+  if (!id) throw new Error('bad-id');
+  const ex = d.prepare('SELECT * FROM items WHERE id = ?').get(id) as ItemRow | undefined;
+  // Preserve is_seed on update — admin edits to a seed row keep is_seed=1
+  // so deleteItem still refuses to drop it. New admin rows get is_seed=0.
+  const isSeed = ex ? ex.is_seed : 0;
+  const isRare = input.isRare ? 1 : (ex ? ex.is_rare : 0);
+  const isUsed = input.isUsed ? 1 : (ex ? ex.is_used : 0);
+  const name = String(input.name ?? ex?.name ?? '').trim().slice(0, 60);
+  const cat = String(input.cat ?? ex?.cat ?? 'Custom').trim().slice(0, 30);
+  const brand = input.brand !== undefined ? (String(input.brand).trim().slice(0, 30) || null) : (ex?.brand ?? null);
+  const price = Number.isFinite(Number(input.price)) ? Number(input.price) : (ex?.price ?? 1000);
+  const lux = Number.isFinite(Number(input.lux)) ? Math.round(Number(input.lux)) : (ex?.lux ?? 1);
+  const rate = Number.isFinite(Number(input.rate)) ? Number(input.rate) : (ex?.rate ?? 0);
+  const art = String(input.art ?? ex?.art ?? 'ic-bag').trim().slice(0, 30) || 'ic-bag';
+  const c = String(input.c ?? ex?.c ?? '#888888').trim().slice(0, 20) || '#888888';
+  const rarity = input.rarity !== undefined ? (String(input.rarity).trim().slice(0, 20) || null) : (ex?.rarity ?? null);
+  const stock = input.stock === undefined ? (ex?.stock ?? null) : (input.stock == null ? null : Math.max(0, Math.round(Number(input.stock))));
+  const imageUrl = input.imageUrl !== undefined ? (String(input.imageUrl).trim().slice(0, 500) || null) : (ex?.image_url ?? null);
+  const baseId = input.baseId !== undefined ? (String(input.baseId).trim().slice(0, 60) || null) : (ex?.base_id ?? null);
+  const ageYears = input.ageYears !== undefined ? (Number.isFinite(Number(input.ageYears)) ? Math.max(0, Math.round(Number(input.ageYears))) : null) : (ex?.age_years ?? null);
+  const condition = input.condition !== undefined ? (Number.isFinite(Number(input.condition)) ? Math.max(0, Math.min(100, Math.round(Number(input.condition)))) : null) : (ex?.condition ?? null);
+  const askPrice = input.askPrice !== undefined ? (Number.isFinite(Number(input.askPrice)) ? Number(input.askPrice) : null) : (ex?.ask_price ?? null);
+  const newPrice = input.newPrice !== undefined ? (Number.isFinite(Number(input.newPrice)) ? Number(input.newPrice) : null) : (ex?.new_price ?? null);
+  const story = input.story !== undefined ? (String(input.story).trim().slice(0, 280) || null) : (ex?.story ?? null);
+  const since = Number.isFinite(Number(input.since)) ? Math.round(Number(input.since)) : (ex?.since ?? 1900);
+  const createdAt = ex?.created_at ?? now;
+  d.prepare(`INSERT INTO items (id, name, cat, brand, price, lux, rate, art, c, rarity, stock, image_url,
+        is_rare, is_used, is_seed, base_id, age_years, condition, ask_price, new_price, story, since, created_at)
+        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+        ON CONFLICT(id) DO UPDATE SET name=excluded.name, cat=excluded.cat, brand=excluded.brand, price=excluded.price,
+          lux=excluded.lux, rate=excluded.rate, art=excluded.art, c=excluded.c, rarity=excluded.rarity,
+          stock=excluded.stock, image_url=excluded.image_url, is_rare=excluded.is_rare, is_used=excluded.is_used,
+          base_id=excluded.base_id, age_years=excluded.age_years, condition=excluded.condition,
+          ask_price=excluded.ask_price, new_price=excluded.new_price, story=excluded.story, since=excluded.since`)
+    .run(id, name, cat, brand, price, lux, rate, art, c, rarity, stock, imageUrl,
+      isRare, isUsed, isSeed, baseId, ageYears, condition, askPrice, newPrice, story, since, createdAt);
+  return toItemOut(d.prepare('SELECT * FROM items WHERE id = ?').get(id) as ItemRow);
+}
+// Delete an item by id. Returns true on success, false if the row was a
+// seed (admin-created rows are the only ones deletable — seed rows are
+// protected so the catalogue stays intact; admins edit instead). Throws
+// if the row doesn't exist.
+export function deleteItem(id: string): boolean {
+  const d = db();
+  const r = d.prepare('SELECT is_seed FROM items WHERE id = ?').get(String(id)) as { is_seed: number } | undefined;
+  if (!r) throw new Error('not-found');
+  if (r.is_seed) return false;
+  d.prepare('DELETE FROM items WHERE id = ?').run(String(id));
+  return true;
 }
 
 // ---------------------------------------------------------------- validation

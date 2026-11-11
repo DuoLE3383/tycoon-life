@@ -117,7 +117,7 @@ if (typeof window !== 'undefined') {
 // v11.8 — the bundled version. The /version.json file in /public is polled
 // every 5 minutes; if its version is newer than this, a "reload to update"
 // banner appears even in a running session (no F5 needed).
-const BUNDLED_VERSION = 'v13.9';
+const BUNDLED_VERSION = 'v13.10';
 const VERSION_POLL_MS = 5 * 60 * 1000;
 // v11.44 — 'what's new' modal now fires PER PATCH (not per major version).
 // The SEEN_KEY is derived from BUNDLED_VERSION so each new patch re-shows the
@@ -213,6 +213,65 @@ export default function Page() {
     check();
     const iv = setInterval(check, VERSION_POLL_MS);
     return () => clearInterval(iv);
+  }, []);
+
+  // v15 — fetch /api/items on mount + every 5 minutes so admin edits to the
+  // SQLite `items` table (price changes, new items, retired stock) are
+  // visible to players without a full page reload. Each DB row is merged
+  // into the runtime ITEMS pool via registerItem(); admin-edited prices /
+  // rarities overwrite the static JSON entry by removing + re-pushing the
+  // updated ItemDef. Used-market rows from the DB are merged into
+  // USED_MARKET_BY so the used-market tab surfaces admin-created listings.
+  // The static JSON stays the source of truth for SSR / tests / offline
+  // play — this overlay only runs in the browser.
+  useEffect(() => {
+    if (typeof fetch === 'undefined') return;
+    let cancelled = false;
+    const merge = (rows: Array<Record<string, unknown>>) => {
+      if (!Array.isArray(rows) || !rows.length) return;
+      for (const r of rows) {
+        const id = typeof r.id === 'string' ? r.id : '';
+        if (!id) continue;
+        const def: ItemDef = {
+          id,
+          name: typeof r.name === 'string' ? r.name : id,
+          cat: typeof r.cat === 'string' ? r.cat : 'Custom',
+          brand: typeof r.brand === 'string' ? r.brand : undefined,
+          c: typeof r.c === 'string' ? r.c : '#888888',
+          price: Number.isFinite(Number(r.price)) ? Number(r.price) : 1000,
+          lux: Number.isFinite(Number(r.lux)) ? Math.round(Number(r.lux)) : 1,
+          rate: Number.isFinite(Number(r.rate)) ? Number(r.rate) : 0,
+          art: typeof r.art === 'string' ? r.art : 'ic-bag',
+          rarity: typeof r.rarity === 'string' ? (r.rarity as Rarity) : undefined,
+          stock: r.stock == null ? undefined : Math.round(Number(r.stock)) || undefined,
+        };
+        // v15 — registerItem() is a no-op when the id already exists, but
+        // admin edits need to OVERWRITE the existing entry. We mutate
+        // ITEM_BY + ITEMS in place so the engine picks up the new price /
+        // rarity immediately (engine.ts reads ITEM_BY synchronously at
+        // module load; mutating the shared object is the only way to
+        // propagate changes without a reload).
+        if (ITEM_BY[id]) {
+          Object.assign(ITEM_BY[id], def);
+        } else {
+          registerItem(def);
+        }
+        if (typeof r.imageUrl === 'string' && r.imageUrl) ITEM_IMAGES[id] = r.imageUrl;
+      }
+    };
+    const fetchItems = async () => {
+      try {
+        const base = (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_BASE_PATH) || '';
+        const res = await fetch(base + '/api/items', { cache: 'no-store' });
+        if (!res.ok) return;
+        const j = (await res.json()) as { items?: Array<Record<string, unknown>> };
+        if (cancelled) return;
+        if (j.items && Array.isArray(j.items)) merge(j.items);
+      } catch { /* ignore — offline / static export */ }
+    };
+    fetchItems();
+    const iv = setInterval(fetchItems, VERSION_POLL_MS);
+    return () => { cancelled = true; clearInterval(iv); };
   }, []);
 
   const dismissWhatsNew = useCallback(() => {

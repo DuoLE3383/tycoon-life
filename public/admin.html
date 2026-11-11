@@ -295,6 +295,7 @@
   .badge.gray   { color: var(--muted); }
   .badge.gold   { color: var(--accent-2); border-color: rgba(202,138,4,.4); background: rgba(202,138,4,.1); }
   .badge.blue   { color: #9ec1ff; border-color: rgba(59,130,246,.4); background: rgba(59,130,246,.1); }
+  .badge.purple { color: #d6b3ff; border-color: rgba(168,85,247,.4); background: rgba(168,85,247,.1); }
 
   .rarity-pill {
     font-size: 10px; font-weight: 700;
@@ -622,34 +623,20 @@
           </div>
           <div class="form-row" style="margin-top:10px">
             <div class="field" style="flex:3"><label>Image URL</label><input id="if-imageurl" placeholder="https://…" /></div>
+            <div class="field"><label>Base ID (used market)</label><input id="if-baseid" placeholder="VD: c-toyota (để trống nếu không phải used)" /><div class="hint">Nếu điền, vật phẩm sẽ được lưu là used-market listing.</div></div>
             <div class="field shrink"><label>&nbsp;</label><button class="btn primary" id="btn-item-submit">Tạo vật phẩm</button></div>
           </div>
           <input type="hidden" id="if-id" />
         </div>
 
-        <h3>Vật phẩm tuỳ chỉnh (custom)</h3>
+        <h3>Tất cả vật phẩm (DB)</h3>
         <div class="table-wrap">
           <table>
-            <thead><tr><th></th><th>Tên</th><th>Cat</th><th>Giá</th><th>Rarity</th><th>Stock</th><th>Hành động</th></tr></thead>
-            <tbody id="items-custom-body"><tr class="loading-row"><td colspan="7">Đang tải…</td></tr></tbody>
+            <thead><tr><th></th><th>Tên</th><th>Cat</th><th>Giá</th><th>Rarity</th><th>Stock</th><th>Loại</th><th>Hành động</th></tr></thead>
+            <tbody id="items-all-body"><tr class="loading-row"><td colspan="8">Đang tải…</td></tr></tbody>
           </table>
         </div>
-
-        <h3>Vật phẩm tiêu chuẩn (standard)</h3>
-        <div class="table-wrap">
-          <table>
-            <thead><tr><th>Tên</th><th>Cat</th><th>Giá</th><th>Rarity</th><th>Stock</th></tr></thead>
-            <tbody id="items-standard-body"><tr class="loading-row"><td colspan="5">Đang tải…</td></tr></tbody>
-          </table>
-        </div>
-
-        <h3>Vật phẩm hiếm (rare)</h3>
-        <div class="table-wrap">
-          <table>
-            <thead><tr><th>Tên</th><th>Cat</th><th>Giá</th><th>Rarity</th><th>Stock</th></tr></thead>
-            <tbody id="items-rare-body"><tr class="loading-row"><td colspan="5">Đang tải…</td></tr></tbody>
-          </table>
-        </div>
+        <div class="note">Mọi vật phẩm (standard / rare / used / custom) đều có thể <b>sửa</b>. Chỉ vật phẩm do admin tạo (custom, không phải seed) mới có thể <b>xoá</b> — seed items sẽ báo "seed-protected".</div>
       </section>
 
       <!-- ============= TAB: PLAYERS ============= -->
@@ -1406,50 +1393,55 @@
     var cls = 'rarity-' + (r || 'common');
     return '<span class="rarity-pill ' + cls + '">' + esc(r || 'common') + '</span>';
   }
+  function itemTypeLabel(it) {
+    if (it.isUsed) return '<span class="badge gray">used</span>';
+    if (it.isRare) return '<span class="badge purple">rare</span>';
+    if (!it.isSeed) return '<span class="badge green">custom</span>';
+    return '<span class="badge gray">standard</span>';
+  }
   function renderItems() {
     var it = state.items;
     if (!it) return;
-    // Custom
-    var cb = $('items-custom-body');
-    cb.innerHTML = '';
-    if (!it.custom || !it.custom.length) {
-      cb.appendChild(el('tr', null, el('td', { colspan: 7, class: 'empty', text: 'Chưa có vật phẩm tuỳ chỉnh.' })));
-    } else {
-      it.custom.forEach(function (c) {
-        var img = c.imageUrl ? '<img class="thumb" src="' + esc(c.imageUrl) + '" alt="" onerror="this.style.visibility=\'hidden\'" />' : '—';
-        cb.appendChild(el('tr', null, [
-          el('td', { html: img }),
-          el('td', { html: '<b>' + esc(c.name) + '</b>' + (c.brand ? '<br><span class="mini-code">' + esc(c.brand) + '</span>' : '') }),
-          el('td', { text: c.cat }),
-          el('td', { class: 'nw', text: fmtMoney(c.price) }),
-          el('td', { html: rarityPill(c.rarity) }),
-          el('td', { text: c.stock == null ? '∞' : fmtN(c.stock) }),
-          el('td', { class: 'actions' }, [
-            el('button', { class: 'btn icon sm', title: 'Sửa', onclick: function () { startEditItem(c); } }, '✏️'),
-          ]),
-        ]));
-      });
-    }
-    // Standard
-    renderSimpleItemTable($('items-standard-body'), it.items);
-    // Rare
-    renderSimpleItemTable($('items-rare-body'), it.rare);
-  }
-  function renderSimpleItemTable(body, arr) {
+    // v15 — unified table: render every item from state.items (which is now
+    // the full DB rows array, including standard / rare / used / custom).
+    // The legacy `custom` / `rare` / `standard` buckets are no longer used
+    // for rendering, but populateItemSelects() still falls back to them if
+    // state.items is empty (DB unavailable path).
+    var rows = (it.items && it.items.length) ? it.items : [];
+    var body = $('items-all-body');
     body.innerHTML = '';
-    if (!arr || !arr.length) {
-      body.appendChild(el('tr', null, el('td', { colspan: 5, class: 'empty', text: 'Không có vật phẩm.' })));
+    if (!rows.length) {
+      body.appendChild(el('tr', null, el('td', { colspan: 8, class: 'empty', text: 'Không có vật phẩm.' })));
       return;
     }
-    arr.forEach(function (c) {
+    rows.forEach(function (c) {
+      var img = c.imageUrl ? '<img class="thumb" src="' + esc(c.imageUrl) + '" alt="" onerror="this.style.visibility=\'hidden\'" />' : '—';
       body.appendChild(el('tr', null, [
-        el('td', { html: '<b>' + esc(c.name) + '</b>' }),
+        el('td', { html: img }),
+        el('td', { html: '<b>' + esc(c.name) + '</b>' + (c.brand ? '<br><span class="mini-code">' + esc(c.brand) + '</span>' : '') }),
         el('td', { text: c.cat }),
         el('td', { class: 'nw', text: fmtMoney(c.price) }),
         el('td', { html: rarityPill(c.rarity) }),
         el('td', { text: c.stock == null ? '∞' : fmtN(c.stock) }),
+        el('td', { html: itemTypeLabel(c) }),
+        el('td', { class: 'actions' }, [
+          el('button', { class: 'btn icon sm', title: 'Sửa', onclick: function () { startEditItem(c); } }, '✏️'),
+          el('button', { class: 'btn icon sm danger', title: 'Xoá', onclick: function () { deleteItemConfirm(c); } }, '🗑'),
+        ]),
       ]));
     });
+  }
+  // v15 — confirm + delete any item. The server refuses to delete seed rows
+  // (returns 'seed-protected'); we surface that as a friendly toast so the
+  // admin knows to use edit instead.
+  function deleteItemConfirm(c) {
+    if (!c || !c.id) return;
+    if (!window.confirm('Xoá vật phẩm "' + c.name + '" (' + c.id + ')?\n\nChỉ vật phẩm do admin tạo mới có thể xoá — seed items sẽ bị từ chối.')) return;
+    api('/api/admin/game', { method: 'POST', body: { action: 'deleteItem', id: c.id } }).then(function (j) {
+      if (!j.ok) throw Object.assign(new Error(j.error || 'failed'), { code: j.error });
+      toast('🗑 Đã xoá vật phẩm: ' + c.name, 'ok');
+      loadItems();
+    }).catch(function (e) { handleErr(e, 'Xoá vật phẩm thất bại'); });
   }
   function startEditItem(c) {
     state.editingItemId = c.id;
@@ -1461,6 +1453,7 @@
     $('if-rarity').value = c.rarity || 'common';
     $('if-stock').value = (c.stock == null ? '' : c.stock);
     $('if-imageurl').value = c.imageUrl || '';
+    $('if-baseid').value = c.baseId || '';
     $('item-form-title').textContent = '✏️ Sửa vật phẩm: ' + c.name;
     $('item-form-cancel').style.display = '';
     $('btn-item-submit').textContent = 'Cập nhật';
@@ -1477,6 +1470,7 @@
     $('if-rarity').value = 'common';
     $('if-stock').value = '';
     $('if-imageurl').value = '';
+    $('if-baseid').value = '';
     $('item-form-title').textContent = '➕ Tạo vật phẩm mới';
     $('item-form-cancel').style.display = 'none';
     $('btn-item-submit').textContent = 'Tạo vật phẩm';
@@ -1500,6 +1494,7 @@
     var rarity = $('if-rarity').value;
     var stockRaw = $('if-stock').value.trim();
     var stock = stockRaw === '' ? null : Math.round(Number(stockRaw));
+    var baseId = $('if-baseid').value.trim();
     if (!name) { toast('❌ Thiếu tên vật phẩm', 'err'); return; }
     if (!imageUrl) { toast('❌ Thiếu image URL', 'err'); return; }
     try { var u = new URL(imageUrl); if (!u.protocol.startsWith('http')) throw 0; } catch (e) { toast('❌ Image URL không hợp lệ', 'err'); return; }
@@ -1512,6 +1507,7 @@
     var body = {
       name: name, cat: $('if-cat').value.trim() || 'Custom', brand: $('if-brand').value.trim(),
       price: price, imageUrl: imageUrl, rarity: rarity, stock: stock,
+      baseId: baseId || undefined,
     };
     var action, label;
     if (state.editingItemId) {
@@ -1538,6 +1534,9 @@
     sel.innerHTML = '<option value="">— Chọn vật phẩm —</option>';
     var it = state.items;
     if (!it) return;
+    // v15 — state.items is now the full DB rows array. Bucket by type flags
+    // for the grantItem dropdown grouping.
+    var all = (it.items && it.items.length) ? it.items : [];
     function addGroup(label, arr) {
       if (!arr || !arr.length) return;
       var og = el('optgroup', { label: label });
@@ -1546,9 +1545,10 @@
       });
       sel.appendChild(og);
     }
-    addGroup('Standard', it.items);
-    addGroup('Rare', it.rare);
-    addGroup('Custom', it.custom);
+    addGroup('Standard', all.filter(function (i) { return i.isSeed && !i.isRare && !i.isUsed; }));
+    addGroup('Rare', all.filter(function (i) { return i.isRare; }));
+    addGroup('Used', all.filter(function (i) { return i.isUsed; }));
+    addGroup('Custom', all.filter(function (i) { return !i.isSeed; }));
     if (cur) sel.value = cur;
   }
 
@@ -2360,9 +2360,7 @@
     } else {
       // Render empty tables so the page isn't blank
       renderOverview();
-      $('items-custom-body').innerHTML = '<tr><td colspan="7" class="empty">Nhập ADMIN_KEY để xem vật phẩm.</td></tr>';
-      $('items-standard-body').innerHTML = '<tr><td colspan="5" class="empty">—</td></tr>';
-      $('items-rare-body').innerHTML = '<tr><td colspan="5" class="empty">—</td></tr>';
+      $('items-all-body').innerHTML = '<tr><td colspan="8" class="empty">Nhập ADMIN_KEY để xem vật phẩm.</td></tr>';
       $('players-body').innerHTML = '<tr><td colspan="8" class="empty">Nhập ADMIN_KEY để xem người chơi.</td></tr>';
       $('msgs-body').innerHTML = '<tr><td colspan="4" class="empty">Nhập ADMIN_KEY để xem tin nhắn.</td></tr>';
       $('gifts-body').innerHTML = '<tr><td colspan="7" class="empty">Nhập ADMIN_KEY để xem quà tặng.</td></tr>';

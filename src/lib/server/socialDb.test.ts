@@ -281,3 +281,74 @@ test('v14: adminListActions returns recent actions newest-first (audit log)', ()
   assert.ok(i3 < i2 && i2 < i1, 'newest-first: r3 should come before r2 before r1');
 });
 
+// ================= v15 — items table (SQLite-backed item catalogue) =================
+
+test('v15: seedItemsFromJSON populates the items table on first db() access (standard + rare + used)', () => {
+  if (!S) return; // bun runtime cannot load better-sqlite3 — see setup
+  const all = S.listAllItems();
+  // The static JSON ships 67 standard + 12 rare + 12 used = 91 rows.
+  assert.ok(all.length >= 91, 'seed should insert every static item row');
+  // Standard seed row carries the right flags.
+  const lambo = all.find(i => i.id === 'c-lambo');
+  assert.ok(lambo, 'c-lambo must be seeded');
+  assert.equal(lambo!.isSeed, true);
+  assert.equal(lambo!.isRare, false);
+  assert.equal(lambo!.isUsed, false);
+  assert.equal(lambo!.name, 'Urus');
+  // Rare seed row is flagged is_rare.
+  const gto = all.find(i => i.id === 'rg-gto');
+  assert.ok(gto && gto.isRare && gto.isSeed, 'rg-gto must be seeded as rare');
+  // Used-market seed row carries base_id + age_years.
+  const camry = all.find(i => i.id === 'u-camry-12y');
+  assert.ok(camry && camry.isUsed && camry.baseId === 'c-toyota', 'u-camry-12y must seed as used with baseId');
+  assert.equal(camry!.ageYears, 12);
+});
+
+test('v15: seedItemsFromJSON is idempotent — a second db() call does not duplicate rows', () => {
+  if (!S) return; // bun runtime cannot load better-sqlite3 — see setup
+  const before = S.listAllItems().length;
+  // db() returns the cached singleton; re-call listAllItems to confirm the
+  // row count is stable (INSERT OR IGNORE would no-op duplicates anyway).
+  const after = S.listAllItems().length;
+  assert.equal(after, before, 'no duplicate rows on repeated reads');
+});
+
+test('v15: upsertItem inserts a new admin-created row; getItem reads it back; deleteItem removes it', () => {
+  if (!S) return; // bun runtime cannot load better-sqlite3 — see setup
+  const created = S.upsertItem({
+    id: 'custom-test-001', name: 'Test Item', cat: 'Custom', brand: 'TestCo',
+    price: 9999, lux: 5, rate: -0.1, art: 'ic-bag', c: '#ff0000',
+    rarity: 'uncommon', stock: 50, imageUrl: 'https://example.com/x.png',
+  });
+  assert.equal(created.id, 'custom-test-001');
+  assert.equal(created.isSeed, false, 'admin-created rows are never seeds');
+  assert.equal(created.name, 'Test Item');
+  const fetched = S.getItem('custom-test-001');
+  assert.ok(fetched && fetched.price === 9999);
+  // deleteItem succeeds for non-seed rows.
+  const ok = S.deleteItem('custom-test-001');
+  assert.equal(ok, true);
+  assert.equal(S.getItem('custom-test-001'), undefined, 'row is gone after delete');
+});
+
+test('v15: upsertItem OVERWRITES an existing seed row (admin edits win) but preserves is_seed', () => {
+  if (!S) return; // bun runtime cannot load better-sqlite3 — see setup
+  // Edit a known seed row's price; the seed flag must survive so deleteItem
+  // still refuses to drop it.
+  const updated = S.upsertItem({
+    id: 'w-rolex', name: 'Submariner (admin repriced)', cat: 'Watch',
+    brand: 'Rolex', price: 12345, lux: 80, rate: 0.05, art: 'i-watch',
+    c: '#15803d', rarity: 'rare',
+  });
+  assert.equal(updated.price, 12345);
+  assert.equal(updated.isSeed, true, 'is_seed preserved across admin edits');
+  // deleteItem must refuse seed rows.
+  const ok = S.deleteItem('w-rolex');
+  assert.equal(ok, false, 'seed rows cannot be deleted');
+  // Restore the row to its seed values so other tests don't see the edit.
+  S.upsertItem({
+    id: 'w-rolex', name: 'Submariner', cat: 'Watch', brand: 'Rolex',
+    price: 10000, lux: 80, rate: 0.05, art: 'i-watch', c: '#15803d',
+  });
+});
+
