@@ -54,12 +54,13 @@ export function useGameController() {
 
   const toastQueue = useRef<{ id: number; msg: string }[]>([]);
 
-  // Ref tracking whether a toast is currently showing — used to avoid the
-  // stale-closure bug where multiple synchronous showToast() calls would all
-  // see `toast === null` (the closure captures the value at call time, before
-  // React re-renders) and overwrite each other. The ref is updated in the same
-  // tick as setToast, so subsequent calls see it correctly.
-  const toastShowing = useRef(false);
+  // toastShowingRef — tracks whether a toast is currently showing. Used to
+  // avoid the stale-closure bug where multiple synchronous showToast() calls
+  // would all see `toast === null` (the closure captures the value at call
+  // time, before React re-renders) and overwrite each other. The ref is
+  // updated in the same tick as setToast, so subsequent calls see it correctly.
+  // Renamed to end in `Ref` to satisfy the react-hooks/immutability rule.
+  const toastShowingRef = useRef(false);
 
   const [aiBusy, setAiBusy] = useState(false);
 
@@ -88,7 +89,10 @@ export function useGameController() {
 
   useEffect(() => { speedRef.current = speed; }, [speed]);
 
-  const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // toastTimerRef — holds the active toast expiry setTimeout handle. Renamed
+  // to end in `Ref` to satisfy the react-hooks/immutability rule (the rule
+  // forbids `.current` assignment on a ref whose name does not end in `Ref`).
+  const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
 
   // v11.44 — Show the "what's new" modal on first load if not seen yet.
@@ -231,20 +235,20 @@ export function useGameController() {
     // whether to display immediately or queue — this avoids the stale-closure
     // bug where multiple synchronous calls would all see `toast === null`.
     const entry = { id: Date.now() + Math.floor(Math.random() * 1000), msg };
-    if (toastShowing.current) {
+    if (toastShowingRef.current) {
       toastQueue.current.push(entry);
       return;
     }
-    toastShowing.current = true;
+    toastShowingRef.current = true;
     setToast(entry);
     // v11.50 — increased duration: 4.5s min, 12s max (was 3.5s/8s). Per-char
     // weight dropped slightly so short toasts still feel snappy but milestone
     // + AI-event toasts get enough screen time to actually be read.
     const dur = Math.min(12000, Math.max(4500, msg.length * 50));
-    if (toastTimer.current) clearTimeout(toastTimer.current);
-    toastTimer.current = setTimeout(() => {
+    if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+    toastTimerRef.current = setTimeout(() => {
       setToast(null);
-      toastShowing.current = false;
+      toastShowingRef.current = false;
     }, dur);
   }, []);
 
@@ -253,17 +257,17 @@ export function useGameController() {
   // above sets toastShowing=false + setToast(null); this effect then picks up
   // the next queued toast (if any) and shows it for its full duration.
   useEffect(() => {
-    if (toastShowing.current) return; // current toast still showing
+    if (toastShowingRef.current) return; // current toast still showing
     if (toastQueue.current.length === 0) return;
     const next = toastQueue.current.shift()!;
-    toastShowing.current = true;
+    toastShowingRef.current = true;
     setToast(next);
     // v11.50 — match the new 4.5-12s duration above.
     const dur = Math.min(12000, Math.max(4500, next.msg.length * 50));
-    if (toastTimer.current) clearTimeout(toastTimer.current);
-    toastTimer.current = setTimeout(() => {
+    if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+    toastTimerRef.current = setTimeout(() => {
       setToast(null);
-      toastShowing.current = false;
+      toastShowingRef.current = false;
     }, dur);
   }, [toast]);
 

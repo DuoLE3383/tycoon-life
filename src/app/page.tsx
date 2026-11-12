@@ -44,6 +44,29 @@ if (typeof window !== 'undefined') {
 
 export default function Page() {
   const { act, activeGroup, aiBusy, aiNoteKey, askAI, comm, curCat, curSubs, dismissWhatsNew, editingProfile, eraName, lastTab, pzExpanded, qtyMap, rankBoard, reloadPrompt, s, setCurCat, setEditingProfile, setLastTab, setPzExpanded, setQtyMap, setRankBoard, setReloadPrompt, setSpeed, setTab, showToast, speed, t, tab, toast, whatsNew, whatsNewContent } = useGameController();
+
+  // v13.12 — NAVIGATION BUG FIX.
+  // The previous onNav handlers captured `activeGroup` from the closure and
+  // stored lastTab under that key: `setLastTab(lt => ({ ...lt, [activeGroup]: k }))`.
+  // This was correct ONLY when navigating within the current group. When a
+  // quick link crossed group boundaries (e.g. user is on 'biz' in the empire
+  // group, clicks the PinZone "low cash" warning → onNav('bank')), the entry
+  // was stored as `lastTab['empire'] = 'bank'`. The next time the user tapped
+  // the empire group button, NavBar did `setTab(lastTab['empire'] || 'biz')` =
+  // `setTab('bank')` — sending them BACK to the bank tab (in the finance
+  // group) instead of the expected 'biz'. The navigation felt "locked" — every
+  // group button kept sending them to wherever they'd last cross-linked from.
+  //
+  // FIX: navTo() computes the TARGET group from the destination tab key, so
+  // lastTab is always stored under the correct group. Cross-group quick links
+  // no longer pollute the source group's lastTab entry. NavBar / MobileNav
+  // now reliably restore the right tab per group on subsequent clicks.
+  const navTo = (k: string) => {
+    setTab(k);
+    const targetGroup = GROUPS.find(g => g[3].some(([key]) => key === k))?.[0] || activeGroup;
+    setLastTab(lt => ({ ...lt, [targetGroup]: k }));
+  };
+
   return (
     <div className={'tgame life-' + healthState(s.health)}>
       <div dangerouslySetInnerHTML={{ __html: ART_DEFS }} />
@@ -53,15 +76,15 @@ export default function Page() {
             PinZone dashboard stays; nav is back to horizontal scroll pills. */}
         <div className="sticky-header">
         <PinZone s={s} t={t} onEdit={() => setEditingProfile(true)} act={act}
-          onNav={(k: string) => { setTab(k); setLastTab(lt => ({ ...lt, [activeGroup]: k })); }}
+          onNav={navTo}
           expanded={pzExpanded} onToggleExpand={() => setPzExpanded(v => !v)} />
         <NavBar s={s} t={t} tab={tab} activeGroup={activeGroup} curSubs={curSubs}
           friendActivity={comm.ready && (comm.incoming.length > 0 || comm.unclaimedGifts.length > 0)}
           onSelectGroup={(gid: string, first: string) => setTab(lastTab[gid] || first)}
-          onSelectTab={(key: string) => { setTab(key); setLastTab(lt => ({ ...lt, [activeGroup]: key })); }} />
+          onSelectTab={(key: string) => navTo(key)} />
       </div>
         <main id="tview" key={tab} className="enter">
-          {tab === 'home' && <HomeTab s={s} act={act} askAI={askAI} aiBusy={aiBusy} aiNote={t(aiNoteKey)} eraName={eraName} onNav={(k: string) => { setTab(k); setLastTab(lt => ({ ...lt, [activeGroup]: k })); }} />}
+          {tab === 'home' && <HomeTab s={s} act={act} askAI={askAI} aiBusy={aiBusy} aiNote={t(aiNoteKey)} eraName={eraName} onNav={navTo} />}
           {tab === 'career' && <CareerTab s={s} act={act} />}
           {tab === 'edu' && <EduTab s={s} act={act} />}
           {tab === 'biz' && <BizTab s={s} act={act} />}
@@ -79,12 +102,12 @@ export default function Page() {
           {tab === 'lboard' && <BoardView comm={comm} />}
           {tab === 'bank' && <BankTab s={s} act={act} />}
           {tab === 'portfolio' && <PortfolioTab s={s} act={act} />}
-          {tab === 'finance-overview' && <FinanceOverviewTab s={s} act={act} onNav={(k: string) => { setTab(k); setLastTab(lt => ({ ...lt, [activeGroup]: k })); }} />}
+          {tab === 'finance-overview' && <FinanceOverviewTab s={s} act={act} onNav={navTo} />}
           {tab === 'rank' && <RankTab s={s} board={rankBoard} setBoard={setRankBoard} />}
           {tab === 'power' && <PowerTab s={s} act={act} />}
           {tab === 'entity' && <EntityTab s={s} act={act} />}
           {tab === 'fame' && <FameTab s={s} />}
-          {tab === 'links' && <LinksTab s={s} onNav={(k: string) => { setTab(k); setLastTab(lt => ({ ...lt, [activeGroup]: k })); }} />}
+          {tab === 'links' && <LinksTab s={s} onNav={navTo} />}
         </main>
         <footer className="mini tfoot">
           {/* v11.10 — persistent legal disclaimer, visible on every tab */}
@@ -116,7 +139,7 @@ export default function Page() {
           notched phones. */}
       <MobileNav s={s} t={t} tab={tab} activeGroup={activeGroup} curSubs={curSubs}
         onSelectGroup={(gid: string, first: string) => setTab(lastTab[gid] || first)}
-        onSelectTab={(key: string) => { setTab(key); setLastTab(lt => ({ ...lt, [activeGroup]: key })); }} />
+        onSelectTab={(key: string) => navTo(key)} />
       {editingProfile && <EditProfileModal s={s} act={act} onClose={() => setEditingProfile(false)} />}
 
       {toast && <div id="ttoast" key={toast.id} className="on">{toast.msg}</div>}

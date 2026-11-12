@@ -1,7 +1,13 @@
 'use client';
 
-import { assetBreakdown, expenseBreakdown, type FinanceAction, financeActions, fmtFull, type GameState, incomeBreakdown, netWorth, useT, yearExpenses, yearIncome } from '@/components/gameDeps';
-import { type Act, Btn, Row, useEscapeKey, useReqLabel } from '@/components/shared';
+import {
+  assetBreakdown, bizCosts, bizMultiplier, bizNet, bizRndMult, bizRevenue, branchCount, clubMult,
+  effEraBiz, effLoanRate, type ExpenseItem, expenseBreakdown, fameBonus, type FinanceAction,
+  financeActions, fmt, fmtFull, type GameState, healthMult, incomeBreakdown, type IncomeSource,
+  jobIncome, jobsOf, levelMult, lotValue, netWorth, spiritBizMult, stockVal, studyTuition,
+  studyWorkMult, upkeep, useT, yearExpenses, yearIncome,
+} from '@/components/gameDeps';
+import { type Act } from '@/components/shared';
 
 
 
@@ -10,6 +16,17 @@ import { type Act, Btn, Row, useEscapeKey, useReqLabel } from '@/components/shar
 // breakdowns as clickable tables (each row navigates to the relevant tab),
 // + a priority-sorted action-suggestion list ("you have idle cash — deposit
 // to savings" etc). Designed to be the entry tab of the Finance group.
+//
+// v13.12 — three new diagnostic cards so the player can actually understand
+// WHERE their profit/loss comes from and what to do about it:
+//   1. P&L Diagnosis        — plain-language "you're profitable because X > Y"
+//   2. Improvement Suggestions — exact-dollar-impact advice for the 5 highest-
+//                              leverage levers (loan / biz expansion / stocks /
+//                              tuition / upkeep). Each shows $X/yr saved/added.
+//   3. Financial Relationships — how the multipliers chain together, with the
+//                              player's current factor breakdown so they know
+//                              which lever to pull next.
+// The original cash-flow + tables + action-suggestions are kept below these.
 export function FinanceOverviewTab({ s, onNav }: { s: GameState; act: Act; onNav: (k: string) => void }) {
   const { t } = useT();
   const yi = yearIncome(s);
@@ -42,6 +59,157 @@ export function FinanceOverviewTab({ s, onNav }: { s: GameState; act: Act; onNav
       </td>
     </tr>
   );
+
+  // ============= v13.12 — P&L DIAGNOSIS =============
+  // Pick the single biggest income source + single biggest expense so we can
+  // explain in plain language WHY the player is (or isn't) making money.
+  // Falls back to "no income yet" / "living cost" when arrays are empty.
+  const topIncome: IncomeSource | null = income[0] || null;
+  const topExpense: ExpenseItem | null = expenses[0] || null;
+  const profitable = netY >= 0;
+  // When the player has no income, the "biggest expense" is still informative
+  // (it's what's bleeding them). When they have no expenses at all (a fresh
+  // game with $0), they're neutral — show a "build income" hint instead.
+  const hasAnyIncome = income.length > 0;
+  const hasAnyExpense = expenses.length > 0;
+
+  // ============= v13.12 — IMPROVEMENT SUGGESTIONS =============
+  // Five high-leverage levers, each with an EXACT dollar impact. These
+  // complement financeActions() (which gives general priority-sorted advice)
+  // by showing the precise $/yr saved or added for the most common decisions.
+  type Suggestion = { id: string; text: string; link: string; impact: number; impactLabel: string };
+  const suggestions: Suggestion[] = [];
+
+  // 1. LOAN — repaying a meaningful chunk stops the interest bleed on that
+  //    chunk. We suggest repaying either the full loan (if the player can
+  //    afford it from cash) or a sensible $10k slab (whichever is smaller).
+  //    Savings = repaying × effLoanRate (annual interest avoided).
+  if (s.bank.loan > 0) {
+    const rate = effLoanRate(s);
+    const interestYr = s.bank.loan * rate;
+    const repay = Math.min(s.bank.loan, Math.max(10000, s.money));
+    const save = repay * rate;
+    suggestions.push({
+      id: 'loan',
+      link: 'bank',
+      impact: save,
+      impactLabel: `save ${fmt(save)}/yr`,
+      text: `Loan ${fmtFull(s.bank.loan)} costs ${fmt(interestYr)}/yr in interest. Repaying ${fmt(repay)} would ${repay >= s.bank.loan ? 'clear it entirely' : 'cut the balance'} and save ${fmt(save)}/yr.`,
+    });
+  }
+
+  // 2. BUSINESS EXPANSION — if the player has profitable branches, opening
+  //    one more of the SAME kind adds roughly the per-branch average net.
+  //    This is conservative (new branches cost upfront + grow with BRANCH_GROWTH
+  //    = 1.35× per existing branch, so the actual first branch of a new type
+  //    would pay more — but we don't want to overpromise). Zero branches → no
+  //    suggestion (the financeActions "startbiz" already covers that case).
+  const totalBranches = (() => {
+    let n = 0;
+    // BIZ isn't exported via gameDeps; we sum branch counts for known ids.
+    // branchCount(s, id) returns 0 when the player has none of that type.
+    for (const id of ['cafe', 'shop', 'street', 'gym', 'salon', 'farm', 'fac', 'restaurant', 'logistics', 'clinic', 'school', 'realestate', 'hotel', 'ret']) {
+      n += branchCount(s, id);
+    }
+    return n;
+  })();
+  const bn = bizNet(s);
+  if (totalBranches > 0 && bn > 0) {
+    const perBranch = bn / totalBranches;
+    suggestions.push({
+      id: 'expand-biz',
+      link: 'biz',
+      impact: perBranch,
+      impactLabel: `add ~${fmt(perBranch)}/yr`,
+      text: `Your business nets ${fmt(bn)}/yr across ${totalBranches} branch${totalBranches === 1 ? '' : 'es'} — opening 1 more of the same type could add ~${fmt(perBranch)}/yr.`,
+    });
+  }
+
+  // 3. STOCKS — show current holding value + suggest Portfolio tab for ROI.
+  //    Dollar impact = unrealized gains (we don't have that helper here
+  //    without portfolioRealizedGains, but the holding value itself is the
+  //    relevant "capital at work" number — we point at Portfolio for ROI).
+  const stk = stockVal(s);
+  if (stk > 0) {
+    suggestions.push({
+      id: 'stocks',
+      link: 'portfolio',
+      impact: stk,
+      impactLabel: `${fmt(stk)} invested`,
+      text: `Your stocks are worth ${fmt(stk)} — check the Portfolio tab for per-holding ROI and realized gains.`,
+    });
+  }
+
+  // 4. TUITION — graduating stops the tuition expense entirely. Show the
+  //    exact $/yr bleed that disappears on graduation.
+  const tuitionYr = studyTuition(s);
+  if (tuitionYr > 0) {
+    suggestions.push({
+      id: 'tuition',
+      link: 'edu',
+      impact: tuitionYr,
+      impactLabel: `stop ${fmt(tuitionYr)}/yr`,
+      text: `You're paying ${fmt(tuitionYr)}/yr in tuition — graduating would stop this expense entirely.`,
+    });
+  }
+
+  // 5. UPKEEP — owned lots cost lotValue × 2% per year in upkeep (+ crew cost
+  //    for Yacht / Private jet). Selling the most expensive idle lot removes
+  //    its 2% slice. We surface the total upkeep + the per-year savings from
+  //    selling the top lot (which is the highest-impact single sale).
+  const upk = upkeep(s);
+  if (upk > 0 && s.lots.length > 0) {
+    // Find the lot with the highest lotValue × 0.02 component (ignoring crew
+    // cost since selling a Yacht also removes the crew cost — that's an even
+    // bigger save, but we want a conservative single number).
+    let topLotIdx = -1, topLotSave = 0;
+    s.lots.forEach((l, i) => {
+      const save = lotValue(s, l) * 0.02;
+      if (save > topLotSave) { topLotSave = save; topLotIdx = i; }
+    });
+    const topLot = topLotIdx >= 0 ? s.lots[topLotIdx] : null;
+    if (topLot) {
+      suggestions.push({
+        id: 'upkeep',
+        link: 'assets',
+        impact: topLotSave,
+        impactLabel: `save ${fmt(topLotSave)}/yr`,
+        text: `Your asset upkeep is ${fmt(upk)}/yr across ${s.lots.length} item${s.lots.length === 1 ? '' : 's'}. Selling your highest-value item would reduce it by ~${fmt(topLotSave)}/yr.`,
+      });
+    }
+  }
+
+  // ============= v13.12 — FINANCIAL RELATIONSHIPS =============
+  // Show the actual multiplier chain so the player can see which lever moves
+  // the needle most. bizMultiplier is the most important — it amplifies ALL
+  // branch income, so even a +0.05 bump there can be worth more than a new
+  // branch. We break each factor out with its current value.
+  // BIZ_DEGREE_BONUS / BIZ_MULTIPLIER_CAP / LEVEL_INCOME_BONUS live in
+  // gameData.ts but aren't re-exported through gameDeps.ts — we hardcode the
+  // stable constants here with a comment so the breakdown still renders.
+  const BIZ_DEGREE_BONUS = 0.15;        // gameData.ts: +15% per business degree level
+  const BIZ_MULTIPLIER_CAP = 3;          // gameData.ts: hard cap on the biz multiplier
+  const LEVEL_INCOME_BONUS = 0.02;       // gameData.ts: +2% per level above 1
+  const bm = bizMultiplier(s);
+  const bmFactors: { label: string; value: string; raw: number }[] = [
+    { label: 'Club bonus', value: '×' + clubMult(s).toFixed(2), raw: clubMult(s) },
+    { label: `Degree bonus (business Lv ${s.deg.business})`, value: '×' + (1 + BIZ_DEGREE_BONUS * s.deg.business).toFixed(2), raw: 1 + BIZ_DEGREE_BONUS * s.deg.business },
+    { label: 'Fame bonus', value: '×' + fameBonus(s).toFixed(3), raw: fameBonus(s) },
+    { label: `Era multiplier`, value: '×' + effEraBiz(s).toFixed(2), raw: effEraBiz(s) },
+    { label: `Level bonus (Lv ${s.level})`, value: '×' + levelMult(s).toFixed(2), raw: levelMult(s) },
+    { label: 'Spirit bonus (≥70)', value: '×' + spiritBizMult(s).toFixed(2), raw: spiritBizMult(s) },
+    { label: 'R&D boost', value: '×' + bizRndMult(s).toFixed(2), raw: bizRndMult(s) },
+  ];
+  const bmProduct = bmFactors.reduce((a, f) => a * f.raw, 1);  // pre-cap product
+  const bmCapped = Math.min(BIZ_MULTIPLIER_CAP, bmProduct);
+  const isCapped = bmProduct > BIZ_MULTIPLIER_CAP;
+
+  // jobIncome breakdown — base salary × studyWorkMult (only for FT jobs) ×
+  // zodiac affinity (per job). Show one row per active job.
+  const activeJobs = jobsOf(s);
+  const swMult = studyWorkMult(s);  // 0.6 if FT job while studying, else 1
+  const healthM = healthMult(s);    // 0.7–1.0 based on health
+
   return (
     <>
       {/* Cash flow summary card */}
@@ -75,7 +243,88 @@ export function FinanceOverviewTab({ s, onNav }: { s: GameState; act: Act; onNav
         </div>
       </div>
 
-      {/* Action suggestions */}
+      {/* ============= v13.12 — P&L DIAGNOSIS ============= */}
+      {/* Plain-language WHY the player is (or isn't) making money, with the
+          single biggest income source + single biggest expense called out.
+          The goal is to make the cash-flow numbers above actionable — instead
+          of just "Income $50K / Expenses $30K / Net +$20K", the player sees
+          "you're profitable because Salary ($50K) > Living ($18K)" so they
+          know exactly which lever to pull. */}
+      <div className="card" style={{ marginBottom: 10, padding: 14, borderLeft: `3px solid ${profitable ? 'var(--sage)' : 'var(--brick)'}` }}>
+        <div className="mini" style={{ textTransform: 'uppercase', letterSpacing: '.4px', color: 'var(--accent)', marginBottom: 6 }}>🩺 P&L Diagnosis</div>
+        {profitable ? (
+          <div style={{ fontSize: '.9rem', lineHeight: 1.5 }}>
+            <b style={{ color: 'var(--sage)' }}>You're profitable</b>{' '}
+            {hasAnyIncome && topExpense ? (
+              <>because <b style={{ color: 'var(--up)' }}>{topIncome!.label}</b> ({fmtFull(topIncome!.amount)}/yr) exceeds <b style={{ color: 'var(--down)' }}>{topExpense.label}</b> ({fmtFull(topExpense.amount)}/yr).</>
+            ) : hasAnyIncome ? (
+              <>because you have <b style={{ color: 'var(--up)' }}>{topIncome!.label}</b> ({fmtFull(topIncome!.amount)}/yr) and minimal expenses.</>
+            ) : (
+              <>with net zero or positive — you have no expenses yet, but also no income. Start a job or business to actually grow wealth.</>
+            )}
+          </div>
+        ) : (
+          <div style={{ fontSize: '.9rem', lineHeight: 1.5 }}>
+            <b style={{ color: 'var(--brick)' }}>You're losing money</b>{' '}
+            {hasAnyExpense && hasAnyIncome ? (
+              <>because <b style={{ color: 'var(--down)' }}>{topExpense!.label}</b> ({fmtFull(topExpense!.amount)}/yr) exceeds <b style={{ color: 'var(--up)' }}>{topIncome!.label}</b> ({fmtFull(topIncome!.amount)}/yr).</>
+            ) : hasAnyExpense ? (
+              <>because <b style={{ color: 'var(--down)' }}>{topExpense!.label}</b> ({fmtFull(topExpense!.amount)}/yr) is bleeding cash with no income to offset it.</>
+            ) : (
+              <>— expenses exceed income. Increase revenue or cut costs below.</>
+            )}
+          </div>
+        )}
+        {/* Top income + top expense quick-jump chips */}
+        <div style={{ display: 'flex', gap: 6, marginTop: 8, flexWrap: 'wrap' }}>
+          {topIncome && (
+            <button onClick={() => onNav(topIncome.link)} style={{ cursor: 'pointer', background: 'rgba(46,158,91,.08)', border: '1px solid rgba(46,158,91,.25)', borderRadius: 8, padding: '4px 9px', fontSize: '.76rem', color: 'var(--up)', fontWeight: 700 }}>
+              Top income: {topIncome.label} · {fmtFull(topIncome.amount)}/yr →
+            </button>
+          )}
+          {topExpense && (
+            <button onClick={() => onNav(topExpense.link)} style={{ cursor: 'pointer', background: 'rgba(192,57,43,.08)', border: '1px solid rgba(192,57,43,.25)', borderRadius: 8, padding: '4px 9px', fontSize: '.76rem', color: 'var(--down)', fontWeight: 700 }}>
+              Top expense: {topExpense.label} · {fmtFull(topExpense.amount)}/yr →
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* ============= v13.12 — IMPROVEMENT SUGGESTIONS ============= */}
+      {/* The 5 highest-leverage levers, each with an EXACT $/yr impact so the
+          player can rank them by ROI and pick the biggest mover. Complements
+          the general priority-sorted financeActions() below — that section
+          says "you should do X", this one says "doing X is worth exactly $Y". */}
+      <h3>🎯 Improvement Suggestions</h3>
+      {suggestions.length === 0 ? (
+        <div className="card" style={{ marginBottom: 10, padding: 12, color: 'var(--sage)', fontWeight: 600 }}>
+          ✓ No high-leverage levers right now — your finances are clean. See general actions below.
+        </div>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 10 }}>
+          {suggestions.map(s => (
+            <button key={s.id} className="card" onClick={() => onNav(s.link)} style={{
+              padding: '10px 12px', textAlign: 'left', cursor: 'pointer',
+              borderLeft: '3px solid var(--accent)',
+              background: 'var(--card)',
+            }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 3, gap: 8 }}>
+                <span className="tag" style={{
+                  fontSize: '.68rem', fontWeight: 700,
+                  background: 'var(--accent)',
+                  color: '#fff',
+                  padding: '1px 7px', borderRadius: 999,
+                  whiteSpace: 'nowrap',
+                }}>{s.impactLabel}</span>
+                <span className="mini" style={{ color: 'var(--accent)', fontWeight: 700, whiteSpace: 'nowrap' }}>{t('fo.viewTab')} →</span>
+              </div>
+              <div style={{ fontSize: '.86rem', lineHeight: 1.45 }}>{s.text}</div>
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* Action suggestions (general priority-sorted list) */}
       <h3>💡 {t('fo.actions')}</h3>
       {actions.length === 0 ? (
         <div className="card" style={{ marginBottom: 10, padding: 12, color: 'var(--sage)', fontWeight: 600 }}>✓ {t('fo.noActions')}</div>
@@ -175,6 +424,64 @@ export function FinanceOverviewTab({ s, onNav }: { s: GameState; act: Act; onNav
               </tbody>
             </table>
           )}
+        </div>
+      </div>
+
+      {/* ============= v13.12 — FINANCIAL RELATIONSHIPS ============= */}
+      {/* Show how the multipliers chain together so the player knows which
+          lever moves the needle most. bizMultiplier is the master dial — it
+          amplifies ALL branch income, so a +0.05 there can outweigh a new
+          branch. We render the current factor breakdown + the final capped
+          value, and the jobIncome factors so career players see what's
+          hurting their salary (studyWorkMult 0.6 while studying FT). */}
+      <div className="card" style={{ marginBottom: 10, padding: 14 }}>
+        <div className="mini" style={{ textTransform: 'uppercase', letterSpacing: '.4px', color: 'var(--accent)', marginBottom: 6 }}>🔗 Financial Relationships</div>
+
+        {/* bizMultiplier breakdown */}
+        <div style={{ fontSize: '.84rem', marginBottom: 6, lineHeight: 1.45 }}>
+          <b>Business income multiplier</b> = product of all factors below, capped at <b>×{BIZ_MULTIPLIER_CAP}</b>.
+          Each factor amplifies <b>every dollar</b> of branch revenue, so improving the smallest factor here is usually worth more than opening a new branch.
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: '3px 12px', fontSize: '.82rem', marginBottom: 8, padding: '0 4px' }}>
+          {bmFactors.map(f => (
+            <div key={f.label} style={{ display: 'contents' }}>
+              <span className="sub">{f.label}</span>
+              <b style={{ textAlign: 'right', fontVariantNumeric: 'tabular-nums', color: f.raw > 1 ? 'var(--up)' : 'var(--mute)' }}>{f.value}</b>
+            </div>
+          ))}
+          <span className="sub" style={{ borderTop: '1px solid var(--line)', paddingTop: 4, marginTop: 2 }}>Product (pre-cap)</span>
+          <b style={{ textAlign: 'right', fontVariantNumeric: 'tabular-nums', borderTop: '1px solid var(--line)', paddingTop: 4, marginTop: 2 }}>×{bmProduct.toFixed(3)}</b>
+          <span className="sub" style={{ fontWeight: 700 }}>Final bizMultiplier {isCapped ? '(capped)' : ''}</span>
+          <b style={{ textAlign: 'right', fontVariantNumeric: 'tabular-nums', color: 'var(--accent)', fontWeight: 800 }}>×{bm.toFixed(3)}</b>
+        </div>
+        <div className="mini" style={{ opacity: .7, marginBottom: 10 }}>
+          Biz revenue × multiplier = {fmtFull(bizRevenue(s))} × {bm.toFixed(2)} = {fmtFull(Math.max(0, bizRevenue(s) * bm))}/yr gross · minus {fmtFull(bizCosts(s))}/yr costs = <b style={{ color: bn >= 0 ? 'var(--up)' : 'var(--down)' }}>{bn >= 0 ? '+' : '−'}{fmtFull(Math.abs(bn))}/yr net</b>.
+        </div>
+
+        {/* jobIncome breakdown */}
+        <div style={{ fontSize: '.84rem', marginBottom: 6, lineHeight: 1.45, marginTop: 8 }}>
+          <b>Job income</b> = sum over each active job of <code>salary × multipliers</code>. A full-time job while studying pays only 60% (studyWorkMult); zodiac affinity adds +5% when the job's degree field matches your sign.
+        </div>
+        {activeJobs.length === 0 ? (
+          <div className="mini" style={{ opacity: .7, padding: '0 4px' }}>No active jobs — your salary is $0. Visit the Career tab to apply.</div>
+        ) : (
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: '3px 12px', fontSize: '.82rem', marginBottom: 8, padding: '0 4px' }}>
+            {activeJobs.map(j => (
+              <div key={j.id} style={{ display: 'contents' }}>
+                <span className="sub">{t('job.' + j.id, j.name)} base</span>
+                <b style={{ textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>{fmtFull(j.salary)}</b>
+                <span className="sub" style={{ fontSize: '.74rem', opacity: .7 }}>× studyWorkMult {j.ft ? `(${swMult.toFixed(2)})` : '(n/a — PT)'}</span>
+                <b style={{ textAlign: 'right', fontSize: '.78rem', opacity: .8 }}>×{j.ft ? swMult.toFixed(2) : '1.00'}</b>
+              </div>
+            ))}
+            <span className="sub" style={{ borderTop: '1px solid var(--line)', paddingTop: 4, marginTop: 2 }}>Health multiplier (applies to gig pay)</span>
+            <b style={{ textAlign: 'right', fontVariantNumeric: 'tabular-nums', borderTop: '1px solid var(--line)', paddingTop: 4, marginTop: 2 }}>×{healthM.toFixed(2)}</b>
+            <span className="sub" style={{ fontWeight: 700 }}>Total job income</span>
+            <b style={{ textAlign: 'right', fontVariantNumeric: 'tabular-nums', color: 'var(--up)', fontWeight: 800 }}>+{fmtFull(jobIncome(s))}/yr</b>
+          </div>
+        )}
+        <div className="mini" style={{ opacity: .65, fontStyle: 'italic' }}>
+          Note: health multiplier applies to gig pay, not regular salary. Level bonus ({(LEVEL_INCOME_BONUS * 100).toFixed(0)}%/level) is part of bizMultiplier above, not job income.
         </div>
       </div>
 
