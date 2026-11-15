@@ -4,7 +4,7 @@ import {
   assetBreakdown, bizCosts, bizMultiplier, bizNet, bizRndMult, bizRevenue, branchCount, clubMult,
   effEraBiz, effLoanRate, type ExpenseItem, expenseBreakdown, fameBonus, type FinanceAction,
   financeActions, fmt, fmtFull, type GameState, healthMult, incomeBreakdown, type IncomeSource,
-  jobIncome, jobsOf, levelMult, lotValue, netWorth, spiritBizMult, stockVal, studyTuition,
+  jobIncome, jobsOf, levelMult, lotValue, assetDepreciationYr, netWorth, spiritBizMult, stockVal, studyTuition,
   studyWorkMult, upkeep, useT, yearExpenses, yearIncome,
 } from '@/components/gameDeps';
 import { type Act } from '@/components/shared';
@@ -31,6 +31,7 @@ export function FinanceOverviewTab({ s, onNav }: { s: GameState; act: Act; onNav
   const { t } = useT();
   const yi = yearIncome(s);
   const ye = yearExpenses(s);
+  // v13.18 — depreciation memo: unrealized, NOT in ye. Shown as its own row.
   const netY = yi - ye;
   const netM = netY / 12;
   const nw = netWorth(s);
@@ -47,7 +48,7 @@ export function FinanceOverviewTab({ s, onNav }: { s: GameState; act: Act; onNav
   // v13.9 — uses fmtFull() so large income/asset figures (> 100 tỷ) stay
   // readable with thousand separators.
   const renderRow = (item: { id: string; label: string; amount: number; link: string }, idx: number, kind: 'income' | 'expense' | 'asset' | 'liab') => (
-    <tr key={item.id + idx} className="fo-row" onClick={() => onNav(item.link)} style={{ cursor: 'pointer', borderBottom: '1px solid var(--line)' }}>
+<tr key={item.id + idx} className="fo-row" onClick={() => onNav(item.link)} style={{ cursor: 'pointer', borderBottom: '1px solid var(--line)' }}>
       <td style={{ padding: '7px 10px', fontWeight: 600 }}>{item.label}</td>
       <td className="num-cell" style={{ textAlign: 'right', padding: '7px 10px', fontVariantNumeric: 'tabular-nums', fontWeight: 700,
         color: kind === 'income' ? 'var(--up)' : kind === 'expense' || kind === 'liab' ? 'var(--down)' : 'var(--ink)' }}>
@@ -382,7 +383,14 @@ export function FinanceOverviewTab({ s, onNav }: { s: GameState; act: Act; onNav
             <table style={{ width: '100%', fontSize: '.82rem', borderCollapse: 'collapse' }}>
               <tbody>
                 {expenses.map((it, i) => renderRow(it, i, 'expense'))}
-                <tr style={{ background: 'var(--paper2)', borderTop: '2px solid var(--line)' }}>
+                                {assetDepreciationYr(s) > 0 && (
+                  <tr style={{ borderTop: '1px dashed var(--line)' }}>
+                    <td style={{ padding: '7px 10px', fontWeight: 600, opacity: .75 }}>Asset depreciation (unrealized)</td>
+                    <td className="num-cell" style={{ textAlign: 'right', padding: '7px 10px', fontVariantNumeric: 'tabular-nums', fontWeight: 700, color: 'var(--down)', opacity: .85 }}>−{fmtFull(assetDepreciationYr(s))}<span className="mini" style={{ opacity: .6, fontWeight: 400 }}>{t('fo.perYear')}</span></td>
+                    <td style={{ textAlign: 'right', padding: '7px 10px', color: 'var(--accent)', fontSize: '.74rem', fontWeight: 700, whiteSpace: 'nowrap' }}>{t('fo.viewTab')} →</td>
+                  </tr>
+                )}
+<tr style={{ background: 'var(--paper2)', borderTop: '2px solid var(--line)' }}>
                   <td style={{ padding: '7px 10px', fontWeight: 800 }}>{t('fo.expenses')}</td>
                   <td className="num-cell" style={{ textAlign: 'right', padding: '7px 10px', fontWeight: 800, color: 'var(--down)', fontVariantNumeric: 'tabular-nums' }}>−{fmtFull(ye)}</td>
                   <td></td>
@@ -392,6 +400,8 @@ export function FinanceOverviewTab({ s, onNav }: { s: GameState; act: Act; onNav
           )}
         </div>
       </div>
+      {/* v13.18 — depreciation is unrealized value loss, not cash spent. It is NOT included in Expenses total above. If Net worth falls while Net cash is +, this row is usually why. */}
+      <div className="mini" style={{ opacity: .65, marginTop: -6, marginBottom: 10, padding: '0 4px' }}>Asset depreciation is unrealized — no cash leaves. It explains why net worth can fall while cash-flow Net is positive.</div>
 
       {/* Assets + Liabilities tables */}
       <div className="fo-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 10 }}>

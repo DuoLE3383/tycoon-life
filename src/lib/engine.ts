@@ -1234,6 +1234,19 @@ export const crewCostFor = (s: GameState, l: { id: string }): number => {
   const hasLic = (it.cat === 'Yacht' && s.lic['boat']) || (it.cat === 'Private jet' && s.lic['pilot']);
   return hasLic ? Math.round(base / 2) : base;
 };
+// v13.18 — Annual asset depreciation (UNREALIZED, not cash).
+// lotValue = paid * (1+rate)^yrs * condFactor * rarityMult, so holding cond
+// constant, next-year value = lotValue * (1+rate). Yearly loss = -lotValue * rate.
+// rate here reuses lotValue's own cap: Math.min(itemRate, ASSET_DEPRECIATION_RATE).
+// This is NOT added to yearExpenses (no cash leaves) — FinanceOverview shows it
+// as a separate memo row so "Income +$100B but net worth falls" is explainable.
+export const assetDepreciationYr = (s: GameState) => s.lots.reduce((a, l) => {
+  const it = l?.id ? ITEM_BY[l.id] : undefined;
+  const rawRate = Number(it?.rate);
+  const itemRate = Number.isFinite(rawRate) ? rawRate : ASSET_DEPRECIATION_RATE;
+  const rate = Math.min(itemRate, ASSET_DEPRECIATION_RATE);
+  return a + (-lotValue(s, l) * rate);
+}, 0);
 export const upkeep = (s: GameState) => s.lots.reduce((a, l) => a + lotValue(s, l) * 0.02 + crewCostFor(s, l), 0);
 // v11.20 — business P&L helpers. bizRevenue = gross annual revenue from all
 // branches + farm + fac lines (before bizMultiplier, before costs).

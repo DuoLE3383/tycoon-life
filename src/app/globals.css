@@ -715,7 +715,7 @@ html[data-theme="dark"] .tgame .cash-chip.low{color:#f87171;border-color:rgba(24
 }
 
 /* ================= v11.36 — Edit Profile modal ================= */
-.tgame .modal-overlay{position:fixed;inset:0;z-index:200;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.55);backdrop-filter:blur(4px);padding:16px}
+.tgame .modal-overlay{position:fixed;inset:0;z-index:10000;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.55);backdrop-filter:blur(4px);padding:16px}
 .tgame .modal-box{background:var(--card);border:1px solid var(--line);border-radius:18px;max-width:440px;width:100%;max-height:90vh;overflow-y:auto;box-shadow:0 20px 50px rgba(0,0,0,.3)}
 .tgame .modal-head{display:flex;align-items:center;justify-content:space-between;padding:16px 18px 10px;border-bottom:1px solid var(--line)}
 .tgame .modal-head h2{margin:0;font-size:1.15rem}
@@ -1305,3 +1305,13 @@ html[data-theme="dark"] .tgame .pchip-big.income-chip.down{color:#fca5a5;backgro
   .tgame .stk-card-trade .qty{flex:1 1 100px}
 }
 
+
+/* v13.18 — modal must sit ABOVE mobile bottom nav (was 200 < 9999, so the
+   nav bar + subnav strip drew on top of Travel/Gigs/Event modals).
+   :has() covers modals rendered ANYWHERE (page root or inside a tab) —
+   no React has-modal state needed, which previously never got set
+   (grep has-modal in *.tsx = 0). When any modal is open: hide the
+   fixed bottom nav + lock page scroll. Toast stays at z-index 300,
+   i.e. UNDER the modal overlay now — intentional, it no longer covers ✕. */
+.tgame:has(.modal-overlay) .mobile-nav-shell{display:none !important}
+body:has(.tgame .modal-overlay){overflow:hidden}
