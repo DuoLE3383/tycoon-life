@@ -55,4 +55,13 @@ export const CHANGELOG: Record<string, ChangelogEntry> = {
       'Ecosystem: Elliott stays in Market, mysticism stays in Tam Linh, no Hub',
     ],
   },
+  'v13.27': {
+    headline: 'HuyenBao v13.27 — Đổi nhân vật bằng Game ID',
+    summary: 'v13.27: Edit Profile thành Setting, thêm Đổi nhân vật bằng Game ID khác. Mỗi nhân vật = 1 Game ID = 1 save riêng, đổi là load save đó, ID cũ vẫn còn nguyên.',
+    features: [
+      'Profile: nút Edit ✏ đổi thành Setting ⚙️',
+      'Profile: Đổi nhân vật = nhập Game ID khác, load save của nhân vật đó',
+      'Intro: giữ nguyên Continue bằng User ID từ v13.21, không thêm nút mới',
+    ],
+  },
 };

@@ -95,7 +95,7 @@ export function PinZone({ s, t, onEdit, act, onNav, expanded, onToggleExpand }: 
 
       {/* Row 1: Identity — avatar + name + edit + age + stage + date */}
       <div className="agehead identity-row">
-        <span className="avchip" data-tip={t('edit.profile', 'Edit profile')}>{s.avatar}</span>
+        <span className="avchip" data-tip={t('edit.profile', 'Cài đặt / Đổi nhân vật')}>{s.avatar}</span>
         <b>{s.name}</b>
         {/* v12 — small UID chip next to the name. Surfaces the player's stable
             life identifier (used by the social layer + admin dashboard) without
@@ -103,7 +103,7 @@ export function PinZone({ s, t, onEdit, act, onNav, expanded, onToggleExpand }: 
             same-name players apart in a glance; the full UID is on the admin
             dashboard player list. Empty on fresh games (pre-begin) — hidden. */}
         {s.uid && <code className="uid-chip" title={`UID: ${s.uid}`}>{s.uid.slice(-6)}</code>}
-        <button className="pin-edit" onClick={onEdit} title={t('edit.profile', 'Edit profile')} aria-label={t('edit.profile', 'Edit profile')}>✏️</button>
+        <button className="pin-edit" onClick={onEdit} title={t('edit.profile', 'Cài đặt / Đổi nhân vật')} aria-label={t('edit.profile', 'Cài đặt / Đổi nhân vật')}>✏️</button>
         <span className="sep">·</span>
         <span className="mini">{t('age')} {Math.floor(a)}</span>
         <span className="tag dark">{t('stage.' + STAGES.indexOf(st), st.name)}</span>
