@@ -1352,3 +1352,35 @@ body:has(.tgame .modal-overlay){overflow:hidden}
   .pin-actions { flex-wrap: wrap; }
   .pin-actions .gigs-trigger, .pin-actions button { flex: 1 1 30%; }
 }
+
+/* v13.34 - Dashboard redesign: mau moi + khoang tho */
+:root {
+  --ink: #F5F1E8;
+  --mute: #9AA8A0;
+  --gold: #F2C66D;
+  --sage: #7BC9A2;
+  --card: #17211D;
+  --card2: #1C2A25;
+  --line: rgba(245,241,232,0.10);
+}
+.pinzone { background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 16px; gap: 14px; }
+.dash-charts { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; align-items: stretch; }
+.dash-chart-box, .dash-chart-col { background: var(--card2); border: 1px solid var(--line); border-radius: 12px; padding: 12px; min-height: 172px; }
+.dash-chart-col .dash-chart-box { background: transparent; border: 0; padding: 0; min-height: 0; }
+.cash-chip { color: var(--gold); }
+.income-chip.up { color: var(--sage); }
+.nw-chip { color: var(--ink); }
+/* Hang Actions rieng - khong de, khong gay hang */
+.pin-actions-bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; background: var(--card2); border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; margin-top: 4px; }
+.pin-followers { font-size: 14px; white-space: nowrap; }
+.pin-followers b { color: var(--ink); }
+.pin-followers em { color: var(--sage); font-style: normal; font-size: 12px; margin-left: 6px; }
+.pin-actions-btns { display: flex; gap: 8px; flex-shrink: 0; }
+.pin-actions-btns .gigs-trigger, .pin-actions-btns button { min-width: 108px; padding: 9px 14px; font-size: 13px; font-weight: 600; border-radius: 10px; white-space: nowrap; }
+.pin-actions-btns .gigs-trigger { background: var(--gold); color: #1A1405; border-color: var(--gold); }
+@media (max-width: 700px) {
+  .dash-charts { grid-template-columns: 1fr; }
+  .pin-actions-bar { flex-direction: column; align-items: stretch; }
+  .pin-actions-btns { display: grid; grid-template-columns: 1fr 1fr 1fr; }
+  .pin-actions-btns .gigs-trigger, .pin-actions-btns button { min-width: 0; }
+}

@@ -165,14 +165,6 @@ export function PinZone({ s, t, onEdit, act, onNav, expanded, onToggleExpand }: 
               />
             </div>
           </button>
-            <div className="pin-actions">
-              <span className="pin-followers" style={{ whiteSpace: 'nowrap' }}>
-                👥 <b>{s.social.followers.toLocaleString('vi-VN')}</b> <span className="mini">{t('followers')}</span>
-              </span>
-              <GigsPopup s={s} act={act} t={t} />
-              <TravelSection s={s} act={act} t={t} />
-              <MoreInfoPopup s={s} t={t} lang={lang} eraName={(y: number) => eraOf(y).name} y={_y} news={_news} timelineLocale={_timelineLocale} onNav={onNav} />
-            </div>
           </div>
           {/* Quick info: sleep + identity */}
           <div className="dash-chart-box">
@@ -207,6 +199,16 @@ export function PinZone({ s, t, onEdit, act, onNav, expanded, onToggleExpand }: 
           </div>
         </div>
       )}
+
+      {/* v13.34 - Actions: hang rieng full-width, khong nhet vao cot giua */}
+      <div className="pin-actions-bar">
+        <span className="pin-followers">👥 <b>{s.social.followers.toLocaleString('vi-VN')}</b> <span>{t('followers')}</span> <em>+{fmt(socialIncome(s))}{t('perYear')}</em></span>
+        <span className="pin-actions-btns">
+          <GigsPopup s={s} act={act} t={t} />
+          <TravelSection s={s} act={act} t={t} />
+          <MoreInfoPopup s={s} t={t} lang={lang} eraName={(y: number) => eraOf(y).name} y={_y} news={_news} timelineLocale={_timelineLocale} onNav={onNav} />
+        </span>
+      </div>
 
       {/* Row 4: Age track */}
       <div className="track slim" style={{ background: `linear-gradient(90deg,#8fae9b 0 ${p(22)},#c9b68e ${p(22)} ${p(26)},#c08a80 ${p(26)} ${p(RETIRE)},#9b93a8 ${p(RETIRE)})` }}>
