@@ -73,4 +73,12 @@ export const CHANGELOG: Record<string, ChangelogEntry> = {
       'Popup: Quick gigs thoat khoi dashboard, khong con bi kep boi overflow:hidden',
     ],
   },
+  'v13.43': {
+    headline: 'HuyenBao v13.43 — GigsPopup Portal, het bi kep',
+    summary: 'v13.43: GigsPopup Portal ra document.body + boc .tgame. Fix .pinzone backdrop-filter lam kep modal-overlay, khong con dung overflow hack.',
+    features: [
+      'GigsPopup: Portal to document.body, giu nguyen modal-box + glow + Esc',
+      'Fix goc: backdrop-filter tren .pinzone tao containing block cho position:fixed',
+    ],
+  },
 };
