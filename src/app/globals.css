@@ -1465,3 +1465,11 @@ body:has(.tgame .modal-overlay){overflow:hidden}
 /* Sleep: dong dau tien ngan lai, khong tran 3 dong */
 .dash-chart-box:last-child > div:first-of-type { font-size: 12px; line-height: 1.35; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .dash-chart-box:last-child b, .dash-chart-box:last-child strong { color: #F2C66D; }
+
+/* v13.39 - Sleep header: tieu de + dropdown xuong 2 hang, khong chen nhau */
+.dash-chart-box:last-child > div:first-child { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.dash-chart-box:last-child > div:first-child select { max-width: 92px; flex-shrink: 0; }
+.dash-chart-box:last-child > div:first-child span, .dash-chart-box:last-child > div:first-child b { min-width: 0; overflow-wrap: break-word; }
+/* Bo line-clamp gay cut chu ... o dong sleepEffects */
+.dash-chart-box:last-child > div:first-of-type { display: block; -webkit-line-clamp: unset; overflow: visible; }
+.dash-chart-box:last-child p, .dash-chart-box:last-child div { overflow: visible; }
