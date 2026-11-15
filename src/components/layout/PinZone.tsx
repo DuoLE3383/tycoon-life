@@ -34,7 +34,7 @@ export function PinZone({ s, t, onEdit, act, onNav, expanded, onToggleExpand }: 
   if (s.sleepHours < 7) warns.push({ id: 'sleep', key: 'att.sleep', severity: 'warn', link: 'home' });
   if (s.sleepDebt > 21) warns.push({ id: 'sleepDebtHigh', key: 'sleepDebt.high', severity: 'critical', link: 'home' });
   if (s.money < 0) warns.push({ id: 'debt', key: 'att.debt', severity: 'critical', link: 'bank' });
-  else if (s.money < 1000 && s.bank.dep < 1000) warns.push({ id: 'low<span class="nw-cash">Cash</span>', key: 'att.low<span class="nw-cash">Cash</span>', severity: 'warn', link: 'bank' });
+  else if (s.money < 1000 && s.bank.dep < 1000) warns.push({ id: 'lowCash', key: 'att.lowCash', severity: 'warn', link: 'bank' });
   if (yi < 0) warns.push({ id: 'negative', key: 'att.negative', severity: 'critical', link: 'finance-overview' });
   if (s.bank.loan > netWorth(s) * 0.3) warns.push({ id: 'highLoan', key: 'att.highLoan', severity: 'warn', link: 'bank' });
   if (!s.diet && s.health < 70) warns.push({ id: 'diet', key: 'att.diet', severity: 'info', link: 'health' });
