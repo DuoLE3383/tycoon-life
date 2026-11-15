@@ -358,8 +358,8 @@ export default function AdminPage() {
                       return editing && editing.id === p.id ? (
                         <tr key={p.id} className="adm-editrow">
                           <td><input className="adm-input" style={{ width: 60 }} value={editing.avatar} onChange={e => setEditing({ ...editing, avatar: e.target.value })} aria-label="avatar" /><input className="adm-input" style={{ width: 140, marginLeft: 6 }} value={editing.name} onChange={e => setEditing({ ...editing, name: e.target.value })} aria-label="name" /></td>
-                          <td><code>{p.code}</code></td>
-                          <td><code className="adm-uid" title={p.id}>{p.id.length > 12 ? p.id.slice(0, 8) + '…' + p.id.slice(-4) : p.id}</code></td>
+                          <td><code>{p.code}</code> <button className="adm-btn" title="Copy Mã HB" onClick={() => { navigator.clipboard.writeText(p.code); flash('📋 Đã copy Mã ' + p.code); }}>📋</button></td>
+                          <td><code className="adm-uid" title={p.id}>{p.id}</code> <button className="adm-btn" title="Copy UID đầy đủ" onClick={() => { navigator.clipboard.writeText(p.id); flash('📋 Đã copy UID ' + p.id); }}>📋</button></td>
                           <td><input className="adm-input" style={{ width: 64 }} type="number" value={editing.level} onChange={e => setEditing({ ...editing, level: Math.max(1, Math.round(Number(e.target.value) || 1)) })} aria-label="level" /></td>
                           <td><input className="adm-input" style={{ width: 120 }} type="number" value={editing.nw} onChange={e => setEditing({ ...editing, nw: Math.max(0, Number(e.target.value) || 0) })} aria-label="net worth" /></td>
                           <td>{fmtAgo(p.last_seen)}</td><td>{p.banned ? '🚫' : '✓'}</td>
@@ -368,8 +368,8 @@ export default function AdminPage() {
                       ) : (
                         <tr key={p.id} className={p.banned ? 'adm-banned' : ''}>
                           <td>{p.avatar} {p.name}{isOnline(p) ? ' 🟢' : ''}</td>
-                          <td><code>{p.code}</code></td>
-                          <td><code className="adm-uid" title={p.id}>{p.id.length > 12 ? p.id.slice(0, 8) + '…' + p.id.slice(-4) : p.id}</code></td>
+                          <td><code>{p.code}</code> <button className="adm-btn" title="Copy Mã HB" onClick={() => { navigator.clipboard.writeText(p.code); flash('📋 Đã copy Mã ' + p.code); }}>📋</button></td>
+                          <td><code className="adm-uid" title={p.id}>{p.id}</code> <button className="adm-btn" title="Copy UID đầy đủ" onClick={() => { navigator.clipboard.writeText(p.id); flash('📋 Đã copy UID ' + p.id); }}>📋</button></td>
                           <td>{p.level}</td><td className="adm-nw">{fmtMoney(p.nw)}</td><td>{fmtAgo(p.last_seen)}</td>
                           <td>{p.banned ? '🚫 Bị cấm' : isOnline(p) ? '🟢 Online' : '✓'}</td>
                           <td className="adm-actions">

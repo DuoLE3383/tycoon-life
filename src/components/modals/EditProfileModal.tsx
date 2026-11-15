@@ -72,7 +72,6 @@ export function EditProfileModal({ s, act, onClose }: { s: GameState; act: Act; 
               ))}
             </div>
           </label>
-        </div>
           {/* v13.27 - Doi nhan vat = nhap Game ID khac */}
           <div className="field" style={{ background: 'rgba(0,0,0,0.04)', padding: '10px', borderRadius: 6, marginTop: 12 }}>
             <label>🔑 Đổi nhân vật — nhập Game ID khác</label>
