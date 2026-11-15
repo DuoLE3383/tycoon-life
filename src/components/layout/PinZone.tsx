@@ -154,6 +154,8 @@ export function PinZone({ s, t, onEdit, act, onNav, expanded, onToggleExpand }: 
             </div>
           </button>
           {/* Income bar chart */}
+          {/* v13.32 - nut vao cot giua */}
+          <div className="dash-chart-col" style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           <button className="dash-chart-box nav-link" onClick={() => onNav('finance-overview')}>
             <span className="mini wl">{t('incomeBreakdown')} · +{fmt(yi)}{t('perYear')}</span>
             <div className="dash-chart-wrap">
@@ -163,6 +165,16 @@ export function PinZone({ s, t, onEdit, act, onNav, expanded, onToggleExpand }: 
               />
             </div>
           </button>
+            <div className="pin-actions" style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+              <span className="pin-followers" style={{ whiteSpace: 'nowrap' }}>
+                👥 <b>{s.social.followers.toLocaleString('vi-VN')}</b> <span className="mini">{t('followers')}</span>
+              </span>
+              <span style={{ flex: 1 }} />
+              <GigsPopup s={s} act={act} t={t} />
+              <TravelSection s={s} act={act} t={t} />
+              <MoreInfoPopup s={s} t={t} lang={lang} eraName={(y: number) => eraOf(y).name} y={_y} news={_news} timelineLocale={_timelineLocale} onNav={onNav} />
+            </div>
+          </div>
           {/* Quick info: sleep + identity */}
           <div className="dash-chart-box">
             <div className="pinzone-sleep">
@@ -196,18 +208,6 @@ export function PinZone({ s, t, onEdit, act, onNav, expanded, onToggleExpand }: 
           </div>
         </div>
       )}
-
-      {/* v13.31 - Row 3.5: Quick actions gom ve giua, duoi Social Media */}
-      <div className="pin-actions" style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginTop: 10 }}>
-        <span className="pin-followers" style={{ minWidth: 120, whiteSpace: 'nowrap' }}>
-          👥 <b>{s.social.followers.toLocaleString('vi-VN')}</b> <span className="mini">{t('followers')}</span>
-          <span className="mini" style={{ opacity: .7 }}> · +{fmt(socialIncome(s))}{t('perYear')}</span>
-        </span>
-        <span style={{ flex: 1 }} />
-        <GigsPopup s={s} act={act} t={t} />
-        <TravelSection s={s} act={act} t={t} />
-        <MoreInfoPopup s={s} t={t} lang={lang} eraName={(y: number) => eraOf(y).name} y={_y} news={_news} timelineLocale={_timelineLocale} onNav={onNav} />
-      </div>
 
       {/* Row 4: Age track */}
       <div className="track slim" style={{ background: `linear-gradient(90deg,#8fae9b 0 ${p(22)},#c9b68e ${p(22)} ${p(26)},#c08a80 ${p(26)} ${p(RETIRE)},#9b93a8 ${p(RETIRE)})` }}>

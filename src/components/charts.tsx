@@ -44,10 +44,10 @@ export function DonutChart({ segs, size = 120 }: { segs: { label: string; value:
 export function BarChart({ rows, maxVal }: { rows: { label: string; value: number; color: string }[]; maxVal: number }) {
   const max = Math.max(maxVal, 1);
   // v11.55 — bigger bars + labels for readability (was barH=14, font=8).
-  const barH = 16, gap = 5, labelW = 70;
-  const totalH = rows.length * (barH + gap);
+  const barH = 16, gap = 10, labelW = 78;
+  const totalH = rows.length * (barH + gap) + 4;
   return (
-    <svg width="100%" height={totalH} viewBox={`0 0 220 ${totalH}`} preserveAspectRatio="none" style={{ overflow: 'visible' }}>
+    <svg width="100%" height={totalH} viewBox={`0 0 220 ${totalH}`} preserveAspectRatio="xMidYMid meet" style={{ overflow: 'visible' }}>
       {rows.map((r, i) => {
         const y = i * (barH + gap);
         const w = Math.max(2, (r.value / max) * (220 - labelW - 44));
