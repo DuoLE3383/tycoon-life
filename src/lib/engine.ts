@@ -1205,7 +1205,12 @@ export const lotValue = (s: GameState, l: { id: string; paid: number; day: numbe
   const it = l?.id ? ITEM_BY[l.id] : undefined;
   const rawRate = Number(it?.rate);
   const itemRate = Number.isFinite(rawRate) ? rawRate : ASSET_DEPRECIATION_RATE;
-  const rate = Math.min(itemRate, ASSET_DEPRECIATION_RATE);
+  // v13.20 — FIX: was Math.min(itemRate, -0.1) which forced EVERY asset to
+  // <= -10%/yr, turning Property +4%/yr (h-penthouse) into -10%/yr. Cap must
+  // be Math.max: depreciation floored at -10%/yr, appreciation preserved.
+  // After fix: penthouse +4% value - 2% upkeep (see upkeep()) = +2% net/yr,
+  // i.e. real estate appreciates, minus annual tax/fees — not depreciation.
+  const rate = Math.max(itemRate, ASSET_DEPRECIATION_RATE);
   const paid = Number.isFinite(Number(l?.paid)) ? Math.max(0, Number(l.paid)) : 0;
   const boughtDay = Number.isFinite(Number(l?.day)) ? Number(l.day) : s.day;
   const yrs = Math.max(0, (s.day - boughtDay) / 365.25);
@@ -1234,7 +1239,8 @@ export const crewCostFor = (s: GameState, l: { id: string }): number => {
   const hasLic = (it.cat === 'Yacht' && s.lic['boat']) || (it.cat === 'Private jet' && s.lic['pilot']);
   return hasLic ? Math.round(base / 2) : base;
 };
-// v13.18 — Annual asset depreciation (UNREALIZED, not cash).
+// v13.18 — Annual asset depreciation (UNREALIZED, not cash). v13.20: rate
+// can now be positive (Property +4%/yr), so this row can be a gain.
 // lotValue = paid * (1+rate)^yrs * condFactor * rarityMult, so holding cond
 // constant, next-year value = lotValue * (1+rate). Yearly loss = -lotValue * rate.
 // rate here reuses lotValue's own cap: Math.min(itemRate, ASSET_DEPRECIATION_RATE).
@@ -1244,7 +1250,12 @@ export const assetDepreciationYr = (s: GameState) => s.lots.reduce((a, l) => {
   const it = l?.id ? ITEM_BY[l.id] : undefined;
   const rawRate = Number(it?.rate);
   const itemRate = Number.isFinite(rawRate) ? rawRate : ASSET_DEPRECIATION_RATE;
-  const rate = Math.min(itemRate, ASSET_DEPRECIATION_RATE);
+  // v13.20 — FIX: was Math.min(itemRate, -0.1) which forced EVERY asset to
+  // <= -10%/yr, turning Property +4%/yr (h-penthouse) into -10%/yr. Cap must
+  // be Math.max: depreciation floored at -10%/yr, appreciation preserved.
+  // After fix: penthouse +4% value - 2% upkeep (see upkeep()) = +2% net/yr,
+  // i.e. real estate appreciates, minus annual tax/fees — not depreciation.
+  const rate = Math.max(itemRate, ASSET_DEPRECIATION_RATE);
   return a + (-lotValue(s, l) * rate);
 }, 0);
 export const upkeep = (s: GameState) => s.lots.reduce((a, l) => a + lotValue(s, l) * 0.02 + crewCostFor(s, l), 0);

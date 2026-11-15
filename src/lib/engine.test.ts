@@ -276,14 +276,17 @@ test('personal assets depreciate annually; business value is frozen at paid (v13
   state.lots.push({ id: 'w-tag', paid: 1_000, day: 0, condition: 100 });
   state.lots.push({ id: 'ph-iphone', paid: 1_000, day: 0, condition: 100 });
   state.branches.cafe = [{ r: 0, mood: 1, paid: 1_000, day: 0 }];
-  // v10.5: lotValue now applies a rarity premium. w-tag (lux 25 → uncommon)
-  // gets a 1.05 multiplier on top of the depreciation → 945.
-  assert.equal(lotValue(state, state.lots[0]), 945);
-  // ph-iphone (lux 4 → common) gets no rarity premium → 650.
-  assert.equal(lotValue(state, state.lots[1]), 650);
+  // v10.5: lotValue now applies a rarity premium. v13.20: rate is
+  // Math.max(itemRate, -0.1) — depreciation floored at -10%/yr,
+  // appreciation preserved. w-tag rate -0.02 (items.json) → 1000 × 0.98 ×
+  // 1.05 (uncommon) = 1029, no longer forced to -10% → 945.
+  assert.equal(lotValue(state, state.lots[0]), 1029);
+  // ph-iphone rate -0.35 → floored at -0.1 → 1000 × 0.9 × 1.0 (common) = 900,
+  // no longer -35% → 650. This is the depreciation cap, not a bug.
+  assert.equal(lotValue(state, state.lots[1]), 900);
   // v13.19 — business does NOT depreciate like an item: a profitable branch
   // at 0.9^yrs lost 10%/yr with no cash leaving, so at bizVal ~$768B net
-  // worth fell ~$210M/game-day. Lots above still depreciate (945 / 650).
+  // worth fell ~$210M/game-day. Lots above still depreciate (1029 / 900).
   assert.equal(bizVal(state), 1000);
   assert.equal(ASSET_DEPRECIATION_RATE, -0.1);
 });
