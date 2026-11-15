@@ -10,7 +10,7 @@ import {
   NPC_BY, PET_BY, MAX_PETS, CREW_COST, SHORT_BY,
   analyze, type FieldKey, type LineDef, type Req, type GigDef, type SpaceDef, type Rarity, RARITY_MULT, itemRarity, POST_TEMPLATES,
   ITEM_IMAGES, USED_IMAGES, RARE_ITEMS, RARE_IDS,
-  TRAVEL,
+  TRAVEL, NATION_LANGUAGES, NATIONS,
 } from './gameData';
 // v11.3 — Power & influence system. Engine imports PowerState type + the
 // passive tick + advocacy helpers; PowerState lives on GameState below.
@@ -163,6 +163,11 @@ export interface GameState {
   clubs: string[];
   clubJoined: Record<string, number>; // v13.47 - day joined per club id, own club uses 'own'
   ownClubDay: number; // v13.47 - day own club was founded, 0 = none // v10.5 — multiple-club membership (s.club stays as the 'active' / highest-mult one)
+  langs: Record<string, number>; // v13.48 - ngon ngu da hoc: ten -> Level 1-5
+  langStudy: { lang: string; targetLevel: number; endDay: number } | null; // v13.48
+  originNation: string; // v13.48 - quoc tich goc
+  residency: Record<string, number>; // v13.48 - so ngay cu tru theo nuoc
+  citizenshipApplied: { nation: string; endDay: number } | null; // v13.48
   deg: Record<FieldKey, number>; lic: Record<string, boolean>; study: Study | null; sideStudy: Study | null;
   name: string; byear: number; nation: string; religion: Religion; ints: string[]; tals: string[]; topField: FieldKey | null;
   // v11.36 — player-chosen emoji avatar. Default '🧑' at game start; editable
@@ -718,6 +723,7 @@ export function fresh(): GameState {
     lots: [], stk: {},     club: null, ownClub: null, job: null, sideJob: null,
     jobExp: {}, jobContractEnd: 0, jobRaises: 0,
     travelLastDay: 0,
+    langs: { 'Tiếng Việt': 5 }, langStudy: null, originNation: 'Vietnam', residency: {}, citizenshipApplied: null,
     deg: { business: 0, engineering: 0, medicine: 0, science: 0, arts: 0 }, lic: {}, study: null, sideStudy: null,
     name: 'Alex', byear: 1992, nation: 'Vietnam', religion: 'none', ints: [], tals: [], topField: null, started: false,
     avatar: '🧑',
@@ -812,6 +818,12 @@ export function migrate(raw: unknown): GameState {
   s.jobRaises = typeof s.jobRaises === 'number' ? s.jobRaises : 0;
   // v11.40 — travel cooldown backfill.
   s.travelLastDay = typeof s.travelLastDay === 'number' ? s.travelLastDay : 0;
+  (s as any).langs = (s as any).langs && typeof (s as any).langs === 'object' ? (s as any).langs : {};
+  (s as any).langStudy = ('langStudy' in s) ? (s as any).langStudy : null;
+  (s as any).originNation = (s as any).originNation || s.nation || 'Vietnam';
+  (s as any).residency = (s as any).residency && typeof (s as any).residency === 'object' ? (s as any).residency : {};
+  (s as any).citizenshipApplied = ('citizenshipApplied' in s) ? (s as any).citizenshipApplied : null;
+  if (Object.keys(s.langs).length === 0) { const _m = NATION_LANGUAGES[s.nation]?.[0]; if (_m) s.langs[_m] = 5; }
   s.aiEvPending = !!s.aiEvPending;
   s.shortCompleted = Array.isArray(s.shortCompleted) ? s.shortCompleted : [];
   // v11.17 — toast queue (backfill for old saves).
@@ -1022,6 +1034,72 @@ export function chargeClubMaintenance(s: GameState): string | null {
   if (left.length) parts.push(`Left ${left.join(', ')} (insufficient funds for maintenance).`);
   return parts.length ? parts.join(' ') : null;
 }
+
+// v13.48 - Ngoai ngu + Quoc tich helpers. Dat ngay sau chargeClubMaintenance.
+export const LANG_MAX = 5;
+export const CITIZENSHIP_FEE = 500000;
+export const CITIZENSHIP_WAIT_DAYS = 90;
+export const CITIZENSHIP_MIN_RESIDENCY = 180;
+export function langCost(fromLevel: number, toLevel: number): number { return Math.round(10000 * toLevel * (1 + fromLevel * 0.2)); }
+export function langDays(toLevel: number): number { return 30 * toLevel; }
+export function langXp(toLevel: number): number { return 50 * toLevel; }
+export function langMeetsNation(s: GameState, nation: string): boolean {
+  const req = NATION_LANGUAGES[nation] ?? [];
+  return req.some((l) => (s.langs?.[l] ?? 0) >= 4);
+}
+export function canLearnLang(s: GameState, lang: string): boolean {
+  if (s.langStudy) return false;
+  const cur = s.langs?.[lang] ?? 0;
+  if (cur >= 5) return false;
+  return s.money >= langCost(cur, cur + 1);
+}
+export function startLangStudy(s: GameState, lang: string): boolean {
+  if (!canLearnLang(s, lang)) return false;
+  const cur = s.langs?.[lang] ?? 0;
+  const target = cur + 1;
+  s.money -= langCost(cur, target);
+  s.langStudy = { lang, targetLevel: target, endDay: s.day + langDays(target) };
+  pushLog(s, `Dang hoc ${lang} len Level ${target} (${langDays(target)} ngay).`);
+  return true;
+}
+export function tickLangStudy(s: GameState): boolean {
+  if (!s.langStudy) return false;
+  if (s.day < s.langStudy.endDay) return false;
+  const { lang, targetLevel } = s.langStudy;
+  if (!s.langs) s.langs = {};
+  s.langs[lang] = targetLevel;
+  s.xp = (s.xp ?? 0) + langXp(targetLevel);
+  s.langStudy = null;
+  pushLog(s, `Da dat ${lang} Level ${targetLevel}! (+${langXp(targetLevel)} XP)`);
+  return true;
+}
+export function canApplyCitizenship(s: GameState, nation: string): { ok: boolean; reason: string } {
+  if (s.nation === nation) return { ok: false, reason: 'Bạn đã là công dân nước này.' };
+  if (s.citizenshipApplied) return { ok: false, reason: 'Bạn đang chờ xét duyệt quốc tịch khác.' };
+  if (!langMeetsNation(s, nation)) return { ok: false, reason: 'Cần 1 ngôn ngữ của nước này đạt Level 4.' };
+  if ((s.residency?.[nation] ?? 0) < 180) return { ok: false, reason: `Cần cư trú đủ 180 ngày (hiện ${s.residency?.[nation] ?? 0} ngày).` };
+  if (s.money < 500000) return { ok: false, reason: 'Cần 500.000$ phí nhập tịch.' };
+  if (!(s.fame >= 500 || netWorth(s) >= 5000000)) return { ok: false, reason: 'Cần Fame >= 500 hoặc Tài sản ròng >= 5.000.000$.' };
+  return { ok: true, reason: '' };
+}
+export function applyCitizenship(s: GameState, nation: string): { ok: boolean; reason: string } {
+  const c = canApplyCitizenship(s, nation);
+  if (!c.ok) return c;
+  s.money -= 500000;
+  s.citizenshipApplied = { nation, endDay: s.day + 90 };
+  pushLog(s, `Đã nộp đơn nhập tịch ${nation}. Chờ xét duyệt 90 ngày.`);
+  return { ok: true, reason: '' };
+}
+export function tickCitizenship(s: GameState): boolean {
+  if (!s.citizenshipApplied) return false;
+  if (s.day < s.citizenshipApplied.endDay) return false;
+  const nation = s.citizenshipApplied.nation;
+  s.citizenshipApplied = null;
+  s.nation = nation;
+  pushLog(s, `Đã nhập quốc tịch ${nation} thành công!`);
+  return true;
+}
+
 export const branchNet = (s: GameState, b: { id: string; inc: number; base: number }, br: Branch) => {
   // Monthly net, pre-multiplier (BizTab multiplies by mult).
   // inc is ANNUAL revenue, so monthly revenue = inc / 12.
@@ -1663,6 +1741,9 @@ export function processDay(s: GameState, d: number, rng: () => number = Math.ran
   recordActivity(s, routine.join(' · '), d);
   // v10.5 — pet passive effects (spirit regen + neglect health-drain).
   tickPets(s);
+  // v13.48 - tick hoc ngon ngu + cho duyet quoc tich moi ngay.
+  tickLangStudy(s);
+  tickCitizenship(s);
   // v11 — random AI oracle popup. v11.7: increased to ~3% chance per
   // game-day (was 1%) and lowered the play-time threshold from 180 days
   // to 30 days (~10 minutes of real time, was ~60 min). The original
@@ -2944,6 +3025,32 @@ export function travel(s: GameState, destId: string): string | null {
   recordTx(s, { kind: 'expense', asset: 'bank', ref: destId, name: `Travel: ${dest.name}`, qty: 1, unit: dest.cost, amount: -dest.cost });
   return `✈️ ${dest.name}: spirit +${dest.spirit}, health +${dest.health}${dest.fame ? `, fame +${dest.fame}` : ''}`;
 }
+
+// v13.48 - Di toi 1 nuoc cu the de tich residency cho nhap tich. Khong dung TRAVEL cu (tour chung).
+// Cost: 2000$ + 500$ x (so lan da di toi nuoc do). +7 ngay residency, +5 spirit, +2 health, +1 fame.
+export function travelToNation(s: GameState, nation: string): string | null {
+  if (!NATIONS.includes(nation)) return 'Nước không hợp lệ.';
+  if (s.travelLastDay > 0 && s.lastDay - s.travelLastDay < 14) {
+    const left = 14 - (s.lastDay - s.travelLastDay);
+    return `Trip cooldown: ${left} days left`;
+  }
+  const trips = Math.floor((s.residency?.[nation] ?? 0) / 7);
+  const cost = 2000 + trips * 500;
+  if (s.money < cost) return 'Not enough cash';
+  s.money -= cost;
+  s.lastDay += 7;
+  s.day += 7;
+  s.spirit = Math.min(100, s.spirit + 5);
+  s.health = Math.min(100, s.health + 2);
+  s.fame += 1;
+  s.travelLastDay = s.lastDay;
+  if (!s.residency) s.residency = {};
+  s.residency[nation] = (s.residency[nation] ?? 0) + 7;
+  pushLog(s, `Travelled to ${nation} (7 days): residency ${s.residency[nation]} days.`);
+  recordTx(s, { kind: 'expense', asset: 'bank', ref: nation, name: `Travel: ${nation}`, qty: 1, unit: cost, amount: -cost });
+  return `✈ ${nation}: residency +7 ngày (tổng ${s.residency[nation]} ngày).`;
+}
+
 export function travelReady(s: GameState, destId: string): boolean {
   const dest = TRAVEL.find(d => d.id === destId);
   if (!dest) return false;
@@ -3758,6 +3865,8 @@ export function reincarnate(s: GameState): GameState {
     name: s.name,
     byear: s.byear,
     nation: s.nation,
+    originNation: (s as any).originNation || s.nation,
+    langs: { ...(s.langs ?? {}) },
     religion: s.religion,
     ints: [...s.ints],
     tals: [...s.tals],
@@ -3768,6 +3877,9 @@ export function reincarnate(s: GameState): GameState {
   next.name = identity.name;
   next.byear = identity.byear;
   next.nation = identity.nation;
+  (next as any).originNation = (identity as any).originNation || identity.nation;
+  next.langs = { ...((identity as any).langs ?? {}) };
+  { const _m = NATION_LANGUAGES[next.nation]?.[0]; if (_m) next.langs[_m] = 5; }
   next.religion = identity.religion;
   next.ints = identity.ints;
   next.tals = identity.tals;

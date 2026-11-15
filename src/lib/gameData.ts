@@ -184,7 +184,62 @@ export const YEAR_EVENTS: Record<number, YearEvent> = {
   2040: { msg: 'First city on Mars announced. Space stocks soar.', stk: { TECH: 1.5, SKY: 1.6 } }
 };
 
-export const NATIONS = ['Vietnam', 'United States', 'United Kingdom', 'Japan', 'South Korea', 'France', 'Germany', 'Brazil', 'Nigeria', 'India', 'Australia', 'Canada'];
+export const NATIONS = [
+  'Vietnam', 'United States', 'United Kingdom', 'Japan', 'South Korea',
+  'France', 'Germany', 'Brazil', 'Nigeria', 'India', 'Australia', 'Canada',
+  'United Arab Emirates', 'China', 'Italy', 'Spain', 'Netherlands',
+  'Switzerland', 'Sweden', 'Singapore', 'Thailand', 'Indonesia',
+  'Malaysia', 'Mexico', 'Turkey', 'Saudi Arabia', 'Israel',
+  'Egypt', 'South Africa', 'Russia',
+];
+
+export const LANGUAGES = [
+  'Tiếng Việt', 'English', 'Japanese', 'Korean', 'French', 'German',
+  'Portuguese', 'Hindi', 'Arabic', 'Chinese', 'Italian', 'Spanish',
+  'Dutch', 'Swedish', 'Thai', 'Indonesian', 'Turkish', 'Hebrew', 'Russian',
+];
+
+export const NATION_LANGUAGES: Record<string, string[]> = {
+  'Vietnam': ['Tiếng Việt'],
+  'United States': ['English'],
+  'United Kingdom': ['English'],
+  'Japan': ['Japanese'],
+  'South Korea': ['Korean'],
+  'France': ['French'],
+  'Germany': ['German'],
+  'Brazil': ['Portuguese'],
+  'Nigeria': ['English'],
+  'India': ['Hindi', 'English'],
+  'Australia': ['English'],
+  'Canada': ['English', 'French'],
+  'United Arab Emirates': ['Arabic', 'English'],
+  'China': ['Chinese'],
+  'Italy': ['Italian'],
+  'Spain': ['Spanish'],
+  'Netherlands': ['Dutch'],
+  'Switzerland': ['German', 'French', 'Italian'],
+  'Sweden': ['Swedish'],
+  'Singapore': ['English', 'Chinese'],
+  'Thailand': ['Thai'],
+  'Indonesia': ['Indonesian'],
+  'Malaysia': ['Indonesian', 'English', 'Chinese'],
+  'Mexico': ['Spanish'],
+  'Turkey': ['Turkish'],
+  'Saudi Arabia': ['Arabic'],
+  'Israel': ['Hebrew', 'English'],
+  'Egypt': ['Arabic'],
+  'South Africa': ['English'],
+  'Russia': ['Russian'],
+};
+
+export const NATION_DISPLAY: Record<string, string> = {
+  'United Arab Emirates': 'United Arab Emirates (Dubai)',
+};
+
+export function displayNation(n: string): string {
+  return NATION_DISPLAY[n] ?? n;
+}
+
 
 // v11 — name pools for the random-character button in the Intro.
 export const NAME_POOLS: Record<string, string[]> = {
@@ -650,7 +705,7 @@ export const BOTS: [string, number, string, string, number][] = [
 ];
 export const TABS: [string, string, string][] = [
   ['home', 'Overview', 't-life'], ['career', 'Career', 't-work'], ['edu', 'Education', 't-cap'], ['biz', 'Business', 't-biz'], ['space', 'Space', 't-space'],
-  ['health', 'Wellbeing', 'w-heart'], ['spirit', 'Mind', 'w-lotus'], ['pets', 'Companions', 'ic-paw'],
+  ['health', 'Wellbeing', 'w-heart'], ['spirit', 'Mind', 'w-lotus'], ['pets', 'Companions', 'ic-paw'], ['identity', 'Identity', 't-cap'],
   ['assets', 'Assets', 'ic-bag'], ['markets', 'Markets', 't-stock'], ['bank', 'Banking', 't-bank'],
   ['social', 'Social', 't-social'], ['relations', 'Relations', 'ic-heart'], ['club', 'Clubs', 't-club'],
   ['power', 'Power', 't-power'], ['entity', 'Empire', 'b-corp'], ['rank', 'Ranking', 't-rank'], ['fame', 'Hall of Fame', 'ic-trophy']
@@ -680,7 +735,7 @@ export const TABS: [string, string, string][] = [
 //   Old order: life → growth → assets → finance → empire → network → …
 //   New order: life → ASSETS → growth → finance → empire → network → …
 export const GROUPS: [string, string, string, [string, string, string][]][] = [
-  ['life', 'Character', 't-life', [['home', 'Overview', 't-life'], ['health', 'Wellbeing', 'w-heart'], ['spirit', 'Mind', 'w-lotus'], ['pets', 'Companions', 'ic-paw']]],
+  ['life', 'Character', 't-life', [['home', 'Overview', 't-life'], ['health', 'Wellbeing', 'w-heart'], ['spirit', 'Mind', 'w-lotus'], ['pets', 'Companions', 'ic-paw'], ['identity', 'Identity', 't-cap']]],
   ['assets', 'Assets', 'ic-bag', [['assets', 'Assets', 'ic-bag']]],
   // v11.41 — Education split from Career per UX feedback. Education = degrees/
   // licences/short courses. Career = jobs + experience + contracts + raise.

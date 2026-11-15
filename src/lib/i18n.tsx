@@ -187,6 +187,8 @@ const D: Record<string, [string, string, string]> = {
   'tab.shop': ['Shop', 'Mua sắm', '商店'],
   'tab.stock': ['Markets', 'Thị trường', '市场'],
   'tab.club': ['Clubs', 'Câu lạc bộ', '会所'],
+  'tab.identity': ['Identity', 'Thân phận', '身份'],
+  'ttab.identity': ['Languages, residency and citizenship', 'Ngoại ngữ, cư trú và quốc tịch', '语言、居留与国籍'],
   'tab.bank': ['Banking', 'Ngân hàng', '银行'],
   // v11.53 — Finance Overview tab: detailed P&L + asset + action suggestions.
   'tab.finance-overview': ['Overview', 'Tổng quan', '总览'],

@@ -122,5 +122,16 @@ export const CHANGELOG: Record<string, ChangelogEntry> = {
       'Clubs: Sky buff fixed +50% -> +70% to match mult 1.7',
     ],
   },
+  'v13.48': {
+    headline: 'HuyenBao v13.48 - Than phan: ngon ngu + quoc tich + 30 nuoc',
+    summary: 'v13.48: Tab Than phan moi. Hoc 19 ngon ngu Level 1-5, nhap tich can ngon ngu Lv 4+, cu tru 180 ngay, phi 500.000$, Fame 500 hoac tai san 5M, cho duyet 90 ngay. 30 nuoc, Dubai hien thi United Arab Emirates (Dubai).',
+    features: [
+      'Than phan: tab moi trong nhom Character - quoc tich hien tai / goc, ngoai ngu, cu tru, nhap tich',
+      'Ngon ngu: 19 ngon ngu, Level 1-5, phi 10.000$ x Lv dich x (1 + Lv hien tai x 0.2), 30 ngay x Lv dich, +50 XP x Lv dich khi xong',
+      'Quoc tich: can 1 ngon ngu Lv 4+, cu tru 180 ngay, phi 500.000$ tru that, Fame >= 500 hoac tai san rong >= 5M, cho duyet 90 ngay',
+      'Di chuyen: di toi 1 nuoc cu the +7 ngay cu tru, phi 2.000$ + 500$ x so chuyen, cooldown 14 ngay',
+      'Nuoc: mo rong len Top 30, Dubai hien thi United Arab Emirates (Dubai), khong luu rieng Dubai',
+    ],
+  },
 
 };

@@ -17,6 +17,7 @@ import { StockTab } from '@/components/tabs/StockTab';
 import { SocialTab } from '@/components/tabs/SocialTab';
 import { RelationsTab } from '@/components/tabs/RelationsTab';
 import { ClubTab } from '@/components/tabs/ClubTab';
+import { IdentityTab } from '@/components/tabs/IdentityTab';
 import { BankTab } from '@/components/tabs/BankTab';
 import { PortfolioTab } from '@/components/tabs/PortfolioTab';
 import { FinanceOverviewTab } from '@/components/tabs/FinanceOverviewTab';
@@ -97,6 +98,7 @@ export default function Page() {
           {tab === 'social' && <SocialTab s={s} act={act} />}
           {tab === 'relations' && <RelationsTab s={s} act={act} />}
           {tab === 'club' && <ClubTab s={s} act={act} />}
+          {tab === 'identity' && <IdentityTab s={s} act={act} />}
           {tab === 'friends' && <FriendsView s={s} act={act} comm={comm} toast={showToast} />}
           {tab === 'chat' && <ChatView comm={comm} />}
           {tab === 'lboard' && <BoardView comm={comm} />}

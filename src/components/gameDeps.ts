@@ -6,7 +6,7 @@ export { useGame, getState, persist, bump, resetState, reincarnateState, getActi
 export {
   START, END_AGE, RETIRE, RESALE_FEE, FOUND_COST, FOUND_MIN_NW, OWN_CLUB_MULT,
   SAVE_RATE, LOAN_RATE, TAX_FREE, TAX_BRACKETS, ALLNEWS, eraOf, NATIONS, NAME_POOLS, INTERESTS, TALENTS, PATHS,
-  analyze, FIELDS, LICENSES, LIC_BY, LIC_FOR, STAGES, BIZ, FARM_LINES, FAC_LINES, ITEM_BY, ITEM_IMAGES, USED_IMAGES, ASSET_DEPRECIATION_RATE,
+  analyze, FIELDS, LICENSES, LIC_BY, LIC_FOR, STAGES, BIZ, FARM_LINES, FAC_LINES, ITEM_BY, ITEM_IMAGES, USED_IMAGES, ASSET_DEPRECIATION_RATE, LANGUAGES, NATION_LANGUAGES, NATION_DISPLAY, displayNation,
   CLUBS, JOBS, GIGS, SPACE_LINES, TABS, GROUPS, xpNeed, ITEMS, USED_MARKET, HALL_OF_FAME, itemRarity, RARITY_COLOR, RARITY_MULT, NPCS, NPC_BY, PETS, PET_BY, MAX_PETS, CREW_COST, SHORT_COURSES, SHORT_BY, BOTS, REG_MULT, type Rarity, type FieldKey, type Req, type ItemDef, type UsedItem,
   RARE_ITEMS, RARE_IDS, itemGroup, type ItemGroup,
   TRAVEL, registerItem,
@@ -24,7 +24,8 @@ export {
   setBizBrand, bizBrandOf,
   hire, enrollDeg, enrollLic, enrollShortCourse, dropStudySlot, changeInterest, bankOp, donate, applyEventChoice, applyAIChoice, currentEvent, studyWorkMult,
   negotiateRaise, quitJob,
-  travel, travelReady, travelCooldownLeft,
+  travel, travelReady, travelCooldownLeft, travelToNation,
+  LANG_MAX, CITIZENSHIP_FEE, CITIZENSHIP_WAIT_DAYS, CITIZENSHIP_MIN_RESIDENCY, langCost, langDays, langXp, langMeetsNation, canLearnLang, startLangStudy, tickLangStudy, canApplyCitizenship, applyCitizenship, tickCitizenship,
   spaceUpgradeReady, startSpaceUpgrade, spaceUpgradeDays, spaceMultiplier, SPACE_TRAVEL_COST,
   recordActivity, studyPace, sleepHealthMult, sleepHealthRecovery, sleepHoursOptions, sleepDebtStudyMult, sleepDebtHealthMult,
   gameOverTier, botRows, type AIEvent, type AIEventKind, type GameState, type Transaction, type TxKind, TX_CAP,
@@ -98,7 +99,7 @@ export const asset = (p: string) => {
 // v11.8 — the bundled version. The /version.json file in /public is polled
 // every 5 minutes; if its version is newer than this, a "reload to update"
 // banner appears even in a running session (no F5 needed).
-export const BUNDLED_VERSION = 'v13.47';
+export const BUNDLED_VERSION = 'v13.48';
 
 export const VERSION_POLL_MS = 5 * 60 * 1000;
 
