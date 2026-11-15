@@ -1315,3 +1315,12 @@ html[data-theme="dark"] .tgame .pchip-big.income-chip.down{color:#fca5a5;backgro
    i.e. UNDER the modal overlay now — intentional, it no longer covers ✕. */
 .tgame:has(.modal-overlay) .mobile-nav-shell{display:none !important}
 body:has(.tgame .modal-overlay){overflow:hidden}
+
+/* v13.22 — tips-card layout fix: it lives AFTER TravelSection in HomeTab,
+   but without a width/overflow lock a long tip (tip.6) overflowed and drew
+   on top of the Travel cards with dots spilling out. Lock it into flow:
+   full-width, relative, clipped, text ellipsis, dots never shrink. */
+.tgame .tips-card{position:relative;z-index:1;width:100%;box-sizing:border-box;margin:10px 0;overflow:hidden;display:flex;gap:8px;align-items:center;min-width:0}
+.tgame .tips-card .tips-tx{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tgame .tips-card .tips-dots{flex:none;display:inline-flex;gap:4px}
+.tgame .quick-actions{position:relative;z-index:0}

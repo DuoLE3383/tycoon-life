@@ -1,8 +1,8 @@
 {
-  "version": "v13.11",
-  "releasedAt": "2026-11-11",
-  "headline": "HuyenBao v13.11 — Assets update + refactored app",
-  "summary": "v13.11: Improved asset organization and refactored the application into separate layout, tab, and modal components while preserving game features.",
+  "version": "v13.22",
+  "releasedAt": "2026-11-15",
+  "headline": "HuyenBao v13.22 — Assets update + refactored app",
+  "summary": "v13.22: Improved asset organization and refactored the application into separate layout, tab, and modal components while preserving game features.",
   "features": [
     "Assets: improved organization of owned items and categories",
     "App structure: tabs, layout, and modals are separated into components",

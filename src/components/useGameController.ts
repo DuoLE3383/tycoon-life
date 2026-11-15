@@ -110,7 +110,11 @@ export function useGameController() {
       fetch(asset('/version.json'), { cache: 'no-store' })
         .then(r => r.ok ? r.json() : null)
         .then((j: { headline?: string; features?: string[] } | null) => {
-          if (j?.headline && j?.features) setWhatsNewContent({ headline: j.headline, features: j.features });
+          // v13.22 — ignore stale version.json (e.g. v13.11 while bundle is
+          // v13.22): showing its headline would re-show the old patch notes.
+          // Only accept content whose version matches the bundle; otherwise
+          // leave whatsNewContent null so the modal falls back to the bundle.
+          if (j?.headline && j?.features && (j as any).version === BUNDLED_VERSION) setWhatsNewContent({ headline: j.headline, features: j.features });
         })
         .catch(() => { /* ignore — modal will fall back to static content */ });
     }
