@@ -57,8 +57,11 @@ test('bankOp safely deposits, withdraws, and caps borrowing', () => {
   assert.equal(state.money, 600);
   assert.equal(bankOp(state, 'wd', 150), 'Withdrew $150');
   assert.equal(state.money, 750);
-  assert.equal(bankOp(state, 'loan', 'all'), 'Borrowed $500 at 6%/yr');
-  assert.equal(state.bank.loan, 500);
+  // v13.13 — yearIncome now includes savings interest (250 × 2% = $5/yr),
+  // so the income-based credit adds floor(5 × 0.3) = $1 on top of the
+  // $500 net-worth base → borrow-all yields $501 (was $500).
+  assert.equal(bankOp(state, 'loan', 'all'), 'Borrowed $501 at 6%/yr');
+  assert.equal(state.bank.loan, 501);
   assert.equal(bankOp(state, 'loan', 1), null);
 });
 

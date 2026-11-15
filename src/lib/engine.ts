@@ -158,6 +158,11 @@ export interface GameState {
   jobExp: Record<string, number>;       // XP accumulated per job-id (resets on quit)
   jobContractEnd: number;               // day the current contract expires (0 = no contract)
   jobRaises: number;                    // total successful raises negotiated
+  // v13.13 — FINANCE AUDIT FIX: negotiated raises now actually change income.
+  // Previously negotiateRaise computed a raise, logged it, incremented
+  // jobRaises… and never mutated anything, so income stayed flat forever.
+  // Cumulative fractional bonus per job-id (0.08 = +8% salary).
+  salaryBonus: Record<string, number>;
   // v11.40 — travel cooldown (last day a trip ended; gates the next trip).
   travelLastDay: number;                // 0 = never travelled
   clubs: string[]; // v10.5 — multiple-club membership (s.club stays as the 'active' / highest-mult one)
@@ -714,7 +719,7 @@ export function fresh(): GameState {
     money: 0, age: START, day: 0, lastDay: 0, lastYr: START, lastSeen: null, biz: {}, branches: {}, farm: {}, fac: {},
     farmBought: {}, facBought: {}, spaceBought: {}, spaceUpgrade: null, spaceTravel: false,
     lots: [], stk: {},     club: null, ownClub: null, job: null, sideJob: null,
-    jobExp: {}, jobContractEnd: 0, jobRaises: 0,
+    jobExp: {}, jobContractEnd: 0, jobRaises: 0, salaryBonus: {},
     travelLastDay: 0,
     deg: { business: 0, engineering: 0, medicine: 0, science: 0, arts: 0 }, lic: {}, study: null, sideStudy: null,
     name: 'Alex', byear: 1992, nation: 'Vietnam', religion: 'none', ints: [], tals: [], topField: null, started: false,
@@ -802,6 +807,8 @@ export function migrate(raw: unknown): GameState {
   s.jobExp = s.jobExp && typeof s.jobExp === 'object' ? s.jobExp : {};
   s.jobContractEnd = typeof s.jobContractEnd === 'number' ? s.jobContractEnd : 0;
   s.jobRaises = typeof s.jobRaises === 'number' ? s.jobRaises : 0;
+  // v13.13 — negotiated-raise backfill (see GameState.salaryBonus).
+  s.salaryBonus = s.salaryBonus && typeof s.salaryBonus === 'object' ? s.salaryBonus : {};
   // v11.40 — travel cooldown backfill.
   s.travelLastDay = typeof s.travelLastDay === 'number' ? s.travelLastDay : 0;
   s.aiEvPending = !!s.aiEvPending;
@@ -958,7 +965,11 @@ export const clubMult = (s: GameState) => {
   const c = CLUBS.find(c => c.id === s.club); return c ? c.mult : 1;
 };
 export const branchNet = (s: GameState, b: { id: string; inc: number; base: number }, br: Branch) =>
-  b.inc / 12 * REG_MULT[br.r % REG_MULT.length] * br.mood - b.base / 24;
+  // v13.13 — FINANCE AUDIT FIX: unit mismatch. inc/12 is MONTHLY income but
+  // base/24 is the ANNUAL overhead term (as subtracted in the annual
+  // bizIncome). Mixing them understated every branch chip by ~1 month of
+  // overhead. Monthly overhead = (base / 24) / 12 = base / 288.
+  b.inc / 12 * REG_MULT[br.r % REG_MULT.length] * br.mood - b.base / 288;
 export const farmIncome = (s: GameState) => FARM_LINES.reduce((a, l) => a + (s.farm[l.id] || 0) * l.inc, 0);
 export const facIncome = (s: GameState) => FAC_LINES.reduce((a, l) => {
   const n = s.fac[l.id] || 0; if (!n) return a;
@@ -997,6 +1008,11 @@ export const bizIncome = (s: GameState) => { // annual
     // v11.37 — franchised branches pay a 10% royalty to the franchisee
     const royalty = br.franchised ? (1 - FRANCHISE_ROYALTY) : 1;
     ann += b.inc * REG_MULT[br.r % REG_MULT.length] * br.mood * royalty - b.base / 24;
+    // v13.13 — FINANCE AUDIT FIX: capital-path branches (paid > 1.5× list
+    // price) employ a manager at MANAGER_MONTHLY per month. bizCosts (the
+    // UI P&L) always charged this, but real cash flow never deducted it —
+    // the fee was display-only. Now mirrored here so the manager is paid.
+    if (br.paid > bizCost(s, b) * 1.5) ann -= MANAGER_MONTHLY(b.base) * 12;
   }));
   ann += farmIncome(s) + facIncome(s);
   return Math.max(0, ann) * bizMultiplier(s);
@@ -1019,11 +1035,19 @@ export const jobIncome = (s: GameState) => jobsOf(s).reduce((total, job) => {
       break; // only apply the first matching field (most jobs have one)
     }
   }
+  // v13.13 — negotiated raises now compound here (see negotiateRaise).
+  mult *= 1 + (s.salaryBonus?.[job.id] || 0);
   return total + job.salary * mult;
 }, 0);
 export const studyTuition = (s: GameState) => [s.study, s.sideStudy]
   .reduce((total, study) => total + (study?.kind === 'deg' ? study.tuition : 0), 0);
-export const yearIncome = (s: GameState) => bizIncome(s) + spaceIncome(s) + socialIncome(s) + jobIncome(s) + (s.age >= RETIRE ? PENSION : 0);
+// v13.13 — FINANCE AUDIT FIX: bank interest is real, taxed income (billed
+// monthly in processDay and accumulated into yIncome) but was missing from
+// the annual estimate — so the Finance Overview income header showed one
+// number while its own breakdown table (which lists an interest row)
+// summed to a different one. Interest on the current deposit balance is
+// now included so header = table.
+export const yearIncome = (s: GameState) => bizIncome(s) + spaceIncome(s) + socialIncome(s) + jobIncome(s) + s.bank.dep * SAVE_RATE + (s.age >= RETIRE ? PENSION : 0);
 export const living = (age: number) => Math.round(3000 * Math.pow(1.03, age - START));
 // v11.53 — Finance Overview: total annual expenses (living + upkeep + tuition
 // + loan interest + biz costs + diet + kids). Used by the cash-flow panel +
@@ -1034,7 +1058,11 @@ export const yearExpenses = (s: GameState): number => {
   const tuition = studyTuition(s);
   const loanInt = s.bank.loan * effLoanRate(s);
   const bizC = bizCosts(s);
-  const diet = s.diet ? DIET_COST * 12 : 0;
+  // v13.13 — FINANCE AUDIT FIX: diet is charged DAILY in processDay
+  // (`s.money -= DIET_COST` per game-day), so the annual figure is 365×
+  // the daily cost — not 12×. The old ×12 display understated the real
+  // cost by ~30× ($72/yr shown vs ~$2,190/yr actually paid).
+  const diet = s.diet ? DIET_COST * 365 : 0;
   const kids = s.kids * 400 * 12;
   return livingCost + upk + tuition + loanInt + bizC + diet + kids;
 };
@@ -1081,7 +1109,9 @@ export const expenseBreakdown = (s: GameState): ExpenseItem[] => {
   if (loanInt > 0) out.push({ id: 'loanInt', label: 'Loan interest', amount: loanInt, link: 'bank' });
   const bizC = bizCosts(s);
   if (bizC > 0) out.push({ id: 'bizCosts', label: 'Business costs', amount: bizC, link: 'biz' });
-  if (s.diet) out.push({ id: 'diet', label: 'Diet', amount: DIET_COST * 12, link: 'health' });
+  // v13.13 — matches the real daily charge in processDay (DIET_COST per
+  // game-day → ×365/yr, not ×12 — see yearExpenses note).
+  if (s.diet) out.push({ id: 'diet', label: 'Diet', amount: DIET_COST * 365, link: 'health' });
   if (s.kids > 0) out.push({ id: 'kids', label: 'Kids', amount: s.kids * 400 * 12, link: 'home' });
   return out.sort((a, b) => b.amount - a.amount);
 };
@@ -1206,8 +1236,16 @@ export const lotValue = (s: GameState, l: { id: string; paid: number; day: numbe
   // Saves may outlive catalogue revisions. Unknown legacy lots must not crash valuation.
   const it = l?.id ? ITEM_BY[l.id] : undefined;
   const rawRate = Number(it?.rate);
-  const itemRate = Number.isFinite(rawRate) ? rawRate : ASSET_DEPRECIATION_RATE;
-  const rate = Math.min(itemRate, ASSET_DEPRECIATION_RATE);
+  // v13.13 — FINANCE AUDIT FIX: appreciation was dead data. The old
+  // Math.min(itemRate, ASSET_DEPRECIATION_RATE) clamped EVERY owned lot to
+  // ≤ −10%/yr, so the 31 catalogue items with positive appreciation rates
+  // (art, gold, watches) depreciated like cars. Positive rates now
+  // appreciate. Negative rates keep their exact old semantics: an item can
+  // depreciate FASTER than −10% (iphone −35%), but never slower — anything
+  // ≤ 0 (or missing) floors at the market rate.
+  const rate = Number.isFinite(rawRate) && rawRate > 0
+    ? rawRate
+    : Math.min(Number.isFinite(rawRate) ? rawRate : ASSET_DEPRECIATION_RATE, ASSET_DEPRECIATION_RATE);
   const paid = Number.isFinite(Number(l?.paid)) ? Math.max(0, Number(l.paid)) : 0;
   const boughtDay = Number.isFinite(Number(l?.day)) ? Number(l.day) : s.day;
   const yrs = Math.max(0, (s.day - boughtDay) / 365.25);
@@ -2701,8 +2739,16 @@ export function negotiateRaise(s: GameState): string {
   if (Math.random() < chance) {
     const raise = Math.round(job.salary * (0.08 + Math.random() * 0.12)); // 8-20% raise
     s.jobRaises++;
-    pushLog(s, `Negotiated a raise at ${job.name}: +$${raise.toLocaleString()}/yr.`);
-    return `✅ Raise approved! +$${raise.toLocaleString()}/yr`;
+    // v13.13 — FINANCE AUDIT FIX: the raise is now actually applied.
+    // Previously this branch computed `raise`, incremented jobRaises and
+    // logged the toast — but never mutated salary, so income never changed.
+    // The bonus is stored per job-id (fraction of base salary) and compounds
+    // across successful negotiations; jobIncome() multiplies it in.
+    s.salaryBonus = s.salaryBonus || {};
+    s.salaryBonus[job.id] = (s.salaryBonus[job.id] || 0) + raise / job.salary;
+    const newSalary = Math.round(job.salary * (1 + (s.salaryBonus[job.id] || 0)));
+    pushLog(s, `Negotiated a raise at ${job.name}: now $${newSalary.toLocaleString()}/yr (+$${raise.toLocaleString()}).`);
+    return `✅ Raise approved! Now $${newSalary.toLocaleString()}/yr`;
   }
   // Failed negotiation — 15% chance of being fired.
   if (Math.random() < 0.15) {

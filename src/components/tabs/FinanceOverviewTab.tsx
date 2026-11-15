@@ -2,10 +2,10 @@
 
 import {
   assetBreakdown, bizCosts, bizMultiplier, bizNet, bizRndMult, bizRevenue, branchCount, clubMult,
-  effEraBiz, effLoanRate, type ExpenseItem, expenseBreakdown, fameBonus, type FinanceAction,
+  constitutionById, effEraBiz, effLoanRate, type ExpenseItem, expenseBreakdown, fameBonus, type FinanceAction,
   financeActions, fmt, fmtFull, type GameState, healthMult, incomeBreakdown, type IncomeSource,
   jobIncome, jobsOf, levelMult, lotValue, netWorth, spiritBizMult, stockVal, studyTuition,
-  studyWorkMult, upkeep, useT, yearExpenses, yearIncome,
+  studyWorkMult, upkeep, useT, yearExpenses, yearIncome, zodiacAffinityMult,
 } from '@/components/gameDeps';
 import { type Act } from '@/components/shared';
 
@@ -199,6 +199,11 @@ export function FinanceOverviewTab({ s, onNav }: { s: GameState; act: Act; onNav
     { label: `Level bonus (Lv ${s.level})`, value: '×' + levelMult(s).toFixed(2), raw: levelMult(s) },
     { label: 'Spirit bonus (≥70)', value: '×' + spiritBizMult(s).toFixed(2), raw: spiritBizMult(s) },
     { label: 'R&D boost', value: '×' + bizRndMult(s).toFixed(2), raw: bizRndMult(s) },
+    // v13.13 — FINANCE AUDIT FIX: three real multipliers were missing from
+    // this breakdown, so the displayed product ≠ actual bizMultiplier.
+    { label: 'Board nominee', value: '×' + (s.power?.boardNomineeBiz || 1).toFixed(2), raw: s.power?.boardNomineeBiz || 1 },
+    { label: `Constitution (${s.entity?.constitution || 'democratic'})`, value: '×' + constitutionById(s.entity?.constitution || 'democratic').bizMult.toFixed(2), raw: constitutionById(s.entity?.constitution || 'democratic').bizMult },
+    { label: 'Zodiac affinity', value: '×' + zodiacAffinityMult(s, 'business').toFixed(2), raw: zodiacAffinityMult(s, 'business') },
   ];
   const bmProduct = bmFactors.reduce((a, f) => a * f.raw, 1);  // pre-cap product
   const bmCapped = Math.min(BIZ_MULTIPLIER_CAP, bmProduct);
