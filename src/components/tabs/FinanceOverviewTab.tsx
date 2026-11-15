@@ -255,9 +255,11 @@ export function FinanceOverviewTab({ s, act, onNav }: { s: GameState; act: Act; 
           tut la mat gia phi tien mat, khong hien trong dong tien. */}
       {(() => {
         const labelFor = (a: string): string => ({ stock: 'Cổ phiếu', lot: 'Vật phẩm', biz: 'Kinh doanh', branch: 'Chi nhánh', farm: 'Trang trại', fac: 'Nhà máy', space: 'Bất động sản', bank: 'Ngân hàng', gig: 'Việc vặt', job: 'Lương', tuition: 'Học phí', donate: 'Từ thiện', biz_sell: 'Bán doanh nghiệp' } as Record<string, string>)[a] || a;
+        // v13.49b — TACH: van hanh (income/expense/dividend = lai that, khop P&L) vs dau tu (buy/sell = mua/ban tai san, von).
+        // Truoc day gop chung nen mua chi nhanh $5,14 nghìn tỷ bi dem nhu 'tien ra', lam Ròng -$1,02 nghìn tỷ du P&L +$1,55B.
         const groups = new Map<string, { inAmt: number; outAmt: number }>();
         for (const tx of s.transactions || []) {
-          if (tx.kind === 'transfer') continue;
+          if (tx.kind === 'transfer' || tx.kind === 'buy' || tx.kind === 'sell') continue;
           const g = groups.get(tx.asset) || { inAmt: 0, outAmt: 0 };
           if (tx.amount >= 0) g.inAmt += tx.amount; else g.outAmt += Math.abs(tx.amount);
           groups.set(tx.asset, g);
@@ -269,7 +271,7 @@ export function FinanceOverviewTab({ s, act, onNav }: { s: GameState; act: Act; 
         const depr = assetDepreciationYr(s);
         return (
           <div className="card" style={{ marginBottom: 10, padding: 14 }}>
-            <div className="mini" style={{ textTransform: 'uppercase', letterSpacing: '.4px', color: 'var(--accent)', marginBottom: 6 }}>💸 Dòng tiền — 200 giao dịch gần nhất</div>
+            <div className="mini" style={{ textTransform: 'uppercase', letterSpacing: '.4px', color: 'var(--accent)', marginBottom: 6 }}>💸 Dòng tiền vận hành — 200 giao dịch gần nhất (không tính mua/bán tài sản)</div>
             <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', marginBottom: 10 }}>
               <span className="mini">Tiền vào: <b style={{ color: 'var(--up)' }}>+{fmtFull(txIn)}</b></span>
               <span className="mini">Tiền ra: <b style={{ color: 'var(--down)' }}>−{fmtFull(txOut)}</b></span>
@@ -290,7 +292,7 @@ export function FinanceOverviewTab({ s, act, onNav }: { s: GameState; act: Act; 
                 </div>
               </div>
             ))}
-            <p className="mini" style={{ opacity: .7, marginTop: 8 }}>Xanh = tiền vào, đỏ = tiền ra. Lãi lớn nhưng tổng tài sản tụt thường do 3 thứ không nằm trong dòng tiền: khấu hao tài sản, giá cổ phiếu / vật phẩm / doanh nghiệp giảm, và lãi vay. Kiểm tra Khấu hao ở trên + bảng Tài sản / Nợ bên dưới để thấy phần tụt nằm ở đâu.</p>
+            <p className="mini" style={{ opacity: .7, marginTop: 8 }}>Xanh = tiền vào, đỏ = tiền ra. Chỉ tính lãi vận hành nên khớp P&L. Tiền mua/bán chi nhánh, đất, đồ là dòng đầu tư (đổi tiền ↔ tài sản, tổng tài sản không đổi) nên không tính ở đây.</p>
           </div>
         );
       })()}

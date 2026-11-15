@@ -152,12 +152,13 @@ export function PinZone({ s, t, onEdit, act, onNav, expanded, onToggleExpand }: 
 
       {/* Row 3: Charts — bigger donut + bar + sleep, 3-col desktop / 1-col mobile */}
       {nw > 0 && (
-        <div className="dash-charts">
+        <div className="dash-charts" style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: 8 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           {/* Asset donut chart */}
           <button className="dash-chart-box nav-link" onClick={() => onNav('assets')}>
             <span className="mini wl">{t('netWorth')} · {fmt(nw)}</span>
             <div className="dash-chart-wrap">
-              <DonutChart size={110} segs={assetSegs.filter(([, v]) => v > 0).map(([label, value, color]) => ({ label, value, color }))} />
+              <DonutChart size={72} segs={assetSegs.filter(([, v]) => v > 0).map(([label, value, color]) => ({ label, value, color }))} />
               <div className="dash-chart-legend">
                 {assetSegs.filter(([, v]) => v > 0).map(([label, v, color]) => (
                   <span key={label} className="asset-leg-item"><span className="sw" style={{ background: color }} />{label} <b>{fmt(v)}</b></span>
@@ -165,9 +166,7 @@ export function PinZone({ s, t, onEdit, act, onNav, expanded, onToggleExpand }: 
               </div>
             </div>
           </button>
-          {/* Income bar chart */}
-          {/* v13.32 - nut vao cot giua */}
-          <div className="dash-chart-col">
+          {/* Income bar chart - v13.49c: doi xuong duoi Net Worth (cot trai), khoi cot giua */}
           <button className="dash-chart-box nav-link" onClick={() => onNav('finance-overview')}>
             <span className="mini wl">{t('incomeBreakdown')} · +{fmt(yi)}{t('perYear')}</span>
             <div className="dash-chart-wrap">
