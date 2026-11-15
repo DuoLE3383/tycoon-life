@@ -1062,8 +1062,8 @@ export const incomeBreakdown = (s: GameState): IncomeSource[] => {
 };
 // v11.53 — Finance Overview: expenses broken down by category.
 export interface ExpenseItem {
-  id: string;          // 'living' | 'upkeep' | 'tuition' | 'loanInt' | 'bizCosts' | 'diet' | 'kids'
-  label: 'Living' | 'Asset upkeep' | 'Tuition' | 'Loan interest' | 'Business costs' | 'Diet' | 'Kids';
+  id: string;          // 'living' | 'upkeep' | 'propTax' | 'tuition' | 'loanInt' | 'bizCosts' | 'diet' | 'kids'
+  label: 'Living' | 'Asset upkeep' | 'Property tax' | 'Tuition' | 'Loan interest' | 'Business costs' | 'Diet' | 'Kids';
   amount: number;      // annual $ amount
   link: string;        // tab id to navigate to
 }
@@ -1071,7 +1071,11 @@ export const expenseBreakdown = (s: GameState): ExpenseItem[] => {
   const out: ExpenseItem[] = [];
   const lv = living(Math.floor(s.age));
   if (lv > 0) out.push({ id: 'living', label: 'Living', amount: lv, link: 'career' });
-  const upk = upkeep(s);
+  // v13.23 C — show Property tax 1% and Asset upkeep 1% (+ crew) as separate lines.
+  // Their sum equals the old single upkeep line, so totals are unchanged.
+  const propTax = propertyTax(s);
+  if (propTax > 0) out.push({ id: 'propTax', label: 'Property tax', amount: propTax, link: 'assets' });
+  const upk = propertyUpkeep(s);
   if (upk > 0) out.push({ id: 'upkeep', label: 'Asset upkeep', amount: upk, link: 'assets' });
   const tuition = studyTuition(s);
   if (tuition > 0) out.push({ id: 'tuition', label: 'Tuition', amount: tuition, link: 'edu' });
@@ -1258,7 +1262,11 @@ export const assetDepreciationYr = (s: GameState) => s.lots.reduce((a, l) => {
   const rate = Math.max(itemRate, ASSET_DEPRECIATION_RATE);
   return a + (-lotValue(s, l) * rate);
 }, 0);
-export const upkeep = (s: GameState) => s.lots.reduce((a, l) => a + lotValue(s, l) * 0.02 + crewCostFor(s, l), 0);
+// v13.23 C — split property upkeep 2%/yr into Property tax 1%/yr + upkeep 1%/yr.
+// Total is unchanged: propertyTax + propertyUpkeep == upkeep (old 2% + crew).
+export const propertyTax = (s: GameState) => s.lots.reduce((a, l) => a + lotValue(s, l) * 0.01, 0);
+export const propertyUpkeep = (s: GameState) => s.lots.reduce((a, l) => a + lotValue(s, l) * 0.01 + crewCostFor(s, l), 0);
+export const upkeep = (s: GameState) => propertyTax(s) + propertyUpkeep(s);
 // v11.20 — business P&L helpers. bizRevenue = gross annual revenue from all
 // branches + farm + fac lines (before bizMultiplier, before costs).
 // bizCosts = sum of per-branch overhead (base/24 per branch per year, the
@@ -1318,15 +1326,20 @@ export const bizVal = (s: GameState) => {
   // branch at 0.9^yrs lost 10%/yr even while earning, so at bizVal ~$768B
   // net worth fell ~$210M/game-day (~$7M/s at x1, ~$70M/s at x10) with no
   // cash ever leaving. Lots (lotValue) still depreciate — that is the only
-  // depreciation left, shown in Finance Overview v13.18. Business value is
-  // now frozen at paid; growth comes from new branches / bizMultiplier.
+  // depreciation left, shown in Finance Overview v13.18.
+  // v13.23 B — profit-aware: value = paid + 2x annual bizNet, clamped to
+  // [-25%, +50%] of paid. Profitable business is worth more than paid,
+  // loss-making worth less, but netWorth never jumps wildly in one calc.
   const valueAt = (paid: number, _boughtDay: number) => paid;
   let total = 0;
   BIZ.forEach(b => (s.branches[b.id] || []).forEach(br => { total += valueAt(br.paid, br.day); }));
   FARM_LINES.forEach(l => { if (s.farm[l.id]) total += valueAt(l.cost, s.farmBought[l.id] ?? s.day); });
   FAC_LINES.forEach(l => { if (s.fac[l.id]) total += valueAt(l.cost, s.facBought[l.id] ?? s.day); });
   SPACE_LINES.forEach(l => { if (s.space[l.id]) total += valueAt(l.cost, s.spaceBought[l.id] ?? s.day); });
-  return total;
+  // Profit adjustment: 2x annual net, clamped. bizNet may be negative
+  // (revenue is floored at 0, costs are then subtracted), so losses pull value down.
+  const adj = Math.max(-0.25 * total, Math.min(0.50 * total, bizNet(s) * 2));
+  return total + adj;
 };
 export const stockVal = (s: GameState) => stocksOf(s).reduce((a, x) => a + (s.stk[x.id] || 0) * s.prices[x.id], 0);
 export const netWorth = (s: GameState) => s.money + stockVal(s) + assetVal(s) + bizVal(s) + s.bank.dep - s.bank.loan + marketVal(s);
@@ -2091,9 +2104,13 @@ export function negotiateBizSell(s: GameState, bizId: string, branchIdx: number)
   const list = s.branches[bizId];
   if (!list || branchIdx < 0 || branchIdx >= list.length) return null;
   const br = list[branchIdx];
-  // Initial offer: 70-100% of paid value (market variance)
+  // v13.23 B — offer is based on profit-aware fair value, not raw paid.
+  // fair = branch paid x (bizVal / totalPaid). Falls back to paid if no paid total.
+  const totalPaid = BIZ.reduce((n, b) => n + (s.branches[b.id] || []).reduce((m, x) => m + x.paid, 0), 0);
+  const fair = totalPaid > 0 ? br.paid * (bizVal(s) / totalPaid) : br.paid;
+  // Initial offer: 70-100% of fair value (market variance)
   const pct = 0.70 + Math.random() * 0.30;
-  const offer = Math.round(br.paid * pct);
+  const offer = Math.round(fair * pct);
   const buyerName = BIZ_BUYERS[Math.floor(Math.random() * BIZ_BUYERS.length)];
   return { bizId, branchIdx, offer, buyerName, pushed: false };
 }

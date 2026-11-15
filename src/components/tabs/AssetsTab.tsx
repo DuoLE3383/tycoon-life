@@ -167,11 +167,6 @@ export function AssetsTab({ s, act, curCat, setCurCat }: { s: GameState; act: Ac
       .slice(0, 6);
     return <>
       <p className="sub">{t('agroup.sub.' + g)}</p>
-      {mine.length > 0 && <>
-        <h3>{t('astsec.have')}</h3>
-        {ownLots(g).map(({ l, i }) => lotRow(l, i, 'sell'))}
-        {ownUsed(g).map(({ u, i }) => usedRow(u, i, 'sell'))}
-      </>}
       <h3>{t('astsec.buy')} · {t('agroup.' + g)}</h3>
       <p className="mini" style={{ opacity: .65, marginBottom: 6 }}>{t('cat.sortedNote')}</p>
       <div className="grid">
@@ -228,6 +223,11 @@ export function AssetsTab({ s, act, curCat, setCurCat }: { s: GameState; act: Ac
           </div>
         </>
       )}
+      {mine.length > 0 && <>
+        <h3>{t('astsec.have')}</h3>
+        {ownLots(g).map(({ l, i }) => lotRow(l, i, 'sell'))}
+        {ownUsed(g).map(({ u, i }) => usedRow(u, i, 'sell'))}
+      </>}
     </>;
   };
 

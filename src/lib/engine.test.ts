@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { ASSET_DEPRECIATION_RATE, DAY_MS, GIGS, YEAR_EVENTS, BIZ, NPCS, STOCKS } from './gameData';
 import {
-  addPost, bankOp, bizMultiplier, begin, bizVal, checkAch, doGig, effYears, enrollDeg, enrollLic, fresh, gigPay,
+  addPost, bankOp, bizMultiplier, begin, bizVal, bizNet, checkAch, doGig, effYears, enrollDeg, enrollLic, fresh, gigPay,
   lotValue, migrate, processDay, sleepHealthMult, sleepHealthRecovery, sleepDebtStudyMult, sleepDebtHealthMult, studyPace, studyWorkMult,
   SPACE_TRAVEL_COST, spaceIncome, startSpaceUpgrade, taxOf, tick, trade,
   doWell, effWellCd, wellLeft, wellReady, TREAT_COST, TREAT_CD, GYM_CD, GYM_COST, GYM_HP, WELL, healthWarnings, hire, jobIncome, meets, POST_COOLDOWN_DAYS, studyTuition,
@@ -270,7 +270,7 @@ test('short sleep speeds study but increases health decline and appears in daily
   assert.match(state.timeline[0].entries[0], /Study: BBA/);
 });
 
-test('personal assets depreciate annually; business value is frozen at paid (v13.19)', () => {
+test('personal assets depreciate annually; business value is profit-aware (v13.23)', () => {
   const state = fresh();
   state.day = 365.25;
   state.lots.push({ id: 'w-tag', paid: 1_000, day: 0, condition: 100 });
@@ -287,7 +287,12 @@ test('personal assets depreciate annually; business value is frozen at paid (v13
   // v13.19 — business does NOT depreciate like an item: a profitable branch
   // at 0.9^yrs lost 10%/yr with no cash leaving, so at bizVal ~$768B net
   // worth fell ~$210M/game-day. Lots above still depreciate (1029 / 900).
-  assert.equal(bizVal(state), 1000);
+  // v13.23 B — profit-aware: bizVal = paid + 2x annual bizNet, clamped
+  // [-25%, +50%] of paid. Here bizNet = 1935.416..., so 2x = 3870.83
+  // is clamped to +50% of paid (500) → bizVal = 1000 + 500 = 1500.
+  // This also proves the clamp works: without it bizVal would be 4870.83.
+  assert.ok(Math.abs(bizNet(state) - 1935.4166666666667) < 0.01);
+  assert.equal(bizVal(state), 1500);
   assert.equal(ASSET_DEPRECIATION_RATE, -0.1);
 });
 

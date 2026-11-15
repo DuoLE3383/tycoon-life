@@ -1,12 +1,12 @@
 {
-  "version": "v13.22",
+  "version": "v13.23",
   "releasedAt": "2026-11-15",
-  "headline": "HuyenBao v13.22 — Assets update + refactored app",
-  "summary": "v13.22: Improved asset organization and refactored the application into separate layout, tab, and modal components while preserving game features.",
+  "headline": "HuyenBao v13.23 — Shop first, profit-aware business, clear property costs",
+  "summary": "v13.23: In Assets, shopping items now appear before owned items. Business value follows profit, sale offers follow business value. Property costs split into Property tax 1% + Asset upkeep 1% with the same 2% total.",
   "features": [
-    "Assets: improved organization of owned items and categories",
-    "App structure: tabs, layout, and modals are separated into components",
-    "Game features and behavior preserved across the refactor",
-    "Version bumped to v13.11"
+    "Assets: shopping items (buy catalogue + used items) now appear before owned items",
+    "Business: business value is profit-aware (paid + 2x annual net, clamped -25% / +50%)",
+    "Business: sale offers are based on profit-aware fair value, not raw paid price",
+    "Finance: Property tax 1%/yr and Asset upkeep 1%/yr shown as separate lines, total still 2%"
   ]
 }
