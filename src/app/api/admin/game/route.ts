@@ -148,6 +148,10 @@ interface ItemPatch {
   story: string | null;
   since: number;
   isUsed: boolean;
+  lux: number;
+  rate: number;
+  art: string;
+  c: string;
 }
 function readItemPatch(b: Record<string, unknown>): ItemPatch | null {
   const name = String(b.name ?? '').trim().slice(0, 60);
@@ -191,8 +195,12 @@ function readItemPatch(b: Record<string, unknown>): ItemPatch | null {
     ? Math.max(0, Math.min(1e9, Number(b.newPrice)))
     : null;
   const story = String(b.story ?? '').trim().slice(0, 280) || null;
+  const lux = Number.isFinite(Number(b.lux)) ? Math.max(0, Math.min(12000, Math.round(Number(b.lux)))) : 1;
+  const rate = Number.isFinite(Number(b.rate)) ? Math.max(-0.4, Math.min(0.1, Number(b.rate))) : 0;
+  const art = String(b.art ?? 'ic-bag').trim().slice(0, 30) || 'ic-bag';
+  const c = String(b.c ?? '#888888').trim().slice(0, 20) || '#888888';
   const since = Number.isFinite(Number(b.since)) ? Math.max(1800, Math.min(2100, Math.round(Number(b.since)))) : 1900;
-  return { name, cat, price, imageUrl, brand, rarity, stock, baseId, ageYears, condition, askPrice, newPrice, story, since, isUsed };
+  return { name, cat, price, imageUrl, brand, rarity, stock, baseId, ageYears, condition, askPrice, newPrice, story, since, isUsed, lux, rate, art, c };
 }
 
 export async function GET(req: Request) {
@@ -263,10 +271,10 @@ export async function POST(req: Request) {
           cat: patch.cat,
           brand: patch.brand || undefined,
           price: patch.price,
-          lux: 1,
-          rate: 0,
-          art: 'ic-bag',
-          c: '#888888',
+          lux: patch.lux,
+          rate: patch.rate,
+          art: patch.art,
+          c: patch.c,
           rarity: patch.rarity,
           stock: patch.stock,
           imageUrl: patch.imageUrl,
@@ -304,10 +312,10 @@ export async function POST(req: Request) {
           cat: patch.cat,
           brand: patch.brand || undefined,
           price: patch.askPrice ?? patch.price,
-          lux: existing.lux,
-          rate: existing.rate,
-          art: existing.art,
-          c: existing.c,
+          lux: patch.lux,
+          rate: patch.rate,
+          art: patch.art,
+          c: patch.c,
           rarity: patch.rarity,
           stock: patch.stock,
           imageUrl: patch.imageUrl,

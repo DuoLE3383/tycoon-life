@@ -133,5 +133,17 @@ export const CHANGELOG: Record<string, ChangelogEntry> = {
       'Nuoc: mo rong len Top 30, Dubai hien thi United Arab Emirates (Dubai), khong luu rieng Dubai',
     ],
   },
+  'v13.49': {
+    headline: 'HuyenBao v13.49 - Tra cuu vat pham + Dong tien + Hoa don & Thue',
+    summary: 'v13.49: Admin tra cuu vat pham lay thong tin that + gia thi truong that + chon anh. Finance them bieu do dong tien 200 giao dich gan nhat. Hoa don thang + thue nam thanh hoa don phai bam Tra, qua han phat 2%/thang, dashboard canh bao khi co hoa don moi.',
+    features: [
+      'Admin Items: nut Tra cuu lay brand/story/gia thi truong that + 4-6 anh that de chon, admin duyet truoc khi Tao/Cap nhat',
+      'Finance: bieu do dong tien 200 giao dich gan nhat theo loai tai san (tien vao/ra/rong) + khau hao/nam, giai thich lai lon ma tai san tut',
+      'Hoa don: hoa don thang (living + upkeep + hoc phi + con + lai vay) + thue thu nhap nam thanh hoa don phai tra, han 14/30 ngay',
+      'Tre han: +2%/thang phat cong don, khong tru tien tu dong nua',
+      'Dashboard: PinZone canh bao khi co hoa don chua tra / qua han, bam de sang Finance tra',
+      'Tai san tut: khau hao vat pham -10%/nam tro len, gia tri doanh nghiep tran +50% von, thue cuoi nam la 3 ly do chinh',
+    ],
+  },
 
 };

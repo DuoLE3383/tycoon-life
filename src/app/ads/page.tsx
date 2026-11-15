@@ -108,6 +108,13 @@ export default function AdminPage() {
   // mode instead of "create". Submitting either creates (id null) or patches
   // (id set) the item, then the form flips back to create mode.
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
+  // v13.49 — Item auto-info: ket qua tu /api/admin/items/lookup, chi de dien san form.
+  const [lookupBusy, setLookupBusy] = useState(false);
+  const [lookupMsg, setLookupMsg] = useState('');
+  const [lookupImages, setLookupImages] = useState<string[]>([]);
+  const [lookupBrand, setLookupBrand] = useState('');
+  const [lookupStory, setLookupStory] = useState('');
+  const [lookupMeta, setLookupMeta] = useState<{ lux: number; rate: number; art: string; c: string } | null>(null);
   // v12.2 — AI difficulty control. easy = win +10% / penalties -50%,
   // normal = unchanged, hard = win -10% / penalties +50%. Persisted on the
   // player's GameState via the setDifficulty admin action (audit-log row).
@@ -496,6 +503,35 @@ export default function AdminPage() {
               <div className="adm-bcast">
                 <b>{editingItemId ? '✏️ Sửa vật phẩm tuỳ chỉnh' : '➕ Tạo vật phẩm mới từ URL ảnh'}</b>
                 {editingItemId && <p className="adm-note">Đang sửa item <code className="adm-mini-code">{editingItemId.slice(0, 18)}…</code> — ấn <b>Cập nhật</b> để lưu, hoặc <b>Huỷ</b> để quay lại tạo mới.</p>}
+                {/* v13.49 — Auto-info: go ten item that -> dien san form, admin duyet roi moi Tao/Cap nhat. */}
+                <div className="adm-row">
+                  <input className="adm-input" value={lookupBrand} placeholder="Thương hiệu (tự động)" onChange={e => setLookupBrand(e.target.value)} style={{ flex: '1 1 140px' }} />
+                  <input className="adm-input" value={lookupStory} placeholder="Mô tả (tự động, tiếng Việt)" onChange={e => setLookupStory(e.target.value)} style={{ flex: '2 1 260px' }} />
+                  <button className="adm-btn" disabled={!newItemName.trim() || lookupBusy} onClick={() => void (async () => {
+                    setLookupBusy(true); setLookupMsg('Đang tìm thông tin thật…');
+                    try {
+                      const r = await adminPost<{ ok: boolean; item?: { name: string; brand: string; cat: string; price: number | null; rarity: string; story: string; lux: number; rate: number; art: string; c: string; images: string[]; priceSource: string }; error?: string }>('/api/admin/items/lookup', { query: newItemName.trim() });
+                      if (!r.ok || !r.item) throw new Error(r.error || 'failed');
+                      const it = r.item;
+                      setNewItemName(it.name); setNewItemCat(it.cat);
+                      if (it.price != null) setNewItemPrice(String(it.price));
+                      setNewItemRarity((['common', 'uncommon', 'rare', 'legendary', 'mythic'].includes(it.rarity) ? it.rarity : 'rare') as typeof newItemRarity);
+                      setLookupBrand(it.brand); setLookupStory(it.story);
+                      setLookupMeta({ lux: it.lux, rate: it.rate, art: it.art, c: it.c });
+                      setLookupImages(it.images || []);
+                      if (it.images?.[0]) setNewItemUrl(it.images[0]);
+                      setLookupMsg(it.price == null ? 'Đã lấy thông tin. Không thấy giá thật — admin nhập giá tay.' : `Đã lấy thông tin. Giá thật: $${it.price.toLocaleString('vi-VN')} (nguồn: ${it.priceSource}). Kiểm tra lại rồi bấm Tạo/Cập nhật.`);
+                    } catch { setLookupMsg('Không lấy được thông tin — nhập tay bình thường.'); }
+                    setLookupBusy(false);
+                  })()}>{lookupBusy ? 'Đang tìm…' : '🔍 Tự động lấy thông tin'}</button>
+                </div>
+                {lookupMsg && <p className="adm-note">{lookupMsg}</p>}
+                {lookupImages.length > 0 && <div className="adm-row" style={{ flexWrap: 'wrap' }}>
+                  {lookupImages.map((u) => (
+                    <img key={u} src={u} alt="" onClick={() => setNewItemUrl(u)} title="Bấm để chọn ảnh này" style={{ width: 72, height: 54, borderRadius: 6, objectFit: 'cover', cursor: 'pointer', outline: u === newItemUrl ? '2px solid var(--accent)' : '1px solid var(--line)' }} onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+                  ))}
+                  <span className="adm-note">Bấm vào ảnh để chọn làm ảnh item.</span>
+                </div>}
                 <div className="adm-row">
                   <input className="adm-input" value={newItemName} placeholder="Tên vật phẩm" onChange={e => setNewItemName(e.target.value)} style={{ flex: '1 1 140px' }} />
                   <input className="adm-input" value={newItemCat} placeholder="Danh mục" onChange={e => setNewItemCat(e.target.value)} style={{ flex: '0 0 100px' }} />
@@ -528,18 +564,19 @@ export default function AdminPage() {
                     try {
                       if (editingItemId) {
                         // v12.2 — update existing item by id.
-                        const r = await adminPost<{ ok: boolean; itemId?: string; name?: string; error?: string }>('/api/admin/game', { action: 'updateItem', id: editingItemId, name: newItemName, cat: newItemCat, price: Number(newItemPrice), imageUrl: newItemUrl, rarity: newItemRarity, stock: stockNum });
+                        const r = await adminPost<{ ok: boolean; itemId?: string; name?: string; error?: string }>('/api/admin/game', { action: 'updateItem', id: editingItemId, name: newItemName, cat: newItemCat, price: Number(newItemPrice), imageUrl: newItemUrl, rarity: newItemRarity, stock: stockNum, brand: lookupBrand, story: lookupStory, lux: lookupMeta?.lux, rate: lookupMeta?.rate, art: lookupMeta?.art, c: lookupMeta?.c });
                         if (!r.ok) throw new Error(r.error || 'failed');
                         flash('✅ Đã cập nhật "' + (r.name || '') + '"');
                       } else {
                         // create mode
-                        const r = await adminPost<{ ok: boolean; itemId?: string; name?: string; error?: string }>('/api/admin/game', { action: 'createItem', name: newItemName, cat: newItemCat, price: Number(newItemPrice), imageUrl: newItemUrl, rarity: newItemRarity, stock: stockNum });
+                        const r = await adminPost<{ ok: boolean; itemId?: string; name?: string; error?: string }>('/api/admin/game', { action: 'createItem', name: newItemName, cat: newItemCat, price: Number(newItemPrice), imageUrl: newItemUrl, rarity: newItemRarity, stock: stockNum, brand: lookupBrand, story: lookupStory, lux: lookupMeta?.lux, rate: lookupMeta?.rate, art: lookupMeta?.art, c: lookupMeta?.c });
                         if (!r.ok || !r.itemId) throw new Error(r.error || 'failed');
                         flash('✅ Đã tạo "' + (r.name || '') + '"');
                       }
                       // Reset the form back to create mode after either submit.
                       setEditingItemId(null);
                       setNewItemName(''); setNewItemUrl(''); setNewItemPrice('1000'); setNewItemCat('Custom'); setNewItemStock(''); setNewItemRarity('common');
+                      setLookupBrand(''); setLookupStory(''); setLookupMeta(null); setLookupImages([]); setLookupMsg('');
                       void loadItems();
                     } catch (e) { const msg = e instanceof Error ? e.message : ''; flash('❌ ' + (editingItemId ? 'Cập nhật' : 'Tạo') + ' thất bại' + (msg === 'bad-url' ? ' — URL không hợp lệ' : msg === 'bad-patch' ? ' — thiếu tên hoặc URL' : msg === 'not-found' ? ' — không tìm thấy item' : msg === 'bad-stock' ? ' — stock phải 1-10 cho mythic' : '')); }
                   })()}>{editingItemId ? '💾 Cập nhật' : '➕ Tạo'}</button>

@@ -6,6 +6,7 @@ import {
   financeActions, fmt, fmtFull, type GameState, healthMult, incomeBreakdown, type IncomeSource,
   jobIncome, jobsOf, levelMult, lotValue, assetDepreciationYr, netWorth, spiritBizMult, stockVal, studyTuition,
   studyWorkMult, upkeep, useT, yearExpenses, yearIncome,
+  payBill, billTotalDue, type Bill,
 } from '@/components/gameDeps';
 import { type Act } from '@/components/shared';
 
@@ -27,7 +28,7 @@ import { type Act } from '@/components/shared';
 //                              player's current factor breakdown so they know
 //                              which lever to pull next.
 // The original cash-flow + tables + action-suggestions are kept below these.
-export function FinanceOverviewTab({ s, onNav }: { s: GameState; act: Act; onNav: (k: string) => void }) {
+export function FinanceOverviewTab({ s, act, onNav }: { s: GameState; act: Act; onNav: (k: string) => void }) {
   const { t } = useT();
   const yi = yearIncome(s);
   const ye = yearExpenses(s);
@@ -247,6 +248,83 @@ export function FinanceOverviewTab({ s, onNav }: { s: GameState; act: Act; onNav
           <b className="num-full" style={{ fontSize: '1rem', color: 'var(--accent)' }}>{fmtFull(nw)}</b>
         </div>
       </div>
+
+      {/* v13.49 — Bieu do dong tien: gop 200 giao dich gan nhat (TX_CAP) theo loai tai san.
+          Giai thich lai lon ma tai san tut: dong tien (tien mat vao/ra) KHAC voi
+          tong tai san (tien + gia tai san/co phieu/biz - no). Khau hao + gia tai san
+          tut la mat gia phi tien mat, khong hien trong dong tien. */}
+      {(() => {
+        const labelFor = (a: string): string => ({ stock: 'Cổ phiếu', lot: 'Vật phẩm', biz: 'Kinh doanh', branch: 'Chi nhánh', farm: 'Trang trại', fac: 'Nhà máy', space: 'Bất động sản', bank: 'Ngân hàng', gig: 'Việc vặt', job: 'Lương', tuition: 'Học phí', donate: 'Từ thiện', biz_sell: 'Bán doanh nghiệp' } as Record<string, string>)[a] || a;
+        const groups = new Map<string, { inAmt: number; outAmt: number }>();
+        for (const tx of s.transactions || []) {
+          if (tx.kind === 'transfer') continue;
+          const g = groups.get(tx.asset) || { inAmt: 0, outAmt: 0 };
+          if (tx.amount >= 0) g.inAmt += tx.amount; else g.outAmt += Math.abs(tx.amount);
+          groups.set(tx.asset, g);
+        }
+        const rows = [...groups.entries()].map(([asset, v]) => ({ asset, label: labelFor(asset), ...v, net: v.inAmt - v.outAmt })).sort((a, b) => Math.abs(b.net) - Math.abs(a.net));
+        const maxV = Math.max(1, ...rows.map((r) => Math.max(r.inAmt, r.outAmt)));
+        const txIn = rows.reduce((a, r) => a + r.inAmt, 0);
+        const txOut = rows.reduce((a, r) => a + r.outAmt, 0);
+        const depr = assetDepreciationYr(s);
+        return (
+          <div className="card" style={{ marginBottom: 10, padding: 14 }}>
+            <div className="mini" style={{ textTransform: 'uppercase', letterSpacing: '.4px', color: 'var(--accent)', marginBottom: 6 }}>💸 Dòng tiền — 200 giao dịch gần nhất</div>
+            <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', marginBottom: 10 }}>
+              <span className="mini">Tiền vào: <b style={{ color: 'var(--up)' }}>+{fmtFull(txIn)}</b></span>
+              <span className="mini">Tiền ra: <b style={{ color: 'var(--down)' }}>−{fmtFull(txOut)}</b></span>
+              <span className="mini">Ròng giao dịch: <b style={{ color: txIn - txOut >= 0 ? 'var(--up)' : 'var(--down)' }}>{txIn - txOut >= 0 ? '+' : '−'}{fmtFull(Math.abs(txIn - txOut))}</b></span>
+              <span className="mini">Khấu hao tài sản / năm (không phải tiền mặt): <b style={{ color: 'var(--down)' }}>−{fmtFull(depr)}</b></span>
+            </div>
+            {rows.length === 0 ? <p className="sub">Chưa có giao dịch nào.</p> : rows.map((r) => (
+              <div key={r.asset} style={{ marginBottom: 8 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '.82rem' }}>
+                  <b>{r.label}</b>
+                  <span className="mini">+{fmtFull(r.inAmt)} · −{fmtFull(r.outAmt)} · Ròng <b style={{ color: r.net >= 0 ? 'var(--up)' : 'var(--down)' }}>{r.net >= 0 ? '+' : '−'}{fmtFull(Math.abs(r.net))}</b></span>
+                </div>
+                <div style={{ display: 'flex', gap: 4, marginTop: 3 }}>
+                  <div style={{ height: 10, borderRadius: 5, background: 'var(--up)', width: `${Math.max(2, (r.inAmt / maxV) * 100)}%`, opacity: .85 }} />
+                </div>
+                <div style={{ display: 'flex', gap: 4, marginTop: 2 }}>
+                  <div style={{ height: 10, borderRadius: 5, background: 'var(--down)', width: `${Math.max(2, (r.outAmt / maxV) * 100)}%`, opacity: .85 }} />
+                </div>
+              </div>
+            ))}
+            <p className="mini" style={{ opacity: .7, marginTop: 8 }}>Xanh = tiền vào, đỏ = tiền ra. Lãi lớn nhưng tổng tài sản tụt thường do 3 thứ không nằm trong dòng tiền: khấu hao tài sản, giá cổ phiếu / vật phẩm / doanh nghiệp giảm, và lãi vay. Kiểm tra Khấu hao ở trên + bảng Tài sản / Nợ bên dưới để thấy phần tụt nằm ở đâu.</p>
+          </div>
+        );
+      })()}
+
+      {/* v13.49 — Hoa don phai tra: thang + thue nam. Da tra thi an khoi danh sach (giữ trong s.bills, paid=true). */}
+      {(() => {
+        const unpaid = (s.bills || []).filter((b: Bill) => !b.paid);
+        if (unpaid.length === 0) return null;
+        return (
+          <div className="card" style={{ marginBottom: 10, padding: 14, borderLeft: '3px solid var(--brick)' }}>
+            <div className="mini" style={{ textTransform: 'uppercase', letterSpacing: '.4px', color: 'var(--accent)', marginBottom: 6 }}>🧾 Hóa đơn cần thanh toán</div>
+            {unpaid.map((b: Bill) => {
+              const due = billTotalDue(b);
+              const daysLeft = b.dueDay - s.day;
+              const overdue = daysLeft < 0;
+              return (
+                <div key={b.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, padding: '8px 0', borderBottom: '1px solid var(--line)' }}>
+                  <div>
+                    <div style={{ fontSize: '.9rem', fontWeight: 700 }}>{b.label}{b.kind === 'tax' ? ' · Thuế' : ''}</div>
+                    <div className="mini" style={{ opacity: .7 }}>
+                      {overdue ? `Quá hạn ${Math.abs(daysLeft)} ngày · Phạt ${fmtFull(b.penalty)}` : `Còn ${daysLeft} ngày · Hạn ngày ${b.dueDay}`}
+                      {' · '}Gốc {fmtFull(b.amount)}
+                    </div>
+                  </div>
+                  <button className="btn" disabled={s.money < due} onClick={() => act((st) => { const ok = payBill(st, b.id); return ok ? null : 'Không đủ tiền để trả hóa đơn này.'; })}>
+                    Trả {fmtFull(due)}
+                  </button>
+                </div>
+              );
+            })}
+            <p className="mini" style={{ opacity: .7, marginTop: 8 }}>Quá hạn: +2%/tháng phạt cộng dồn. Trả chậm không bị trừ tiền tự động nữa — nhưng phạt vẫn tăng mỗi tháng.</p>
+          </div>
+        );
+      })()}
 
       {/* ============= v13.12 — P&L DIAGNOSIS ============= */}
       {/* Plain-language WHY the player is (or isn't) making money, with the

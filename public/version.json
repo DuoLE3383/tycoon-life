@@ -1,13 +1,14 @@
 {
-  "version": "v13.48",
+  "version": "v13.49",
   "releasedAt": "2026-11-15",
-  "headline": "HuyenBao v13.48 - Than phan: ngon ngu + quoc tich + 30 nuoc",
-  "summary": "v13.48: Tab Than phan moi. Hoc 19 ngon ngu Level 1-5, nhap tich can ngon ngu Lv 4+, cu tru 180 ngay, phi 500.000$, Fame 500 hoac tai san 5M, cho duyet 90 ngay. 30 nuoc, Dubai hien thi United Arab Emirates (Dubai).",
+  "headline": "HuyenBao v13.49 - Tra cuu vat pham + Dong tien + Hoa don & Thue",
+  "summary": "v13.49: Admin tra cuu vat pham lay thong tin that + gia thi truong that + chon anh. Finance them bieu do dong tien 200 giao dich gan nhat. Hoa don thang + thue nam thanh hoa don phai bam Tra, qua han phat 2%/thang, dashboard canh bao khi co hoa don moi.",
   "features": [
-    "Than phan: tab moi trong nhom Character - quoc tich hien tai / goc, ngoai ngu, cu tru, nhap tich",
-    "Ngon ngu: 19 ngon ngu, Level 1-5, phi 10.000$ x Lv dich x (1 + Lv hien tai x 0.2), 30 ngay x Lv dich, +50 XP x Lv dich khi xong",
-    "Quoc tich: can 1 ngon ngu Lv 4+, cu tru 180 ngay, phi 500.000$ tru that, Fame >= 500 hoac tai san rong >= 5M, cho duyet 90 ngay",
-    "Di chuyen: di toi 1 nuoc cu the +7 ngay cu tru, phi 2.000$ + 500$ x so chuyen, cooldown 14 ngay",
-    "Nuoc: mo rong len Top 30, Dubai hien thi United Arab Emirates (Dubai), khong luu rieng Dubai"
+    "Admin Items: nut Tra cuu lay brand/story/gia thi truong that + 4-6 anh that de chon, admin duyet truoc khi Tao/Cap nhat",
+    "Finance: bieu do dong tien 200 giao dich gan nhat theo loai tai san (tien vao/ra/rong) + khau hao/nam, giai thich lai lon ma tai san tut",
+    "Hoa don: hoa don thang (living + upkeep + hoc phi + con + lai vay) + thue thu nhap nam thanh hoa don phai tra, han 14/30 ngay",
+    "Tre han: +2%/thang phat cong don, khong tru tien tu dong nua",
+    "Dashboard: PinZone canh bao khi co hoa don chua tra / qua han, bam de sang Finance tra",
+    "Tai san tut: khau hao vat pham -10%/nam tro len, gia tri doanh nghiep tran +50% von, thue cuoi nam la 3 ly do chinh"
   ]
 }

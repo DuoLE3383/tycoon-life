@@ -38,6 +38,11 @@ export function PinZone({ s, t, onEdit, act, onNav, expanded, onToggleExpand }: 
   if (yi < 0) warns.push({ id: 'negative', key: 'att.negative', severity: 'critical', link: 'finance-overview' });
   if (s.bank.loan > netWorth(s) * 0.3) warns.push({ id: 'highLoan', key: 'att.highLoan', severity: 'warn', link: 'bank' });
   if (!s.diet && s.health < 70) warns.push({ id: 'diet', key: 'att.diet', severity: 'info', link: 'health' });
+  // v13.49 — banner hoa don: hien moi tab (PinZone pin tren cung). Khong dung t(key)
+  // de khoi them key dich: text tieng Viet truc tiep.
+  const unpaidBills = (s.bills || []).filter((b) => !b.paid);
+  const overdueBills = unpaidBills.filter((b) => s.day > b.dueDay);
+  const billsDueTotal = unpaidBills.reduce((a, b) => a + b.amount + b.penalty, 0);
   const activeJobs = jobsOf(s);
   const activeStudies = [s.study, s.sideStudy].filter((study): study is NonNullable<typeof study> => !!study);
   const studyTxt = activeStudies.length
@@ -88,6 +93,13 @@ export function PinZone({ s, t, onEdit, act, onNav, expanded, onToggleExpand }: 
       {/* v11.55 — WARNING BANNER at the top (was at the bottom, easy to miss).
           Each warning is a clickable chip → relevant tab. Critical = red,
           warn = orange, info = muted. */}
+      {unpaidBills.length > 0 && (
+        <div role="status" aria-live="polite" onClick={() => onNav('finance-overview')} style={{ cursor: 'pointer', marginBottom: 8, padding: '8px 12px', borderRadius: 8, background: overdueBills.length > 0 ? 'rgba(192,57,43,.12)' : 'rgba(212,165,90,.14)', border: `1px solid ${overdueBills.length > 0 ? 'rgba(192,57,43,.5)' : 'rgba(212,165,90,.5)'}` }}>
+          <span>{overdueBills.length > 0 ? '🔴' : '🟠'}</span>{' '}
+          <b>{overdueBills.length > 0 ? `Có ${overdueBills.length} hóa đơn quá hạn!` : `Có ${unpaidBills.length} hóa đơn cần thanh toán`}</b>{' '}
+          <span className="mini">— tổng {fmt(billsDueTotal)}{overdueBills.length > 0 ? ' (đã gồm tiền phạt)' : ''} · bấm để trả →</span>
+        </div>
+      )}
       {warns.length > 0 && (
         <div className="pinzone-warns" role="status" aria-live="polite">
           {warns.map(w => (

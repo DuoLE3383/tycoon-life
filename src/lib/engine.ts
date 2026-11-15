@@ -135,6 +135,10 @@ export const TX_CAP = 200; // keep the last 200 transactions (older trimmed)
 export function genUid(): string {
   return `uid-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 7)}`;
 }
+// v13.49 — 1 hoa don phai tra. kind: 'monthly' = hoa don thang (living+upkeep+tuition+con+lai vay),
+  // 'tax' = thue thu nhap nam. dueDay: ngay het han (game-day). penalty: tien phat da cong don.
+  // paid=true: da tra, giu lai de hien lich su (khong xoa). amount: goc + penalty hien tai = amount + penalty.
+export interface Bill { id: string; kind: 'monthly' | 'tax'; label: string; amount: number; penalty: number; issuedDay: number; dueDay: number; paid: boolean; paidDay?: number }
 export interface GameState {
   schemaVersion: number;
   // v12 — player UID. Short, stable, unique-per-life identifier generated at
@@ -188,6 +192,7 @@ export interface GameState {
   psychic: PsychicState;
   started: boolean;
   bank: { dep: number; loan: number }; fame: number; donated: number; donatedThisYear: number; yIncome: number; yTax: number;
+  bills: Bill[]; // v13.49 — hoa don thang + thue nam CHUA tra (phat sinh thay cho tru tu dong).
   prices: Record<string, number>; hist: Record<string, number[]>;
   eraBiz: number; eraFac: number;
   log: string[]; over: boolean; pending: string | null; aiEv: AIEvent | null;
@@ -729,6 +734,7 @@ export function fresh(): GameState {
     avatar: '🧑',
     gender: 'nonbinary', birthMonth: 1, birthDay: 15, zodiac: 'capricorn', psychic: freshPsychic(),
     bank: { dep: 0, loan: 0 }, fame: 0, donated: 0, donatedThisYear: 0, yIncome: 0, yTax: 0,
+    bills: [],
     prices: {}, hist: {}, eraBiz: 1, eraFac: 1,
     log: [], over: false, pending: null, aiEv: null,
     partner: false, married: false, kids: 0, m1: false, story: { used: [] },
@@ -1614,6 +1620,38 @@ export function cashFlowLastDays(s: GameState, days = 30): number {
   }, 0);
 }
 export const clickVal = (s: GameState) => Math.max(25, Math.round((30 + 0.01 * yearIncome(s)) * ((s.ints.includes('sports') || s.tals.includes('hands')) ? 1.25 : 1)));
+// v13.49 — hoa don phai tra: phat hanh / tra / phat tre han.
+export const unpaidBills = (s: GameState) => (s.bills || []).filter((b) => !b.paid);
+export const overdueBills = (s: GameState) => unpaidBills(s).filter((b) => s.day > b.dueDay);
+export const billTotalDue = (b: Bill) => b.amount + b.penalty;
+export const issueBill = (s: GameState, kind: Bill['kind'], label: string, amount: number, dueInDays: number) => {
+  s.bills ||= [];
+  const bill: Bill = { id: `bill-${kind}-${s.day}-${s.bills.length}`, kind, label, amount: Math.max(0, Math.round(amount)), penalty: 0, issuedDay: s.day, dueDay: s.day + dueInDays, paid: false };
+  s.bills.push(bill);
+  queueToast(s, `🧾 Hóa đơn mới: ${label} ${fmt(bill.amount)} — hạn ${dueInDays} ngày.`);
+  return bill;
+};
+// Phat tre han: chay 1 lan/thang (trong khoi ngay 1). 2%/thang qua han, tinh lai tu dau de khong cong don sai.
+export const accrueBillPenalty = (s: GameState) => {
+  for (const b of unpaidBills(s)) {
+    if (s.day <= b.dueDay) continue;
+    const monthsLate = Math.floor((s.day - b.dueDay) / 30) + 1;
+    const want = Math.round(b.amount * 0.02 * monthsLate);
+    if (want > b.penalty) { b.penalty = want; pushLog(s, `⚠️ Hóa đơn quá hạn: ${b.label} + phạt ${fmt(want)} (${monthsLate} tháng).`); }
+  }
+};
+export const payBill = (s: GameState, billId: string): boolean => {
+  const b = (s.bills || []).find((x) => x.id === billId && !x.paid);
+  if (!b) return false;
+  const due = billTotalDue(b);
+  if (s.money < due) return false;
+  s.money -= due;
+  b.paid = true; b.paidDay = s.day;
+  recordTx(s, { kind: 'expense', asset: 'bank', ref: b.id, name: `Trả hóa đơn: ${b.label}`, qty: 1, unit: due, amount: -due });
+  pushLog(s, `✅ Đã trả hóa đơn: ${b.label} ${fmt(due)}${b.penalty > 0 ? ` (gồm phạt ${fmt(b.penalty)})` : ''}.`);
+  return true;
+};
+
 export const taxOf = (inc: number) => {
   let t = 0, lo = 0;
   for (const [hi, rate] of TAX_BRACKETS) { if (inc > lo) { t += (Math.min(inc, hi) - lo) * rate; lo = hi; } else break; }
@@ -1849,7 +1887,9 @@ export function processDay(s: GameState, d: number, rng: () => number = Math.ran
     const bills = living(s.age) / 12 + upkeep(s) / 12 + tuition + s.kids * 400 + loanInt;
     const interest = s.bank.dep * SAVE_RATE / 12;
     s.bank.dep += interest; s.yIncome += Math.max(0, interest);
-    s.money += profit - bills;
+    s.money += profit;
+    accrueBillPenalty(s);
+    if (bills > 0) issueBill(s, 'monthly', `${MONTHS[dt.getUTCMonth()]} ${dt.getUTCFullYear()} — Hóa đơn tháng`, bills, 14);
     if (profit > 0) s.yIncome += profit;
     // social media: follower graph drifts with fame every month (sqrt growth + hard cap)
     // v11.1: raise the cap from 200M to MAX_FOLLOWERS (2B) and clamp properly.
@@ -1881,7 +1921,8 @@ export function processDay(s: GameState, d: number, rng: () => number = Math.ran
       const charityDeduction = Math.min(s.donatedThisYear || 0, s.yIncome * 0.2);
       const taxable = Math.max(0, s.yIncome - charityDeduction);
       const t = taxOf(taxable);
-      s.yTax = t; s.money -= t;
+      s.yTax = t;
+      issueBill(s, 'tax', `Thuế thu nhập ${y}`, t, 30);
       pushLog(s, `Tax season ${y}: income ${fmt(s.yIncome)} - charity ${fmt(charityDeduction)} → tax bill ${fmt(t)}.`);
       s.yIncome = 0;
       s.donatedThisYear = 0;
