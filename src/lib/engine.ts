@@ -180,7 +180,7 @@ export interface GameState {
   zodiac: ZodiacSign;          // derived at begin()
   psychic: PsychicState;
   started: boolean;
-  bank: { dep: number; loan: number }; fame: number; donated: number; yIncome: number; yTax: number;
+  bank: { dep: number; loan: number }; fame: number; donated: number; donatedThisYear: number; yIncome: number; yTax: number;
   prices: Record<string, number>; hist: Record<string, number[]>;
   eraBiz: number; eraFac: number;
   log: string[]; over: boolean; pending: string | null; aiEv: AIEvent | null;
@@ -201,7 +201,7 @@ export interface GameState {
   // chain so the BizTab + branch chips + social hype posts reflect their
   // brand identity (e.g. "☕ Dương Coffee" instead of "Coffee shop").
   brands: Record<string, { name: string; logo: string }>;
-  cause: 'age' | 'health' | null;
+  cause: 'age' | 'health' | 'bankrupt' | null;
   social: { followers: number; posts: Post[]; verified?: boolean; lastPostDay?: number };
   // v12.5 — social post queue: AI event auto-posts are queued here instead
   // of pushed directly to s.social.posts (which caps at 12 and could lose
@@ -233,7 +233,7 @@ export interface GameState {
   // v10.5 — reincarnation ledger. Each entry is a past life recorded at the
   // moment of reincarnation (not at game over — game over only writes s.hall).
   // Lives across reincarnations so the player can look back at the chain.
-  pastLives: { name: string; nation: string; era: string; industry: string; peakNetWorth: string; note: string; livedTo: number; tier: string; cause: 'age' | 'health' | 'reincarnated' }[];
+  pastLives: { name: string; nation: string; era: string; industry: string; peakNetWorth: string; note: string; livedTo: number; tier: string; cause: 'age' | 'health' | 'bankrupt' | 'reincarnated' }[];
   // v10.5 — relationships: per-NPC friendship/romance + interaction log.
   // Keyed by NPC id. friendship is -100..100 (hostile to best friend);
   // romance is 0..100 (only meaningful for one NPC at a time).
@@ -720,7 +720,7 @@ export function fresh(): GameState {
     name: 'Alex', byear: 1992, nation: 'Vietnam', religion: 'none', ints: [], tals: [], topField: null, started: false,
     avatar: '🧑',
     gender: 'nonbinary', birthMonth: 1, birthDay: 15, zodiac: 'capricorn', psychic: freshPsychic(),
-    bank: { dep: 0, loan: 0 }, fame: 0, donated: 0, yIncome: 0, yTax: 0,
+    bank: { dep: 0, loan: 0 }, fame: 0, donated: 0, donatedThisYear: 0, yIncome: 0, yTax: 0,
     prices: {}, hist: {}, eraBiz: 1, eraFac: 1,
     log: [], over: false, pending: null, aiEv: null,
     partner: false, married: false, kids: 0, m1: false, story: { used: [] },
@@ -779,6 +779,7 @@ export function migrate(raw: unknown): GameState {
   s.schemaVersion = Math.max(s.schemaVersion || 0, 4);
   s.ach = Array.isArray(s.ach) ? s.ach : [];
   s.bank = s.bank || { dep: 0, loan: 0 };
+  if (typeof (s as any).donatedThisYear !== 'number') (s as any).donatedThisYear = 0;
   s.story = s.story || { used: [] };
   // v12 — backfill the player UID for pre-v12 saves. Old saves have no uid
   // field; generate one now so the social layer + admin dashboard always
@@ -991,16 +992,10 @@ export const bizMultiplier = (s: GameState) => Math.min(
     * zodiacAffinityMult(s, 'business') // v11.6 — zodiac industry affinity (+5% if zodiac = business)
     * bizRndMult(s) // v11.20 — R&D investment temporary boost
 );
-export const bizIncome = (s: GameState) => { // annual
-  let ann = 0;
-  BIZ.forEach(b => (s.branches[b.id] || []).forEach(br => {
-    // v11.37 — franchised branches pay a 10% royalty to the franchisee
-    const royalty = br.franchised ? (1 - FRANCHISE_ROYALTY) : 1;
-    ann += b.inc * REG_MULT[br.r % REG_MULT.length] * br.mood * royalty - b.base / 24;
-  }));
-  ann += farmIncome(s) + facIncome(s);
-  return Math.max(0, ann) * bizMultiplier(s);
-};
+// v13.13 — single source of truth: bizIncome === bizNet. Previously bizIncome
+// duplicated the P&L with different ordering (costs before multiplier, no manager
+// fee / farm-fac upkeep, floor before multiplier) so cash paid != P&L shown.
+export const bizIncome = (s: GameState): number => bizNet(s);
 export const jobsOf = (s: GameState) => [s.job, s.sideJob]
   .filter((id, index, all): id is string => !!id && all.indexOf(id) === index)
   .map(id => JOBS.find(j => j.id === id))
@@ -1211,7 +1206,7 @@ export const lotValue = (s: GameState, l: { id: string; paid: number; day: numbe
   const paid = Number.isFinite(Number(l?.paid)) ? Math.max(0, Number(l.paid)) : 0;
   const boughtDay = Number.isFinite(Number(l?.day)) ? Number(l.day) : s.day;
   const yrs = Math.max(0, (s.day - boughtDay) / 365.25);
-  const base = paid * Math.pow(1 + rate, yrs);
+  const base = paid * Math.pow(1 - rate, yrs);
   // v10.5: condition multiplies value (40-100% range → 0.4-1.0 of base).
   // Unknown legacy items use common rarity and conservative depreciation.
   const cond = Number.isFinite(Number(l?.condition)) ? Number(l.condition) : 100;
@@ -1245,7 +1240,11 @@ export const upkeep = (s: GameState) => s.lots.reduce((a, l) => a + lotValue(s, 
 // but split out so the UI can show a P&L breakdown.
 export const bizRevenue = (s: GameState): number => {
   let rev = 0;
-  BIZ.forEach(b => (s.branches[b.id] || []).forEach(br => { rev += b.inc * REG_MULT[br.r % REG_MULT.length] * br.mood; }));
+  // v13.13 — franchised branches pay 10% royalty: revenue here is net of royalty so bizNet/bizIncome agree.
+  BIZ.forEach(b => (s.branches[b.id] || []).forEach(br => {
+    const royalty = br.franchised ? (1 - FRANCHISE_ROYALTY) : 1;
+    rev += b.inc * REG_MULT[br.r % REG_MULT.length] * br.mood * royalty;
+  }));
   rev += farmIncome(s) + facIncome(s);
   return Math.max(0, rev);
 };
@@ -1288,7 +1287,7 @@ export function investBizRnd(s: GameState, amount: number): { pct: number; until
 export const assetVal = (s: GameState) => s.lots.reduce((a, l) => a + lotValue(s, l), 0);
 export const bizVal = (s: GameState) => {
   const valueAt = (paid: number, boughtDay: number) =>
-    paid * Math.pow(1 + ASSET_DEPRECIATION_RATE, Math.max(0, (s.day - boughtDay) / 365.25));
+    paid * Math.pow(1 - ASSET_DEPRECIATION_RATE, Math.max(0, (s.day - boughtDay) / 365.25));
   let total = 0;
   BIZ.forEach(b => (s.branches[b.id] || []).forEach(br => { total += valueAt(br.paid, br.day); }));
   FARM_LINES.forEach(l => { if (s.farm[l.id]) total += valueAt(l.cost, s.farmBought[l.id] ?? s.day); });
@@ -1373,7 +1372,7 @@ export const portfolioUnrealizedGains = (s: GameState): number => {
   gains += s.lots.reduce((a, l) => a + lotValue(s, l) - l.paid, 0);
   // Businesses: per-branch current value minus `paid`.
   const bizGains = (paid: number, boughtDay: number) =>
-    paid * Math.pow(1 + ASSET_DEPRECIATION_RATE, Math.max(0, (s.day - boughtDay) / 365.25)) - paid;
+    paid * Math.pow(1 - ASSET_DEPRECIATION_RATE, Math.max(0, (s.day - boughtDay) / 365.25)) - paid;
   BIZ.forEach(b => (s.branches[b.id] || []).forEach(br => { gains += bizGains(br.paid, br.day); }));
   FARM_LINES.forEach(l => { if (s.farm[l.id]) gains += bizGains(l.cost, s.farmBought[l.id] ?? s.day); });
   FAC_LINES.forEach(l => { if (s.fac[l.id]) gains += bizGains(l.cost, s.facBought[l.id] ?? s.day); });
@@ -1651,10 +1650,13 @@ export function processDay(s: GameState, d: number, rng: () => number = Math.ran
   if (dt.getUTCMonth() === 0 && dt.getUTCDate() === 1) {
     const y = dt.getUTCFullYear();
     if (s.yIncome > 0) {
-      const t = taxOf(s.yIncome);
+      const charityDeduction = Math.min(s.donatedThisYear || 0, s.yIncome * 0.2);
+      const taxable = Math.max(0, s.yIncome - charityDeduction);
+      const t = taxOf(taxable);
       s.yTax = t; s.money -= t;
-      pushLog(s, `Tax season ${y}: income ${fmt(s.yIncome)} \u2192 tax bill ${fmt(t)}.`);
+      pushLog(s, `Tax season ${y}: income ${fmt(s.yIncome)} - charity ${fmt(charityDeduction)} → tax bill ${fmt(t)}.`);
       s.yIncome = 0;
+      s.donatedThisYear = 0;
     }
     // v11.2 — tick existing crisis first. If yearsLeft hits 0, clear it
     // and log a normalisation message. Done BEFORE applying this year's
@@ -1995,7 +1997,7 @@ export function rollBranchClosures(s: GameState, rng: () => number = Math.random
 // branch's income is reduced by a royalty rate (8-12%) paid to the franchisee.
 // This is a capital-raise mechanism: trade long-term income for immediate cash.
 // Only works on branches the player owns (not capital-path manager branches).
-export const FRANCHISE_FEE_MULT = 1.8;   // upfront fee = branch paid × 1.8
+export const FRANCHISE_FEE_MULT = 0.8;   // upfront fee = branch paid × 0.8
 export const FRANCHISE_ROYALTY = 0.10;   // 10% income reduction post-franchise
 export function franchiseBranch(s: GameState, bizId: string, branchIdx: number): string | null {
   const list = s.branches[bizId];
@@ -2560,8 +2562,8 @@ export function sellLot(s: GameState, idx: number): string | null {
   const got = gross * (1 - RESALE_FEE);
   s.money += got; s.lots.splice(idx, 1);
   const fee = gross * RESALE_FEE;
-  const pnl = got - l.paid; // paid already accounts for purchase price + any repair costs
-  recordTx(s, { kind: 'sell', asset: 'lot', ref: l.id, name: ITEM_BY[l.id]?.name || 'Item', qty: 1, unit: got, amount: got, realizedPnL: pnl - fee });
+  const pnl = got - l.paid; // got already net of RESALE_FEE, do not subtract fee twice
+  recordTx(s, { kind: 'sell', asset: 'lot', ref: l.id, name: ITEM_BY[l.id]?.name || 'Item', qty: 1, unit: got, amount: got, realizedPnL: pnl });
   return 'Sold for ' + fmt(got);
 }
 export function trade(s: GameState, id: string, action: 'buy' | 'sell', qty: number): { ok: boolean; msg: string } {
@@ -2571,9 +2573,12 @@ export function trade(s: GameState, id: string, action: 'buy' | 'sell', qty: num
   const stock = stocksOf(s).find(x => x.id === id);
   const stockName = stock ? stock.name : id;
   if (action === 'buy') {
+    // v13.12 — stock trade fee 0.1%: prevents free wash-trading, fee is expense (not in costBasis).
     const cost = p * q;
-    if (s.money < cost) return { ok: false, msg: `Not enough cash for ${q} share${q > 1 ? 's' : ''}` };
-    s.money -= cost; s.stk[id] = (s.stk[id] || 0) + q;
+    const buyFee = Math.round(cost * 0.001);
+    const total = cost + buyFee;
+    if (s.money < total) return { ok: false, msg: `Not enough cash for ${q} share${q > 1 ? 's' : ''} (+${fmt(buyFee)} fee)` };
+    s.money -= total; s.stk[id] = (s.stk[id] || 0) + q;
     // v11.49 — weighted-average cost basis: add to total $ invested.
     s.costBasis[id] = (s.costBasis[id] || 0) + cost;
     recordTx(s, { kind: 'buy', asset: 'stock', ref: id, name: stockName, qty: q, unit: p, amount: -cost });
@@ -2582,16 +2587,21 @@ export function trade(s: GameState, id: string, action: 'buy' | 'sell', qty: num
   const held = s.stk[id] || 0; if (!held) return { ok: false, msg: 'Nothing to sell' };
   const n = Math.min(q, held);
   const proceeds = p * n;
-  s.money += proceeds; s.stk[id] = held - n;
+  // v13.12 — stock trade fee 0.1% on sell, net proceeds only.
+  const sellFee = Math.round(proceeds * 0.001);
+  const netProceeds = proceeds - sellFee;
+  s.money += netProceeds; s.stk[id] = held - n;
   addXp(s, 4);
   // v11.49 — realize P&L from the proportional cost basis being sold.
   const totalBasis = s.costBasis[id] || 0;
   const avgPerShare = held > 0 ? totalBasis / held : 0;
   const soldBasis = avgPerShare * n;
   s.costBasis[id] = Math.max(0, totalBasis - soldBasis);
-  const pnl = proceeds - soldBasis;
-  recordTx(s, { kind: 'sell', asset: 'stock', ref: id, name: stockName, qty: n, unit: p, amount: proceeds, realizedPnL: pnl });
-  return { ok: true, msg: `Sold ${n} \u00d7 ${id} for ${fmt(p * n)}` };
+  const pnl = netProceeds - soldBasis;
+  // v13.12 — realized stock gains count toward yIncome so they get taxed at year-end like salary/biz. Losses do not reduce yIncome.
+  if (pnl > 0) s.yIncome += pnl;
+  recordTx(s, { kind: 'sell', asset: 'stock', ref: id, name: stockName, qty: n, unit: p, amount: netProceeds, realizedPnL: pnl });
+  return { ok: true, msg: `Sold ${n} \u00d7 ${id} for ${fmt(netProceeds)} (fee ${fmt(sellFee)})` };
 }
 export function joinClub(s: GameState, id: string): string | null {
   const z = CLUBS.find(q => q.id === id); if (!z) return null;
@@ -2864,6 +2874,8 @@ export function changeInterest(s: GameState, oldId: string, newId: string): stri
 export function maxLoanOf(s: GameState): { total: number; base: number; incomeCredit: number; existing: number } {
   const yi = yearIncome(s);
   const incomeCredit = yi > 0 ? Math.floor(yi * 0.3) : 0;
+  // v13.15 — insolvent (netWorth <= 0) gets zero credit: blocks borrowing to dodge bankruptcy.
+  if (netWorth(s) <= 0) return { total: 0, base: 0, incomeCredit: 0, existing: s.bank.loan };
   const base = Math.floor(netWorth(s) * 0.5);
   const existing = s.bank.loan;
   return { total: Math.max(0, base + incomeCredit - existing), base, incomeCredit, existing };
@@ -2874,7 +2886,8 @@ export function bankOp(s: GameState, op: 'dep' | 'wd' | 'loan' | 'repay', amt: n
   // = yearIncome * 0.3 (about 3 months of income as extra credit line).
   const yi = yearIncome(s);
   const incomeCredit = yi > 0 ? Math.floor(yi * 0.3) : 0;
-  const maxLoan = Math.max(0, Math.floor(netWorth(s) * .5 + incomeCredit - s.bank.loan));
+  // v13.15 — insolvent cannot borrow: prevents infinite borrow-to-dodge-bankruptcy loop.
+  const maxLoan = netWorth(s) <= 0 ? 0 : Math.max(0, Math.floor(netWorth(s) * .5 + incomeCredit - s.bank.loan));
   if (op === 'dep') {
     const a = amt === 'all' ? Math.floor(s.money) : amt;
     if (a <= 0 || s.money < a) return null;
@@ -2971,7 +2984,7 @@ export function researchMarket(s: GameState, rng: () => number = Math.random): {
 }
 export function donate(s: GameState, amt: number): string | null {
   if (s.money < amt) return null;
-  s.money -= amt; s.donated += amt;
+  s.money -= amt; s.donated += amt; s.donatedThisYear = (s.donatedThisYear || 0) + amt;
   const g = amt >= 100000 ? 5 : amt >= 10000 ? 2 : 1;
   const ka = amt >= 100000 ? 8 : amt >= 10000 ? 3 : 1;
   s.fame = Math.max(0, s.fame + g);
@@ -3039,28 +3052,9 @@ export function applyAIChoice(s: GameState, idx: number, rng: () => number = Mat
     s.health = Math.max(0, s.health - roll.decline);
     s.spirit = Math.max(0, s.spirit - Math.round(roll.decline * 0.6));
   }
-  // v12.2 — auto-donate 20% of any cash LOSS to charity. This softens the
-  // blow: the donated amount adds to s.donated (which feeds the philanthropist
-  // achievement + karma/influence in donate()), and the player gets fame +
-  // karma + influence as if they'd made the donation themselves. No extra
-  // cash is deducted (the loss already happened). Only triggers on a strictly
-  // negative roll.money so windfalls aren't double-counted.
-  if (roll.money < 0) {
-    const amt = Math.round(Math.abs(roll.money) * 0.2);
-    if (amt > 0) {
-      s.donated += amt;
-      // Mirror the fame/karma/xp/influence grants from donate() (without the
-      // money deduction since the loss already happened).
-      const g = amt >= 100000 ? 5 : amt >= 10000 ? 2 : 1;
-      const ka = amt >= 100000 ? 8 : amt >= 10000 ? 3 : 1;
-      s.fame = Math.max(0, s.fame + g);
-      s.karma += ka;
-      addXp(s, Math.max(2, Math.round(amt / 10000)));
-      const baseInf = influenceFromCharity(amt);
-      if (baseInf > 0) addInfluence(s, baseInf, 'charity');
-      pushLog(s, `Part of the loss (${fmt(amt)}) was donated to charity.`);
-    }
-  }
+  // v13.14 — REMOVED v12.2 auto-donate: losing money used to grant donated +
+  // fame + karma + XP + influence for free, farmable by intentionally picking
+  // losing choices. A loss is now just a loss; only real donate() counts.
   // v10.4: life-stage outcomes (always applied regardless of risk roll —
   // these are the choice's structural consequence, not a gamble).
   if (c.dropout && s[c.dropout.slot]) {
@@ -3908,6 +3902,13 @@ export function tick(s: GameState, dtMs: number, rng: () => number = Math.random
   while (Math.floor(s.age) > s.lastYr && !s.over) { s.lastYr++; yearEnd(s, s.lastYr, rng); }
   if (s.age >= END_AGE && !s.over) { s.age = END_AGE; s.over = true; s.cause = 'age'; out.gameJustOver = true; }
   if (!s.over && s.health <= 0) { s.over = true; s.cause = 'health'; out.gameJustOver = true; }
+  // Part 6 — bankruptcy: cash negative AND net worth negative = insolvent.
+  // netWorth() already includes money + stocks + assets + biz + deposits - loan,
+  // so a player who is cash-negative but still holds assets is NOT bankrupt.
+  if (!s.over && s.started && s.money < 0 && netWorth(s) < 0) {
+    s.over = true; s.cause = 'bankrupt'; out.gameJustOver = true;
+    pushLog(s, `Bankruptcy: cash ${fmt(s.money)} and net worth ${fmt(netWorth(s))} — insolvent.`);
+  }
   // v11.17 — drain the pending toast queue into the return value so the React
   // layer can surface each entry. The queue is cleared here; engine functions
   // called above (processDay, yearEnd, finishStudy, etc.) pushed into it.
