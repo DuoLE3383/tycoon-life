@@ -100,4 +100,15 @@ export const CHANGELOG: Record<string, ChangelogEntry> = {
       'Club Phase 1: hien Level/Members/Maintenance/Event/Buff per-type',
     ],
   },
+  'v13.46': {
+    headline: 'HuyenBao v13.46 — Market deterministic + Business rescale, cafe khong con 100$/thang',
+    summary: 'v13.46: Market Phase 1 gia theo seed(uid+day+stock), reload khong doi gia. Business rescale toan bo BIZ, cafe 18000/36000 lai ~2937$/thang, branchNet sua loi don vi thang/nam.',
+    features: [
+      'Market Phase 1: gia stock seed theo game uid + day + stockId, cung game cung ngay = cung gia',
+      'Business: rescale 20 BIZ, street 2500/12000 lam biz khoi dau, cafe 18000/36000',
+      'Business: branchNet sua loi tru chi phi ca nam vao 1 thang, them royalty + manager',
+      'BizTab: sua hien thi ifSteady tu inc*12 ve inc (inc la /nam)',
+      'i18n: suggest cafe 800$ -> 18000$, starter doi sang street stall',
+    ],
+  },
 };

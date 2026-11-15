@@ -958,8 +958,20 @@ export const clubMult = (s: GameState) => {
   if (s.club === 'own') return OWN_CLUB_MULT;
   const c = CLUBS.find(c => c.id === s.club); return c ? c.mult : 1;
 };
-export const branchNet = (s: GameState, b: { id: string; inc: number; base: number }, br: Branch) =>
-  b.inc / 12 * REG_MULT[br.r % REG_MULT.length] * br.mood - b.base / 24;
+export const branchNet = (s: GameState, b: { id: string; inc: number; base: number }, br: Branch) => {
+  // Monthly net, pre-multiplier (BizTab multiplies by mult).
+  // inc is ANNUAL revenue, so monthly revenue = inc / 12.
+  // Costs are ANNUAL in bizCosts (base/24 + manager*12), so monthly cost = base/288 + manager.
+  // Old code subtracted full annual base/24 from one month, understating net ~25%.
+  const reg = REG_MULT[br.r % REG_MULT.length];
+  const royalty = br.franchised ? (1 - FRANCHISE_ROYALTY) : 1;
+  const revenueMo = b.inc / 12 * reg * br.mood * royalty;
+  const overheadMo = b.base / 24 / 12;
+  const isCapital = br.paid > bizCost(s, b) * 1.5;
+  // Same as MANAGER_MONTHLY(b.base) = base * 0.015, inlined to avoid forward ref.
+  const managerMo = isCapital ? Math.round(b.base * 0.015) : 0;
+  return revenueMo - overheadMo - managerMo;
+};
 export const farmIncome = (s: GameState) => FARM_LINES.reduce((a, l) => a + (s.farm[l.id] || 0) * l.inc, 0);
 export const facIncome = (s: GameState) => FAC_LINES.reduce((a, l) => {
   const n = s.fac[l.id] || 0; if (!n) return a;
@@ -1553,6 +1565,30 @@ export function reqText(r?: Req): string {
 }
 
 // ---------- time ----------
+// ---- Market Phase 1: deterministic per-game market ----
+// Walk for a stock on a given day is seeded by (game uid + day + stockId).
+// Same game + same day = same walk, reload does not change price.
+// Different game uid = different walk. No live API.
+function hashSeed(str: string): number {
+  let h = 2166136261 >>> 0;
+  for (let i = 0; i < str.length; i++) {
+    h = Math.imul(h ^ str.charCodeAt(i), 16777619);
+  }
+  return h >>> 0;
+}
+function mulberry32(seed: number): () => number {
+  let a = seed >>> 0;
+  return () => {
+    a = (a + 0x6D2B79F5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+export function marketSeededRng(uid: string, day: number, stockId: string): () => number {
+  return mulberry32(hashSeed(`${uid}|${day}|${stockId}`));
+}
+
 export function processDay(s: GameState, d: number, rng: () => number = Math.random): void {
   const dt = dateOf(s, d);
   const routine = [`${s.sleepHours}h sleep`];
@@ -1612,7 +1648,8 @@ export function processDay(s: GameState, d: number, rng: () => number = Math.ran
     stocksOf(s).forEach(x => {
       const cur = s.prices[x.id] || x.p;
       const vol = x.vol || 0.02;
-      const walk = (rng() * 2 - 1) * vol;
+      const seeded = marketSeededRng(s.uid || 'default', d, x.id);
+      const walk = (seeded() * 2 - 1) * vol;
       const revert = ((x.p - cur) / x.p) * 0.012; // ≤1.2%/day pull toward listing price
       const next = cur * (1 + walk + revert);
       s.prices[x.id] = Math.max(x.p * 0.25, Math.min(x.p * 6, next));

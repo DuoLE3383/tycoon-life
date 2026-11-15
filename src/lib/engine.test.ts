@@ -288,10 +288,11 @@ test('personal assets depreciate annually; business value is profit-aware (v13.2
   // at 0.9^yrs lost 10%/yr with no cash leaving, so at bizVal ~$768B net
   // worth fell ~$210M/game-day. Lots above still depreciate (1029 / 900).
   // v13.23 B — profit-aware: bizVal = paid + 2x annual bizNet, clamped
-  // [-25%, +50%] of paid. Here bizNet = 1935.416..., so 2x = 3870.83
-  // is clamped to +50% of paid (500) → bizVal = 1000 + 500 = 1500.
-  // This also proves the clamp works: without it bizVal would be 4870.83.
-  assert.ok(Math.abs(bizNet(state) - 1935.4166666666667) < 0.01);
+  // [-25%, +50%] of paid. Here bizNet = 46500 (cafe rescaled: inc 36000,
+  // REG 1.25, mult 1.05, costs 750), so 2x = 93000 is clamped to +50%
+  // of paid (500) → bizVal = 1000 + 500 = 1500.
+  // This also proves the clamp works: without it bizVal would be 94000.
+  assert.ok(Math.abs(bizNet(state) - 46500) < 0.01);
   assert.equal(bizVal(state), 1500);
   assert.equal(ASSET_DEPRECIATION_RATE, -0.1);
 });
@@ -485,10 +486,13 @@ test('v11.2: stock shocks split into instant + 30-day delayed; net = original mu
   const jan1_1929 = dayOfYear(state, 1929);
   state.lastDay = jan1_1929 - 1; state.day = jan1_1929;
   processDay(state, jan1_1929, () => 0.5);
-  // After Jan 1: stocks should have dropped by sqrt(0.5) ≈ 0.7071 (instant slice)
+  // After Jan 1: stocks should have dropped by sqrt(0.5) ≈ 0.7071 (instant slice).
+  // Market Phase 1: processDay also applies 1 seeded walk step
+  // seed(uid + day + stockId), up to vol (COIN 9%) + revert. Tolerance 0.12
+  // covers the worst walk, the shock itself is still the dominant move.
   for (const k of Object.keys(state.prices)) {
     const ratio = state.prices[k] / orig[k];
-    assert.ok(Math.abs(ratio - Math.sqrt(0.5)) < 1e-6,
+    assert.ok(Math.abs(ratio - Math.sqrt(0.5)) < 0.12,
       `expected instant slice sqrt(0.5) for ${k}, got ratio ${ratio}`);
   }
   // A delayed shock should be queued for day = lastDay + 30
@@ -499,14 +503,13 @@ test('v11.2: stock shocks split into instant + 30-day delayed; net = original mu
   state.lastDay = fireDay; state.day = fireDay;
   processDay(state, fireDay, () => 0.5);
   // Net should be 0.5 (instant 0.7071 * delayed 0.7071 = 0.5).
-  // v11.24 tolerance: the daily price walk now adds a small mean-reversion
-  // pull toward the listing price (≤1.2% of the deviation from listing per
-  // game-day → ≤0.35% here, since ratio deviates ~0.29 from 1.0). With the
-  // seeded rng()=0.5 the random component is exactly 0, so the drift is
-  // purely the reversion pull — assert within 0.5% of the exact 0.5 net.
+  // Market Phase 1 tolerance: each processDay also applies 1 seeded walk
+  // step (up to vol, COIN 9%) + mean-reversion pull. The passed rng()=0.5
+  // no longer zeroes the walk, the walk is seeded by uid+day+stock.
+  // Assert within 0.12 of the exact 0.5 net.
   for (const k of Object.keys(state.prices)) {
     const ratio = state.prices[k] / orig[k];
-    assert.ok(Math.abs(ratio - 0.5) < 0.005,
+    assert.ok(Math.abs(ratio - 0.5) < 0.12,
       `expected net 0.5 for ${k} after delayed shock, got ${ratio}`);
   }
   // Shock queue should be drained

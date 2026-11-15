@@ -202,7 +202,7 @@ export function BizTab({ s, act }: { s: GameState; act: Act }) {
           <Btn ic="ic-coins" label={t('v11.capitalPath') + ': ' + fmt(cap)} kind="ghost" disabled={s.money < cap + cap * 0.2} onClick={() => act(st => openBranchCapital(st, b.id))} />
         </div>}>
           <b>{brand.logo ? <span style={{ marginRight: 4 }}>{brand.logo}</span> : null}{brand.name} <span className="tag">{b.ind}</span> <span className="tag">{n} {t('branches')}</span>{hasBrand && <span className="tag" style={{ color: 'var(--accent)', borderColor: 'rgba(202,138,4,.4)' }}>★</span>}</b>
-          <span className="sub">{n ? t('chain') + ': ' : t('openIn', '', { r: b.reg[0] }) + ' (+' + fmt(b.inc * 1.25 * 12) + t('ifSteady') + ') · '}{t('requires')} {reqLabel(b.req)}</span>
+          <span className="sub">{n ? t('chain') + ': ' : t('openIn', '', { r: b.reg[0] }) + ' (+' + fmt(b.inc * 1.25) + t('ifSteady') + ') · '}{t('requires')} {reqLabel(b.req)}</span>
           <span className="mini" style={{ display: 'block', marginTop: 2 }}>{t('v11.capitalPathSummary', '', { cost: fmt(cap), manager: fmt(managerMo), chance: closureChance })}</span>
           {n > 0 && <div>{(s.branches[b.id] || []).map((br, i) => {
             const net = branchNet(s, b, br) * mult;

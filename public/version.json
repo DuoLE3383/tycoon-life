@@ -1,12 +1,13 @@
 {
-  "version": "v13.45",
+  "version": "v13.46",
   "releasedAt": "2026-11-15",
-  "headline": "HuyenBao v13.45 — Sleep 3 blocks + Finance i18n + Gigs Close + Club Phase 1",
-  "summary": "v13.45: Sleep tach 3 khoi Status/Effects/Debt, FinanceOverview qua t(), Gigs nut Dong, Club hien Level/Members/Maintenance/Event/Buff.",
+  "headline": "HuyenBao v13.46 — Market deterministic + Business rescale, cafe khong con 100$/thang",
+  "summary": "v13.46: Market Phase 1 gia theo seed(uid+day+stock), reload khong doi gia. Business rescale toan bo BIZ, cafe 18000/36000 lai ~2937$/thang, branchNet sua loi don vi thang/nam.",
   "features": [
-    "Sleep: tach 3 khoi, day Rent/Jobs/Study ra block rieng",
-    "Finance: 2 doan giai thich + header qua t()",
-    "Gigs: nut Close -> Dong, khong con Hủy",
-    "Club Phase 1: hien Level/Members/Maintenance/Event/Buff per-type"
+    "Market Phase 1: gia stock seed theo game uid + day + stockId, cung game cung ngay = cung gia",
+    "Business: rescale 20 BIZ, street 2500/12000 lam biz khoi dau, cafe 18000/36000",
+    "Business: branchNet sua loi tru chi phi ca nam vao 1 thang, them royalty + manager",
+    "BizTab: sua hien thi ifSteady tu inc*12 ve inc (inc la /nam)",
+    "i18n: suggest cafe 800$ -> 18000$, starter doi sang street stall"
   ]
 }
