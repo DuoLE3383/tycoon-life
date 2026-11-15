@@ -1018,7 +1018,9 @@ export const jobIncome = (s: GameState) => jobsOf(s).reduce((total, job) => {
 }, 0);
 export const studyTuition = (s: GameState) => [s.study, s.sideStudy]
   .reduce((total, study) => total + (study?.kind === 'deg' ? study.tuition : 0), 0);
-export const yearIncome = (s: GameState) => bizIncome(s) + spaceIncome(s) + socialIncome(s) + jobIncome(s) + (s.age >= RETIRE ? PENSION : 0);
+// v13.16 — yearIncome MUST include bank interest: incomeBreakdown() already did,
+// but yearIncome() (used for header Net) forgot it, so header missed $100B+ interest.
+export const yearIncome = (s: GameState) => bizIncome(s) + spaceIncome(s) + socialIncome(s) + jobIncome(s) + (s.age >= RETIRE ? PENSION : 0) + s.bank.dep * SAVE_RATE;
 export const living = (age: number) => Math.round(3000 * Math.pow(1.03, age - START));
 // v11.53 — Finance Overview: total annual expenses (living + upkeep + tuition
 // + loan interest + biz costs + diet + kids). Used by the cash-flow panel +
@@ -1028,10 +1030,11 @@ export const yearExpenses = (s: GameState): number => {
   const upk = upkeep(s);
   const tuition = studyTuition(s);
   const loanInt = s.bank.loan * effLoanRate(s);
-  const bizC = bizCosts(s);
+  // v13.16 — DO NOT add bizCosts here: bizIncome === bizNet already subtracts
+  // bizCosts. Adding it again double-counted business costs in Net.
   const diet = s.diet ? DIET_COST * 12 : 0;
   const kids = s.kids * 400 * 12;
-  return livingCost + upk + tuition + loanInt + bizC + diet + kids;
+  return livingCost + upk + tuition + loanInt + diet + kids;
 };
 // v11.53 — Finance Overview: income broken down by source, returned as a
 // sorted array (largest first) so the UI can render a clean table.
@@ -1074,8 +1077,8 @@ export const expenseBreakdown = (s: GameState): ExpenseItem[] => {
   if (tuition > 0) out.push({ id: 'tuition', label: 'Tuition', amount: tuition, link: 'edu' });
   const loanInt = s.bank.loan * effLoanRate(s);
   if (loanInt > 0) out.push({ id: 'loanInt', label: 'Loan interest', amount: loanInt, link: 'bank' });
-  const bizC = bizCosts(s);
-  if (bizC > 0) out.push({ id: 'bizCosts', label: 'Business costs', amount: bizC, link: 'biz' });
+  // v13.16 — no bizCosts row: biz income shown is already net of biz costs (bizNet).
+  // Showing it again as an expense would double-count it in totals.
   if (s.diet) out.push({ id: 'diet', label: 'Diet', amount: DIET_COST * 12, link: 'health' });
   if (s.kids > 0) out.push({ id: 'kids', label: 'Kids', amount: s.kids * 400 * 12, link: 'home' });
   return out.sort((a, b) => b.amount - a.amount);
@@ -1206,7 +1209,8 @@ export const lotValue = (s: GameState, l: { id: string; paid: number; day: numbe
   const paid = Number.isFinite(Number(l?.paid)) ? Math.max(0, Number(l.paid)) : 0;
   const boughtDay = Number.isFinite(Number(l?.day)) ? Number(l.day) : s.day;
   const yrs = Math.max(0, (s.day - boughtDay) / 365.25);
-  const base = paid * Math.pow(1 - rate, yrs);
+  // v13.17 — REVERT v13.13: rate is SIGNED (-0.35..+0.09). 1+rate is correct: 1+(-0.1)=0.9 depreciates, 1+(+0.05)=1.05 appreciates. 1-rate inverted both.
+  const base = paid * Math.pow(1 + rate, yrs);
   // v10.5: condition multiplies value (40-100% range → 0.4-1.0 of base).
   // Unknown legacy items use common rarity and conservative depreciation.
   const cond = Number.isFinite(Number(l?.condition)) ? Number(l.condition) : 100;
@@ -1287,7 +1291,8 @@ export function investBizRnd(s: GameState, amount: number): { pct: number; until
 export const assetVal = (s: GameState) => s.lots.reduce((a, l) => a + lotValue(s, l), 0);
 export const bizVal = (s: GameState) => {
   const valueAt = (paid: number, boughtDay: number) =>
-    paid * Math.pow(1 - ASSET_DEPRECIATION_RATE, Math.max(0, (s.day - boughtDay) / 365.25));
+    // v13.17 — REVERT: ASSET_DEPRECIATION_RATE=-0.1 signed, 1+rate=0.9 is depreciation.
+    paid * Math.pow(1 + ASSET_DEPRECIATION_RATE, Math.max(0, (s.day - boughtDay) / 365.25));
   let total = 0;
   BIZ.forEach(b => (s.branches[b.id] || []).forEach(br => { total += valueAt(br.paid, br.day); }));
   FARM_LINES.forEach(l => { if (s.farm[l.id]) total += valueAt(l.cost, s.farmBought[l.id] ?? s.day); });
@@ -1372,7 +1377,7 @@ export const portfolioUnrealizedGains = (s: GameState): number => {
   gains += s.lots.reduce((a, l) => a + lotValue(s, l) - l.paid, 0);
   // Businesses: per-branch current value minus `paid`.
   const bizGains = (paid: number, boughtDay: number) =>
-    paid * Math.pow(1 - ASSET_DEPRECIATION_RATE, Math.max(0, (s.day - boughtDay) / 365.25)) - paid;
+    paid * Math.pow(1 + ASSET_DEPRECIATION_RATE, Math.max(0, (s.day - boughtDay) / 365.25)) - paid;
   BIZ.forEach(b => (s.branches[b.id] || []).forEach(br => { gains += bizGains(br.paid, br.day); }));
   FARM_LINES.forEach(l => { if (s.farm[l.id]) gains += bizGains(l.cost, s.farmBought[l.id] ?? s.day); });
   FAC_LINES.forEach(l => { if (s.fac[l.id]) gains += bizGains(l.cost, s.facBought[l.id] ?? s.day); });

@@ -57,8 +57,9 @@ test('bankOp safely deposits, withdraws, and caps borrowing', () => {
   assert.equal(state.money, 600);
   assert.equal(bankOp(state, 'wd', 150), 'Withdrew $150');
   assert.equal(state.money, 750);
-  assert.equal(bankOp(state, 'loan', 'all'), 'Borrowed $500 at 6%/yr');
-  assert.equal(state.bank.loan, 500);
+  // v13.16 — yearIncome now includes bank interest: dep $250 × SAVE_RATE 2% = $5/yr → incomeCredit floor(5×0.3)=$1 → maxLoan 500+1=501.
+  assert.equal(bankOp(state, 'loan', 'all'), 'Borrowed $501 at 6%/yr');
+  assert.equal(state.bank.loan, 501);
   assert.equal(bankOp(state, 'loan', 1), null);
 });
 
@@ -70,7 +71,8 @@ test('trade validates purchases and caps sales at holdings', () => {
   assert.deepEqual(trade(state, 'TECH', 'buy', 3), { ok: true, msg: 'Bought 3 × TECH' });
   assert.equal(state.stk.TECH, 3);
   assert.equal(trade(state, 'TECH', 'buy', 100).ok, false);
-  assert.equal(trade(state, 'TECH', 'sell', 99).msg, 'Sold 3 × TECH for $690');
+  // v13.12 — stock trade fee 0.1%: 690 - round(690×0.001)=689, fee $1.
+  assert.equal(trade(state, 'TECH', 'sell', 99).msg, 'Sold 3 × TECH for $689 (fee $1.00)');
   assert.equal(state.stk.TECH, 0);
 });
 
@@ -1061,8 +1063,8 @@ test('v11.49: trade() sell records realized P&L and reduces cost basis proportio
   const sellTx = s.transactions[1];
   assert.equal(sellTx.kind, 'sell');
   assert.equal(sellTx.qty, 5);
-  // Realized P&L = (sell price × qty) - (avg cost × qty) = (460*5) - (230*5) = 1150
-  assert.equal(sellTx.realizedPnL, origPrice * 5);
+  // v13.12 — realized P&L is NET of 0.1% fee: proceeds 2300 - fee round(2300×0.001)=2 → net 2298 - basis 1150 = 1148.
+  assert.equal(sellTx.realizedPnL, origPrice * 5 - 2);
   // Cost basis reduced by avg_per_share × qty sold = 230 × 5 = 1150
   assert.equal(s.costBasis['TECH'], origPrice * 5);
 });
@@ -1070,12 +1072,12 @@ test('v11.49: trade() sell records realized P&L and reduces cost basis proportio
 test('v11.49: portfolioRealizedGains sums realizedPnL across all sell txns', () => {
   const s = fresh();
   s.money = 1_000_000;
-  // Stock round-trip: buy 10 at $230, sell 5 at $460 → P&L = $1150
+  // v13.12 — stock round-trip net of 0.1% sell fee: P&L = 1150 - 2 = 1148.
   const p0 = s.prices['TECH'];
   trade(s, 'TECH', 'buy', 10);
   s.prices['TECH'] = p0 * 2;
   trade(s, 'TECH', 'sell', 5);
-  assert.equal(portfolioRealizedGains(s), p0 * 5);
+  assert.equal(portfolioRealizedGains(s), p0 * 5 - 2);
 });
 
 test('v11.49: portfolioUnrealizedGains = current value - cost basis for open positions', () => {
@@ -1572,10 +1574,10 @@ test('v12.2: choiceRisk classifies choices by their magnitude + commitment', () 
   assert.equal(choiceRisk({ dropout: { slot: 'study' } }), 'high');
 });
 
-test('v12.2: applyAIChoice auto-donates 20% of cash losses to charity (s.donated)', () => {
+test('v13.14: applyAIChoice does NOT auto-donate cash losses (v12.2 exploit removed)', () => {
   // Build a minimal GameState with an AI event whose high-risk choice has a
   // large money upside. rngAbove forces a failure → roll.money = -30% * 100000 = -30000.
-  // Auto-donate: 20% of |loss| = 6000 added to s.donated + fame + karma.
+  // v13.14: loss is just a loss — NO auto-donate, NO free fame/karma.
   const s = fresh();
   s.started = true;
   s.money = 1_000_000;
@@ -1588,15 +1590,12 @@ test('v12.2: applyAIChoice auto-donates 20% of cash losses to charity (s.donated
   applyAIChoice(s, 0, rngAbove);
   // high-risk failure: -30% of 100000 = -30000
   assert.equal(s.money, 1_000_000 - 30000, 'money must drop by the rolled loss');
-  // auto-donate: 20% of 30000 = 6000
-  assert.equal(s.donated, 6000, '20% of |loss| must be added to s.donated');
-  // fame granted (g for amt 6000 < 10000 → 1)
-  assert.ok(s.fame >= 1, 'auto-donate must grant at least 1 fame');
-  // karma granted (ka for 6000 < 10000 → 1)
-  assert.ok(s.karma >= 1, 'auto-donate must grant at least 1 karma');
-  // log entry mentioning the donated amount
-  assert.ok(s.log.some(l => l.includes('Part of the loss') && l.includes('charity')),
-    `log must mention the donation, got: ${JSON.stringify(s.log.slice(-3))}`);
+  // v13.14: NO auto-donate — donated/fame/karma must stay 0, no donation log.
+  assert.equal(s.donated, 0, 'loss must NOT add to s.donated');
+  assert.equal(s.fame, 0, 'loss must NOT grant free fame');
+  assert.equal(s.karma, 0, 'loss must NOT grant free karma');
+  assert.ok(!s.log.some(l => l.includes('Part of the loss')),
+    `loss must NOT log a donation, got: ${JSON.stringify(s.log.slice(-3))}`);
 });
 
 test('v12.2: applyAIChoice does NOT auto-donate when the roll is a win (roll.money >= 0)', () => {
@@ -1630,9 +1629,9 @@ test('v12.2: applyAIChoice passes s.aiDifficulty through to rollRiskOutcome', ()
   // hard loses 50% more: -45000 vs -30000. money reflects the difference.
   assert.equal(sNormal.money, 1_000_000 - 30000);
   assert.equal(sHard.money, 1_000_000 - 45000);
-  // auto-donate also scales: normal 20% of 30000 = 6000; hard 20% of 45000 = 9000.
-  assert.equal(sNormal.donated, 6000);
-  assert.equal(sHard.donated, 9000);
+  // v13.14: NO auto-donate in either mode — donated stays 0, only money differs.
+  assert.equal(sNormal.donated, 0);
+  assert.equal(sHard.donated, 0);
 });
 
 // ================= v14 — admin banking / business / gigs + gigOverrides =================

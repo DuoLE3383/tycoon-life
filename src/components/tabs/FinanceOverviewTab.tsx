@@ -66,7 +66,11 @@ export function FinanceOverviewTab({ s, onNav }: { s: GameState; act: Act; onNav
   // Falls back to "no income yet" / "living cost" when arrays are empty.
   const topIncome: IncomeSource | null = income[0] || null;
   const topExpense: ExpenseItem | null = expenses[0] || null;
-  const profitable = netY >= 0;
+  // v13.16 — diagnosis MUST compare TOTALS, not Top 1 vs Top 1: Top income $100B
+  // vs Top expense $665K does not mean profitable if other expenses sum higher.
+  const totalInc = income.reduce((a, x) => a + x.amount, 0);
+  const totalExp = expenses.reduce((a, x) => a + x.amount, 0);
+  const profitable = totalInc >= totalExp;
   // When the player has no income, the "biggest expense" is still informative
   // (it's what's bleeding them). When they have no expenses at all (a fresh
   // game with $0), they're neutral — show a "build income" hint instead.
@@ -256,7 +260,7 @@ export function FinanceOverviewTab({ s, onNav }: { s: GameState; act: Act; onNav
           <div style={{ fontSize: '.9rem', lineHeight: 1.5 }}>
             <b style={{ color: 'var(--sage)' }}>You're profitable</b>{' '}
             {hasAnyIncome && topExpense ? (
-              <>because <b style={{ color: 'var(--up)' }}>{topIncome!.label}</b> ({fmtFull(topIncome!.amount)}/yr) exceeds <b style={{ color: 'var(--down)' }}>{topExpense.label}</b> ({fmtFull(topExpense.amount)}/yr).</>
+              <>because total income ({fmtFull(totalInc)}/yr) exceeds total expenses ({fmtFull(totalExp)}/yr). Top income: <b style={{ color: 'var(--up)' }}>{topIncome!.label}</b> ({fmtFull(topIncome!.amount)}/yr).</>
             ) : hasAnyIncome ? (
               <>because you have <b style={{ color: 'var(--up)' }}>{topIncome!.label}</b> ({fmtFull(topIncome!.amount)}/yr) and minimal expenses.</>
             ) : (
@@ -267,7 +271,7 @@ export function FinanceOverviewTab({ s, onNav }: { s: GameState; act: Act; onNav
           <div style={{ fontSize: '.9rem', lineHeight: 1.5 }}>
             <b style={{ color: 'var(--brick)' }}>You're losing money</b>{' '}
             {hasAnyExpense && hasAnyIncome ? (
-              <>because <b style={{ color: 'var(--down)' }}>{topExpense!.label}</b> ({fmtFull(topExpense!.amount)}/yr) exceeds <b style={{ color: 'var(--up)' }}>{topIncome!.label}</b> ({fmtFull(topIncome!.amount)}/yr).</>
+              <>because total expenses ({fmtFull(totalExp)}/yr) exceed total income ({fmtFull(totalInc)}/yr). Biggest expense: <b style={{ color: 'var(--down)' }}>{topExpense!.label}</b> ({fmtFull(topExpense!.amount)}/yr).</>
             ) : hasAnyExpense ? (
               <>because <b style={{ color: 'var(--down)' }}>{topExpense!.label}</b> ({fmtFull(topExpense!.amount)}/yr) is bleeding cash with no income to offset it.</>
             ) : (
