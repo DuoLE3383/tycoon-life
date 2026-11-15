@@ -24,7 +24,7 @@ const CATEGORIES = [
 type LookupOut = {
   name: string; brand: string; cat: string; price: number | null;
   rarity: 'common' | 'uncommon' | 'rare' | 'legendary' | 'mythic';
-  story: string; lux: number; rate: number; art: string; c: string;
+  story: string; specs: string[]; lux: number; rate: number; art: string; c: string;
   images: string[]; sources: string[]; priceSource: 'web' | 'llm' | 'none';
 };
 
@@ -43,11 +43,43 @@ function cleanUrl(u: unknown): string | null {
   return s;
 }
 
+async function searchBingImages(query: string): Promise<string[]> {
+  // Thu query goc + query + ' handbag/bag' — tranh Tabby -> buom, Birkin -> trang
+  const tries = [query, query + ' handbag', query + ' bag', query + ' product'];
+  for (const q of tries) {
+    const r = await searchBingOne(q);
+    if (r.length) return r;
+  }
+  return [];
+}
+async function searchBingOne(query: string): Promise<string[]> {
+  try {
+    const r = await fetch(`https://www.bing.com/images/search?q=${encodeURIComponent(query)}&form=HDRSC2`, { headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120 Safari/537.36' }, signal: AbortSignal.timeout(8000) });
+    if (!r.ok) { console.error('[lookup] bing images HTTP', r.status); return []; }
+    const html = await r.text();
+    const out: string[] = [];
+    const re = /"murl":"(https:[^"]+)"/g;
+    let m: RegExpExecArray | null;
+    while ((m = re.exec(html)) && out.length < 5) {
+      const c = cleanUrl(m[1].replace(/\\u0026/g, '&'));
+      if (c && !out.includes(c)) out.push(c);
+    }
+    return out;
+  } catch (e) { console.error('[lookup] bing images failed:', e); return []; }
+}
+async function searchOpenverse(query: string): Promise<string[]> {
+  try {
+    const r = await fetch(`https://api.openverse.org/v1/images/?q=${encodeURIComponent(query)}&page_size=5`, { signal: AbortSignal.timeout(8000) });
+    if (!r.ok) return [];
+    const j = await r.json() as { results?: { url?: string }[] };
+    return (j.results ?? []).map((x) => cleanUrl(x.url)).filter((x): x is string => !!x);
+  } catch (e) { console.error('[lookup] openverse failed:', e); return []; }
+}
 async function searchImages(query: string): Promise<string[]> {
   const out: string[] = [];
   try {
     const zai = await getZai();
-    const tries = [query, query + ' product photo', query + ' car', query + ' motorcycle'];
+    const tries = [query, query + ' product photo', query + ' car', query + ' motorcycle', query + ' bag', query + ' handbag', query + ' watch'];
     for (const q of tries) {
       const r = await zai.images.search.create({ query: q, count: 6 });
       for (const it of (r?.results ?? [])) {
@@ -58,6 +90,9 @@ async function searchImages(query: string): Promise<string[]> {
       if (out.length >= 3) break;
     }
   } catch (e) { console.error('[lookup] z-ai images failed:', e); }
+  // Khong API: Bing -> Openverse -> Wikimedia
+  if (out.length === 0) { for (const u of await searchBingImages(query)) if (!out.includes(u)) out.push(u); }
+  if (out.length === 0) { for (const u of await searchOpenverse(query)) if (!out.includes(u)) out.push(u); }
   // Fallback: Wikimedia Commons (khong can key, anh that) khi z-ai rong / 0 anh
   if (out.length === 0) {
     try {
@@ -144,7 +179,7 @@ export async function POST(req: Request) {
     `Ket qua web search (uu tien dung thong tin trong nay):`,
     `Neu web search rong, dung kien thuc that cua ban ve vat pham nay (vd: RC 390 = KTM RC 390 xe may, M3 = BMW M3 xe hoi). Gia la gia ban le that uoc tinh, KHONG de null neu ban biet khoang gia.`,
     context,
-    `Tra ve JSON duy nhat: {"brand": string, "name": string, "cat": string (1 trong 16: Sport bike, Phone, Watch, Jewelry, Suit, Car, Property, Yacht, Private jet, Art, Collectibles, Sneakers, Handbag, Audio, Camera, Classic car), "price": number|null (gia ban le that USD, lay tu snippet; neu snippet khong co gia thi null, TUYET DOI khong doan), "rarity": "common|uncommon|rare|legendary|mythic" (dua tren do hiem that), "story": string (1-2 cau mo ta that, tieng Viet, toi da 220 ky tu), "lux": number (0-12000, dua tren do xa xi), "rate": number (-0.4..0.1, tang/giam gia hang nam uoc tinh), "art": string (1 trong: i-bike,i-phone,i-watch,i-ring,i-suit,i-lambo,i-house,i-yacht,i-jet,i-art,i-coin,i-shoe,i-handbag,i-sound,i-cam), "c": string (hex mau chu dao, vd "#1d4ed8")}`,
+    `Tra ve JSON duy nhat: {"brand": string, "name": string, "cat": string (1 trong 16: Sport bike, Phone, Watch, Jewelry, Suit, Car, Property, Yacht, Private jet, Art, Collectibles, Sneakers, Handbag, Audio, Camera, Classic car), "price": number|null (gia ban le that USD, lay tu snippet; neu snippet khong co gia thi null, TUYET DOI khong doan), "rarity": "common|uncommon|rare|legendary|mythic" (dua tren do hiem that), "specs": [string] (3-5 thong so ky thuat chinh that, vd: chat lieu, kich thuoc, dong co, cong suat, nam ra mat), "story": string (1-2 cau mo ta that, tieng Viet, toi da 220 ky tu), "lux": number (0-12000, dua tren do xa xi), "rate": number (-0.4..0.1, tang/giam gia hang nam uoc tinh), "art": string (1 trong: i-bike,i-phone,i-watch,i-ring,i-suit,i-lambo,i-house,i-yacht,i-jet,i-art,i-coin,i-shoe,i-handbag,i-sound,i-cam), "c": string (hex mau chu dao, vd "#1d4ed8")}`,
     `Neu khong chac brand/name thi giu nguyen query. price=null neu khong thay gia.`,
   ].join('\n');
   const raw = await callLlama(prompt);
@@ -158,7 +193,13 @@ export async function POST(req: Request) {
     brand: (typeof parsed.brand === 'string' ? parsed.brand.trim() : '').slice(0, 30) || query.split(' ')[0],
     cat: pickCat(query, typeof parsed.cat === 'string' ? parsed.cat : ''),
     price,
-    rarity: (['common', 'uncommon', 'rare', 'legendary', 'mythic'].includes(String(parsed.rarity)) ? parsed.rarity : 'rare') as LookupOut['rarity'],
+    rarity: (function () {
+      const raw = String(parsed.rarity ?? 'rare');
+      const r = (['common', 'uncommon', 'rare', 'legendary', 'mythic'].includes(raw) ? raw : 'rare') as LookupOut['rarity'];
+      if (price != null) { if (price >= 20000 && (r === 'common' || r === 'uncommon')) return 'legendary'; if (price >= 5000 && r === 'common') return 'rare'; }
+      return r;
+    })(),
+    specs: (Array.isArray(parsed.specs) ? parsed.specs.filter((x) => typeof x === 'string' && x.trim()).map((x) => String(x).trim().slice(0, 80)).slice(0, 5) : []),
     story: (typeof parsed.story === 'string' && parsed.story.trim() ? parsed.story.trim() : `Vat pham that: ${query}. Admin kiem tra lai gia/mo ta truoc khi tao.`).slice(0, 280),
     lux: typeof parsed.lux === 'number' && Number.isFinite(parsed.lux) ? Math.max(0, Math.min(12000, Math.round(parsed.lux))) : 100,
     rate: typeof parsed.rate === 'number' && Number.isFinite(parsed.rate) ? Math.max(-0.4, Math.min(0.1, parsed.rate)) : 0,

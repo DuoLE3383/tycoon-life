@@ -148,6 +148,8 @@ interface ItemPatch {
   story: string | null;
   since: number;
   isUsed: boolean;
+  isRare: boolean;
+  isSeed: boolean;
   lux: number;
   rate: number;
   art: string;
@@ -181,7 +183,11 @@ function readItemPatch(b: Record<string, unknown>): ItemPatch | null {
   // become relevant. We don't strictly require them, but if askPrice is
   // provided it overrides `price` as the listing's current price.
   const baseId = String(b.baseId ?? '').trim().slice(0, 60) || null;
-  const isUsed = !!b.isUsed || !!baseId;
+  // itemType tu form admin: standard / rare / used / custom
+  const itemType = String(b.itemType ?? '').trim().toLowerCase();
+  const isUsed = !!b.isUsed || !!baseId || itemType === 'used';
+  const isRare = itemType === 'rare' || !!b.isRare;
+  const isSeed = itemType === 'standard';
   const ageYears = (b.ageYears !== undefined && b.ageYears !== null && String(b.ageYears).trim() !== '')
     ? Math.max(0, Math.min(120, Math.round(Number(b.ageYears))))
     : null;
@@ -200,7 +206,7 @@ function readItemPatch(b: Record<string, unknown>): ItemPatch | null {
   const art = String(b.art ?? 'ic-bag').trim().slice(0, 30) || 'ic-bag';
   const c = String(b.c ?? '#888888').trim().slice(0, 20) || '#888888';
   const since = Number.isFinite(Number(b.since)) ? Math.max(1800, Math.min(2100, Math.round(Number(b.since)))) : 1900;
-  return { name, cat, price, imageUrl, brand, rarity, stock, baseId, ageYears, condition, askPrice, newPrice, story, since, isUsed, lux, rate, art, c };
+  return { name, cat, price, imageUrl, brand, rarity, stock, baseId, ageYears, condition, askPrice, newPrice, story, since, isUsed, isRare, isSeed, lux, rate, art, c };
 }
 
 export async function GET(req: Request) {
@@ -279,6 +285,8 @@ export async function POST(req: Request) {
           stock: patch.stock,
           imageUrl: patch.imageUrl,
           isUsed: patch.isUsed,
+          isRare: patch.isRare,
+          isSeed: patch.isSeed,
           baseId: patch.baseId || undefined,
           ageYears: patch.ageYears ?? undefined,
           condition: patch.condition ?? undefined,
@@ -319,7 +327,8 @@ export async function POST(req: Request) {
           rarity: patch.rarity,
           stock: patch.stock,
           imageUrl: patch.imageUrl,
-          isRare: existing.isRare,
+          isRare: (b.itemType ? patch.isRare : existing.isRare),
+          isSeed: (b.itemType ? patch.isSeed : existing.isSeed),
           isUsed: patch.isUsed || existing.isUsed,
           baseId: patch.baseId || undefined,
           ageYears: patch.ageYears ?? undefined,

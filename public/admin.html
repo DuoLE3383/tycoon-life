@@ -627,6 +627,7 @@
                 <option value="mythic">Mythic</option>
               </select>
             </div>
+            <div class="field"><label>Loại</label><select id="if-type"><option value="standard">Standard</option><option value="rare">Rare</option><option value="used">Used</option><option value="custom">Custom</option></select></div>
             <div class="field"><label>Stock</label><input id="if-stock" type="number" placeholder="trống = ∞" /><div class="hint" id="if-stock-hint">Trống = không giới hạn.</div></div>
           </div>
           <div class="form-row" style="margin-top:10px">
@@ -637,7 +638,7 @@
           <input type="hidden" id="if-id" />
         </div>
 
-        <h3>Tất cả vật phẩm (DB)</h3>
+        <h3>Tất cả vật phẩm (DB)</h3><div class="tools" style="margin-bottom:8px"><label class="mini">Lọc Loại:</label><select id="filter-item-type"><option value="">Tất cả</option><option value="standard">Standard</option><option value="rare">Rare</option><option value="used">Used</option><option value="custom">Custom</option></select></div>
         <div class="table-wrap">
           <table>
             <thead><tr><th></th><th>Tên</th><th>Cat</th><th>Giá</th><th>Rarity</th><th>Stock</th><th>Loại</th><th>Hành động</th></tr></thead>
@@ -1501,8 +1502,11 @@
   }
   function pickLookupImage(url) { $('if-imageurl').value = url; toast('✓ Đã chọn ảnh', 'ok'); }
   function lookupItem() {
-    var q = $('if-name').value.trim();
-    if (!q) { toast('❌ Gõ tên vật phẩm trước', 'err'); return; }
+    var nameOnly = $('if-name').value.trim();
+    var brandVal = $('if-brand').value.trim();
+    if (!nameOnly) { toast('❌ Gõ tên vật phẩm trước', 'err'); return; }
+    // Gui kem Brand da co (【entity-BMW¦canonical_name=BMW】 M3, 【entity-Ferrari¦canonical_name=Ferrari】 296 GTB) — ten tran nhu M3 / 296 GTB LLM + Wikimedia khong biet la gi
+    var q = brandVal ? (brandVal + ' ' + nameOnly) : nameOnly;
     if (!state.key) { toast('❌ Chưa nhập ADMIN_KEY', 'err'); return; }
     var btn = $('btn-item-lookup'); var old = btn.textContent; btn.textContent = '⏳ Đang tra cứu…'; btn.disabled = true;
     $('item-lookup-result').textContent = 'Đang tra cứu "' + q + '" (web thật + ảnh thật)…';
@@ -1511,18 +1515,20 @@
       .then(function (r) { clearTimeout(timer); return r.json().then(function (j) { if (!r.ok || !j.ok) throw new Error(j.error || ('HTTP ' + r.status)); return j; }); })
       .then(function (j) {
         var it = j.item || {};
-        if (it.brand) $('if-brand').value = it.brand;
-        if (it.cat) $('if-cat').value = it.cat;
+        // KHONG ghi de Brand/Category da dien — chi dien khi o trong. Tranh truong hop LLM tra brand = 'M3' / '296' de len 【entity-BMW¦canonical_name=BMW】 / Ferrari.
+        if (it.brand && !$('if-brand').value.trim()) $('if-brand').value = it.brand;
+        if (it.cat && (!$('if-cat').value.trim() || $('if-cat').value.trim() === 'Custom')) $('if-cat').value = it.cat;
         if (it.rarity) $('if-rarity').value = it.rarity;
         if (it.price) $('if-price').value = it.price;
+        if (it.brand && it.brand.toLowerCase() === nameOnly.toLowerCase()) { it.brand = brandVal || ''; }
         state.lookupExtra = { story: it.story || '', lux: it.lux || 100, rate: it.rate || 0, art: it.art || 'i-coin', c: it.c || '#888888' };
         var imgs = it.images || [];
         if (imgs.length) $('if-imageurl').value = imgs[0];
         var pv = $('item-lookup-preview');
         if (imgs.length) { pv.src = imgs[0]; pv.style.display = ''; } else { pv.style.display = 'none'; }
-        var dt = $('item-lookup-detail'); if (dt) dt.textContent = (it.story || '—') + (it.price ? '' : ' (Chưa tìm thấy giá thật — kiểm tra lại trước khi Tạo.)');
+        var dt = $('item-lookup-detail'); if (dt) dt.textContent = (it.story || '—') + ((it.specs && it.specs.length) ? ' | Thông số: ' + it.specs.join(' · ') : '');
         updateStockHint();
-        $('item-lookup-result').textContent = '✓ ' + (it.name || q) + ' — Brand: ' + (it.brand || '?') + ' · Giá thật: ' + (it.price ? ('$' + it.price.toLocaleString('en-US') + ' (nguồn: ' + (it.priceSource || 'web') + ')') : 'không tìm thấy giá — giữ giá cũ, KHÔNG bịa') + ' · ' + (it.story || '') + (it.sources && it.sources.length ? ' · Nguồn: ' + it.sources[0] : '') + ' — Kiểm tra rồi bấm Tạo / Cập nhật.';
+        $('item-lookup-result').textContent = '✓ ' + (it.name || q) + ' — Brand: ' + (it.brand || '?') + ' · Giá thật: ' + (it.price ? ('$' + it.price.toLocaleString('en-US') + ' (nguồn: ' + (it.priceSource || 'web') + ')') : 'không tìm thấy giá — giữ giá cũ, KHÔNG bịa') + ' — Xem Mô tả + Thông số bên dưới.';
         toast('✓ Tra cứu xong — kiểm tra rồi bấm Tạo / Cập nhật', 'ok');
       })
       .catch(function (e) { $('item-lookup-result').textContent = '❌ Tra cứu thất bại (' + (e.message || 'lỗi') + ') — nhập tay bình thường.'; toast('❌ Tra cứu thất bại — nhập tay', 'err'); })
@@ -1538,6 +1544,8 @@
     var stockRaw = $('if-stock').value.trim();
     var stock = stockRaw === '' ? null : Math.round(Number(stockRaw));
     var baseId = $('if-baseid').value.trim();
+    var itemType = ($('if-type') && $('if-type').value) || 'standard';
+    if (itemType === 'used' && !baseId) { toast('❌ Loại Used cần Base ID', 'err'); return; }
     if (!name) { toast('❌ Thiếu tên vật phẩm', 'err'); return; }
     if (!imageUrl) { toast('❌ Thiếu image URL', 'err'); return; }
     try { var u = new URL(imageUrl); if (!u.protocol.startsWith('http')) throw 0; } catch (e) { toast('❌ Image URL không hợp lệ', 'err'); return; }
@@ -1551,6 +1559,7 @@
       name: name, cat: $('if-cat').value.trim() || 'Custom', brand: $('if-brand').value.trim(),
       price: price, imageUrl: imageUrl, rarity: rarity, stock: stock,
       baseId: baseId || undefined,
+      itemType: itemType,
       ...(state.lookupExtra || {}),
     };
     var action, label;

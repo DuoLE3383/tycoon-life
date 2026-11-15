@@ -294,6 +294,7 @@ export interface UpsertItemInput {
   imageUrl?: string;
   isRare?: boolean;
   isUsed?: boolean;
+  isSeed?: boolean;
   baseId?: string;
   ageYears?: number;
   condition?: number;
@@ -310,7 +311,8 @@ export function upsertItem(input: UpsertItemInput): ItemOut {
   const ex = d.prepare('SELECT * FROM items WHERE id = ?').get(id) as ItemRow | undefined;
   // Preserve is_seed on update — admin edits to a seed row keep is_seed=1
   // so deleteItem still refuses to drop it. New admin rows get is_seed=0.
-  const isSeed = ex ? ex.is_seed : 0;
+  // Neu caller gui isSeed (admin chon Loai=Standard) thi dung no; khong thi giu cu (seed giu seed, moi = 0).
+  const isSeed = input.isSeed !== undefined ? (input.isSeed ? 1 : 0) : (ex ? ex.is_seed : 0);
   const isRare = input.isRare ? 1 : (ex ? ex.is_rare : 0);
   const isUsed = input.isUsed ? 1 : (ex ? ex.is_used : 0);
   const name = String(input.name ?? ex?.name ?? '').trim().slice(0, 60);
