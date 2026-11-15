@@ -1,11 +1,11 @@
 {
-  "version": "v13.24",
+  "version": "v13.25",
   "releasedAt": "2026-11-15",
-  "headline": "HuyenBao v13.24 — Travel modal fixed + Vietnamese thousand dots",
-  "summary": "v13.24: Travel modal now renders via Portal to document.body so it covers the full viewport instead of being clipped to 34px. All numbers now use Vietnamese thousand-dot grouping (vi-VN), e.g. +$1.602.817.222.",
+  "headline": "HuyenBao v13.25 — Travel + More modals fixed with Portal tgame wrapper",
+  "summary": "v13.25: Travel and More modals render via Portal to document.body wrapped in .tgame, so they keep full game styling and cover the full viewport instead of being clipped or oversized.",
   "features": [
-    "Travel: modal rendered via Portal to document.body, full-viewport overlay, no longer clipped or overlapping",
-    "Numbers: all numbers use Vietnamese thousand-dot grouping (vi-VN), e.g. +$1.602.817.222",
-    "Numbers: fmtFull and all toLocaleString() calls now use vi-VN"
+    "Travel: Portal to document.body wrapped in .tgame, full-viewport overlay, icon back to normal size",
+    "More: same Portal + .tgame fix for Guide / News / Achievements / Timeline / Log popup",
+    "Modals: no longer clipped to 34px or overlapping Tips / footer"
   ]
 }

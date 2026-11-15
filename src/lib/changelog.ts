@@ -37,4 +37,13 @@ export const CHANGELOG: Record<string, ChangelogEntry> = {
       'Numbers: fmtFull and all toLocaleString() calls now use vi-VN',
     ],
   },
+  'v13.25': {
+    headline: 'HuyenBao v13.25 — Travel + More modals fixed with Portal tgame wrapper',
+    summary: 'v13.25: Travel and More modals render via Portal to document.body wrapped in .tgame, so they keep full game styling and cover the full viewport instead of being clipped or oversized.',
+    features: [
+      'Travel: Portal to document.body wrapped in .tgame, full-viewport overlay, icon back to normal size',
+      'More: same Portal + .tgame fix for Guide / News / Achievements / Timeline / Log popup',
+      'Modals: no longer clipped to 34px or overlapping Tips / footer',
+    ],
+  },
 };

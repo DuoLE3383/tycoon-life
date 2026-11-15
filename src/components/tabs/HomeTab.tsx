@@ -20,6 +20,7 @@ export function TravelSection({ s, act, t }: { s: GameState; act: Act; t: TFn })
         <span>{t('travel.title', 'Travel')}</span>
       </button>
       {open && typeof document !== 'undefined' && createPortal(
+        <div className="tgame">
         <div className="modal-overlay" onClick={close}>
           <div className="modal-box gigs-modal" onClick={e => e.stopPropagation()}>
             <div className="modal-head">
@@ -55,6 +56,7 @@ export function TravelSection({ s, act, t }: { s: GameState; act: Act; t: TFn })
               })}
             </div>
           </div>
+        </div>
         </div>,
         document.body,
       )}
@@ -217,7 +219,8 @@ export function MoreInfoPopup({ s, t, lang, eraName, y, news, timelineLocale, on
         <Art id="ic-link" className="si" />
         <span>{t('more.btn', 'More')}</span>
       </button>
-      {open && (
+      {open && typeof document !== 'undefined' && createPortal(
+        <div className="tgame">
         <div className="modal-overlay" onClick={close}>
           <div className="modal-box gigs-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 600 }}>
             <div className="modal-head">
@@ -280,6 +283,8 @@ export function MoreInfoPopup({ s, t, lang, eraName, y, news, timelineLocale, on
             </div>
           </div>
         </div>
+        </div>,
+        document.body,
       )}
     </>
   );
