@@ -2,7 +2,6 @@
 
 import { Art, BUNDLED_VERSION, type GameState, Ic, type Lang, LANGS, useEffect, useState, useT, worldYear, xpNeed } from '@/components/gameDeps';
 import { type Act, Btn, Row, useEscapeKey, useReqLabel } from '@/components/shared';
-import { GigsPopup } from '@/components/modals/GigsPopup';
 
 
 
@@ -61,7 +60,7 @@ export function Header({ s, eraName, speed, setSpeed, act }: { s: GameState; era
             pushing the home tab's quick-actions below the fold; bringing the
             gigs trigger up here means the player can always reach it. The
             GigsPopup component renders its own trigger button + modal. */}
-        {s.started && !s.over && <GigsPopup s={s} act={act} t={t} />}
+        {/* v13.31 - Quick gigs da doi xuong PinZone, duoi Social Media */}
       </div>
     </header>
   );

@@ -116,13 +116,7 @@ export function HomeTab({ s, act, askAI, aiBusy, aiNote, eraName, onNav }: { s: 
         </div>
       )}
 
-      <div className="quick-actions">
-        {/* v12.1 — GigsPopup moved to the Header so it stays visible on every
-            tab. Only TravelSection + MoreInfoPopup remain in HomeTab's
-            quick-actions (the "More info" popup consolidates guide/news/etc). */}
-        <TravelSection s={s} act={act} t={t} />
-        <MoreInfoPopup s={s} t={t} lang={lang} eraName={eraName} y={y} news={news} timelineLocale={timelineLocale} onNav={onNav} />
-      </div>
+      {/* v13.31 - Travel / More / Quick gigs da gom ve PinZone, duoi Social Media. Khong render o day nua de khoi trung nut. */}
 
       {/* v12 — compact rotating Tips card. One tip at a time, advances every
           30 seconds (or sooner if the user clicks a dot). Six curated tips

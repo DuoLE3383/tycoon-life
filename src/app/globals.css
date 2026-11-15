@@ -1324,3 +1324,10 @@ body:has(.tgame .modal-overlay){overflow:hidden}
 .tgame .tips-card .tips-tx{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .tgame .tips-card .tips-dots{flex:none;display:inline-flex;gap:4px}
 .tgame .quick-actions{position:relative;z-index:0}
+
+/* v13.31 - Fix nhay chu: khoa chieu cao + khong cho chip co gian */
+.top, .pinzone, .agehead, .stats-row { min-height: 44px; }
+.agehead b, .cash-chip, .hpill, .pchip { white-space: nowrap; text-wrap: nowrap; }
+.pin-followers, .pin-actions .gigs-trigger, .pin-actions button { white-space: nowrap; flex-shrink: 0; }
+.pinzone .dash-chart-box { min-height: 132px; }
+.lang button { min-width: 32px; }

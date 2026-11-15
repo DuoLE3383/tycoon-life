@@ -1,8 +1,11 @@
 'use client';
 
-import { assetVal, bizIncome, bizVal, END_AGE, fmt, type GameState, healthState, Ic, jobIncome, jobsOf, living, netWorth, RETIRE, sleepHealthMult, sleepHealthRecovery, sleepHoursOptions, socialIncome, spaceIncome, stageOf, STAGES, START, stockVal, studyPace, studyTuition, upkeep, usedItemValue, useT, xpNeed, yearIncome } from '@/components/gameDeps';
+import { assetVal, eraOf, bizIncome, bizVal, END_AGE, fmt, type GameState, healthState, Ic, jobIncome, jobsOf, living, netWorth, RETIRE, sleepHealthMult, sleepHealthRecovery, sleepHoursOptions, socialIncome, spaceIncome, stageOf, STAGES, START, stockVal, studyPace, studyTuition, upkeep, usedItemValue, useT, xpNeed, yearIncome } from '@/components/gameDeps';
 import { type Act, Btn, Row, type TFn, useEscapeKey, useReqLabel } from '@/components/shared';
 import { BarChart, DonutChart } from '@/components/charts';
+import { GigsPopup } from '@/components/modals/GigsPopup';
+import { TravelSection, MoreInfoPopup } from '@/components/tabs/HomeTab';
+import { ALLNEWS, worldYear } from '@/components/gameDeps';
 
 
 
@@ -71,6 +74,10 @@ export function PinZone({ s, t, onEdit, act, onNav, expanded, onToggleExpand }: 
     [t('asset.used'), used, '#c46b5e'],
   ];
   const nw = netWorth(s);
+  // v13.31 - Quick actions gom ve giua, duoi Social Media: Travel / More / Quick gigs + Followers
+  const { lang } = useT();
+  const _y = worldYear(s), _news = ALLNEWS[_y] || [];
+  const _timelineLocale = { en: 'en-US', vi: 'vi-VN', zh: 'zh-CN' }[lang];
   const healthColor = s.health < 20 ? 'var(--brick)' : s.health < 40 ? 'var(--amber, #c47b2c)' : s.health < 60 ? 'var(--warn, #d8b13a)' : 'var(--sage)';
   // v12.13 — mobile-first collapse. When NOT expanded the .pinzone-collapsed
   // class is applied; the @media (max-width:700px) rules in globals.css hide
@@ -189,6 +196,18 @@ export function PinZone({ s, t, onEdit, act, onNav, expanded, onToggleExpand }: 
           </div>
         </div>
       )}
+
+      {/* v13.31 - Row 3.5: Quick actions gom ve giua, duoi Social Media */}
+      <div className="pin-actions" style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginTop: 10 }}>
+        <span className="pin-followers" style={{ minWidth: 120, whiteSpace: 'nowrap' }}>
+          👥 <b>{s.social.followers.toLocaleString('vi-VN')}</b> <span className="mini">{t('followers')}</span>
+          <span className="mini" style={{ opacity: .7 }}> · +{fmt(socialIncome(s))}{t('perYear')}</span>
+        </span>
+        <span style={{ flex: 1 }} />
+        <GigsPopup s={s} act={act} t={t} />
+        <TravelSection s={s} act={act} t={t} />
+        <MoreInfoPopup s={s} t={t} lang={lang} eraName={(y: number) => eraOf(y).name} y={_y} news={_news} timelineLocale={_timelineLocale} onNav={onNav} />
+      </div>
 
       {/* Row 4: Age track */}
       <div className="track slim" style={{ background: `linear-gradient(90deg,#8fae9b 0 ${p(22)},#c9b68e ${p(22)} ${p(26)},#c08a80 ${p(26)} ${p(RETIRE)},#9b93a8 ${p(RETIRE)})` }}>
