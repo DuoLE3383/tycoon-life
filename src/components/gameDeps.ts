@@ -2,7 +2,7 @@
 
 export { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 export { Art, Ic, ART_DEFS } from '@/lib/art';
-export { useGame, getState, persist, bump, resetState, reincarnateState } from '@/lib/store';
+export { useGame, getState, persist, bump, resetState, reincarnateState, getActiveUserId, setActiveUserId, hasSaveFor, getSaveKey, sanitizeUserId } from '@/lib/store';
 export {
   START, END_AGE, RETIRE, RESALE_FEE, FOUND_COST, FOUND_MIN_NW, OWN_CLUB_MULT,
   SAVE_RATE, LOAN_RATE, TAX_FREE, TAX_BRACKETS, ALLNEWS, eraOf, NATIONS, NAME_POOLS, INTERESTS, TALENTS, PATHS,
@@ -98,7 +98,7 @@ export const asset = (p: string) => {
 // v11.8 — the bundled version. The /version.json file in /public is polled
 // every 5 minutes; if its version is newer than this, a "reload to update"
 // banner appears even in a running session (no F5 needed).
-export const BUNDLED_VERSION = 'v13.20';
+export const BUNDLED_VERSION = 'v13.21';
 
 export const VERSION_POLL_MS = 5 * 60 * 1000;
 

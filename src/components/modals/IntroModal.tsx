@@ -1,6 +1,6 @@
 'use client';
 
-import { analyze, Art, eraOf, FIELDS, fmt, type Gender, Ic, INTERESTS, type Lang, LANGS, MONTHS_NAMES, NAME_POOLS, NATIONS, PATHS, type Religion, RELIGIONS, TALENTS, useEffect, useState, useT, zodiacById, zodiacIntroSuggestion, zodiacOf } from '@/components/gameDeps';
+import { analyze, Art, eraOf, FIELDS, fmt, type Gender, getActiveUserId, hasSaveFor, Ic, INTERESTS, type Lang, LANGS, MONTHS_NAMES, NAME_POOLS, NATIONS, PATHS, type Religion, RELIGIONS, setActiveUserId, TALENTS, useEffect, useState, useT, zodiacById, zodiacIntroSuggestion, zodiacOf } from '@/components/gameDeps';
 import { Btn, Row, useEscapeKey, useReqLabel } from '@/components/shared';
 
 
@@ -21,6 +21,18 @@ export function Intro({ onBegin }: { onBegin: (o: { name: string; byear: number;
   // Used by the Spirit tab panels (Tử Vi / Phong Thuỷ) that previously
   // defaulted to day=15; now the player picks it once at character creation.
   const [birthDay, setBirthDay] = useState<number>(15);
+  // v13.21 — continue game by user id. Save key = tycoon_life_react_v1_<id>.
+  // Continue = set active id + reload so store.hydrate() loads that key.
+  // No save for id → error, player can still create a new life with that id.
+  const [userId, setUserId] = useState(() => getActiveUserId() || '');
+  const [continueMsg, setContinueMsg] = useState('');
+  const onContinue = () => {
+    const id = userId.trim();
+    if (!id) { setContinueMsg('Nhập User ID trước đã.'); return; }
+    if (!hasSaveFor(id)) { setContinueMsg(`Không tìm thấy game cho ID "${id}". Tạo mới với ID này ở dưới nhé.`); return; }
+    setActiveUserId(id);
+    window.location.reload();
+  };
   // v11 — two-step flow: 'edit' (fill fields) → 'review' (summary + confirm)
   const [step, setStep] = useState<'edit' | 'review'>('edit');
   // v11.10 — mandatory legal disclaimer acknowledgment. The "Begin my life"
@@ -87,6 +99,16 @@ export function Intro({ onBegin }: { onBegin: (o: { name: string; byear: number;
   return (
     <div className="modal on"><div className="mcard" style={{ maxWidth: 560 }}>
       <h2>{t('createLife')}</h2>
+      {/* v13.21 — continue by user id, above the create-new form. */}
+      <div className="field" style={{ background: 'rgba(0,0,0,0.04)', padding: '10px', borderRadius: 6 }}>
+        <label>🔑 User ID — tiếp tục game cũ</label>
+        <div className="trade" style={{ gap: 8 }}>
+          <input style={{ flex: 1 }} maxLength={32} placeholder="vd: minh1997" value={userId} onChange={e => setUserId(e.target.value)} />
+          <button type="button" className="ibtn" onClick={onContinue}>Continue game</button>
+        </div>
+        {continueMsg && <p className="mini" style={{ margin: '6px 0 0' }}>{continueMsg}</p>}
+        <p className="mini" style={{ margin: '6px 0 0', opacity: .8 }}>Game cũ không có ID vẫn ở đó — để trống ID là chơi tiếp save cũ. Nhập ID mới + tạo mới = game mới gắn với ID đó.</p>
+      </div>
       <p className="mini" style={{ marginTop: 0 }}>{t('introSub')}</p>
       {/* v11.10 — legal disclaimer, visible from the first screen of the intro.
           v11.19 — wider container + line-height so the (long VI) text doesn't
@@ -207,7 +229,7 @@ export function Intro({ onBegin }: { onBegin: (o: { name: string; byear: number;
           <div className="trade">
             <button className="ibtn ghost" onClick={() => setStep('edit')}><Ic id="ic-x" className="bsi" /><span>{t('v11.back')}</span></button>
             {/* v11.10 — Begin stays disabled until the disclaimer is acknowledged */}
-            <button className="ibtn" style={{ flex: 1 }} disabled={!ack} onClick={() => onBegin({ name: name || 'Alex', byear, nation, religion, ints, tals, gender, birthMonth, birthDay })}>
+            <button className="ibtn" style={{ flex: 1 }} disabled={!ack} onClick={() => { if (userId.trim()) setActiveUserId(userId); onBegin({ name: name || 'Alex', byear, nation, religion, ints, tals, gender, birthMonth, birthDay }); }}>
               <Ic id="ic-plus" className="bsi" /><span>{t('begin')}</span>
             </button>
           </div>

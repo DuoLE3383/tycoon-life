@@ -77,6 +77,9 @@ export function useGameController() {
   const [whatsNewContent, setWhatsNewContent] = useState<{ headline: string; features: string[] } | null>(null);
 
   const [reloadPrompt, setReloadPrompt] = useState<{ version: string; headline: string } | null>(null);
+  // v13.21 — direct update notification: toast once per new version.
+  // Poll only sets reloadPrompt (banner); this ref stops re-toasting every 5 min.
+  const notifiedVersionRef = useRef<string | null>(null);
 
   // v11.57 — time acceleration: x1 / x10 / x50 when playing online. Multiplies
   // the elapsed real-time before passing to tick(), so at x10 each real second
@@ -275,6 +278,16 @@ export function useGameController() {
   // v11.25 — player-to-player community (chat / friends / gifts / leaderboard).
   // Singleton provider: Supabase when NEXT_PUBLIC_SUPABASE_* env vars are set
   // at build time, otherwise a same-device BroadcastChannel demo.
+  // v13.21 — when poll finds a newer version, push a direct toast to the
+  // player (in addition to the reload banner). Runs after showToast is
+  // defined so there is no forward-reference. Once per version only.
+  useEffect(() => {
+    if (!reloadPrompt) return;
+    if (notifiedVersionRef.current === reloadPrompt.version) return;
+    notifiedVersionRef.current = reloadPrompt.version;
+    showToast(`🔔 Update mới ${reloadPrompt.version}: ${reloadPrompt.headline} — bấm Reload để cập nhật.`);
+  }, [reloadPrompt, showToast]);
+
   const comm = useCommunity(s, showToast);
 
 
