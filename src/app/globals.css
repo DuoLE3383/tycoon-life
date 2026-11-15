@@ -1473,3 +1473,8 @@ body:has(.tgame .modal-overlay){overflow:hidden}
 /* Bo line-clamp gay cut chu ... o dong sleepEffects */
 .dash-chart-box:last-child > div:first-of-type { display: block; -webkit-line-clamp: unset; overflow: visible; }
 .dash-chart-box:last-child p, .dash-chart-box:last-child div { overflow: visible; }
+
+/* v13.39 - Update banner */
+.update-banner { background: linear-gradient(90deg, #F2C66D, #FF9A5C); color: #1A1405; font-size: 12.5px; font-weight: 700; padding: 7px 12px; border-radius: 10px; margin-bottom: 10px; text-align: center; line-height: 1.4; }
+.update-banner span { background: #1A1405; color: #F2C66D; padding: 1px 7px; border-radius: 999px; margin-left: 6px; font-size: 11px; white-space: nowrap; }
+@media (max-width: 480px) { .update-banner { font-size: 11.5px; text-align: left; } }

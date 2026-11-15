@@ -21,7 +21,7 @@ export function EditProfileModal({ s, act, onClose }: { s: GameState; act: Act; 
   const { t } = useT();
   const [name, setName] = useState(s.name);
   const [avatar, setAvatar] = useState(s.avatar);
-  // v13.27 - Doi nhan vat = nhap Game ID khac. Moi NV = 1 Game ID = 1 save key tycoon_life_react_v1_<id>
+  // v13.39 - Doi nhan vat = nhap Game ID khac. Moi NV = 1 Game ID = 1 save key tycoon_life_react_v1_<id>
   const [switchId, setSwitchId] = useState('');
   const [switchMsg, setSwitchMsg] = useState('');
   const onSwitch = async () => {
@@ -75,7 +75,7 @@ export function EditProfileModal({ s, act, onClose }: { s: GameState; act: Act; 
               ))}
             </div>
           </label>
-          {/* v13.27 - Doi nhan vat = nhap Game ID khac */}
+          {/* v13.39 - Doi nhan vat = nhap Game ID khac */}
           <div className="field" style={{ background: 'rgba(0,0,0,0.04)', padding: '10px', borderRadius: 6, marginTop: 12 }}>
             <label>🔑 Đổi nhân vật — nhập Game ID khác</label>
             <div className="trade" style={{ gap: 8 }}>

@@ -50,7 +50,7 @@ export function PinZone({ s, t, onEdit, act, onNav, expanded, onToggleExpand }: 
   const recoveryRate = sleepHealthRecovery(s.sleepHours);
   const healthChangeText = recoveryRate > 0
     ? `+${(recoveryRate * 100).toFixed(0)}%/day recovery`
-    : `${healthChange > 0 ? '+' : ''}${healthChange}% decay`;
+    : `${healthChange > 0 ? '+' : ''}${healthChange}%`;
   const incRows: [string, number][] = [
     [t('inc.salary'), jobIncome(s)],
     [t('inc.biz'), bizIncome(s)],
