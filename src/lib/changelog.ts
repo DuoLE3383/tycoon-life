@@ -133,6 +133,15 @@ export const CHANGELOG: Record<string, ChangelogEntry> = {
       'Nuoc: mo rong len Top 30, Dubai hien thi United Arab Emirates (Dubai), khong luu rieng Dubai',
     ],
   },
+  'v13.50': {
+    headline: 'HuyenBao v13.50 - Tra cuu Bing + Rarity theo gia + Loai vat pham',
+    summary: 'v13.50: Lookup them Bing/Openverse (khong can API key), anh thu handbag/bag tranh Tabby ra buom. Rarity floor theo gia that: >=20k len Legendary, >=5k len Rare. Them Loai used/standard/custom/rare + loc list.',
+    features: [
+      'Lookup: z-ai -> Bing (thu handbag/bag/product) -> Openverse -> Wikimedia, 1 anh, khong can Google API',
+      'Rarity: floor theo gia that, Birkin 28k khong con Common',
+      'Loai: form chon used/standard/custom/rare + list Loc Loai, backend luu isRare/isSeed/isUsed',
+    ],
+  },
   'v13.49': {
     headline: 'HuyenBao v13.49 - Tra cuu vat pham + Dong tien + Hoa don & Thue',
     summary: 'v13.49: Admin tra cuu vat pham lay thong tin that + gia thi truong that + chon anh. Finance them bieu do dong tien 200 giao dich gan nhat. Hoa don thang + thue nam thanh hoa don phai bam Tra, qua han phat 2%/thang, dashboard canh bao khi co hoa don moi.',
