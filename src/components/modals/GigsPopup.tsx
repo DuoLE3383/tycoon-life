@@ -1,5 +1,6 @@
 'use client';
 
+import { createPortal } from 'react-dom';
 import { Art, doGig, fmt, type GameState, gigLock, gigPay, gigReady, GIGS, useState } from '@/components/gameDeps';
 import { type Act, Btn, Row, type TFn, useEscapeKey, useReqLabel } from '@/components/shared';
 
@@ -23,7 +24,8 @@ export function GigsPopup({ s, act, t }: { s: GameState; act: Act; t: TFn }) {
         <span>{t('gigs.popup', 'Quick gigs')}</span>
         {glow && <span className="gigs-badge">{readyCount}</span>}
       </button>
-      {open && (
+      {open && createPortal(
+        <div className="tgame">
         <div className="modal-overlay" onClick={close}>
           <div className="modal-box gigs-modal" onClick={e => e.stopPropagation()}>
             <div className="modal-head">
