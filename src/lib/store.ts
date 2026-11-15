@@ -52,8 +52,35 @@ export function hydrate() {
   } catch { /* ignore */ }
   bump();
 }
+// v13.30 - Cloud save: persist() ghi local + day len server (fire-and-forget, khong block game).
+// Duong mo game 1 lan tren may cu -> save Duong len server -> may Maika tai ve duoc.
+let _saveTimer: ReturnType<typeof setTimeout> | null = null;
 export function persist() {
-  try { localStorage.setItem(getSaveKey(), JSON.stringify(S)); } catch { /* ignore */ }
+  let raw = '';
+  try { raw = JSON.stringify(S); localStorage.setItem(getSaveKey(), raw); } catch { /* ignore */ }
+  try {
+    const id = getActiveUserId();
+    if (!id || !raw) return;
+    if (_saveTimer) clearTimeout(_saveTimer);
+    _saveTimer = setTimeout(() => {
+      fetch('/api/social/save', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ uid: id, data: raw }) }).catch(() => {});
+    }, 800);
+  } catch { /* ignore */ }
+}
+// v13.30 - Tai save tu server ve localStorage, tra true neu co.
+export async function fetchServerSave(userId: string): Promise<boolean> {
+  const id = sanitizeUserId(userId);
+  if (!id) return false;
+  try {
+    const r = await fetch('/api/social/save?uid=' + encodeURIComponent(id), { cache: 'no-store' });
+    if (!r.ok) return false;
+    const j = await r.json().catch(() => ({})) as { ok?: boolean; data?: string };
+    if (!j.ok || typeof j.data !== 'string') return false;
+    const parsed = JSON.parse(j.data);
+    if (!parsed || parsed.started !== true) return false;
+    localStorage.setItem(getSaveKey(id), j.data);
+    return true;
+  } catch { return false; }
 }
 export function resetState() { S = fresh(); persist(); bump(); }
 // v10.5 — reincarnation: keep identity (name / nation / religion / talents /

@@ -77,6 +77,11 @@ export function db(): Database.Database {
       applied_at INTEGER
     );
     CREATE INDEX IF NOT EXISTS idx_admin_actions_target ON admin_actions(target_uid);
+    CREATE TABLE IF NOT EXISTS game_saves (
+      uid TEXT PRIMARY KEY,
+      data TEXT NOT NULL,
+      updated_at INTEGER NOT NULL
+    );
     CREATE TABLE IF NOT EXISTS items (
       id TEXT PRIMARY KEY,
       name TEXT NOT NULL,
@@ -733,4 +738,17 @@ export function ackAdminAction(id: number, uid: string): boolean {
 export function adminListActions(limit = 100): AdminActionOut[] {
   const rows = db().prepare('SELECT * FROM admin_actions ORDER BY id DESC LIMIT ?').all(Math.max(1, Math.min(500, limit))) as AdminActionRow[];
   return rows.map(r => ({ id: String(r.id), targetUid: r.target_uid, action: r.action, payload: JSON.parse(r.payload || '{}') as Record<string, unknown>, ts: Date.parse(r.created_at) || 0 }));
+}
+
+export function saveGameState(uid: string, data: string): boolean {
+  try {
+    db().prepare('INSERT INTO game_saves (uid, data, updated_at) VALUES (?, ?, ?) ON CONFLICT(uid) DO UPDATE SET data=excluded.data, updated_at=excluded.updated_at').run(uid, data, Date.now());
+    return true;
+  } catch { return false; }
+}
+export function getGameState(uid: string): { data: string; updated_at: number } | undefined {
+  try {
+    const r = db().prepare('SELECT data, updated_at FROM game_saves WHERE uid=?').get(uid) as { data: string; updated_at: number } | undefined;
+    return r || undefined;
+  } catch { return undefined; }
 }

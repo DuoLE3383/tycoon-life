@@ -1,6 +1,6 @@
 'use client';
 
-import { type GameState, getActiveUserId, hasSaveFor, setActiveUserId, useState, useT } from '@/components/gameDeps';
+import { type GameState, fetchServerSave, getActiveUserId, hasSaveFor, setActiveUserId, useState, useT } from '@/components/gameDeps';
 import { type Act, Btn, Row, useEscapeKey, useReqLabel } from '@/components/shared';
 
 
@@ -24,11 +24,14 @@ export function EditProfileModal({ s, act, onClose }: { s: GameState; act: Act; 
   // v13.27 - Doi nhan vat = nhap Game ID khac. Moi NV = 1 Game ID = 1 save key tycoon_life_react_v1_<id>
   const [switchId, setSwitchId] = useState('');
   const [switchMsg, setSwitchMsg] = useState('');
-  const onSwitch = () => {
+  const onSwitch = async () => {
     const id = switchId.trim();
     if (!id) { setSwitchMsg('Nhập Game ID trước đã.'); return; }
     if (id === (getActiveUserId() || '')) { setSwitchMsg('Đây là nhân vật đang chơi rồi.'); return; }
-    if (!hasSaveFor(id)) { setSwitchMsg(`Không tìm thấy game cho ID "${id}".`); return; }
+    if (hasSaveFor(id)) { setActiveUserId(id); window.location.reload(); return; }
+    setSwitchMsg('Không có save ở máy này, đang thử tải từ server…');
+    const ok = await fetchServerSave(id);
+    if (!ok) { setSwitchMsg(`Không tìm thấy game cho ID "${id}" ở máy này và trên server. Mở game 1 lần ở máy cũ của nhân vật đó để nó upload save lên server rồi thử lại.`); return; }
     setActiveUserId(id);
     window.location.reload();
   };

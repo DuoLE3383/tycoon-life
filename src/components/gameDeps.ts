@@ -2,7 +2,7 @@
 
 export { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 export { Art, Ic, ART_DEFS } from '@/lib/art';
-export { useGame, getState, persist, bump, resetState, reincarnateState, getActiveUserId, setActiveUserId, hasSaveFor, getSaveKey, sanitizeUserId } from '@/lib/store';
+export { useGame, getState, persist, bump, resetState, reincarnateState, getActiveUserId, setActiveUserId, hasSaveFor, fetchServerSave, getSaveKey, sanitizeUserId } from '@/lib/store';
 export {
   START, END_AGE, RETIRE, RESALE_FEE, FOUND_COST, FOUND_MIN_NW, OWN_CLUB_MULT,
   SAVE_RATE, LOAN_RATE, TAX_FREE, TAX_BRACKETS, ALLNEWS, eraOf, NATIONS, NAME_POOLS, INTERESTS, TALENTS, PATHS,
