@@ -44,17 +44,30 @@ function cleanUrl(u: unknown): string | null {
 }
 
 async function searchImages(query: string): Promise<string[]> {
+  const out: string[] = [];
   try {
     const zai = await getZai();
-    const r = await zai.images.search.create({ query, count: 6 });
-    const out: string[] = [];
-    for (const it of (r?.results ?? [])) {
-      const u = cleanUrl((it as { original_url?: unknown }).original_url)
-        || cleanUrl((it as { url?: unknown }).url);
-      if (u && !out.includes(u)) out.push(u);
+    const tries = [query, query + ' product photo', query + ' car', query + ' motorcycle'];
+    for (const q of tries) {
+      const r = await zai.images.search.create({ query: q, count: 6 });
+      for (const it of (r?.results ?? [])) {
+        const u = cleanUrl((it as { original_url?: unknown }).original_url)
+          || cleanUrl((it as { url?: unknown }).url);
+        if (u && !out.includes(u)) out.push(u);
+      }
+      if (out.length >= 3) break;
     }
-    return out.slice(0, 6);
-  } catch { return []; }
+  } catch (e) { console.error('[lookup] z-ai images failed:', e); }
+  // Fallback: Wikimedia Commons (khong can key, anh that) khi z-ai rong / 0 anh
+  if (out.length === 0) {
+    try {
+      const r = await fetch(`https://commons.wikimedia.org/w/api.php?action=query&format=json&generator=search&gsrsearch=${encodeURIComponent(query)}&gsrnamespace=6&gsrlimit=6&prop=imageinfo&iiprop=url&iiurlwidth=800&origin=*`, { signal: AbortSignal.timeout(8000) });
+      const j = await r.json() as { query?: { pages?: Record<string, { imageinfo?: { thumburl?: string; url?: string }[] }> } };
+      const pages = Object.values(j.query?.pages ?? {});
+      for (const pg of pages) { const u = pg.imageinfo?.[0]?.thumburl || pg.imageinfo?.[0]?.url; if (u && !out.includes(u)) out.push(u); }
+    } catch (e) { console.error('[lookup] wikimedia images failed:', e); }
+  }
+  return out.slice(0, 1); // Quy uoc: chi 1 anh duy nhat
 }
 
 async function searchWeb(query: string): Promise<{ snippet: string; url: string }[]> {
@@ -62,12 +75,19 @@ async function searchWeb(query: string): Promise<{ snippet: string; url: string 
     const zai = await getZai();
     const web = (zai as unknown as { web?: { search?: { create: (a: { query: string; count: number }) => Promise<unknown> } } }).web;
     if (!web?.search?.create) return [];
-    const r = await web.search.create({ query: `${query} price`, count: 5 }) as { results?: { title?: string; snippet?: string; content?: string; url?: string; link?: string }[] };
-    return (r?.results ?? []).map((x) => ({
+    const all: { title?: string; snippet?: string; content?: string; url?: string; link?: string }[] = [];
+    for (const q of [`${query} price`, `${query} specs price`, `${query} buy price`, `${query} motorcycle car`]) {
+      try {
+        const r = await web.search.create({ query: q, count: 5 }) as { results?: { title?: string; snippet?: string; content?: string; url?: string; link?: string }[] };
+        all.push(...(r?.results ?? []));
+      } catch {}
+      if (all.length >= 5) break;
+    }
+    return all.map((x) => ({
       snippet: String(x.snippet ?? x.content ?? x.title ?? '').slice(0, 600),
       url: String(x.url ?? x.link ?? ''),
     })).filter((x) => x.snippet);
-  } catch { return []; }
+  } catch (e) { console.error('[lookup] z-ai web failed:', e); return []; }
 }
 
 async function callLlama(prompt: string): Promise<string | null> {
@@ -121,7 +141,8 @@ export async function POST(req: Request) {
   const context = web.map((w, i) => `[${i + 1}] ${w.snippet} (nguon: ${w.url})`).join('\n') || '(khong co ket qua web search)';
   const prompt = [
     `Nguoi dung hoi ve vat pham that: "${query}".`,
-    `Ket qua web search (chi dung thong tin trong nay, KHONG bia):`,
+    `Ket qua web search (uu tien dung thong tin trong nay):`,
+    `Neu web search rong, dung kien thuc that cua ban ve vat pham nay (vd: RC 390 = KTM RC 390 xe may, M3 = BMW M3 xe hoi). Gia la gia ban le that uoc tinh, KHONG de null neu ban biet khoang gia.`,
     context,
     `Tra ve JSON duy nhat: {"brand": string, "name": string, "cat": string (1 trong 16: Sport bike, Phone, Watch, Jewelry, Suit, Car, Property, Yacht, Private jet, Art, Collectibles, Sneakers, Handbag, Audio, Camera, Classic car), "price": number|null (gia ban le that USD, lay tu snippet; neu snippet khong co gia thi null, TUYET DOI khong doan), "rarity": "common|uncommon|rare|legendary|mythic" (dua tren do hiem that), "story": string (1-2 cau mo ta that, tieng Viet, toi da 220 ky tu), "lux": number (0-12000, dua tren do xa xi), "rate": number (-0.4..0.1, tang/giam gia hang nam uoc tinh), "art": string (1 trong: i-bike,i-phone,i-watch,i-ring,i-suit,i-lambo,i-house,i-yacht,i-jet,i-art,i-coin,i-shoe,i-handbag,i-sound,i-cam), "c": string (hex mau chu dao, vd "#1d4ed8")}`,
     `Neu khong chac brand/name thi giu nguyen query. price=null neu khong thay gia.`,

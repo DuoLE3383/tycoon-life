@@ -609,6 +609,14 @@
             <div class="field"><label>Brand</label><input id="if-brand" placeholder="VD: Patek Philippe" /></div>
           </div>
           <div class="form-row" style="margin-top:10px">
+            <div class="field shrink"><label>&nbsp;</label><button type="button" class="btn" id="btn-item-lookup" onclick="lookupItem()">🔍 Tự tra cứu</button></div>
+            <div class="field" style="flex:3"><label>Kết quả tra cứu</label><div id="item-lookup-result" class="hint">Gõ tên vật phẩm rồi bấm Tự tra cứu — sẽ tự điền Brand / Category / Giá thật / Rarity, bạn duyệt rồi mới bấm Tạo / Cập nhật.</div></div>
+          </div>
+          <div style="display:flex;gap:10px;margin-top:8px;align-items:flex-start">
+            <img id="item-lookup-preview" style="width:96px;height:96px;object-fit:cover;border-radius:8px;display:none" />
+            <div id="item-lookup-detail" class="hint" style="flex:1">Mô tả sẽ hiện ở đây sau khi tra cứu (1-2 câu).</div>
+          </div>
+          <div class="form-row" style="margin-top:10px">
             <div class="field"><label>Giá ($)</label><input id="if-price" type="number" value="1000" /></div>
             <div class="field"><label>Rarity</label>
               <select id="if-rarity">
@@ -1472,6 +1480,10 @@
     $('if-imageurl').value = '';
     $('if-baseid').value = '';
     $('item-form-title').textContent = '➕ Tạo vật phẩm mới';
+    state.lookupExtra = null;
+    var lr = $('item-lookup-result'); if (lr) lr.textContent = 'Gõ tên vật phẩm rồi bấm Tự tra cứu.';
+    var pv2 = $('item-lookup-preview'); if (pv2) { pv2.src = ''; pv2.style.display = 'none'; }
+    var dt2 = $('item-lookup-detail'); if (dt2) dt2.textContent = 'Mô tả sẽ hiện ở đây sau khi tra cứu (1-2 câu).';
     $('item-form-cancel').style.display = 'none';
     $('btn-item-submit').textContent = 'Tạo vật phẩm';
     updateStockHint();
@@ -1487,6 +1499,37 @@
       hint.style.color = 'var(--muted-2)';
     }
   }
+  function pickLookupImage(url) { $('if-imageurl').value = url; toast('✓ Đã chọn ảnh', 'ok'); }
+  function lookupItem() {
+    var q = $('if-name').value.trim();
+    if (!q) { toast('❌ Gõ tên vật phẩm trước', 'err'); return; }
+    if (!state.key) { toast('❌ Chưa nhập ADMIN_KEY', 'err'); return; }
+    var btn = $('btn-item-lookup'); var old = btn.textContent; btn.textContent = '⏳ Đang tra cứu…'; btn.disabled = true;
+    $('item-lookup-result').textContent = 'Đang tra cứu "' + q + '" (web thật + ảnh thật)…';
+    var ctrl = new AbortController(); var timer = setTimeout(function () { ctrl.abort(); }, 30000);
+    fetch('/api/admin/items/lookup', { method: 'POST', headers: { 'X-Admin-Key': state.key, 'Content-Type': 'application/json', 'Accept': 'application/json' }, body: JSON.stringify({ key: state.key, query: q }), cache: 'no-store', signal: ctrl.signal })
+      .then(function (r) { clearTimeout(timer); return r.json().then(function (j) { if (!r.ok || !j.ok) throw new Error(j.error || ('HTTP ' + r.status)); return j; }); })
+      .then(function (j) {
+        var it = j.item || {};
+        if (it.brand) $('if-brand').value = it.brand;
+        if (it.cat) $('if-cat').value = it.cat;
+        if (it.rarity) $('if-rarity').value = it.rarity;
+        if (it.price) $('if-price').value = it.price;
+        state.lookupExtra = { story: it.story || '', lux: it.lux || 100, rate: it.rate || 0, art: it.art || 'i-coin', c: it.c || '#888888' };
+        var imgs = it.images || [];
+        if (imgs.length) $('if-imageurl').value = imgs[0];
+        var pv = $('item-lookup-preview');
+        if (imgs.length) { pv.src = imgs[0]; pv.style.display = ''; } else { pv.style.display = 'none'; }
+        var dt = $('item-lookup-detail'); if (dt) dt.textContent = (it.story || '—') + (it.price ? '' : ' (Chưa tìm thấy giá thật — kiểm tra lại trước khi Tạo.)');
+        updateStockHint();
+        $('item-lookup-result').textContent = '✓ ' + (it.name || q) + ' — Brand: ' + (it.brand || '?') + ' · Giá thật: ' + (it.price ? ('$' + it.price.toLocaleString('en-US') + ' (nguồn: ' + (it.priceSource || 'web') + ')') : 'không tìm thấy giá — giữ giá cũ, KHÔNG bịa') + ' · ' + (it.story || '') + (it.sources && it.sources.length ? ' · Nguồn: ' + it.sources[0] : '') + ' — Kiểm tra rồi bấm Tạo / Cập nhật.';
+        toast('✓ Tra cứu xong — kiểm tra rồi bấm Tạo / Cập nhật', 'ok');
+      })
+      .catch(function (e) { $('item-lookup-result').textContent = '❌ Tra cứu thất bại (' + (e.message || 'lỗi') + ') — nhập tay bình thường.'; toast('❌ Tra cứu thất bại — nhập tay', 'err'); })
+      .finally(function () { btn.textContent = old; btn.disabled = false; });
+  }
+  window.lookupItem = lookupItem;
+  window.pickLookupImage = pickLookupImage;
   function submitItem() {
     var name = $('if-name').value.trim();
     var imageUrl = $('if-imageurl').value.trim();
@@ -1508,6 +1551,7 @@
       name: name, cat: $('if-cat').value.trim() || 'Custom', brand: $('if-brand').value.trim(),
       price: price, imageUrl: imageUrl, rarity: rarity, stock: stock,
       baseId: baseId || undefined,
+      ...(state.lookupExtra || {}),
     };
     var action, label;
     if (state.editingItemId) {
