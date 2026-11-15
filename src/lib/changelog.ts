@@ -111,4 +111,16 @@ export const CHANGELOG: Record<string, ChangelogEntry> = {
       'i18n: suggest cafe 800$ -> 18000$, starter doi sang street stall',
     ],
   },
+  'v13.47': {
+    headline: 'HuyenBao v13.47 - Club Phase 2: real dues, levels, fame buffs',
+    summary: 'v13.47: Clubs now have real logic. Maintenance is charged yearly, insufficient funds auto-leave. Level grows with years joined (cap 5), members grow with level and fame. Fame buffs from social and fame clubs apply to fame gains. Events use real club event names. Sky buff fixed to +70% to match mult 1.7.',
+    features: [
+      'Clubs: maintenance charged yearly in yearEnd, auto-leave + toast if insufficient funds',
+      'Clubs: Level = 1 + years joined, cap 5; members = base + (Level-1) x 15, own club capped at 200',
+      'Clubs: Fame buffs stack (Wine +10%, Car +15%, Polo +25%, Yacht +40%) into fame gains + passive fame',
+      'Clubs: monthly dues now show maintenance/12, not fee/12; events log real names (Wine Tasting, Golf Tournament...)',
+      'Clubs: Sky buff fixed +50% -> +70% to match mult 1.7',
+    ],
+  },
+
 };

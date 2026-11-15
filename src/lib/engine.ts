@@ -160,7 +160,9 @@ export interface GameState {
   jobRaises: number;                    // total successful raises negotiated
   // v11.40 — travel cooldown (last day a trip ended; gates the next trip).
   travelLastDay: number;                // 0 = never travelled
-  clubs: string[]; // v10.5 — multiple-club membership (s.club stays as the 'active' / highest-mult one)
+  clubs: string[];
+  clubJoined: Record<string, number>; // v13.47 - day joined per club id, own club uses 'own'
+  ownClubDay: number; // v13.47 - day own club was founded, 0 = none // v10.5 — multiple-club membership (s.club stays as the 'active' / highest-mult one)
   deg: Record<FieldKey, number>; lic: Record<string, boolean>; study: Study | null; sideStudy: Study | null;
   name: string; byear: number; nation: string; religion: Religion; ints: string[]; tals: string[]; topField: FieldKey | null;
   // v11.36 — player-chosen emoji avatar. Default '🧑' at game start; editable
@@ -729,7 +731,7 @@ export function fresh(): GameState {
     sleepHours: 6, sleepDebt: 0, timeline: [], ach: [],
     txSeq: 0, transactions: [], costBasis: {},
     brands: {},
-    used: [], mkt: [], favs: [], rareUp: [], rareLive: null, hall: null, pastLives: [], relations: {}, pets: [], clubs: [], aiEvPending: false, shortCompleted: [],
+    used: [], mkt: [], favs: [], rareUp: [], rareLive: null, hall: null, pastLives: [], relations: {}, pets: [], clubs: [], clubJoined: {}, ownClubDay: 0, aiEvPending: false, shortCompleted: [],
     pendingToasts: [],
     crisis: null, shocks: [], lastResearchDay: 0, researchBrief: null,
     bizRnd: null, spiritGainToday: null,
@@ -799,6 +801,11 @@ export function migrate(raw: unknown): GameState {
   s.relations = s.relations && typeof s.relations === 'object' ? s.relations : {};
   s.pets = Array.isArray(s.pets) ? s.pets : [];
   s.clubs = Array.isArray(s.clubs) ? s.clubs : (s.club ? [s.club] : []);
+  // v13.47 - Club Phase 2 backfill for old saves
+  s.clubJoined = (s as any).clubJoined && typeof (s as any).clubJoined === 'object' ? (s as any).clubJoined : {};
+  for (const id of s.clubs) { if (typeof s.clubJoined[id] !== 'number') s.clubJoined[id] = s.day; }
+  s.ownClubDay = typeof (s as any).ownClubDay === 'number' ? (s as any).ownClubDay : (s.ownClub ? s.day : 0);
+  if (s.ownClub && typeof s.clubJoined['own'] !== 'number') s.clubJoined['own'] = s.ownClubDay;
   // v11.39 — career system backfill for old saves.
   s.jobExp = s.jobExp && typeof s.jobExp === 'object' ? s.jobExp : {};
   s.jobContractEnd = typeof s.jobContractEnd === 'number' ? s.jobContractEnd : 0;
@@ -958,6 +965,63 @@ export const clubMult = (s: GameState) => {
   if (s.club === 'own') return OWN_CLUB_MULT;
   const c = CLUBS.find(c => c.id === s.club); return c ? c.mult : 1;
 };
+
+export const CLUB_FAME_BUFF: Record<string, number> = { wine: 0.10, car: 0.15, polo: 0.25, yacht: 0.40 };
+export const OWN_CLUB_MAINTENANCE = 0;
+export const clubLevel = (s: GameState, id: string): number => {
+  const raw = id === 'own' ? (s as any).ownClubDay : (s as any).clubJoined?.[id];
+  const joined = typeof raw === 'number' ? raw : s.day;
+  const years = Math.floor(Math.max(0, s.day - joined) / 365);
+  return Math.min(5, 1 + years);
+};
+export const clubMembers = (s: GameState, id: string): number => {
+  if (id === 'own') return Math.min(OWN_CLUB_MAX_MEMBERS, 20 + (clubLevel(s, 'own') - 1) * 25 + Math.floor(s.fame / 100));
+  const base = (CLUBS.find(c => c.id === id) as any)?.members ?? 0;
+  return base + (clubLevel(s, id) - 1) * 15;
+};
+export const clubMaintenance = (s: GameState, id: string): number => {
+  if (id === 'own') return OWN_CLUB_MAINTENANCE;
+  return (CLUBS.find(c => c.id === id) as any)?.maintenance ?? 0;
+};
+export const clubMonthlyDues = (s: GameState): number => {
+  let sum = s.clubs.reduce((acc, id) => acc + clubMaintenance(s, id), 0);
+  if (s.ownClub) sum += OWN_CLUB_MAINTENANCE;
+  return sum / 12;
+};
+export const clubFameBuff = (s: GameState): number => s.clubs.reduce((acc, id) => acc + (CLUB_FAME_BUFF[id] ?? 0), 0);
+export const clubFameMult = (s: GameState): number => 1 + clubFameBuff(s);
+export const clubPassiveFame = (s: GameState): number => {
+  let total = 0;
+  for (const id of s.clubs) {
+    const buff = CLUB_FAME_BUFF[id] ?? 0;
+    if (buff > 0) total += Math.round(buff * 20 * (1 + 0.2 * (clubLevel(s, id) - 1)));
+  }
+  return total;
+};
+export function chargeClubMaintenance(s: GameState): string | null {
+  if (s.clubs.length === 0) return null;
+  const left: string[] = [];
+  let paid = 0;
+  for (const id of [...s.clubs]) {
+    const z = CLUBS.find(c => c.id === id); if (!z) continue;
+    const due = (z as any).maintenance ?? 0;
+    if (due <= 0) continue;
+    if (s.money >= due) {
+      s.money -= due; paid += due;
+      recordTx(s, { kind: 'expense', asset: 'bank', ref: id, name: `Club maintenance: ${z.name}`, qty: 1, unit: due, amount: -due });
+    } else {
+      s.clubs = s.clubs.filter(c => c !== id);
+      if ((s as any).clubJoined) delete (s as any).clubJoined[id];
+      left.push(z.name);
+      pushLog(s, `Left ${z.name} - could not pay maintenance ${fmt(due)}.`);
+    }
+  }
+  if (left.length) recomputeActiveClub(s);
+  const parts: string[] = [];
+  if (paid > 0) parts.push(`Club maintenance -${fmt(paid)}.`);
+  if (left.length) parts.push(`Left ${left.join(', ')} (insufficient funds for maintenance).`);
+  return parts.length ? parts.join(' ') : null;
+}
 export const branchNet = (s: GameState, b: { id: string; inc: number; base: number }, br: Branch) => {
   // Monthly net, pre-multiplier (BizTab multiplies by mult).
   // inc is ANNUAL revenue, so monthly revenue = inc / 12.
@@ -1913,8 +1977,12 @@ export function yearEnd(s: GameState, age: number, rng: () => number = Math.rand
   // v10.5 — club opportunities. Each joined club rolls for a cash or fame
   // opportunity; 2+ clubs get a synergy bonus chance. Member dues have
   // already been paid upfront at join time.
+  const maint = chargeClubMaintenance(s);
+  if (maint) { pushLog(s, maint); queueToast(s, `Club: ${maint}`); }
   const clubOps = rollClubOpportunities(s, rng);
   if (clubOps) { pushLog(s, `Club network: ${clubOps}`); queueToast(s, `🤝 Club network: ${clubOps}`); }
+  const passiveFame = clubPassiveFame(s);
+  if (passiveFame > 0) { s.fame = s.fame + passiveFame; pushLog(s, `Club fame +${passiveFame} (member buffs).`); }
   // v11 — branch closure risk. Each branch rolls a closure chance based on
   // market mood, headcount, and manager quality.
   const closed = rollBranchClosures(s, rng);
@@ -2696,6 +2764,8 @@ export function joinClub(s: GameState, id: string): string | null {
   if (netWorth(s) < z.min || s.money < z.fee) return null;
   s.money -= z.fee;
   s.clubs.push(id);
+  if (!(s as any).clubJoined) (s as any).clubJoined = {};
+  (s as any).clubJoined[id] = s.day;
   // Active club = highest multiplier among joined (or 'own' if founded).
   recomputeActiveClub(s);
   addXp(s, 30);
@@ -2708,6 +2778,7 @@ export function leaveClub(s: GameState, id: string): string | null {
   const z = CLUBS.find(q => q.id === id); if (!z) return null;
   if (!s.clubs.includes(id)) return null;
   s.clubs = s.clubs.filter(c => c !== id);
+  if ((s as any).clubJoined) delete (s as any).clubJoined[id];
   recomputeActiveClub(s);
   pushLog(s, `Left ${z.name}.`);
   return 'Left ' + z.name;
@@ -2736,19 +2807,20 @@ export function rollClubOpportunities(s: GameState, rng: () => number = Math.ran
   // Per-club roll: 40% chance of a small opportunity.
   for (const id of s.clubs) {
     const z = CLUBS.find(c => c.id === id); if (!z) continue;
+    const lvl = clubLevel(s, id); const lvlMult = 1 + 0.1 * (lvl - 1);
     if (rng() < 0.4) {
       // Scale by club mult — pricier clubs bring bigger opportunities.
       const scale = (z.mult - 1) * 5;
       if (rng() < 0.6) {
         // cash opportunity
-        const gain = Math.round(z.fee * (0.2 + rng() * 0.4) * scale);
+        const gain = Math.round(z.fee * (0.2 + rng() * 0.4) * scale * lvlMult);
         cashGain += gain;
-        events.push(`${z.name} introduced a deal (+${fmt(gain)}).`);
+        events.push(`${z.name} - ${(z as any).event ?? 'Club Event'}: deal (+${fmt(gain)}).`);
       } else {
         // fame opportunity
-        const gain = Math.max(1, Math.round(scale * (0.5 + rng())));
+        const gain = Math.max(1, Math.round(scale * (0.5 + rng()) * lvlMult * (1 + (CLUB_FAME_BUFF[id] ?? 0))));
         fameGain += gain;
-        events.push(`${z.name} brought press (+${gain} fame).`);
+        events.push(`${z.name} - ${(z as any).event ?? 'Club Event'}: press (+${gain} fame).`);
       }
     }
   }
@@ -2765,6 +2837,7 @@ export function rollClubOpportunities(s: GameState, rng: () => number = Math.ran
 export function foundClub(s: GameState, name: string): string | null {
   if (netWorth(s) < FOUND_MIN_NW || s.money < FOUND_COST) return null;
   s.money -= FOUND_COST; s.club = 'own'; s.ownClub = (name || s.name + '\u2019s circle').slice(0, 30);
+  s.ownClubDay = s.day; if (!(s as any).clubJoined) (s as any).clubJoined = {}; (s as any).clubJoined['own'] = s.day;
   addXp(s, 60);
   pushLog(s, `Founded your own club: ${s.ownClub}.`);
   addPost(s, `Proud to announce ${s.ownClub} — a circle for people who build things.`, 1.5);

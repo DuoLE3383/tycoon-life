@@ -609,7 +609,7 @@ export const CLUBS = [
   { id: 'car', name: 'Supercar Club', min: 5000000, fee: 600000, mult: 1.25, art: 'i-lambo', kind: 'social', members: 80, maintenance: 120000, event: 'Track Day', buff: 'Fame +15%' },
   { id: 'polo', name: 'Polo & Equestrian', min: 20000000, fee: 1500000, mult: 1.35, art: 'c-polo', kind: 'fame', members: 60, maintenance: 300000, event: 'Polo Match', buff: 'Fame +25%' },
   { id: 'yacht', name: 'Yacht Club', min: 100000000, fee: 8000000, mult: 1.5, art: 'i-yacht', kind: 'fame', members: 40, maintenance: 1600000, event: 'Regatta', buff: 'Fame +40%' },
-  { id: 'sky', name: 'Sky Lounge Penthouse', min: 300000000, fee: 20000000, mult: 1.7, art: 'c-sky', kind: 'biz', members: 25, maintenance: 4000000, event: 'Sky Gala', buff: 'Biz +50%' }
+  { id: 'sky', name: 'Sky Lounge Penthouse', min: 300000000, fee: 20000000, mult: 1.7, art: 'c-sky', kind: 'biz', members: 25, maintenance: 4000000, event: 'Sky Gala', buff: 'Biz +70%' }
 ];
 export interface JobDef { id: string; name: string; salary: number; req: Req; ft: boolean; art: string }
 export const JOBS: JobDef[] = [
