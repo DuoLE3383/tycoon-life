@@ -1434,3 +1434,24 @@ body:has(.tgame .modal-overlay){overflow:hidden}
 .dash-chart-box:first-child .nw-row:nth-child(2) b { color: #6CB8FF; }
 .dash-chart-box:first-child .nw-row:nth-child(3) b { color: #FF9A5C; }
 .dash-chart-box:first-child .nw-row:nth-child(4) b { color: #C39BFF; }
+
+/* v13.37 - 2 phan do: Net Worth + Sleep - mau noi bat, VI khong tran */
+/* Cot trai: donut + 4 dong tien */
+.dash-chart-box:first-child { border-left: 3px solid #F2C66D; }
+.dash-chart-box:first-child .nw-cash { color: #F2C66D; font-weight: 700; }
+.dash-chart-box:first-child .nw-row:nth-child(1) b, .dash-chart-box:first-child li:nth-child(1) b { color: #F2C66D; }
+.dash-chart-box:first-child .nw-row:nth-child(2) b, .dash-chart-box:first-child li:nth-child(2) b { color: #6CB8FF; }
+.dash-chart-box:first-child .nw-row:nth-child(3) b, .dash-chart-box:first-child li:nth-child(3) b { color: #FF9A5C; }
+.dash-chart-box:first-child .nw-row:nth-child(4) b, .dash-chart-box:first-child li:nth-child(4) b { color: #C39BFF; }
+/* Cot phai: Lich ngu - moi dong 1 mau, VI gon lai */
+.dash-chart-box:last-child { border-left: 3px solid #7BC9A2; }
+.dash-chart-box:last-child p { font-size: clamp(11px, 1.35vw, 12.5px); line-height: 1.4; white-space: normal; overflow-wrap: break-word; }
+.dash-chart-box:last-child .sleep-rested, .dash-chart-box:last-child [class*="Rested"], .dash-chart-box:last-child [class*="Đã nghỉ"] { background: #7BC9A2; color: #0E1512; padding: 2px 8px; border-radius: 999px; font-weight: 700; white-space: nowrap; }
+.dash-chart-box:last-child .sleep-rent { color: #F2C66D; font-weight: 700; }
+/* Followers: tach rieng, khong nam trong cot trai */
+.pin-actions-bar { margin-top: 10px; }
+.pin-followers b { color: #F2C66D; }
+.pin-followers em { color: #7BC9A2; }
+/* 3 cot cao bang nhau, khong keo lech */
+.dash-charts { align-items: stretch; }
+.dash-chart-box { display: flex; flex-direction: column; }
