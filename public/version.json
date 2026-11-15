@@ -1,10 +1,11 @@
 {
-  "version": "v13.43",
+  "version": "v13.44",
   "releasedAt": "2026-11-15",
-  "headline": "HuyenBao v13.43 — GigsPopup Portal, het bi kep",
-  "summary": "v13.43: GigsPopup Portal ra document.body + boc .tgame. Fix .pinzone backdrop-filter lam kep modal-overlay, khong con dung overflow hack.",
+  "headline": "HuyenBao v13.44 — i18n missing keys + Assets labels + Sleep redesign",
+  "summary": "v13.44: Them key thieu soc.online, hp.decay, divine.thinking, mk.elliottGuide, v11.gen. AssetsTab labels qua t(). Sleep card tach 3 khoi.",
   "features": [
-    "GigsPopup: Portal to document.body, giu nguyen modal-box + glow + Esc",
-    "Fix goc: backdrop-filter tren .pinzone tao containing block cho position:fixed"
+    "i18n: them key thieu, het hien fallback EN",
+    "Assets: category labels dich VI/ZH",
+    "Sleep: tach Status / Effects / Debt, day Rent xuong block rieng"
   ]
 }

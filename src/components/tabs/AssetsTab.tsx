@@ -282,18 +282,18 @@ export function AssetsTab({ s, act, curCat, setCurCat }: { s: GameState; act: Ac
   // groups; anything unmatched falls into 'other'. ownRowsFor + the legacy
   // isHouseCat/isWheelCat/isCollCat helpers were removed alongside this change.
   const CAT_GROUPS: { key: string; icon: string; label: string }[] = [
-    { key: 'properties', icon: '🏠', label: 'Properties' },
-    { key: 'vehicles', icon: '🚗', label: 'Vehicles' },
-    { key: 'watches', icon: '⌚', label: 'Watches' },
-    { key: 'jewelry', icon: '💎', label: 'Jewelry' },
-    { key: 'art', icon: '🖼', label: 'Art' },
-    { key: 'collectibles', icon: '🎴', label: 'Collectibles' },
-    { key: 'sneakers', icon: '👟', label: 'Sneakers' },
-    { key: 'handbags', icon: '👜', label: 'Handbags' },
-    { key: 'audio', icon: '🎧', label: 'Audio' },
-    { key: 'camera', icon: '📷', label: 'Cameras' },
-    { key: 'suits', icon: '👔', label: 'Suits' },
-    { key: 'other', icon: '📦', label: 'Other' },
+    { key: 'properties', icon: '🏠', label: t('cat.properties') },
+    { key: 'vehicles', icon: '🚗', label: t('cat.vehicles') },
+    { key: 'watches', icon: '⌚', label: t('cat.watches') },
+    { key: 'jewelry', icon: '💎', label: t('cat.jewelry') },
+    { key: 'art', icon: '🖼', label: t('cat.art') },
+    { key: 'collectibles', icon: '🎴', label: t('cat.collectibles') },
+    { key: 'sneakers', icon: '👟', label: t('cat.sneakers') },
+    { key: 'handbags', icon: '👜', label: t('cat.handbags') },
+    { key: 'audio', icon: '🎧', label: t('cat.audio') },
+    { key: 'camera', icon: '📷', label: t('cat.camera') },
+    { key: 'suits', icon: '👔', label: t('cat.suits') },
+    { key: 'other', icon: '📦', label: t('cat.other') },
   ];
   const catGroupOf = (c: string): string => {
     switch (c) {

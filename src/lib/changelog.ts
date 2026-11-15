@@ -81,4 +81,13 @@ export const CHANGELOG: Record<string, ChangelogEntry> = {
       'Fix goc: backdrop-filter tren .pinzone tao containing block cho position:fixed',
     ],
   },
+  'v13.44': {
+    headline: 'HuyenBao v13.44 — i18n missing keys + Assets labels + Sleep redesign',
+    summary: 'v13.44: Them key thieu soc.online, hp.decay, divine.thinking, mk.elliottGuide, v11.gen. AssetsTab labels qua t(). Sleep card tach 3 khoi.',
+    features: [
+      'i18n: them key thieu, het hien fallback EN',
+      'Assets: category labels dich VI/ZH',
+      'Sleep: tach Status / Effects / Debt, day Rent xuong block rieng',
+    ],
+  },
 };

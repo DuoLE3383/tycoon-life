@@ -1532,7 +1532,32 @@ export function LangProvider({ children }: { children: ReactNode }) {
   const set = (l: Lang) => {
     try { localStorage.setItem(LANG_KEY, l); } catch { /* ignore */ }
     emitLangChange();
-  };
+    'soc.online': ['Online', 'Đang online', '在线'],
+  'hp.decay': ['Health decays {n}/year', 'Sức khỏe giảm {n}/năm', '健康每年下降 {n}'],
+  'divine.thinking': ['Divining...', 'Đang gieo quẻ...', '占卜中...'],
+  'mk.elliottGuideTitle': ['Elliott Wave Guide', 'Hướng dẫn Sóng Elliott', '艾略特波浪指南'],
+  'mk.elliottGuide1': ['Impulse 1-2-3-4-5: trend moves in 5 waves, wave 3 is usually strongest.', 'Sóng đẩy 1-2-3-4-5: xu hướng đi 5 sóng, sóng 3 thường mạnh nhất.', '推动浪 1-2-3-4-5：趋势走5浪，第3浪通常最强。'],
+  'mk.elliottGuide2': ['Corrective A-B-C: pullback in 3 waves, do not chase.', 'Sóng điều chỉnh A-B-C: hồi 3 sóng, đừng đuổi giá.', '调整浪 A-B-C：3浪回调，不要追涨。'],
+  'mk.elliottGuide3': ['Never risk more than you can lose. Take profit in parts.', 'Đừng mạo hiểm quá số tiền chịu mất được. Chốt lời từng phần.', '不要冒超过承受范围的风险。分批止盈。'],
+  'mk.elliottGuide4': ['Local guide only — no live price, no external API.', 'Hướng dẫn local — không giá live, không API ngoài.', '本地指南 — 无实时价格，无外部API。'],
+  'v11.genBtn': ['Generate new item', 'Tạo vật phẩm mới', '生成新物品'],
+  'v11.genBusy': ['Generating...', 'Đang tạo...', '生成中...'],
+  'v11.genFailed': ['Generate failed', 'Tạo thất bại', '生成失败'],
+  'v11.genHint': ['AI creates a new item for the catalogue.', 'AI tạo vật phẩm mới cho catalogue.', 'AI 为目录生成新物品。'],
+  'v11.generated': ['added to catalogue', 'đã thêm vào catalogue', '已加入目录'],
+  'cat.properties': ['Properties', 'Bất động sản', '房产'],
+  'cat.vehicles': ['Vehicles', 'Xe cộ', '车辆'],
+  'cat.watches': ['Watches', 'Đồng hồ', '手表'],
+  'cat.jewelry': ['Jewelry', 'Trang sức', '珠宝'],
+  'cat.art': ['Art', 'Nghệ thuật', '艺术'],
+  'cat.collectibles': ['Collectibles', 'Sưu tầm', '收藏'],
+  'cat.sneakers': ['Sneakers', 'Giày sneaker', '运动鞋'],
+  'cat.handbags': ['Handbags', 'Túi xách', '手袋'],
+  'cat.audio': ['Audio', 'Âm thanh', '音响'],
+  'cat.camera': ['Cameras', 'Máy ảnh', '相机'],
+  'cat.suits': ['Suits', 'Vest', '西装'],
+  'cat.other': ['Other', 'Khác', '其他'],
+};
   return <Ctx.Provider value={{ lang, setLang: set, t: makeT(lang) }}>{children}</Ctx.Provider>;
 }
 
