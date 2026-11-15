@@ -1553,6 +1553,19 @@
   }
 
   /* ============= RENDER: PLAYERS ============= */
+  function copyText(text, label) {
+    var done = function () { toast('📋 Da copy ' + (label || text), 'ok'); };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(done).catch(function () { fallbackCopy(text, done); });
+    } else { fallbackCopy(text, done); }
+  }
+  function fallbackCopy(text, done) {
+    var ta = document.createElement('textarea');
+    ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
+    document.body.appendChild(ta); ta.select();
+    try { document.execCommand('copy'); } catch (e) {}
+    document.body.removeChild(ta); done();
+  }
   function renderPlayers() {
     var body = $('players-body');
     body.innerHTML = '';
@@ -1572,8 +1585,14 @@
       else status = el('span', { class: 'badge gray', text: '✓ Offline' });
       body.appendChild(el('tr', { class: p.banned ? 'banned' : '' }, [
         el('td', { html: '<span class="avatar">' + esc(p.avatar || '🐯') + '</span><b>' + esc(p.name) + '</b>' }),
-        el('td', null, el('code', { class: 'mini-code', text: p.code })),
-        el('td', { title: p.id }, el('code', { class: 'uid', text: shortUid(p.id) })),
+        el('td', null, [
+          el('code', { class: 'mini-code', text: p.code }),
+          el('button', { class: 'btn icon sm', title: 'Copy Ma HB', onclick: function () { copyText(p.code, 'Ma ' + p.code); } }, '📋'),
+        ]),
+        el('td', { title: p.id }, [
+          el('code', { class: 'uid', text: p.id }),
+          el('button', { class: 'btn icon sm', title: 'Copy UID day du', onclick: function () { copyText(p.id, 'UID ' + p.id); } }, '📋'),
+        ]),
         el('td', { text: String(p.level) }),
         el('td', { class: 'nw', text: fmtMoney(p.nw) }),
         el('td', { class: 'time', text: fmtAgo(p.last_seen) }),
