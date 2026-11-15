@@ -165,11 +165,10 @@ export function PinZone({ s, t, onEdit, act, onNav, expanded, onToggleExpand }: 
               />
             </div>
           </button>
-            <div className="pin-actions" style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+            <div className="pin-actions">
               <span className="pin-followers" style={{ whiteSpace: 'nowrap' }}>
                 👥 <b>{s.social.followers.toLocaleString('vi-VN')}</b> <span className="mini">{t('followers')}</span>
               </span>
-              <span style={{ flex: 1 }} />
               <GigsPopup s={s} act={act} t={t} />
               <TravelSection s={s} act={act} t={t} />
               <MoreInfoPopup s={s} t={t} lang={lang} eraName={(y: number) => eraOf(y).name} y={_y} news={_news} timelineLocale={_timelineLocale} onNav={onNav} />

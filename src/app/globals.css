@@ -1337,3 +1337,18 @@ body:has(.tgame .modal-overlay){overflow:hidden}
 .dash-chart-col { flex: 1 1 0; min-width: 0; }
 .dash-chart-col .pin-actions { min-height: 36px; }
 .dash-chart-col .pin-actions .gigs-trigger { white-space: nowrap; }
+
+/* v13.33 - Redesign PinZone: het ga */
+.dash-charts { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; align-items: stretch; }
+.dash-chart-box, .dash-chart-col { height: 100%; min-height: 168px; }
+.dash-chart-col { display: flex; flex-direction: column; gap: 8px; }
+.dash-chart-col .dash-chart-box { flex: 1; }
+.pin-actions { display: flex; align-items: center; gap: 8px; flex-wrap: nowrap; }
+.pin-followers { font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pin-actions .gigs-trigger, .pin-actions button { flex: 1 1 0; min-width: 0; padding: 8px 6px; font-size: 13px; white-space: nowrap; }
+.pin-actions .gigs-trigger { flex: 1.2 1 0; }
+@media (max-width: 700px) {
+  .dash-charts { grid-template-columns: 1fr; }
+  .pin-actions { flex-wrap: wrap; }
+  .pin-actions .gigs-trigger, .pin-actions button { flex: 1 1 30%; }
+}
