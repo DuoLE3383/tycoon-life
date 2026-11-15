@@ -270,7 +270,7 @@ test('short sleep speeds study but increases health decline and appears in daily
   assert.match(state.timeline[0].entries[0], /Study: BBA/);
 });
 
-test('personal, business, and space assets share annual market depreciation', () => {
+test('personal assets depreciate annually; business value is frozen at paid (v13.19)', () => {
   const state = fresh();
   state.day = 365.25;
   state.lots.push({ id: 'w-tag', paid: 1_000, day: 0, condition: 100 });
@@ -281,7 +281,10 @@ test('personal, business, and space assets share annual market depreciation', ()
   assert.equal(lotValue(state, state.lots[0]), 945);
   // ph-iphone (lux 4 → common) gets no rarity premium → 650.
   assert.equal(lotValue(state, state.lots[1]), 650);
-  assert.equal(bizVal(state), 900);
+  // v13.19 — business does NOT depreciate like an item: a profitable branch
+  // at 0.9^yrs lost 10%/yr with no cash leaving, so at bizVal ~$768B net
+  // worth fell ~$210M/game-day. Lots above still depreciate (945 / 650).
+  assert.equal(bizVal(state), 1000);
   assert.equal(ASSET_DEPRECIATION_RATE, -0.1);
 });
 

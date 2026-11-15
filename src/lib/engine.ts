@@ -1303,9 +1303,13 @@ export function investBizRnd(s: GameState, amount: number): { pct: number; until
 }
 export const assetVal = (s: GameState) => s.lots.reduce((a, l) => a + lotValue(s, l), 0);
 export const bizVal = (s: GameState) => {
-  const valueAt = (paid: number, boughtDay: number) =>
-    // v13.17 — REVERT: ASSET_DEPRECIATION_RATE=-0.1 signed, 1+rate=0.9 is depreciation.
-    paid * Math.pow(1 + ASSET_DEPRECIATION_RATE, Math.max(0, (s.day - boughtDay) / 365.25));
+  // v13.19 — business does NOT depreciate like a physical item. A profitable
+  // branch at 0.9^yrs lost 10%/yr even while earning, so at bizVal ~$768B
+  // net worth fell ~$210M/game-day (~$7M/s at x1, ~$70M/s at x10) with no
+  // cash ever leaving. Lots (lotValue) still depreciate — that is the only
+  // depreciation left, shown in Finance Overview v13.18. Business value is
+  // now frozen at paid; growth comes from new branches / bizMultiplier.
+  const valueAt = (paid: number, _boughtDay: number) => paid;
   let total = 0;
   BIZ.forEach(b => (s.branches[b.id] || []).forEach(br => { total += valueAt(br.paid, br.day); }));
   FARM_LINES.forEach(l => { if (s.farm[l.id]) total += valueAt(l.cost, s.farmBought[l.id] ?? s.day); });
@@ -1389,8 +1393,8 @@ export const portfolioUnrealizedGains = (s: GameState): number => {
   // Lots: current value minus `paid` (depreciation + condition already applied).
   gains += s.lots.reduce((a, l) => a + lotValue(s, l) - l.paid, 0);
   // Businesses: per-branch current value minus `paid`.
-  const bizGains = (paid: number, boughtDay: number) =>
-    paid * Math.pow(1 + ASSET_DEPRECIATION_RATE, Math.max(0, (s.day - boughtDay) / 365.25)) - paid;
+  // v13.19 — bizVal no longer depreciates, so unrealized biz gains = 0.
+  const bizGains = (_paid: number, _boughtDay: number) => 0;
   BIZ.forEach(b => (s.branches[b.id] || []).forEach(br => { gains += bizGains(br.paid, br.day); }));
   FARM_LINES.forEach(l => { if (s.farm[l.id]) gains += bizGains(l.cost, s.farmBought[l.id] ?? s.day); });
   FAC_LINES.forEach(l => { if (s.fac[l.id]) gains += bizGains(l.cost, s.facBought[l.id] ?? s.day); });
