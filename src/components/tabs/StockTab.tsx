@@ -174,6 +174,19 @@ export function StockTab({ s, act, qtyMap, setQtyMap }: { s: GameState; act: Act
           </div>
         );
       })}
+      {/* v13.26 — local investment guide (Elliott in Market). Purely local:
+          explains impulse 1-2-3-4-5 + corrective A-B-C from the player's own
+          price history, with risk rules. No external API, no iframe.
+          The companion-app link below stays as-is. */}
+      <div className="card" style={{ marginBottom: 10, padding: 12 }}>
+        <b>{t('mk.elliottGuideTitle', '📈 Elliott Wave — đọc sóng trong Market')}</b>
+        <div className="mini" style={{ marginTop: 6, lineHeight: 1.6 }}>
+          <div>{t('mk.elliottGuide1', 'Sóng đẩy 1-2-3-4-5: sóng 3 thường dài nhất. Đừng FOMO ở sóng 5 — đó là lúc người mua sớm chốt lời.')}</div>
+          <div>{t('mk.elliottGuide2', 'Sóng điều chỉnh A-B-C: giá giảm sau sóng 5 không phải sập — là nhịp nghỉ. Mua khi A-B-C hoàn tất, không mua giữa nhịp rơi.')}</div>
+          <div>{t('mk.elliottGuide3', 'Quy tắc vốn: không all-in 1 mã. Chia vốn, chốt lời từng phần ở sóng 3 và 5, đặt điểm cắt lỗ trước khi mua.')}</div>
+          <div>{t('mk.elliottGuide4', 'Xem sparkline từng mã + Research ở trên: sóng chỉ là xác suất, tin tức / khủng hoảng trong game mới là thứ làm sóng gãy.')}</div>
+        </div>
+      </div>
       {/* v11.19 — crypto hook: link to the companion Elliott Wave crypto app.
           COIN in-game is a BTC proxy; for real-time crypto charts + Elliott
           analysis, the player can jump to the dedicated crypto app. */}

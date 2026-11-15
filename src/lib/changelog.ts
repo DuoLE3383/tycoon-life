@@ -46,4 +46,13 @@ export const CHANGELOG: Record<string, ChangelogEntry> = {
       'Modals: no longer clipped to 34px or overlapping Tips / footer',
     ],
   },
+  'v13.26': {
+    headline: 'HuyenBao v13.26 — Elliott guide in Market',
+    summary: 'v13.26: Market tab now has a local Elliott Wave investment guide above the companion-app link: impulse 1-2-3-4-5, corrective A-B-C, and capital rules. No external API, no iframe. SpiritTab unchanged.',
+    features: [
+      'Market: local Elliott Wave guide panel above the companion-app link',
+      'Market: impulse 1-2-3-4-5, corrective A-B-C, and capital / take-profit / stop-loss rules',
+      'Ecosystem: Elliott stays in Market, mysticism stays in Tam Linh, no Hub',
+    ],
+  },
 };
