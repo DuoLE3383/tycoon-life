@@ -1,11 +1,11 @@
 {
-  "version": "v13.27",
+  "version": "v13.42",
   "releasedAt": "2026-11-15",
-  "headline": "HuyenBao v13.27 — Đổi nhân vật bằng Game ID",
-  "summary": "v13.27: Edit Profile thành Setting, thêm Đổi nhân vật bằng Game ID khác. Mỗi nhân vật = 1 Game ID = 1 save riêng, đổi là load save đó, ID cũ vẫn còn nguyên.",
+  "headline": "HuyenBao v13.42 — Version sync + Popup Gigs thoat khoi dashboard",
+  "summary": "v13.42: Dong bo version hien thi voi git log (v13.27 -> v13.42). Popup Quick gigs thoat khoi .pinzone overflow:hidden, khong con bi kep.",
   "features": [
-    "Profile: nút Edit ✏ đổi thành Setting ⚙️",
-    "Profile: Đổi nhân vật = nhập Game ID khác, load save của nhân vật đó",
-    "Intro: giữ nguyên Continue bằng User ID từ v13.21, không thêm nút mới"
+    "Version: BUNDLED_VERSION + CHANGELOG + version.json dong bo v13.42",
+    "Dashboard v13.34-13.41: pin-actions-bar tach rieng, Net Worth to mau 4 dong, Sleep/Income gon",
+    "Popup: Quick gigs thoat khoi dashboard, khong con bi kep boi overflow:hidden"
   ]
 }

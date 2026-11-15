@@ -64,4 +64,13 @@ export const CHANGELOG: Record<string, ChangelogEntry> = {
       'Intro: giữ nguyên Continue bằng User ID từ v13.21, không thêm nút mới',
     ],
   },
+  'v13.42': {
+    headline: 'HuyenBao v13.42 — Version sync + Popup Gigs thoat khoi dashboard',
+    summary: 'v13.42: Dong bo version hien thi voi git log (v13.27 -> v13.42). Popup Quick gigs thoat khoi .pinzone overflow:hidden, khong con bi kep.',
+    features: [
+      'Version: BUNDLED_VERSION + CHANGELOG + version.json dong bo v13.42',
+      'Dashboard v13.34-13.41: pin-actions-bar tach rieng, Net Worth to mau 4 dong, Sleep/Income gon',
+      'Popup: Quick gigs thoat khoi dashboard, khong con bi kep boi overflow:hidden',
+    ],
+  },
 };
