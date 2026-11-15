@@ -168,24 +168,32 @@ export function PinZone({ s, t, onEdit, act, onNav, expanded, onToggleExpand }: 
           </div>
           {/* Quick info: sleep + identity */}
           <div className="dash-chart-box">
-            <div className="pinzone-sleep">
-              <label className="mini wl" htmlFor="sleep-hours-pin">{t('sleepSchedule')}</label>
-              <select id="sleep-hours-pin" value={s.sleepHours} onChange={e => act(st => { st.sleepHours = Number(e.target.value); return t('sleepSet', '', { n: st.sleepHours }); })}>
-                {sleepHoursOptions.map(hours => <option key={hours} value={hours}>{hours} {t('sleepHourUnit')}{hours === 12 ? ' ✓' : ''}</option>)}
-              </select>
-              <span className="mini">{t('sleepEffects', '', { p: Math.round((studyPace(s.sleepHours) - 1) * 100), h: healthChangeText })}</span>
-              {/* v11.49 — sleep debt indicator: shows accumulated deficit + recovery hint */}
+            <div className="pinzone-sleep sleep-card-v2">
+              {/* Block 1 — Status: giờ ngủ + badge */}
+              <div className="sleep-block sleep-status">
+                <label className="mini wl" htmlFor="sleep-hours-pin">{t('sleepSchedule')}</label>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <select id="sleep-hours-pin" value={s.sleepHours} onChange={e => act(st => { st.sleepHours = Number(e.target.value); return t('sleepSet', '', { n: st.sleepHours }); })}>
+                    {sleepHoursOptions.map(hours => <option key={hours} value={hours}>{hours} {t('sleepHourUnit')}{hours === 12 ? ' ✓' : ''}</option>)}
+                  </select>
+                  <span className="tag" style={{ background: s.sleepHours >= 7 ? 'var(--up)' : s.sleepHours >= 5 ? 'var(--warn, #c47b2c)' : 'var(--brick)', color: '#fff' }}>
+                    {s.sleepHours >= 7 ? t('sleep.rested') : s.sleepHours >= 5 ? t('sleep.tired') : t('sleep.exhausted')}
+                  </span>
+                </div>
+              </div>
+              {/* Block 2 — Effects: Study / Health riêng, không gộp chuỗi */}
+              <div className="sleep-block sleep-effects">
+                <span className="mini" style={{ color: '#7BC9A2' }}>{t('sleep.studyPace', '', { p: Math.round((studyPace(s.sleepHours) - 1) * 100) })}</span>
+                <span className="mini" style={{ color: Number(healthChange) < 0 ? 'var(--brick)' : 'var(--mute)' }}>{t('sleep.healthEffect', '', { h: healthChangeText })}</span>
+              </div>
+              {/* Block 3 — Debt: chỉ hiện khi > 0 */}
               {s.sleepDebt > 0 && (
-                <div style={{ marginTop: 4, fontSize: 10, lineHeight: 1.3 }}>
+                <div className="sleep-block sleep-debt">
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                     <span style={{ color: s.sleepDebt > 21 ? 'var(--brick)' : s.sleepDebt > 7 ? 'var(--warn, #c47b2c)' : 'var(--mute)' }}>
                       {t('sleepDebt')}: {Math.round(s.sleepDebt)}h
                     </span>
-                    <span className="tag" style={{
-                      fontSize: 9,
-                      background: s.sleepDebt > 21 ? 'var(--brick)' : s.sleepDebt > 7 ? 'var(--warn, #c47b2c)' : 'var(--mute)',
-                      color: '#fff',
-                    }}>
+                    <span className="tag" style={{ fontSize: 9, background: s.sleepDebt > 21 ? 'var(--brick)' : s.sleepDebt > 7 ? 'var(--warn, #c47b2c)' : 'var(--mute)', color: '#fff' }}>
                       {s.sleepDebt > 21 ? t('sleepDebt.high') : s.sleepDebt > 7 ? t('sleepDebt.mid') : t('sleepDebt.low')}
                     </span>
                   </div>
@@ -193,9 +201,12 @@ export function PinZone({ s, t, onEdit, act, onNav, expanded, onToggleExpand }: 
                 </div>
               )}
             </div>
-            {activeJobs.length > 0 && <span className="sub">{activeJobs.map(j => t('job.' + j.id, j.name)).join(' + ')}</span>}
-            {activeStudies.length > 0 && <span className="sub">{studyTxt}</span>}
-            <span className="sub">{t('rentBills')}: {fmt((living(Math.floor(s.age)) + upkeep(s) + studyTuition(s)) / 12)}{t('perMonth')}</span>
+            {/* Block riêng — Jobs / Study / Rent, không nhét vào Sleep nữa */}
+            <div className="pinzone-bills">
+              {activeJobs.length > 0 && <span className="sub">{activeJobs.map(j => t('job.' + j.id, j.name)).join(' + ')}</span>}
+              {activeStudies.length > 0 && <span className="sub">{studyTxt}</span>}
+              <span className="sub">{t('rentBills')}: {fmt((living(Math.floor(s.age)) + upkeep(s) + studyTuition(s)) / 12)}{t('perMonth')}</span>
+            </div>
           </div>
         </div>
       )}

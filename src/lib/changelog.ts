@@ -90,4 +90,14 @@ export const CHANGELOG: Record<string, ChangelogEntry> = {
       'Sleep: tach Status / Effects / Debt, day Rent xuong block rieng',
     ],
   },
+  'v13.45': {
+    headline: 'HuyenBao v13.45 — Sleep 3 blocks + Finance i18n + Gigs Close + Club Phase 1',
+    summary: 'v13.45: Sleep tach 3 khoi Status/Effects/Debt, FinanceOverview qua t(), Gigs nut Dong, Club hien Level/Members/Maintenance/Event/Buff.',
+    features: [
+      'Sleep: tach 3 khoi, day Rent/Jobs/Study ra block rieng',
+      'Finance: 2 doan giai thich + header qua t()',
+      'Gigs: nut Close -> Dong, khong con Hủy',
+      'Club Phase 1: hien Level/Members/Maintenance/Event/Buff per-type',
+    ],
+  },
 };

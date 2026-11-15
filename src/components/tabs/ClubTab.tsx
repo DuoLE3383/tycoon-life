@@ -29,6 +29,7 @@ export function ClubTab({ s, act }: { s: GameState; act: Act }) {
           <Btn ic={mine ? 'ic-check' : 'ic-crown'} label={mine ? t('member') : !ok ? t('minNw') + ' ' + fmt(c.min) : t('join') + ' · ' + fmt(c.fee)} disabled={mine || !ok || s.money < c.fee} onClick={() => act(st => joinClub(st, c.id))} />
         </div>}>
           <b>{t('club.' + c.id, c.name)}{mine ? ' · ' + t('member') : ''}</b><span className="sub">{t('minNw')} {fmt(c.min)} · {t('fee')} {fmt(c.fee)} · {t('inc.biz')} ×{c.mult}</span>
+          <span className="sub" style={{ display: 'block', marginTop: 2 }}>{t('club.level', '', { n: 1 })} · {t('club.members', '', { n: (c as any).members ?? 0 })} · {t('club.maintenance', '', { x: fmt((c as any).maintenance ?? 0) })} · {t('club.event')}: {(c as any).event ?? '-'} · {t('club.buff')}: {(c as any).buff ?? '-'}</span>
         </Row>;
       })}
       {s.club === 'own'

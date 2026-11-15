@@ -1,11 +1,12 @@
 {
-  "version": "v13.44",
+  "version": "v13.45",
   "releasedAt": "2026-11-15",
-  "headline": "HuyenBao v13.44 — i18n missing keys + Assets labels + Sleep redesign",
-  "summary": "v13.44: Them key thieu soc.online, hp.decay, divine.thinking, mk.elliottGuide, v11.gen. AssetsTab labels qua t(). Sleep card tach 3 khoi.",
+  "headline": "HuyenBao v13.45 — Sleep 3 blocks + Finance i18n + Gigs Close + Club Phase 1",
+  "summary": "v13.45: Sleep tach 3 khoi Status/Effects/Debt, FinanceOverview qua t(), Gigs nut Dong, Club hien Level/Members/Maintenance/Event/Buff.",
   "features": [
-    "i18n: them key thieu, het hien fallback EN",
-    "Assets: category labels dich VI/ZH",
-    "Sleep: tach Status / Effects / Debt, day Rent xuong block rieng"
+    "Sleep: tach 3 khoi, day Rent/Jobs/Study ra block rieng",
+    "Finance: 2 doan giai thich + header qua t()",
+    "Gigs: nut Close -> Dong, khong con Hủy",
+    "Club Phase 1: hien Level/Members/Maintenance/Event/Buff per-type"
   ]
 }

@@ -864,6 +864,13 @@ html[data-theme="dark"] .tgame .pchip-big.income-chip.down{color:#fca5a5;backgro
 .tgame .pinzone-sleep{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
 .tgame .pinzone-sleep select{width:auto;flex:0 0 auto;padding:3px 8px;font-size:.76rem;border-radius:6px}
 .tgame .pinzone-sleep .mini{font-size:.7rem;opacity:.6}
+/* v13.45 — Sleep card 3 blocks: Status / Effects / Debt + Bills riêng */
+.tgame .pinzone-sleep.sleep-card-v2{display:flex;flex-direction:column;align-items:stretch;gap:6px;flex-wrap:nowrap}
+.tgame .sleep-block{border:1px solid var(--line);border-radius:8px;padding:6px 8px;min-width:0}
+.tgame .sleep-block .mini{font-size:.72rem;opacity:.85}
+.tgame .sleep-effects{display:flex;flex-direction:column;gap:2px}
+.tgame .pinzone-bills{display:flex;flex-direction:column;gap:2px;margin-top:6px;min-width:0}
+.tgame .pinzone-bills .sub{overflow-wrap:anywhere}
 /* v11.42 — asset chart in PinZone */
 .tgame .pinzone-assets .lb{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:3px}
 .tgame .pinzone-assets .lb b{font-size:.88rem;font-variant-numeric:tabular-nums}

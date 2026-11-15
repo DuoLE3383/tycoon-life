@@ -1508,6 +1508,21 @@ const D: Record<string, [string, string, string]> = {
   'cat.camera': ['Cameras', 'Máy ảnh', '相机'],
   'cat.suits': ['Suits', 'Vest', '西装'],
   'cat.other': ['Other', 'Khác', '其他'],
+
+  'sleep.rested': ['Rested', 'Tỉnh táo', '精力充沛'],
+  'sleep.tired': ['Tired', 'Mệt', '疲倦'],
+  'sleep.exhausted': ['Exhausted', 'Kiệt sức', '精疲力竭'],
+  'sleep.studyPace': ['Study pace +{p}%', 'Tốc độ học +{p}%', '学习速度 +{p}%'],
+  'sleep.healthEffect': ['Health {h}', 'Sức khỏe {h}', '健康 {h}'],
+  'gigs.close': ['Close', 'Đóng', '关闭'],
+  'fo.relTitle': ['Financial Relationships', 'Mối quan hệ tài chính', '财务关系'],
+  'fo.bizMultExplain': ['Business income multiplier = product of all factors below, capped at ×{cap}. Each factor amplifies every dollar of branch revenue, so improving the smallest factor here is usually worth more than opening a new branch.', 'Hệ số thu nhập kinh doanh = tích các hệ số bên dưới, tối đa ×{cap}. Mỗi hệ số khuếch đại từng đồng doanh thu chi nhánh, nên cải thiện hệ số nhỏ nhất thường đáng hơn mở chi nhánh mới.', '商业收入乘数 = 以下系数的乘积，上限 ×{cap}。每个系数放大每1元分店收入，因此提升最小系数通常比开新分店更值。'],
+  'fo.bizMath': ['Biz revenue × multiplier = {rev} × {mult} = {gross}/yr gross · minus {costs}/yr costs.', 'Doanh thu kinh doanh × hệ số = {rev} × {mult} = {gross}/năm gộp · trừ {costs}/năm chi phí.', '商业收入 × 乘数 = {rev} × {mult} = {gross}/年毛收入 · 减 {costs}/年成本。'],
+  'fo.jobExplain': ['Job income = sum over each active job of salary × multipliers. A full-time job while studying pays only 60% (studyWorkMult); zodiac affinity adds +5% when the job degree field matches your sign.', 'Thu nhập việc làm = tổng lương × hệ số của từng việc. Làm full-time trong lúc học chỉ nhận 60% (studyWorkMult); hợp cung hoàng đạo +5% khi ngành của việc khớp cung của bạn.', '工作收入 = 各工作薪资 × 系数之和。在读期间全职工作仅得 60%（studyWorkMult）；当工作学位领域与你的星座匹配时，星座亲和 +5%。'],
+  'fo.noJobs': ['No active jobs — your salary is $0. Visit the Career tab to apply.', 'Không có việc đang làm — lương $0. Mở tab Sự nghiệp để ứng tuyển.', '没有在职工作 — 薪资 $0。去职业标签申请。'],
+  'fo.productPreCap': ['Product (pre-cap)', 'Tích (trước giới hạn)', '乘积（封顶前）'],
+  'fo.finalMult': ['Final bizMultiplier', 'Hệ số kinh doanh cuối', '最终商业乘数'],
+  'fo.capped': ['(capped)', '(đã chặn)', '（已封顶）'],
 };
 
 export function makeT(lang: Lang) {

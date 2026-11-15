@@ -54,7 +54,7 @@ export function GigsPopup({ s, act, t }: { s: GameState; act: Act; t: TFn }) {
                   })}
                 </div>
                 <div className="modal-foot" style={{ justifyContent: 'center' }}>
-                  <button className="btn-ghost" onClick={close}>{t('edit.cancel', 'Close')} (Esc)</button>
+                  <button className="btn-ghost" onClick={close}>{t('gigs.close')} (Esc)</button>
                 </div>
               </div>
             </div>

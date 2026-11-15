@@ -449,12 +449,11 @@ export function FinanceOverviewTab({ s, onNav }: { s: GameState; act: Act; onNav
           value, and the jobIncome factors so career players see what's
           hurting their salary (studyWorkMult 0.6 while studying FT). */}
       <div className="card" style={{ marginBottom: 10, padding: 14 }}>
-        <div className="mini" style={{ textTransform: 'uppercase', letterSpacing: '.4px', color: 'var(--accent)', marginBottom: 6 }}>🔗 Financial Relationships</div>
+        <div className="mini" style={{ textTransform: 'uppercase', letterSpacing: '.4px', color: 'var(--accent)', marginBottom: 6 }}>{t('fo.relTitle')}</div>
 
         {/* bizMultiplier breakdown */}
         <div style={{ fontSize: '.84rem', marginBottom: 6, lineHeight: 1.45 }}>
-          <b>Business income multiplier</b> = product of all factors below, capped at <b>×{BIZ_MULTIPLIER_CAP}</b>.
-          Each factor amplifies <b>every dollar</b> of branch revenue, so improving the smallest factor here is usually worth more than opening a new branch.
+          {t('fo.bizMultExplain', '', { cap: BIZ_MULTIPLIER_CAP })}
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: '3px 12px', fontSize: '.82rem', marginBottom: 8, padding: '0 4px' }}>
           {bmFactors.map(f => (
@@ -463,21 +462,21 @@ export function FinanceOverviewTab({ s, onNav }: { s: GameState; act: Act; onNav
               <b style={{ textAlign: 'right', fontVariantNumeric: 'tabular-nums', color: f.raw > 1 ? 'var(--up)' : 'var(--mute)' }}>{f.value}</b>
             </div>
           ))}
-          <span className="sub" style={{ borderTop: '1px solid var(--line)', paddingTop: 4, marginTop: 2 }}>Product (pre-cap)</span>
+          <span className="sub" style={{ borderTop: '1px solid var(--line)', paddingTop: 4, marginTop: 2 }}>{t('fo.productPreCap')}</span>
           <b style={{ textAlign: 'right', fontVariantNumeric: 'tabular-nums', borderTop: '1px solid var(--line)', paddingTop: 4, marginTop: 2 }}>×{bmProduct.toFixed(3)}</b>
-          <span className="sub" style={{ fontWeight: 700 }}>Final bizMultiplier {isCapped ? '(capped)' : ''}</span>
+          <span className="sub" style={{ fontWeight: 700 }}>{t('fo.finalMult')} {isCapped ? t('fo.capped') : ''}</span>
           <b style={{ textAlign: 'right', fontVariantNumeric: 'tabular-nums', color: 'var(--accent)', fontWeight: 800 }}>×{bm.toFixed(3)}</b>
         </div>
         <div className="mini" style={{ opacity: .7, marginBottom: 10 }}>
-          Biz revenue × multiplier = {fmtFull(bizRevenue(s))} × {bm.toFixed(2)} = {fmtFull(Math.max(0, bizRevenue(s) * bm))}/yr gross · minus {fmtFull(bizCosts(s))}/yr costs = <b style={{ color: bn >= 0 ? 'var(--up)' : 'var(--down)' }}>{bn >= 0 ? '+' : '−'}{fmtFull(Math.abs(bn))}/yr net</b>.
+          {t('fo.bizMath', '', { rev: fmtFull(bizRevenue(s)), mult: bm.toFixed(2), gross: fmtFull(Math.max(0, bizRevenue(s) * bm)), costs: fmtFull(bizCosts(s)) })}
         </div>
 
         {/* jobIncome breakdown */}
         <div style={{ fontSize: '.84rem', marginBottom: 6, lineHeight: 1.45, marginTop: 8 }}>
-          <b>Job income</b> = sum over each active job of <code>salary × multipliers</code>. A full-time job while studying pays only 60% (studyWorkMult); zodiac affinity adds +5% when the job's degree field matches your sign.
+          {t('fo.jobExplain')}
         </div>
         {activeJobs.length === 0 ? (
-          <div className="mini" style={{ opacity: .7, padding: '0 4px' }}>No active jobs — your salary is $0. Visit the Career tab to apply.</div>
+          <div className="mini" style={{ opacity: .7, padding: '0 4px' }}>{t('fo.noJobs')}</div>
         ) : (
           <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: '3px 12px', fontSize: '.82rem', marginBottom: 8, padding: '0 4px' }}>
             {activeJobs.map(j => (
