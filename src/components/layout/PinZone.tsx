@@ -155,7 +155,7 @@ export function PinZone({ s, t, onEdit, act, onNav, expanded, onToggleExpand }: 
           </button>
           {/* Income bar chart */}
           {/* v13.32 - nut vao cot giua */}
-          <div className="dash-chart-col" style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <div className="dash-chart-col">
           <button className="dash-chart-box nav-link" onClick={() => onNav('finance-overview')}>
             <span className="mini wl">{t('incomeBreakdown')} · +{fmt(yi)}{t('perYear')}</span>
             <div className="dash-chart-wrap">
