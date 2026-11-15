@@ -585,7 +585,7 @@ export default function AdminPage() {
                         <tr key={it.id}>
                           <td><img src={it.imageUrl} alt="" style={{ width: 28, height: 28, borderRadius: 5, objectFit: 'cover', verticalAlign: 'middle', marginRight: 6 }} />{it.name} <span className="adm-mini-code">custom</span>{it.stock != null ? <span className="adm-mini-code" style={{ marginLeft: 6 }}>stock: {it.stock}</span> : null}</td>
                           <td>{it.cat}</td>
-                          <td className="adm-nw">${it.price.toLocaleString()}</td>
+                          <td className="adm-nw">${it.price.toLocaleString('vi-VN')}</td>
                           <td>{it.rarity}</td>
                           <td className="adm-actions">
                             {/* v13.2 — Edit button now also loads stock + rarity into the form. */}
@@ -607,7 +607,7 @@ export default function AdminPage() {
                         <tr key={it.id}>
                           <td>{it.name}</td>
                           <td>{it.cat}</td>
-                          <td className="adm-nw">${it.price.toLocaleString()}</td>
+                          <td className="adm-nw">${it.price.toLocaleString('vi-VN')}</td>
                           <td>{it.rarity}</td>
                           <td className="adm-actions"><button className="adm-btn" title="Cấp item" disabled={!gameUid.trim()} onClick={() => void (async () => { try { await adminPost('/api/admin/game', { action: 'grantItem', uid: gameUid, itemId: it.id }); flash('✅ Đã cấp ' + it.name); } catch { flash('❌ Thất bại'); } })()}>🎁</button></td>
                         </tr>

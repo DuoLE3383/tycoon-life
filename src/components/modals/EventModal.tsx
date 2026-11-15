@@ -92,7 +92,7 @@ export function GameOver({ s, onAgain }: { s: GameState; onAgain: () => void }) 
       <div>{s.cause === 'health'
         ? <>{t('livedToHealth', '', { a: Math.floor(s.age) })} <b>{fmt(nw)}</b>.</>
         : <>{t('livedTo')} <b>{fmt(nw)}</b>.</>}<br />
-        <span className="mini">{t('finalLine', '', { k: knowledgeText(s), f: s.fame, d: fmt(s.donated), ka: s.karma, l: s.level, fo: s.social.followers.toLocaleString() })}</span></div>
+        <span className="mini">{t('finalLine', '', { k: knowledgeText(s), f: s.fame, d: fmt(s.donated), ka: s.karma, l: s.level, fo: s.social.followers.toLocaleString('vi-VN') })}</span></div>
       {/* v11.10 — disclaimer on the game-over screen as well */}
       <p className="mini" style={{ margin: '10px 0 0', opacity: .65 }}>{t('disc.short')}</p>
       <button className="ibtn" style={{ marginTop: 12 }} onClick={onAgain}>

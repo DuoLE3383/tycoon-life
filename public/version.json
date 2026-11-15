@@ -1,12 +1,11 @@
 {
-  "version": "v13.23",
+  "version": "v13.24",
   "releasedAt": "2026-11-15",
-  "headline": "HuyenBao v13.23 — Shop first, profit-aware business, clear property costs",
-  "summary": "v13.23: In Assets, shopping items now appear before owned items. Business value follows profit, sale offers follow business value. Property costs split into Property tax 1% + Asset upkeep 1% with the same 2% total.",
+  "headline": "HuyenBao v13.24 — Travel modal fixed + Vietnamese thousand dots",
+  "summary": "v13.24: Travel modal now renders via Portal to document.body so it covers the full viewport instead of being clipped to 34px. All numbers now use Vietnamese thousand-dot grouping (vi-VN), e.g. +$1.602.817.222.",
   "features": [
-    "Assets: shopping items (buy catalogue + used items) now appear before owned items",
-    "Business: business value is profit-aware (paid + 2x annual net, clamped -25% / +50%)",
-    "Business: sale offers are based on profit-aware fair value, not raw paid price",
-    "Finance: Property tax 1%/yr and Asset upkeep 1%/yr shown as separate lines, total still 2%"
+    "Travel: modal rendered via Portal to document.body, full-viewport overlay, no longer clipped or overlapping",
+    "Numbers: all numbers use Vietnamese thousand-dot grouping (vi-VN), e.g. +$1.602.817.222",
+    "Numbers: fmtFull and all toLocaleString() calls now use vi-VN"
   ]
 }

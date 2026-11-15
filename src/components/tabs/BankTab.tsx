@@ -13,7 +13,7 @@ import { type Act, Btn, Row, useEscapeKey, useReqLabel } from '@/components/shar
 export function formatThousands(n: string): string {
   const digits = n.replace(/[^\d]/g, '');
   if (!digits) return '';
-  return Number(digits).toLocaleString('en-US');
+  return Number(digits).toLocaleString('vi-VN');
 }
 
 
@@ -67,7 +67,7 @@ export function BankTab({ s, act }: { s: GameState; act: Act }) {
         <div className="lb"><span>{t('savings')} ({(SAVE_RATE * 100).toFixed(0)}%{t('perYear')})</span><b className="num-full">{fmtFull(s.bank.dep)}</b></div>
         <div className="lb"><span>{t('loan')} ({(LOAN_RATE * 100).toFixed(0)}%{t('perYear')})</span><b className="num-full" style={{ color: s.bank.loan > 0 ? 'var(--brick)' : undefined }}>{fmtFull(s.bank.loan)}</b></div>
         <div className="lb"><span>{t('incomeYear')}</span><b className="num-full">{fmtFull(s.yIncome)}</b></div>
-        <div className="lb"><span>{t('bracket', '', { x: '$' + TAX_FREE.toLocaleString() })}</span><b>{(marginal * 100).toFixed(0)}{t('marginal')}</b></div>
+        <div className="lb"><span>{t('bracket', '', { x: '$' + TAX_FREE.toLocaleString('vi-VN') })}</span><b>{(marginal * 100).toFixed(0)}{t('marginal')}</b></div>
         <div className="lb"><span>{t('lastTax')}</span><b className="num-full">{fmtFull(s.yTax)}</b></div>
         {/* v11.57 — credit limit breakdown showing base + income credit.
             v13.9 — fmtFull() so credit limits in the billions stay readable. */}

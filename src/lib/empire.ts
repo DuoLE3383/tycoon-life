@@ -305,7 +305,7 @@ export function tickEntity(s: GameState, nw: number, log: (msg: string) => void)
       && s.entity.inflation > 0 && s.money > 0) {
     erosion = Math.round(s.money * s.entity.inflation);
     s.money -= erosion;
-    if (erosion > 0) log(`Inflation (${(s.entity.inflation * 100).toFixed(1)}%) eroded ${erosion.toLocaleString()} from cash.`);
+    if (erosion > 0) log(`Inflation (${(s.entity.inflation * 100).toFixed(1)}%) eroded ${erosion.toLocaleString('vi-VN')} from cash.`);
   }
   return { promotedTo: promoted ? 'conglomerate' : null, inflationErosion: erosion };
 }

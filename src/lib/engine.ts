@@ -601,7 +601,7 @@ export function addPost(s: GameState, t: string, boost = 1, rng: () => number = 
     likes = Math.max(0, Math.round(likes * 0.3));
     const lost = Math.round(s.social.followers * (0.01 + rng() * 0.04));
     s.social.followers = Math.max(0, s.social.followers - lost);
-    pushLog(s, `Backlash on a post — lost ${lost.toLocaleString()} followers.`);
+    pushLog(s, `Backlash on a post — lost ${lost.toLocaleString('vi-VN')} followers.`);
   }
   const post: Post = { d: s.lastDay, t, likes };
   s.social.posts.unshift(post);
@@ -2056,11 +2056,11 @@ export function franchiseBranch(s: GameState, bizId: string, branchIdx: number):
   s.fame += 1;
   addXp(s, 10);
   const b = BIZ.find(x => x.id === bizId);
-  pushLog(s, `Franchised ${b?.name || bizId} outlet — received $${fee.toLocaleString()} upfront, royalty ${FRANCHISE_ROYALTY * 100}% ongoing.`);
-  addPost(s, `Franchised a ${b?.name || 'business'} outlet — cash boost of $${fee.toLocaleString()}!`, 1.1);
+  pushLog(s, `Franchised ${b?.name || bizId} outlet — received $${fee.toLocaleString('vi-VN')} upfront, royalty ${FRANCHISE_ROYALTY * 100}% ongoing.`);
+  addPost(s, `Franchised a ${b?.name || 'business'} outlet — cash boost of $${fee.toLocaleString('vi-VN')}!`, 1.1);
   // v11.49 — record franchise fee as income (cash injection from franchisee).
   recordTx(s, { kind: 'income', asset: 'branch', ref: `${bizId}#${branchIdx}`, name: `Franchise fee: ${b?.name || bizId}`, qty: 1, unit: fee, amount: fee });
-  return `Franchised! +$${fee.toLocaleString()} upfront (royalty ${FRANCHISE_ROYALTY * 100}% ongoing).`;
+  return `Franchised! +$${fee.toLocaleString('vi-VN')} upfront (royalty ${FRANCHISE_ROYALTY * 100}% ongoing).`;
 }
 
 // v11.50 — brand customization for a biz chain. Player must own ≥1 branch of
@@ -2138,12 +2138,12 @@ export function acceptBizOffer(s: GameState, offer: BizOffer): string | null {
   s.fame += 2;
   addXp(s, 20);
   const b = BIZ.find(x => x.id === offer.bizId);
-  pushLog(s, `Sold ${b?.name || offer.bizId} outlet to ${offer.buyerName} for $${offer.offer.toLocaleString()}.`);
-  addPost(s, `Closed a deal — sold a ${b?.name || 'business'} outlet for $${offer.offer.toLocaleString()}.`, 1.2);
+  pushLog(s, `Sold ${b?.name || offer.bizId} outlet to ${offer.buyerName} for $${offer.offer.toLocaleString('vi-VN')}.`);
+  addPost(s, `Closed a deal — sold a ${b?.name || 'business'} outlet for $${offer.offer.toLocaleString('vi-VN')}.`, 1.2);
   // v11.49 — record biz sale with realized P&L (sale price − original paid).
   const pnl = offer.offer - costBasis;
   recordTx(s, { kind: 'sell', asset: 'biz_sell', ref: offer.bizId, name: `Sold ${b?.name || offer.bizId}`, qty: 1, unit: offer.offer, amount: offer.offer, realizedPnL: pnl });
-  return `Sold for $${offer.offer.toLocaleString()}!`;
+  return `Sold for $${offer.offer.toLocaleString('vi-VN')}!`;
 }
 
 // ---------------------------------------------------------------- v11.39 — admin game control
@@ -2160,7 +2160,7 @@ export function adminGrantItem(s: GameState, itemId: string): string | null {
 }
 export function adminSetMoney(s: GameState, amount: number): string {
   s.money = Math.max(-1e12, Math.min(1e15, Number(amount) || 0));
-  return `✅ Money set to $${s.money.toLocaleString()}`;
+  return `✅ Money set to $${s.money.toLocaleString('vi-VN')}`;
 }
 export function adminSetFame(s: GameState, amount: number): string {
   s.fame = Math.max(0, Math.min(1e6, Math.round(Number(amount) || 0)));
@@ -2206,22 +2206,22 @@ export function adminSetSavings(s: GameState, amount: number): string {
   const a = Math.max(-1e12, Math.min(1e15, Number(amount) || 0));
   s.bank = s.bank || { dep: 0, loan: 0 };
   s.bank.dep = a;
-  pushLog(s, `Admin set savings to $${a.toLocaleString()}.`);
-  return `✅ Savings set to $${a.toLocaleString()}`;
+  pushLog(s, `Admin set savings to $${a.toLocaleString('vi-VN')}.`);
+  return `✅ Savings set to $${a.toLocaleString('vi-VN')}`;
 }
 export function adminSetLoan(s: GameState, amount: number): string {
   const a = Math.max(0, Math.min(1e15, Number(amount) || 0));
   s.bank = s.bank || { dep: 0, loan: 0 };
   s.bank.loan = a;
-  pushLog(s, `Admin set loan to $${a.toLocaleString()}.`);
-  return `✅ Loan set to $${a.toLocaleString()}`;
+  pushLog(s, `Admin set loan to $${a.toLocaleString('vi-VN')}.`);
+  return `✅ Loan set to $${a.toLocaleString('vi-VN')}`;
 }
 export function adminAdjustLoan(s: GameState, delta: number): string {
   const d = Number(delta) || 0;
   s.bank = s.bank || { dep: 0, loan: 0 };
   s.bank.loan = Math.max(0, s.bank.loan + d);
-  pushLog(s, `Admin adjusted loan by ${d >= 0 ? '+' : ''}$${d.toLocaleString()} → $${s.bank.loan.toLocaleString()}.`);
-  return `✅ Loan ${d >= 0 ? '+' : ''}${d.toLocaleString()} → $${s.bank.loan.toLocaleString()}`;
+  pushLog(s, `Admin adjusted loan by ${d >= 0 ? '+' : ''}$${d.toLocaleString('vi-VN')} → $${s.bank.loan.toLocaleString('vi-VN')}.`);
+  return `✅ Loan ${d >= 0 ? '+' : ''}${d.toLocaleString('vi-VN')} → $${s.bank.loan.toLocaleString('vi-VN')}`;
 }
 // v14 — grant N branches of a biz, bypassing the degree requirement + cost.
 // Each new branch is tagged paid = bizCost at the time of grant (so net worth
@@ -2290,10 +2290,10 @@ export function adminFranchiseAll(s: GameState, bizId: string): string {
   }
   if (count === 0) return `ℹ️ All ${b.name} branches already franchised`;
   addXp(s, count * 10);
-  pushLog(s, `Admin franchised ${count} × ${b.name} branch(es) — +$${fee.toLocaleString()} upfront.`);
-  addPost(s, `Franchised ${count} × ${b.name} outlet(s) — cash boost of $${fee.toLocaleString()}!`, 1.1);
+  pushLog(s, `Admin franchised ${count} × ${b.name} branch(es) — +$${fee.toLocaleString('vi-VN')} upfront.`);
+  addPost(s, `Franchised ${count} × ${b.name} outlet(s) — cash boost of $${fee.toLocaleString('vi-VN')}!`, 1.1);
   recordTx(s, { kind: 'income', asset: 'branch', ref: bizId, name: `Franchise fee: ${b.name} × ${count}`, qty: count, unit: Math.round(fee / count), amount: fee });
-  return `✅ Franchised ${count} × ${b.name} (+$${fee.toLocaleString()})`;
+  return `✅ Franchised ${count} × ${b.name} (+$${fee.toLocaleString('vi-VN')})`;
 }
 // v14 — gig pay / cd overrides stored on GameState (not the GIGS table —
 // that's a build-time constant). The override map persists across save/load
@@ -2313,7 +2313,7 @@ export function adminSetGigPay(s: GameState, gigId: string, basePay: number): st
   if (Object.keys(ov).length) s.gigOverrides[gigId] = ov;
   else delete s.gigOverrides[gigId];
   pushLog(s, `Admin set gig pay [${gigId}] → ${ov.base != null ? ov.base : 'default'}.`);
-  return `✅ ${gigId} base pay → ${ov.base != null ? '$' + ov.base.toLocaleString() : 'default'}`;
+  return `✅ ${gigId} base pay → ${ov.base != null ? '$' + ov.base.toLocaleString('vi-VN') : 'default'}`;
 }
 export function adminSetGigCd(s: GameState, gigId: string, cd: number): string {
   const g = GIGS.find(x => x.id === gigId);
@@ -2761,8 +2761,8 @@ export function negotiateRaise(s: GameState): string {
   if (Math.random() < chance) {
     const raise = Math.round(job.salary * (0.08 + Math.random() * 0.12)); // 8-20% raise
     s.jobRaises++;
-    pushLog(s, `Negotiated a raise at ${job.name}: +$${raise.toLocaleString()}/yr.`);
-    return `✅ Raise approved! +$${raise.toLocaleString()}/yr`;
+    pushLog(s, `Negotiated a raise at ${job.name}: +$${raise.toLocaleString('vi-VN')}/yr.`);
+    return `✅ Raise approved! +$${raise.toLocaleString('vi-VN')}/yr`;
   }
   // Failed negotiation — 15% chance of being fired.
   if (Math.random() < 0.15) {
@@ -4132,5 +4132,5 @@ export function fmt(n: number): string {
 // item rows, banking breakdowns, etc. Keep fmt() for chips/badges/toasts.
 export function fmtFull(n: number): string {
   const neg = n < 0; n = Math.abs(n);
-  return (neg ? '\u2212' : '') + '$' + Math.floor(n).toLocaleString('en-US');
+  return (neg ? '\u2212' : '') + '$' + Math.floor(n).toLocaleString('vi-VN');
 }

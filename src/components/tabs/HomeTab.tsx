@@ -3,6 +3,7 @@
 import { ACHIEVEMENTS, ALLNEWS, Art, asset, assetVal, bizIncome, bizVal, dateOf, eraOf, fmt, type GameState, Ic, jobIncome, jobsOf, RETIRE, sleepHealthMult, sleepHealthRecovery, socialIncome, spaceIncome, stockVal, travel, TRAVEL, travelCooldownLeft, travelReady, useEffect, useState, useT, worldYear, xpNeed, yearIncome } from '@/components/gameDeps';
 import { type Act, Btn, Row, type TFn, useEscapeKey, useReqLabel } from '@/components/shared';
 import { HealthAlerts } from '@/components/tabs/HealthTab';
+import { createPortal } from 'react-dom';
 
 
 
@@ -18,7 +19,7 @@ export function TravelSection({ s, act, t }: { s: GameState; act: Act; t: TFn })
         <Art id="i-jet" className="si" />
         <span>{t('travel.title', 'Travel')}</span>
       </button>
-      {open && (
+      {open && typeof document !== 'undefined' && createPortal(
         <div className="modal-overlay" onClick={close}>
           <div className="modal-box gigs-modal" onClick={e => e.stopPropagation()}>
             <div className="modal-head">
@@ -54,7 +55,8 @@ export function TravelSection({ s, act, t }: { s: GameState; act: Act; t: TFn })
               })}
             </div>
           </div>
-        </div>
+        </div>,
+        document.body,
       )}
     </>
   );

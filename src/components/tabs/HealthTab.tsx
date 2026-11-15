@@ -28,7 +28,7 @@ export function HealthTab({ s, act }: { s: GameState; act: Act }) {
         <b style={{ fontSize: '1.05rem' }}>{t('healthTitle')}</b>
         <p className="sub" style={{ marginTop: 4 }}>{t('healthSub')}</p>
         <div className="famewrap"><span className="mini">{t('health')}</span><div className="famebar"><i style={{ width: hp + '%', background: hp < 40 ? 'var(--brick)' : 'var(--sage)' }} /></div><b>{hp}</b></div>
-        <div className="mini">{t('hp.state.' + stIdx)} · {t('hp.decay', '', { n: decayPerYear(s).toLocaleString('en-US') })}</div>
+        <div className="mini">{t('hp.state.' + stIdx)} · {t('hp.decay', '', { n: decayPerYear(s).toLocaleString('vi-VN') })}</div>
       </div>
       {rows.map(r => {
         const left = wellLeft(s, r.id), ready = wellReady(s, r.id), ecd = effWellCd(s, r.id);

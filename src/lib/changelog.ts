@@ -28,4 +28,13 @@ export const CHANGELOG: Record<string, ChangelogEntry> = {
       'Finance: Property tax 1%/yr and Asset upkeep 1%/yr shown as separate lines, total still 2%',
     ],
   },
+  'v13.24': {
+    headline: 'HuyenBao v13.24 — Travel modal fixed + Vietnamese thousand dots',
+    summary: 'v13.24: Travel modal now renders via Portal to document.body so it covers the full viewport instead of being clipped to 34px. All numbers now use Vietnamese thousand-dot grouping (vi-VN), e.g. +$1.602.817.222.',
+    features: [
+      'Travel: modal rendered via Portal to document.body, full-viewport overlay, no longer clipped or overlapping',
+      'Numbers: all numbers use Vietnamese thousand-dot grouping (vi-VN), e.g. +$1.602.817.222',
+      'Numbers: fmtFull and all toLocaleString() calls now use vi-VN',
+    ],
+  },
 };
