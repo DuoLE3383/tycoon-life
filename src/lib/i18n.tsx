@@ -1523,6 +1523,12 @@ const D: Record<string, [string, string, string]> = {
   'fo.productPreCap': ['Product (pre-cap)', 'Tích (trước giới hạn)', '乘积（封顶前）'],
   'fo.finalMult': ['Final bizMultiplier', 'Hệ số kinh doanh cuối', '最终商业乘数'],
   'fo.capped': ['(capped)', '(đã chặn)', '（已封顶）'],
+
+  'club.level': ['Level {n}', 'Cấp {n}', '等级 {n}'],
+  'club.members': ['Members {n}', 'Thành viên {n}', '成员 {n}'],
+  'club.maintenance': ['Maintenance {x}/yr', 'Bảo trì {x}/năm', '维护 {x}/年'],
+  'club.event': ['Event', 'Sự kiện', '活动'],
+  'club.buff': ['Buff', 'Buff', '加成'],
 };
 
 export function makeT(lang: Lang) {
