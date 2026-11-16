@@ -164,4 +164,13 @@ export const CHANGELOG: Record<string, ChangelogEntry> = {
       'Finance: bill Pay la nut that noi bat, so ngay 2 so thap phan, am do / duong xanh',
     ],
   },
+  'v13.58': {
+    headline: 'HuyenBao v13.58 - PinZone chi con hop do',
+    summary: 'v13.58: PinZone chi con bill banner + ten/tuoi + chip tien + ngay noi bat + canh bao quan trong. Donut/tong tai san/thu nhap nam/ngu/quick actions/age track doi ra Finance/Overview. Nut Gigs/Travel/More gon 1 hang cuon ngang.',
+    features: [
+      'PinZone: xoa chip Net Worth + Income, xoa donut/bar/sleep/age track',
+      'PinZone: ngay thanh pin-date noi bat, warns thanh pin-important',
+      'PinZone: Gigs/Travel/More gon 1 hang, khong tran 2 ben',
+    ],
+  },
 };

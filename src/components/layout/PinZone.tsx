@@ -101,7 +101,7 @@ export function PinZone({ s, t, onEdit, act, onNav, expanded, onToggleExpand }: 
         </button>
       )}
       {warns.length > 0 && (
-        <div className="pinzone-warns" role="status" aria-live="polite">
+        <div className="pinzone-warns pin-important" role="status" aria-live="polite">
           {warns.map(w => (
             <button key={w.id} className={'pwarn pwarn-' + w.severity} onClick={() => onNav(w.link)}>
               <span className="pwarn-ic">{w.severity === 'critical' ? '🔴' : w.severity === 'warn' ? '🟠' : 'ℹ️'}</span>
@@ -126,7 +126,7 @@ export function PinZone({ s, t, onEdit, act, onNav, expanded, onToggleExpand }: 
         <span className="sep">·</span>
         <span className="mini">{t('age')} {Math.floor(a)}</span>
         <span className="tag dark">{t('stage.' + STAGES.indexOf(st), st.name)}</span>
-        <span className="mini" style={{ marginLeft: 'auto' }}>{dstr}</span>
+        <span className="pin-date" style={{ marginLeft: 'auto' }}>{dstr}</span>
         {/* v12.13 — mobile-only collapse toggle. Hidden on desktop via CSS
             (.pinzone-toggle {display:none} at root, shown in @media). Tapping
             flips pzExpanded in the parent, which toggles .pinzone-collapsed. */}
@@ -146,81 +146,7 @@ export function PinZone({ s, t, onEdit, act, onNav, expanded, onToggleExpand }: 
         </span>
         <span className="hpill hpill-big"><Ic id="w-lotus" className="bsi" />{Math.round(s.spirit)}</span>
         <span className="pchip pchip-big" data-tip={`Lv ${s.level} · ${s.xp}/${xpNeed(s.level)} XP (${xpPct}%)`}>⭐ {s.level}</span>
-        {(nw > 0 || yi !== 0) && <span className="pchip pchip-big nw-chip" data-tip={t('netWorth')}><Ic id="t-bank" className="bsi" />{fmt(nw)}</span>}
-        {yi !== 0 && <span className={'pchip pchip-big income-chip ' + (yi >= 0 ? 'up' : 'down')} data-tip={t('inc.total', 'Income/yr')}>{yi >= 0 ? '+' : ''}{fmt(yi)}{t('perYear')}</span>}
       </div>
-
-      {/* Row 3: Charts — bigger donut + bar + sleep, 3-col desktop / 1-col mobile */}
-      {nw > 0 && (
-        <div className="dash-charts" style={{ display: 'grid', gridTemplateColumns: '0.9fr 1.1fr', gap: 10, alignItems: 'start' }}>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-          {/* Asset donut chart */}
-          <button className="dash-chart-box nav-link" onClick={() => onNav('assets')}>
-            <span className="mini wl">{t('netWorth')} · {fmt(nw)}</span>
-            <div className="dash-chart-wrap">
-              <DonutChart size={84} segs={assetSegs.filter(([, v]) => v > 0).map(([label, value, color]) => ({ label, value, color }))} />
-              <div className="dash-chart-legend">
-                {assetSegs.filter(([, v]) => v > 0).map(([label, v, color]) => (
-                  <span key={label} className="asset-leg-item"><span className="sw" style={{ background: color }} />{label} <b>{fmt(v)}</b></span>
-                ))}
-              </div>
-            </div>
-          </button>
-          {/* Income bar chart - v13.49c: doi xuong duoi Net Worth (cot trai), khoi cot giua */}
-          <button className="dash-chart-box nav-link" onClick={() => onNav('finance-overview')}>
-            <span className="mini wl">{t('incomeBreakdown')} · +{fmt(yi)}{t('perYear')}</span>
-            <div className="dash-chart-wrap">
-              <BarChart
-                rows={incRows.filter(([, v]) => v > 0).map(([label, value]) => ({ label, value, color: '#4a9d7f' }))}
-                maxVal={Math.max(...incRows.map(([, v]) => v), 1)}
-              />
-            </div>
-          </button>
-          </div>
-          {/* Quick info: sleep + identity */}
-          <div className="dash-chart-box">
-            <div className="pinzone-sleep sleep-card-v2">
-              {/* Block 1 — Status: giờ ngủ + badge */}
-              <div className="sleep-block sleep-status">
-                <label className="mini wl" htmlFor="sleep-hours-pin">{t('sleepSchedule')}</label>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <select id="sleep-hours-pin" value={s.sleepHours} onChange={e => act(st => { st.sleepHours = Number(e.target.value); return t('sleepSet', '', { n: st.sleepHours }); })}>
-                    {sleepHoursOptions.map(hours => <option key={hours} value={hours}>{hours} {t('sleepHourUnit')}{hours === 12 ? ' ✓' : ''}</option>)}
-                  </select>
-                  <span className="tag" style={{ background: s.sleepHours >= 7 ? 'var(--up)' : s.sleepHours >= 5 ? 'var(--warn, #c47b2c)' : 'var(--brick)', color: '#fff' }}>
-                    {s.sleepHours >= 7 ? t('sleep.rested') : s.sleepHours >= 5 ? t('sleep.tired') : t('sleep.exhausted')}
-                  </span>
-                </div>
-              </div>
-              {/* Block 2 — Effects: Study / Health riêng, không gộp chuỗi */}
-              <div className="sleep-block sleep-effects">
-                <span className="mini" style={{ color: '#7BC9A2' }}>{t('sleep.studyPace', '', { p: Math.round((studyPace(s.sleepHours) - 1) * 100) })}</span>
-                <span className="mini" style={{ color: Number(healthChange) < 0 ? 'var(--brick)' : 'var(--mute)' }}>{t('sleep.healthEffect', '', { h: healthChangeText })}</span>
-              </div>
-              {/* Block 3 — Debt: chỉ hiện khi > 0 */}
-              {s.sleepDebt > 0 && (
-                <div className="sleep-block sleep-debt">
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                    <span style={{ color: s.sleepDebt > 21 ? 'var(--brick)' : s.sleepDebt > 7 ? 'var(--warn, #c47b2c)' : 'var(--mute)' }}>
-                      {t('sleepDebt')}: {Math.round(s.sleepDebt)}h
-                    </span>
-                    <span className="tag" style={{ fontSize: 9, background: s.sleepDebt > 21 ? 'var(--brick)' : s.sleepDebt > 7 ? 'var(--warn, #c47b2c)' : 'var(--mute)', color: '#fff' }}>
-                      {s.sleepDebt > 21 ? t('sleepDebt.high') : s.sleepDebt > 7 ? t('sleepDebt.mid') : t('sleepDebt.low')}
-                    </span>
-                  </div>
-                  <div style={{ color: 'var(--mute)' }}>{t('sleepDebtNote')}</div>
-                </div>
-              )}
-            </div>
-            {/* Block riêng — Jobs / Study / Rent, không nhét vào Sleep nữa */}
-            <div className="pinzone-bills">
-              {activeJobs.length > 0 && <span className="sub">{activeJobs.map(j => t('job.' + j.id, j.name)).join(' + ')}</span>}
-              {activeStudies.length > 0 && <span className="sub">{studyTxt}</span>}
-              <span className="sub">{t('rentBills')}: {fmt((living(Math.floor(s.age)) + upkeep(s) + studyTuition(s)) / 12)}{t('perMonth')}</span>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* v13.34 - Actions: hang rieng full-width, khong nhet vao cot giua */}
       <div className="pin-actions-bar">
@@ -232,11 +158,6 @@ export function PinZone({ s, t, onEdit, act, onNav, expanded, onToggleExpand }: 
         </span>
       </div>
 
-      {/* Row 4: Age track */}
-      <div className="track slim" style={{ background: `linear-gradient(90deg,#8fae9b 0 ${p(22)},#c9b68e ${p(22)} ${p(26)},#c08a80 ${p(26)} ${p(RETIRE)},#9b93a8 ${p(RETIRE)})` }}>
-        <div className="shade" style={{ left: pct + '%' }} /><div className="mark" style={{ left: pct + '%' }} />
-      </div>
-      <div className="ms">{marks.map(([m, lb]) => <span key={lb + m} style={{ left: p(m) }}>{lb}</span>)}</div>
-    </section>
+      </section>
   );
 }
