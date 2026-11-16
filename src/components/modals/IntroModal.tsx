@@ -107,7 +107,7 @@ export function Intro({ onBegin }: { onBegin: (o: { name: string; byear: number;
           <button type="button" className="ibtn" onClick={onContinue}>Continue game</button>
         </div>
         {continueMsg && <p className="mini" style={{ margin: '6px 0 0' }}>{continueMsg}</p>}
-        <p className="mini" style={{ margin: '6px 0 0', opacity: .8 }}>Game cũ không có ID vẫn ở đó — để trống ID là chơi tiếp save cũ. Nhập ID mới + tạo mới = game mới gắn với ID đó.</p>
+        <p className="mini" style={{ margin: '6px 0 0', opacity: .8 }}>{t('intro.userId.hint')}</p>
       </div>
       <p className="mini" style={{ marginTop: 0 }}>{t('introSub')}</p>
       {/* v11.10 — legal disclaimer, visible from the first screen of the intro.
