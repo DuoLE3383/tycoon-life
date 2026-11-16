@@ -25,7 +25,7 @@ type LookupOut = {
   name: string; brand: string; cat: string; price: number | null;
   rarity: 'common' | 'uncommon' | 'rare' | 'legendary' | 'mythic';
   story: string; specs: string[]; lux: number; rate: number; art: string; c: string;
-  images: string[]; sources: string[]; priceSource: 'web' | 'llm' | 'none';
+  images: string[]; sources: string[]; priceSource: 'web' | 'none'; priceEvidence: string; confidence: 'high' | 'medium' | 'low';
 };
 
 let zaiClient: Promise<ZAI> | null = null;
@@ -79,7 +79,7 @@ async function searchImages(query: string): Promise<string[]> {
   const out: string[] = [];
   try {
     const zai = await getZai();
-    const tries = [query, query + ' product photo', query + ' car', query + ' motorcycle', query + ' bag', query + ' handbag', query + ' watch'];
+    const tries = [query, `"${query}"`, query + ' product photo']; // v13.67 - khong them car/motorcycle/bag: de anh lac sang item khac
     for (const q of tries) {
       const r = await zai.images.search.create({ query: q, count: 6 });
       for (const it of (r?.results ?? [])) {
@@ -111,7 +111,7 @@ async function searchWeb(query: string): Promise<{ snippet: string; url: string 
     const web = (zai as unknown as { web?: { search?: { create: (a: { query: string; count: number }) => Promise<unknown> } } }).web;
     if (!web?.search?.create) return [];
     const all: { title?: string; snippet?: string; content?: string; url?: string; link?: string }[] = [];
-    for (const q of [`${query} price`, `${query} specs price`, `${query} buy price`, `${query} motorcycle car`]) {
+    for (const q of [`"${query}" price`, `"${query}" specifications`, `"${query}" review`, `"${query}" official`]) {
       try {
         const r = await web.search.create({ query: q, count: 5 }) as { results?: { title?: string; snippet?: string; content?: string; url?: string; link?: string }[] };
         all.push(...(r?.results ?? []));
@@ -119,11 +119,20 @@ async function searchWeb(query: string): Promise<{ snippet: string; url: string 
       if (all.length >= 5) break;
     }
     return all.map((x) => ({
-      snippet: String(x.snippet ?? x.content ?? x.title ?? '').slice(0, 600),
+      snippet: (x.title ? `[${x.title}] ` : '') + String(x.snippet ?? x.content ?? '').slice(0, 800),
       url: String(x.url ?? x.link ?? ''),
     })).filter((x) => x.snippet);
   } catch (e) { console.error('[lookup] z-ai web failed:', e); return []; }
 }
+
+// v13.67 - trich gia $/USD trong snippet web de verify gia LLM.
+function extractSnippetPrices(text: string): number[] {
+  const out: number[] = [];
+  const res = [...text.matchAll(/\$\s*([\d,]+(?:\.\d+)?)/g), ...text.matchAll(/([\d,]+)\s*(?:USD|dollars?)/gi)];
+  for (const m of res) { const n = Number(String(m[1]).replace(/,/g, '')); if (Number.isFinite(n) && n > 0 && n < 1e9) out.push(n); }
+  return out.sort((a, b) => a - b);
+}
+function medianNum(a: number[]): number | null { if (!a.length) return null; return a[Math.floor(a.length / 2)]; }
 
 async function callLlama(prompt: string): Promise<string | null> {
   const ctrl = new AbortController();
@@ -161,6 +170,11 @@ function pickCat(query: string, llmCat: string): string {
   if (/(house|villa|penthouse|nha|biet thu)/.test(q)) return 'Property';
   if (/(necklace|ring|diamond|nhan|kim cuong)/.test(q)) return 'Jewelry';
   if (/(painting|tranh|art)/.test(q)) return 'Art';
+  if (/(sport ?bike|motorcycle|moto|xe may|rc ?390|ninja|panigale)/.test(q)) return 'Sport bike';
+  if (/(classic car|vintage car|xe co)/.test(q)) return 'Classic car';
+  if (/(headphone|speaker|loa|tai nghe|audio|am thanh)/.test(q)) return 'Audio';
+  if (/(camera|may anh|ong kinh|lens)/.test(q)) return 'Camera';
+  if (/(suit|vest|bo vest|tuxedo)/.test(q)) return 'Suit';
   if (CATEGORIES.includes(llmCat as typeof CATEGORIES[number])) return llmCat;
   return 'Collectibles';
 }
@@ -177,9 +191,9 @@ export async function POST(req: Request) {
   const prompt = [
     `Nguoi dung hoi ve vat pham that: "${query}".`,
     `Ket qua web search (uu tien dung thong tin trong nay):`,
-    `Neu web search rong, dung kien thuc that cua ban ve vat pham nay (vd: RC 390 = KTM RC 390 xe may, M3 = BMW M3 xe hoi). Gia la gia ban le that uoc tinh, KHONG de null neu ban biet khoang gia.`,
+    `Neu web search rong, chi dung kien thuc de xac dinh brand/name/cat/specs/story - RIENG GIA thi price=null, TUYET DOI khong doan gia.`, 
     context,
-    `Tra ve JSON duy nhat: {"brand": string, "name": string, "cat": string (1 trong 16: Sport bike, Phone, Watch, Jewelry, Suit, Car, Property, Yacht, Private jet, Art, Collectibles, Sneakers, Handbag, Audio, Camera, Classic car), "price": number|null (gia ban le that USD, lay tu snippet; neu snippet khong co gia thi null, TUYET DOI khong doan), "rarity": "common|uncommon|rare|legendary|mythic" (dua tren do hiem that), "specs": [string] (3-5 thong so ky thuat chinh that, vd: chat lieu, kich thuoc, dong co, cong suat, nam ra mat), "story": string (1-2 cau mo ta that, tieng Viet, toi da 220 ky tu), "lux": number (0-12000, dua tren do xa xi), "rate": number (-0.4..0.1, tang/giam gia hang nam uoc tinh), "art": string (1 trong: i-bike,i-phone,i-watch,i-ring,i-suit,i-lambo,i-house,i-yacht,i-jet,i-art,i-coin,i-shoe,i-handbag,i-sound,i-cam), "c": string (hex mau chu dao, vd "#1d4ed8")}`,
+    `Tra ve JSON duy nhat: {"brand": string, "name": string, "cat": string (1 trong 16), "price": number|null (CHI lay gia USD co trong snippet ben tren, copy dung so; neu khong snippet nao co gia thi null, TUYET DOI khong doan), "priceEvidence": string (trich NGUYEN VAN 1 snippet chua gia do, neu khong co gia thi ""), "rarity": "common|uncommon|rare|legendary|mythic", "specs": [string], "story": string (1-2 cau, tieng Viet, toi da 220 ky tu), "lux": number (0-12000), "rate": number (-0.4..0.1), "art": string, "c": string}`, 
     `Neu khong chac brand/name thi giu nguyen query. price=null neu khong thay gia.`,
   ].join('\n');
   const raw = await callLlama(prompt);
@@ -187,7 +201,15 @@ export async function POST(req: Request) {
   let parsed: Partial<LookupOut> = {};
   try { parsed = m ? JSON.parse(m[0]) as Partial<LookupOut> : {}; } catch { parsed = {}; }
 
-  const price = typeof parsed.price === 'number' && Number.isFinite(parsed.price) && parsed.price > 0 ? Math.round(parsed.price) : null;
+  // v13.67 - verify gia: chi tin gia LLM neu snippet web that su co gia gan do.
+  const snippetPrices = extractSnippetPrices(web.map((w) => w.snippet).join('\n'));
+  const snippetMedian = medianNum(snippetPrices);
+  let price = typeof parsed.price === 'number' && Number.isFinite(parsed.price) && parsed.price > 0 ? Math.round(parsed.price) : null;
+  let priceEvidence = typeof (parsed as { priceEvidence?: unknown }).priceEvidence === 'string' ? String((parsed as { priceEvidence?: string }).priceEvidence).slice(0, 300) : '';
+  if (price != null) {
+    if (snippetPrices.length === 0) { price = null; priceEvidence = ''; }
+    else if (snippetMedian != null && (price < snippetMedian / 3 || price > snippetMedian * 3)) { price = snippetMedian; priceEvidence = ''; }
+  }
   const out: LookupOut = {
     name: (typeof parsed.name === 'string' && parsed.name.trim() ? parsed.name.trim() : query).slice(0, 80),
     brand: (typeof parsed.brand === 'string' ? parsed.brand.trim() : '').slice(0, 30) || query.split(' ')[0],
@@ -207,7 +229,9 @@ export async function POST(req: Request) {
     c: typeof parsed.c === 'string' && /^#[0-9a-fA-F]{3,8}$/.test(parsed.c.trim()) ? parsed.c.trim() : '#888888',
     images,
     sources: web.map((w) => w.url).filter(Boolean).slice(0, 5),
-    priceSource: price != null ? (web.length ? 'web' : 'llm') : 'none',
+    priceSource: price != null ? 'web' : 'none', // v13.67 - khong con 'llm'
+    priceEvidence,
+    confidence: web.length ? (price != null ? 'high' : 'medium') : 'low',
   };
   return NextResponse.json({ ok: true, item: out, imagesFound: images.length, webFound: web.length });
 }

@@ -245,4 +245,14 @@ export const CHANGELOG: Record<string, ChangelogEntry> = {
       'Bật/tắt từng việc, lương trừ ngày 1, sa thải bất cứ lúc nào',
     ],
   },
+  'v13.67': {
+    headline: 'HuyenBao v13.67 - Lookup tra cuu item chinh xac hon',
+    summary: 'v13.67: Lookup het bia gia - gia chi chap nhan khi co trong snippet web, lech qua xa thi lay median snippet. Query search chinh xac hon, phan loai du 16 loai, anh khong con lac sang item khac.',
+    features: [
+      'Lookup: gia phai co trong snippet web, khong doan gia',
+      'Lookup: query ten item + specs/review/official chinh xac hon',
+      'Lookup: phan loai du Sport bike / Audio / Camera / Classic car / Suit',
+      'Lookup: anh chi tim dung ten item, khong them car/bag gay nham',
+    ],
+  },
 };
