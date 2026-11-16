@@ -101,7 +101,7 @@ export function PinZone({ s, t, onEdit, act, onNav, expanded, onToggleExpand, to
           <span className="mini">— tổng {fmt(billsDueTotal)}{overdueBills.length > 0 ? ' (đã gồm tiền phạt)' : ''} · bấm để trả →</span>
             </button>
             <button type="button" onClick={(e) => { e.stopPropagation(); const first = overdueBills[0] || unpaidBills[0]; if (!first) return; act((st) => { const ok = payBill(st, first.id); return ok ? null : _t('pin.bills.insufficient'); }); }} disabled={s.money < billTotalDue(overdueBills[0] || unpaidBills[0])} style={{ flex: 'none', background: s.money < billTotalDue(overdueBills[0] || unpaidBills[0]) ? 'var(--mute)' : 'var(--up)', color: '#fff', fontWeight: 800, padding: '10px 14px', borderRadius: 8, cursor: s.money < billTotalDue(overdueBills[0] || unpaidBills[0]) ? 'not-allowed' : 'pointer', border: 'none', whiteSpace: 'nowrap', alignSelf: 'center' }}>
-              🧾 Trả ngay {fmt(billTotalDue(overdueBills[0] || unpaidBills[0]))}
+              {_t('pin.bills.payNow', '', { total: fmt(billTotalDue(overdueBills[0] || unpaidBills[0])) })}
             </button>
           </div>
         )}

@@ -29,7 +29,7 @@ export function Intro({ onBegin }: { onBegin: (o: { name: string; byear: number;
   const onContinue = () => {
     const id = userId.trim();
     if (!id) { setContinueMsg(t('intro.continue.enterId')); return; }
-    if (!hasSaveFor(id)) { setContinueMsg(`Không tìm thấy game cho ID "${id}". Tạo mới với ID này ở dưới nhé.`); return; }
+    if (!hasSaveFor(id)) { setContinueMsg(t('intro.continue.notFound', '', { id })); return; }
     setActiveUserId(id);
     window.location.reload();
   };

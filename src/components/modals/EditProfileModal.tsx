@@ -83,7 +83,7 @@ export function EditProfileModal({ s, act, onClose }: { s: GameState; act: Act; 
               <button type="button" className="ibtn" onClick={onSwitch}>{t('profile.switch.btn')}</button>
             </div>
             {switchMsg && <p className="mini" style={{ margin: '6px 0 0' }}>{switchMsg}</p>}
-            <p className="mini" style={{ margin: '6px 0 0', opacity: .8 }}>Game ID hiện tại: {getActiveUserId() || '(save cũ, chưa có ID)'}. Nhập ID khác là load nhân vật đó, ID cũ vẫn còn nguyên.</p>
+            <p className="mini" style={{ margin: '6px 0 0', opacity: .8 }}>{t('profile.switch.current', '', { id: getActiveUserId() || '(save cũ, chưa có ID)' })}</p>
           </div>
         </div>
         <div className="modal-foot">
