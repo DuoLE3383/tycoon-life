@@ -282,4 +282,13 @@ export const CHANGELOG: Record<string, ChangelogEntry> = {
       'Lookup: sua regex Bing bat ca truong hop t truoc murl',
     ],
   },
+  'v13.71': {
+    headline: 'HuyenBao v13.71 - Lookup anh siet title >=2 token + cam sai bien the',
+    summary: 'v13.71: Anh chi nhan khi title khop >=2 token, query Gullwing ma title Roadster/Convertible thi loai.',
+    features: [
+      'Lookup: title anh phai khop >=2 token moi nhan',
+      'Lookup: cam sai bien the Gullwing vs Roadster/Convertible',
+      'Lookup: ap dung siet title cho ca Bing va Openverse',
+    ],
+  },
 };

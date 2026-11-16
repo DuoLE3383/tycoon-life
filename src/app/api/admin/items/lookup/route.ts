@@ -52,6 +52,22 @@ async function searchBingImages(query: string): Promise<string[]> {
   }
   return [];
 }
+// v13.71 - Title phai khop >=2 token (vd: '300SL Gullwing' thi '300SL Roadster' chi khop 1 -> loai).
+// + Cam sai bien the: query Gullwing ma title Roadster/Convertible -> loai, query Coupe ma title Convertible -> loai.
+function titleMatches(query: string, title: string): boolean {
+  const toks = bingTokens(query);
+  const low = title.toLowerCase();
+  if (!toks.length) return true;
+  const hits = toks.filter((tk) => low.includes(tk)).length;
+  if (toks.length <= 1) return hits >= 1;
+  if (hits < 2) return false;
+  const q = query.toLowerCase();
+  if (q.includes('gullwing') && /(roadster|convertible|cabriolet|spider|speedster)/.test(low)) return false;
+  if (q.includes('coupe') && /(convertible|roadster|cabriolet|spider)/.test(low)) return false;
+  if (q.includes('convertible') && /(coupe|gullwing)/.test(low)) return false;
+  return true;
+}
+
 function bingTokens(query: string): string[] {
   return query.toLowerCase().replace(/[^a-z0-9 ]/g, ' ').split(' ').filter((w) => w.length >= 2);
 }
@@ -70,13 +86,13 @@ async function searchBingOne(query: string): Promise<string[]> {
     let m: RegExpExecArray | null;
     while ((m = re1.exec(html)) && out.length < 5) {
       const title = m[1].replace(/\u0026/g, '&').toLowerCase();
-      if (toks.length && !toks.some((tk) => title.includes(tk))) continue;
+      if (!titleMatches(query, title)) continue;
       const c = cleanUrl(m[2].replace(/\u0026/g, '&'));
       if (c && !seen.has(c)) { seen.add(c); out.push(c); }
     }
     while ((m = re2.exec(html)) && out.length < 5) {
       const title = m[2].replace(/\u0026/g, '&').toLowerCase();
-      if (toks.length && !toks.some((tk) => title.includes(tk))) continue;
+      if (!titleMatches(query, title)) continue;
       const c = cleanUrl(m[1].replace(/\u0026/g, '&'));
       if (c && !seen.has(c)) { seen.add(c); out.push(c); }
     }
@@ -88,10 +104,9 @@ async function searchOpenverse(query: string): Promise<string[]> {
     const r = await fetch(`https://api.openverse.org/v1/images/?q=${encodeURIComponent(query)}&page_size=5`, { signal: AbortSignal.timeout(8000) });
     if (!r.ok) return [];
     const j = await r.json() as { results?: { url?: string }[] };
-    const toks = bingTokens(query);
     return (j.results ?? []).filter((x) => {
-      const ttl = String((x as { title?: unknown }).title ?? '').toLowerCase();
-      return !ttl || !toks.length || toks.some((tk) => ttl.includes(tk));
+      const ttl = String((x as { title?: unknown }).title ?? '');
+      return !ttl || titleMatches(query, ttl);
     }).map((x) => cleanUrl(x.url)).filter((x): x is string => !!x);
   } catch (e) { console.error('[lookup] openverse failed:', e); return []; }
 }
