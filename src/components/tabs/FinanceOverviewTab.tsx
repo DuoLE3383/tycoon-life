@@ -28,6 +28,7 @@ import { type Act } from '@/components/shared';
 //                              player's current factor breakdown so they know
 //                              which lever to pull next.
 // The original cash-flow + tables + action-suggestions are kept below these.
+const fmtColor = (v: number) => ({ color: v < 0 ? "var(--down)" : v > 0 ? "var(--up)" : "inherit" });
 export function FinanceOverviewTab({ s, act, onNav }: { s: GameState; act: Act; onNav: (k: string) => void }) {
   const { t } = useT();
   const yi = yearIncome(s);
@@ -319,11 +320,11 @@ export function FinanceOverviewTab({ s, act, onNav }: { s: GameState; act: Act; 
                   <div>
                     <div style={{ fontSize: '.9rem', fontWeight: 700 }}>{b.label}{b.kind === 'tax' ? ' · Thuế' : ''}</div>
                     <div className="mini" style={{ opacity: .7 }}>
-                      {overdue ? `Quá hạn ${Math.abs(daysLeft)} ngày · Phạt ${fmtFull(b.penalty)}` : `Còn ${daysLeft} ngày · Hạn ngày ${b.dueDay}`}
+                      {overdue ? `Quá hạn ${Math.abs(daysLeft).toFixed(2)} ngày · Phạt ${fmtFull(b.penalty)}` : `Còn ${daysLeft.toFixed(2)} ngày · Hạn ngày ${b.dueDay.toFixed(2)}`}
                       {' · '}Gốc {fmtFull(b.amount)}
                     </div>
                   </div>
-                  <button className="btn" disabled={s.money < due} onClick={() => act((st) => { const ok = payBill(st, b.id); return ok ? null : 'Không đủ tiền để trả hóa đơn này.'; })}>
+                  <button className="btn" style={{ background: s.money < due ? "var(--mute)" : "var(--up)", color: "#fff", fontWeight: 800, padding: "10px 16px", borderRadius: 10, cursor: s.money < due ? "not-allowed" : "pointer", border: "none" }} disabled={s.money < due} onClick={() => act((st) => { const ok = payBill(st, b.id); return ok ? null : 'Không đủ tiền để trả hóa đơn này.'; })}>
                     Trả {fmtFull(due)}
                   </button>
                 </div>
