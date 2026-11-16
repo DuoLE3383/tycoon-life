@@ -83,6 +83,9 @@ async function searchImages(query: string): Promise<string[]> {
     for (const q of tries) {
       const r = await zai.images.search.create({ query: q, count: 6 });
       for (const it of (r?.results ?? [])) {
+        const ttl = String((it as { title?: unknown }).title ?? (it as { alt?: unknown }).alt ?? '').toLowerCase();
+        const toks = query.toLowerCase().replace(/[^a-z0-9 ]/g, ' ').split(' ').filter((w) => w.length >= 3);
+        if (ttl && toks.length && !toks.some((tk) => ttl.includes(tk))) continue; // co title ma khong lien quan -> bo
         const u = cleanUrl((it as { original_url?: unknown }).original_url)
           || cleanUrl((it as { url?: unknown }).url);
         if (u && !out.includes(u)) out.push(u);
@@ -93,15 +96,7 @@ async function searchImages(query: string): Promise<string[]> {
   // Khong API: Bing -> Openverse -> Wikimedia
   if (out.length === 0) { for (const u of await searchBingImages(query)) if (!out.includes(u)) out.push(u); }
   if (out.length === 0) { for (const u of await searchOpenverse(query)) if (!out.includes(u)) out.push(u); }
-  // Fallback: Wikimedia Commons (khong can key, anh that) khi z-ai rong / 0 anh
-  if (out.length === 0) {
-    try {
-      const r = await fetch(`https://commons.wikimedia.org/w/api.php?action=query&format=json&generator=search&gsrsearch=${encodeURIComponent(query)}&gsrnamespace=6&gsrlimit=6&prop=imageinfo&iiprop=url&iiurlwidth=800&origin=*`, { signal: AbortSignal.timeout(8000) });
-      const j = await r.json() as { query?: { pages?: Record<string, { imageinfo?: { thumburl?: string; url?: string }[] }> } };
-      const pages = Object.values(j.query?.pages ?? {});
-      for (const pg of pages) { const u = pg.imageinfo?.[0]?.thumburl || pg.imageinfo?.[0]?.url; if (u && !out.includes(u)) out.push(u); }
-    } catch (e) { console.error('[lookup] wikimedia images failed:', e); }
-  }
+  // v13.68 - BO fallback Wikimedia: no tra anh theo mo ta file (vd: rung) chu khong theo ten item -> anh lac.
   return out.slice(0, 1); // Quy uoc: chi 1 anh duy nhat
 }
 
@@ -133,6 +128,16 @@ function extractSnippetPrices(text: string): number[] {
   return out.sort((a, b) => a - b);
 }
 function medianNum(a: number[]): number | null { if (!a.length) return null; return a[Math.floor(a.length / 2)]; }
+
+// v13.68 - specs chi giu khi co tu khoa xuat hien trong snippet web.
+function filterSpecs(specs: string[], snippetText: string): string[] {
+  const low = snippetText.toLowerCase();
+  return specs.filter((sp) => {
+    const words = sp.toLowerCase().replace(/[^a-z0-9 ]/g, ' ').split(' ').filter((w) => w.length >= 4);
+    if (!words.length) return false;
+    return words.some((w) => low.includes(w));
+  });
+}
 
 async function callLlama(prompt: string): Promise<string | null> {
   const ctrl = new AbortController();
@@ -191,7 +196,8 @@ export async function POST(req: Request) {
   const prompt = [
     `Nguoi dung hoi ve vat pham that: "${query}".`,
     `Ket qua web search (uu tien dung thong tin trong nay):`,
-    `Neu web search rong, chi dung kien thuc de xac dinh brand/name/cat/specs/story - RIENG GIA thi price=null, TUYET DOI khong doan gia.`, 
+    `Specs: CHI lay tu snippet ben tren, copy dung tu ngu trong snippet. Neu snippet khong co thong so nao thi specs=[]. TUYET DOI khong tu nghi ra thong so (vd: khong doan kieu dong co, kieu may).`,
+      `Neu web search rong, chi dung kien thuc de xac dinh brand/name/cat/story - RIENG GIA thi price=null, TUYET DOI khong doan gia.`, 
     context,
     `Tra ve JSON duy nhat: {"brand": string, "name": string, "cat": string (1 trong 16), "price": number|null (CHI lay gia USD co trong snippet ben tren, copy dung so; neu khong snippet nao co gia thi null, TUYET DOI khong doan), "priceEvidence": string (trich NGUYEN VAN 1 snippet chua gia do, neu khong co gia thi ""), "rarity": "common|uncommon|rare|legendary|mythic", "specs": [string], "story": string (1-2 cau, tieng Viet, toi da 220 ky tu), "lux": number (0-12000), "rate": number (-0.4..0.1), "art": string, "c": string}`, 
     `Neu khong chac brand/name thi giu nguyen query. price=null neu khong thay gia.`,
@@ -221,7 +227,7 @@ export async function POST(req: Request) {
       if (price != null) { if (price >= 20000 && (r === 'common' || r === 'uncommon')) return 'legendary'; if (price >= 5000 && r === 'common') return 'rare'; }
       return r;
     })(),
-    specs: (Array.isArray(parsed.specs) ? parsed.specs.filter((x) => typeof x === 'string' && x.trim()).map((x) => String(x).trim().slice(0, 80)).slice(0, 5) : []),
+    specs: filterSpecs(Array.isArray(parsed.specs) ? parsed.specs.filter((x) => typeof x === 'string' && x.trim()).map((x) => String(x).trim().slice(0, 80)).slice(0, 5) : [], web.map((w) => w.snippet).join('\n')),
     story: (typeof parsed.story === 'string' && parsed.story.trim() ? parsed.story.trim() : `Vat pham that: ${query}. Admin kiem tra lai gia/mo ta truoc khi tao.`).slice(0, 280),
     lux: typeof parsed.lux === 'number' && Number.isFinite(parsed.lux) ? Math.max(0, Math.min(12000, Math.round(parsed.lux))) : 100,
     rate: typeof parsed.rate === 'number' && Number.isFinite(parsed.rate) ? Math.max(-0.4, Math.min(0.1, parsed.rate)) : 0,

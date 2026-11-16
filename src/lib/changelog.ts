@@ -255,4 +255,13 @@ export const CHANGELOG: Record<string, ChangelogEntry> = {
       'Lookup: anh chi tim dung ten item, khong them car/bag gay nham',
     ],
   },
+  'v13.68': {
+    headline: 'HuyenBao v13.68 - Lookup het bia specs + het anh lac',
+    summary: 'v13.68: Specs chi giu khi co tu khoa trong snippet web, bo fallback anh Wikimedia, anh co title lac bi bo.',
+    features: [
+      'Lookup: specs phai co trong snippet web, khong tu bia thong so',
+      'Lookup: bo fallback anh Wikimedia gay anh rung / mui tran',
+      'Lookup: anh co title khong lien quan ten item thi bo',
+    ],
+  },
 };
