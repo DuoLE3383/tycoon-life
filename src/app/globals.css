@@ -1565,3 +1565,9 @@ body:has(.tgame .modal-overlay){overflow:hidden}
 .tgame .pinzone-v55 .pin-important:empty{display:none !important}
 .tgame .pinzone-v55 .pin-warn{padding:5px 9px; border-radius:8px; font-size:.8rem; font-weight:700; background:rgba(192,57,43,.14); border:1px solid rgba(192,57,43,.5); color:var(--down)}
 .tgame .pinzone-v55 .pin-warn.warn{border-color:rgba(212,165,90,.6); background:rgba(212,165,90,.14); color:var(--accent)}
+
+/* v13.56 - Tab bar: cuon ngang, khong tran 2 ben, nut Tao khong bi day */
+.tgame .tab-bar, .tgame .tabs, .tgame .sub-tabs{display:flex !important; flex-wrap:nowrap !important; overflow-x:auto !important; overflow-y:hidden !important; gap:6px !important; padding-bottom:4px !important; scrollbar-width:none !important; -webkit-overflow-scrolling:touch}
+.tgame .tab-bar::-webkit-scrollbar, .tgame .tabs::-webkit-scrollbar, .tgame .sub-tabs::-webkit-scrollbar{display:none !important}
+.tgame .tab-bar > *, .tgame .tabs > *, .tgame .sub-tabs > *{flex-shrink:0 !important; white-space:nowrap !important}
+.tgame .tab-bar .btn-create, .tgame .tabs .btn-create{margin-left:auto !important; flex-shrink:0}
