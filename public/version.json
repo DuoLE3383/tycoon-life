@@ -1,11 +1,11 @@
 {
-  "version": "v13.68",
+  "version": "v13.69",
   "releasedAt": "2026-11-16",
-  "headline": "HuyenBao v13.68 - Lookup het bia specs + het anh lac",
-  "summary": "v13.68: Specs chi giu khi co tu khoa trong snippet web, bo fallback anh Wikimedia, anh co title lac bi bo.",
+  "headline": "HuyenBao v13.69 - Lookup anh lay tu Bing co verify title",
+  "summary": "v13.69: Anh lay tu Bing truoc (verify title chua ten item), bo thu handbag/bag, z-ai xuong cuoi vi khong co title.",
   "features": [
-    "Lookup: specs phai co trong snippet web, khong tu bia thong so",
-    "Lookup: bo fallback anh Wikimedia gay anh rung / mui tran",
-    "Lookup: anh co title khong lien quan ten item thi bo"
+    "Lookup: anh Bing verify bang title, khong nhan anh lac",
+    "Lookup: bo thu handbag/bag gay lac khi tim xe",
+    "Lookup: z-ai xuong cuoi vi khong tra title de verify"
   ]
 }

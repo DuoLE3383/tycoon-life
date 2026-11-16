@@ -264,4 +264,13 @@ export const CHANGELOG: Record<string, ChangelogEntry> = {
       'Lookup: anh co title khong lien quan ten item thi bo',
     ],
   },
+  'v13.69': {
+    headline: 'HuyenBao v13.69 - Lookup anh lay tu Bing co verify title',
+    summary: 'v13.69: Anh lay tu Bing truoc (verify title chua ten item), bo thu handbag/bag, z-ai xuong cuoi vi khong co title.',
+    features: [
+      'Lookup: anh Bing verify bang title, khong nhan anh lac',
+      'Lookup: bo thu handbag/bag gay lac khi tim xe',
+      'Lookup: z-ai xuong cuoi vi khong tra title de verify',
+    ],
+  },
 };

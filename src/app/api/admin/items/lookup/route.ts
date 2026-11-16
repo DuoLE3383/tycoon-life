@@ -44,23 +44,30 @@ function cleanUrl(u: unknown): string | null {
 }
 
 async function searchBingImages(query: string): Promise<string[]> {
-  // Thu query goc + query + ' handbag/bag' — tranh Tabby -> buom, Birkin -> trang
-  const tries = [query, query + ' handbag', query + ' bag', query + ' product'];
+  // v13.69 - Bing la nguon chinh (title verify duoc), BO handbag/bag: no lam lac sang tui khi tim xe
+  const tries = [query, `"${query}"`, query + ' product photo'];
   for (const q of tries) {
     const r = await searchBingOne(q);
     if (r.length) return r;
   }
   return [];
 }
+function bingTokens(query: string): string[] {
+  return query.toLowerCase().replace(/[^a-z0-9 ]/g, ' ').split(' ').filter((w) => w.length >= 2);
+}
 async function searchBingOne(query: string): Promise<string[]> {
   try {
     const r = await fetch(`https://www.bing.com/images/search?q=${encodeURIComponent(query)}&form=HDRSC2`, { headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120 Safari/537.36' }, signal: AbortSignal.timeout(8000) });
     if (!r.ok) { console.error('[lookup] bing images HTTP', r.status); return []; }
     const html = await r.text();
+    const toks = bingTokens(query);
     const out: string[] = [];
-    const re = /"murl":"(https:[^"]+)"/g;
+    // Bing tra tung item dang {"murl":"...","t":"title ..."} - lay ca 2 de verify title chua ten item
+    const re = /"murl":"(https:[^"]+)"[\s\S]{0,1500}?"t":"([^"]{3,200})"/g;
     let m: RegExpExecArray | null;
     while ((m = re.exec(html)) && out.length < 5) {
+      const title = m[2].replace(/\\u0026/g, '&').toLowerCase();
+      if (toks.length && !toks.some((tk) => title.includes(tk))) continue; // title khong chua ten item -> anh lac
       const c = cleanUrl(m[1].replace(/\\u0026/g, '&'));
       if (c && !out.includes(c)) out.push(c);
     }
@@ -72,11 +79,19 @@ async function searchOpenverse(query: string): Promise<string[]> {
     const r = await fetch(`https://api.openverse.org/v1/images/?q=${encodeURIComponent(query)}&page_size=5`, { signal: AbortSignal.timeout(8000) });
     if (!r.ok) return [];
     const j = await r.json() as { results?: { url?: string }[] };
-    return (j.results ?? []).map((x) => cleanUrl(x.url)).filter((x): x is string => !!x);
+    const toks = bingTokens(query);
+    return (j.results ?? []).filter((x) => {
+      const ttl = String((x as { title?: unknown }).title ?? '').toLowerCase();
+      return !ttl || !toks.length || toks.some((tk) => ttl.includes(tk));
+    }).map((x) => cleanUrl(x.url)).filter((x): x is string => !!x);
   } catch (e) { console.error('[lookup] openverse failed:', e); return []; }
 }
 async function searchImages(query: string): Promise<string[]> {
   const out: string[] = [];
+  // v13.69 - Bing truoc (co title verify), z-ai sau (khong co title, khong verify duoc)
+  for (const u of await searchBingImages(query)) if (!out.includes(u)) out.push(u);
+  if (out.length === 0) { for (const u of await searchOpenverse(query)) if (!out.includes(u)) out.push(u); }
+  if (out.length > 0) return out.slice(0, 1);
   try {
     const zai = await getZai();
     const tries = [query, `"${query}"`, query + ' product photo']; // v13.67 - khong them car/motorcycle/bag: de anh lac sang item khac
@@ -93,9 +108,7 @@ async function searchImages(query: string): Promise<string[]> {
       if (out.length >= 3) break;
     }
   } catch (e) { console.error('[lookup] z-ai images failed:', e); }
-  // Khong API: Bing -> Openverse -> Wikimedia
-  if (out.length === 0) { for (const u of await searchBingImages(query)) if (!out.includes(u)) out.push(u); }
-  if (out.length === 0) { for (const u of await searchOpenverse(query)) if (!out.includes(u)) out.push(u); }
+  // v13.69 - Bing/Openverse da chay o tren, chi con z-ai o day
   // v13.68 - BO fallback Wikimedia: no tra anh theo mo ta file (vd: rung) chu khong theo ten item -> anh lac.
   return out.slice(0, 1); // Quy uoc: chi 1 anh duy nhat
 }
