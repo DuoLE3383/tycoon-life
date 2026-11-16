@@ -1,6 +1,6 @@
 'use client';
 
-import { assetVal, eraOf, bizIncome, bizVal, END_AGE, fmt, type GameState, healthState, Ic, jobIncome, jobsOf, living, netWorth, RETIRE, sleepHealthMult, sleepHealthRecovery, sleepHoursOptions, socialIncome, spaceIncome, stageOf, STAGES, START, stockVal, studyPace, studyTuition, upkeep, usedItemValue, useT, xpNeed, yearIncome } from '@/components/gameDeps';
+import { assetVal, billTotalDue, payBill, eraOf, bizIncome, bizVal, END_AGE, fmt, type GameState, healthState, Ic, jobIncome, jobsOf, living, netWorth, RETIRE, sleepHealthMult, sleepHealthRecovery, sleepHoursOptions, socialIncome, spaceIncome, stageOf, STAGES, START, stockVal, studyPace, studyTuition, upkeep, usedItemValue, useT, xpNeed, yearIncome } from '@/components/gameDeps';
 import { type Act, Btn, Row, type TFn, useEscapeKey, useReqLabel } from '@/components/shared';
 import { BarChart, DonutChart } from '@/components/charts';
 import { GigsPopup } from '@/components/modals/GigsPopup';
@@ -15,7 +15,7 @@ import { ALLNEWS, worldYear } from '@/components/gameDeps';
 // numbers that matter stay visible on every tab while the player scrolls.
 // Warnings only render when something actually needs attention — no permanent
 // "all good" banner eating vertical space.
-export function PinZone({ s, t, onEdit, act, onNav, expanded, onToggleExpand }: { s: GameState; t: TFn; onEdit: () => void; act: Act; onNav: (k: string) => void; expanded: boolean; onToggleExpand: () => void }) {
+export function PinZone({ s, t, onEdit, act, onNav, expanded, onToggleExpand, toast }: { s: GameState; t: TFn; onEdit: () => void; act: Act; onNav: (k: string) => void; expanded: boolean; onToggleExpand: () => void; toast?: { id: number; msg: string } | null }) {
   const { t: _t } = useT();
   const a = s.age, st = stageOf(a), pct = (a - START) / (END_AGE - START) * 100;
   const p = (x: number) => ((x - START) / (END_AGE - START) * 100).toFixed(2) + '%';
@@ -94,12 +94,18 @@ export function PinZone({ s, t, onEdit, act, onNav, expanded, onToggleExpand }: 
           Each warning is a clickable chip → relevant tab. Critical = red,
           warn = orange, info = muted. */}
       {unpaidBills.length > 0 && (
-        <button type="button" aria-live="polite" onClick={(e) => { e.stopPropagation(); onNav('finance-overview'); }} style={{ display: 'block', width: '100%', textAlign: 'left', cursor: 'pointer', marginBottom: 8, padding: '8px 12px', borderRadius: 8, background: overdueBills.length > 0 ? 'rgba(192,57,43,.12)' : 'rgba(212,165,90,.14)', border: `1px solid ${overdueBills.length > 0 ? 'rgba(192,57,43,.5)' : 'rgba(212,165,90,.5)'}`, color: 'inherit', font: 'inherit', position: 'relative', zIndex: 5, pointerEvents: 'auto' }}>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'stretch', marginBottom: 8 }}>
+            <button type="button" aria-live="polite" onClick={(e) => { e.stopPropagation(); onNav('finance-overview'); }} style={{ display: 'block', flex: 1, textAlign: 'left', cursor: 'pointer', padding: '8px 12px', borderRadius: 8, background: overdueBills.length > 0 ? 'rgba(192,57,43,.12)' : 'rgba(212,165,90,.14)', border: `1px solid ${overdueBills.length > 0 ? 'rgba(192,57,43,.5)' : 'rgba(212,165,90,.5)'}`, color: 'inherit', font: 'inherit', position: 'relative', zIndex: 5, pointerEvents: 'auto' }}>
           <span>{overdueBills.length > 0 ? '🔴' : '🟠'}</span>{' '}
           <b>{overdueBills.length > 0 ? `Có ${overdueBills.length} hóa đơn quá hạn!` : `Có ${unpaidBills.length} hóa đơn cần thanh toán`}</b>{' '}
           <span className="mini">— tổng {fmt(billsDueTotal)}{overdueBills.length > 0 ? ' (đã gồm tiền phạt)' : ''} · bấm để trả →</span>
-        </button>
-      )}
+            </button>
+            <button type="button" onClick={(e) => { e.stopPropagation(); const first = overdueBills[0] || unpaidBills[0]; if (!first) return; act((st) => { const ok = payBill(st, first.id); return ok ? null : 'Không đủ tiền để trả hóa đơn này.'; }); }} disabled={s.money < billTotalDue(overdueBills[0] || unpaidBills[0])} style={{ flex: 'none', background: s.money < billTotalDue(overdueBills[0] || unpaidBills[0]) ? 'var(--mute)' : 'var(--up)', color: '#fff', fontWeight: 800, padding: '10px 14px', borderRadius: 8, cursor: s.money < billTotalDue(overdueBills[0] || unpaidBills[0]) ? 'not-allowed' : 'pointer', border: 'none', whiteSpace: 'nowrap', alignSelf: 'center' }}>
+              🧾 Trả ngay {fmt(billTotalDue(overdueBills[0] || unpaidBills[0]))}
+            </button>
+          </div>
+        )}
+      
       {warns.length > 0 && (
         <div className="pinzone-warns pin-important" role="status" aria-live="polite">
           {warns.map(w => (
@@ -148,6 +154,8 @@ export function PinZone({ s, t, onEdit, act, onNav, expanded, onToggleExpand }: 
           {(nw > 0 || yi !== 0) && <span className="pchip pchip-big nw-chip" data-tip={t('netWorth')}><Ic id="t-bank" className="bsi" />{fmt(nw)}</span>}
           {yi !== 0 && <span className={'pchip pchip-big income-chip ' + (yi >= 0 ? 'up' : 'down')} data-tip={t('inc.total', 'Income/yr')}>{yi >= 0 ? '+' : ''}{fmt(yi)}{t('perYear')}</span>}
           {s.bank.dep > 0 && <span className="pchip pchip-big" data-tip={t('bank')}>🏦 {fmt(s.bank.dep)}</span>}
+          {/* v13.65 — ticker thong bao: o trong ben phai hang chip tien, chu chay 10s/thong bao, het thi lay cai tiep theo trong hang cho cua useGameController */}
+          <span className="pin-ticker" aria-live="polite">{toast ? <span key={toast.id} className="pin-ticker-text">{toast.msg}</span> : <span className="pin-ticker-empty"> </span>}</span>
       </div>
 
       {/* v13.34 - Actions: hang rieng full-width, khong nhet vao cot giua */}

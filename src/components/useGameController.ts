@@ -251,7 +251,7 @@ export function useGameController() {
     // v11.50 — increased duration: 4.5s min, 12s max (was 3.5s/8s). Per-char
     // weight dropped slightly so short toasts still feel snappy but milestone
     // + AI-event toasts get enough screen time to actually be read.
-    const dur = Math.min(12000, Math.max(4500, msg.length * 50));
+    const dur = 10000; // v13.65 — ticker 10s/thong bao
     if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
     toastTimerRef.current = setTimeout(() => {
       setToast(null);
@@ -270,7 +270,7 @@ export function useGameController() {
     toastShowingRef.current = true;
     setToast(next);
     // v11.50 — match the new 4.5-12s duration above.
-    const dur = Math.min(12000, Math.max(4500, next.msg.length * 50));
+    const dur = 10000; // v13.65 — ticker 10s/thong bao
     if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
     toastTimerRef.current = setTimeout(() => {
       setToast(null);

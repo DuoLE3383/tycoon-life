@@ -7,6 +7,7 @@ import {
   jobIncome, jobsOf, levelMult, lotValue, assetDepreciationYr, netWorth, spiritBizMult, stockVal, studyTuition,
   studyWorkMult, upkeep, useT, yearExpenses, yearIncome,
   payBill, billTotalDue, type Bill,
+    ASSISTANT_DEFS, assistantSalaryTotal, hireAssistant, fireAssistant, toggleAssistant, type AssistantKind,
 } from '@/components/gameDeps';
 import { type Act } from '@/components/shared';
 
@@ -219,6 +220,75 @@ export function FinanceOverviewTab({ s, act, onNav }: { s: GameState; act: Act; 
 
   return (
     <>
+              {/* v13.66 — Thuê trợ lý */}
+        <div className="card" style={{ marginBottom: 10, padding: 14, borderLeft: '3px solid var(--accent)' }}>
+          <div className="mini" style={{ textTransform: 'uppercase', letterSpacing: '.4px', color: 'var(--accent)', marginBottom: 4 }}>🤝 Thuê trợ lý</div>
+          <div className="mini" style={{ opacity: .75, marginBottom: 10 }}>Trợ lý tự trả hoá đơn đúng hạn (tránh phạt +2%/tháng), kế toán tự nộp thuế năm, giám đốc còn +mood chi nhánh mỗi tháng. Lương trừ ngày 1 hàng tháng. {assistantSalaryTotal(s) > 0 ? `Đang trả lương: ${fmtFull(assistantSalaryTotal(s))}/tháng.` : 'Chưa thuê ai.'}</div>
+          {ASSISTANT_DEFS.map((d) => {
+            const a = s.assistants?.[d.id]; const hired = !!a?.hired;
+            const tasks: { key: 'bills' | 'tax' | 'biz'; label: string; on: boolean; disabled: boolean }[] = [
+              { key: 'bills', label: '🧾 Trả hoá đơn tháng', on: !!a?.autoBills, disabled: false },
+              { key: 'tax', label: '🧮 Nộp thuế năm', on: !!a?.autoTax, disabled: d.id === 'helper' },
+              { key: 'biz', label: '💼 Tối ưu kinh doanh', on: !!a?.autoBiz, disabled: d.id !== 'director' },
+            ];
+            return (
+              <div key={d.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, padding: '10px 0', borderTop: '1px solid var(--line)', flexWrap: 'wrap' }}>
+                <div style={{ minWidth: 220, flex: 1 }}>
+                  <div style={{ fontSize: '.92rem', fontWeight: 800 }}>{d.name} {hired ? <span style={{ color: 'var(--up)' }}>· Đang làm việc</span> : ''}</div>
+                  <div className="mini" style={{ opacity: .7 }}>{d.desc}</div>
+                  <div className="mini" style={{ opacity: .7 }}>Phí tuyển {fmtFull(d.hireCost)} · Lương {fmtFull(d.salary)}/tháng{hired ? ` · Đã tự trả ${a!.paidCount} hoá đơn · Tránh phạt ${fmtFull(a!.savedPenalty)}` : ''}</div>
+                  {hired && <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 6 }}>{tasks.map((tk) => (
+                    <button key={tk.key} className="btn" disabled={tk.disabled} title={tk.disabled ? 'Cấp này chưa làm được việc này — thuê cấp cao hơn.' : ''} style={{ opacity: tk.disabled ? .45 : 1, background: tk.on ? 'var(--up)' : 'var(--mute)', color: '#fff', fontWeight: 700, padding: '6px 10px', borderRadius: 8, border: 'none', cursor: tk.disabled ? 'not-allowed' : 'pointer' }} onClick={() => act((st) => { toggleAssistant(st, d.id as AssistantKind, tk.key); return null; })}>
+                      {tk.on ? '✓ ' : '○ '}{tk.label}
+                    </button>
+                  ))}</div>}
+                </div>
+                {hired
+                  ? <button className="btn" style={{ background: 'var(--brick)', color: '#fff', fontWeight: 800, padding: '10px 16px', borderRadius: 10, border: 'none', cursor: 'pointer' }} onClick={() => act((st) => { fireAssistant(st, d.id as AssistantKind); return null; })}>Sa thải</button>
+                  : <button className="btn" style={{ background: s.money < d.hireCost ? 'var(--mute)' : 'var(--up)', color: '#fff', fontWeight: 800, padding: '10px 16px', borderRadius: 10, border: 'none', cursor: s.money < d.hireCost ? 'not-allowed' : 'pointer' }} disabled={s.money < d.hireCost} onClick={() => act((st) => { const ok = hireAssistant(st, d.id as AssistantKind); return ok ? null : 'Không đủ tiền thuê trợ lý này.'; })}>Thuê · {fmtFull(d.hireCost)}</button>}
+              </div>
+            );
+          })}
+        </div>
+{/* v13.64 — Bills len tren cung: tra ngay, khong can cuon qua chart */}
+      {/* v13.49 — Hoa don phai tra: thang + thue nam. Da tra thi an khoi danh sach (giữ trong s.bills, paid=true). */}
+      {(() => {
+        const unpaid = (s.bills || []).filter((b: Bill) => !b.paid);
+        if (unpaid.length === 0) return (
+          <div className="card" style={{ marginBottom: 10, padding: 14, borderLeft: '3px solid var(--sage)' }}>
+            <div className="mini" style={{ textTransform: 'uppercase', letterSpacing: '.4px', color: 'var(--accent)', marginBottom: 6 }}>🧾 Hóa đơn cần thanh toán</div>
+            <div style={{ fontSize: '.9rem' }}>✓ Hiện không có hóa đơn chưa trả.</div>
+            <p className="mini" style={{ opacity: .7, marginTop: 6 }}>Hóa đơn tháng (tiền nhà + sinh hoạt + học phí) và Thuế thu nhập năm sẽ tự hiện ở đây khi đến hạn — hạn 14/30 ngày, quá hạn phạt +2%/tháng. Chơi tiếp qua tháng / qua năm để thấy hóa đơn đầu tiên.</p>
+          </div>
+        );
+        return (
+          <div className="card" style={{ marginBottom: 10, padding: 14, borderLeft: '3px solid var(--brick)' }}>
+            <div className="mini" style={{ textTransform: 'uppercase', letterSpacing: '.4px', color: 'var(--accent)', marginBottom: 6 }}>🧾 Hóa đơn cần thanh toán</div>
+            {unpaid.map((b: Bill) => {
+              const due = billTotalDue(b);
+              const daysLeft = b.dueDay - s.day;
+              const overdue = daysLeft < 0;
+              return (
+                <div key={b.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, padding: '8px 0', borderBottom: '1px solid var(--line)' }}>
+                  <div>
+                    <div style={{ fontSize: '.9rem', fontWeight: 700 }}>{b.label}{b.kind === 'tax' ? ' · Thuế' : ''}</div>
+                    <div className="mini" style={{ opacity: .7 }}>
+                      {overdue ? `Quá hạn ${Math.abs(daysLeft).toFixed(2)} ngày · Phạt ${fmtFull(b.penalty)}` : `Còn ${daysLeft.toFixed(2)} ngày · Hạn ngày ${b.dueDay.toFixed(2)}`}
+                      {' · '}Gốc {fmtFull(b.amount)}
+                    </div>
+                  </div>
+                  <button className="btn" style={{ background: s.money < due ? "var(--mute)" : "var(--up)", color: "#fff", fontWeight: 800, padding: "10px 16px", borderRadius: 10, cursor: s.money < due ? "not-allowed" : "pointer", border: "none" }} disabled={s.money < due} onClick={() => act((st) => { const ok = payBill(st, b.id); return ok ? null : 'Không đủ tiền để trả hóa đơn này.'; })}>
+                    Trả {fmtFull(due)}
+                  </button>
+                </div>
+              );
+            })}
+            <p className="mini" style={{ opacity: .7, marginTop: 8 }}>Quá hạn: +2%/tháng phạt cộng dồn. Trả chậm không bị trừ tiền tự động nữa — nhưng phạt vẫn tăng mỗi tháng.</p>
+          </div>
+        );
+      })()}
+
+
       {/* Cash flow summary card */}
       {/* v13.9 — fmtFull() so billion-dollar incomes/expenses stay readable. */}
       <div className="card" style={{ marginBottom: 10, padding: 14 }}>
@@ -324,10 +394,11 @@ export function FinanceOverviewTab({ s, act, onNav }: { s: GameState; act: Act; 
                   {last30.length === 0 ? <p className="sub">Chưa có giao dịch nào.</p> : (
                     <div style={{ overflowX: 'auto' }}>
                       <table style={{ width: '100%', fontSize: '.78rem', borderCollapse: 'collapse' }}>
-                        <thead><tr style={{ borderBottom: '1px solid var(--line)', textAlign: 'left' }}><th style={{ padding: '5px 8px' }}>#</th><th style={{ padding: '5px 8px' }}>Loại</th><th style={{ padding: '5px 8px' }}>Kind</th><th style={{ padding: '5px 8px', textAlign: 'right' }}>Tiền vào</th><th style={{ padding: '5px 8px', textAlign: 'right' }}>Tiền ra</th></tr></thead>
+                        <thead><tr style={{ borderBottom: '1px solid var(--line)', textAlign: 'left' }}><th style={{ padding: '5px 8px' }}>Ngày</th><th style={{ padding: '5px 8px' }}>#</th><th style={{ padding: '5px 8px' }}>Loại</th><th style={{ padding: '5px 8px' }}>Kind</th><th style={{ padding: '5px 8px', textAlign: 'right' }}>Tiền vào</th><th style={{ padding: '5px 8px', textAlign: 'right' }}>Tiền ra</th></tr></thead>
                         <tbody>
                           {last30.map((tx: any, i: number) => (
                             <tr key={i} style={{ borderBottom: '1px solid var(--line)' }}>
+                              <td style={{ padding: '5px 8px', whiteSpace: 'nowrap', opacity: .8 }}>{(() => { const d = (tx as any).day ?? (tx as any).date ?? (tx as any).createdAt; if (d == null) return '—'; if (typeof d === 'number') return new Date(Date.UTC(s.byear + 18, 8, 1) + Math.floor(d) * 864e5).toLocaleDateString('vi-VN', { timeZone: 'UTC', day: '2-digit', month: '2-digit', year: 'numeric' }); return String(d); })()}</td>
                               <td style={{ padding: '5px 8px', opacity: .6 }}>{i + 1}</td>
                               <td style={{ padding: '5px 8px', fontWeight: 600 }}>{labelFor(tx.asset)}</td>
                               <td style={{ padding: '5px 8px', opacity: .7 }}>{tx.kind}</td>
@@ -343,43 +414,6 @@ export function FinanceOverviewTab({ s, act, onNav }: { s: GameState; act: Act; 
               );
             })()}
             <p className="mini" style={{ opacity: .7, marginTop: 8 }}>Xanh = tiền vào, đỏ = tiền ra. Chỉ tính lãi vận hành nên khớp P&L. Tiền mua/bán chi nhánh, đất, đồ là dòng đầu tư (đổi tiền ↔ tài sản, tổng tài sản không đổi) nên không tính ở đây.</p>
-          </div>
-        );
-      })()}
-
-      {/* v13.49 — Hoa don phai tra: thang + thue nam. Da tra thi an khoi danh sach (giữ trong s.bills, paid=true). */}
-      {(() => {
-        const unpaid = (s.bills || []).filter((b: Bill) => !b.paid);
-        if (unpaid.length === 0) return (
-          <div className="card" style={{ marginBottom: 10, padding: 14, borderLeft: '3px solid var(--sage)' }}>
-            <div className="mini" style={{ textTransform: 'uppercase', letterSpacing: '.4px', color: 'var(--accent)', marginBottom: 6 }}>🧾 Hóa đơn cần thanh toán</div>
-            <div style={{ fontSize: '.9rem' }}>✓ Hiện không có hóa đơn chưa trả.</div>
-            <p className="mini" style={{ opacity: .7, marginTop: 6 }}>Hóa đơn tháng (tiền nhà + sinh hoạt + học phí) và Thuế thu nhập năm sẽ tự hiện ở đây khi đến hạn — hạn 14/30 ngày, quá hạn phạt +2%/tháng. Chơi tiếp qua tháng / qua năm để thấy hóa đơn đầu tiên.</p>
-          </div>
-        );
-        return (
-          <div className="card" style={{ marginBottom: 10, padding: 14, borderLeft: '3px solid var(--brick)' }}>
-            <div className="mini" style={{ textTransform: 'uppercase', letterSpacing: '.4px', color: 'var(--accent)', marginBottom: 6 }}>🧾 Hóa đơn cần thanh toán</div>
-            {unpaid.map((b: Bill) => {
-              const due = billTotalDue(b);
-              const daysLeft = b.dueDay - s.day;
-              const overdue = daysLeft < 0;
-              return (
-                <div key={b.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, padding: '8px 0', borderBottom: '1px solid var(--line)' }}>
-                  <div>
-                    <div style={{ fontSize: '.9rem', fontWeight: 700 }}>{b.label}{b.kind === 'tax' ? ' · Thuế' : ''}</div>
-                    <div className="mini" style={{ opacity: .7 }}>
-                      {overdue ? `Quá hạn ${Math.abs(daysLeft).toFixed(2)} ngày · Phạt ${fmtFull(b.penalty)}` : `Còn ${daysLeft.toFixed(2)} ngày · Hạn ngày ${b.dueDay.toFixed(2)}`}
-                      {' · '}Gốc {fmtFull(b.amount)}
-                    </div>
-                  </div>
-                  <button className="btn" style={{ background: s.money < due ? "var(--mute)" : "var(--up)", color: "#fff", fontWeight: 800, padding: "10px 16px", borderRadius: 10, cursor: s.money < due ? "not-allowed" : "pointer", border: "none" }} disabled={s.money < due} onClick={() => act((st) => { const ok = payBill(st, b.id); return ok ? null : 'Không đủ tiền để trả hóa đơn này.'; })}>
-                    Trả {fmtFull(due)}
-                  </button>
-                </div>
-              );
-            })}
-            <p className="mini" style={{ opacity: .7, marginTop: 8 }}>Quá hạn: +2%/tháng phạt cộng dồn. Trả chậm không bị trừ tiền tự động nữa — nhưng phạt vẫn tăng mỗi tháng.</p>
           </div>
         );
       })()}

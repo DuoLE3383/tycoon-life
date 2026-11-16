@@ -12,7 +12,7 @@ export {
   TRAVEL, registerItem,
 } from '@/lib/gameData';
 export {
-  fmt, fmtFull, taxOf, fresh, begin, tick, applyOffline, payBill, billTotalDue, unpaidBills, type Bill, stageOf, worldYear, branchCount, bizCost, clubMult, clubLevel, clubMembers, clubMonthlyDues, clubFameBuff, clubFameMult, clubPassiveFame, chargeClubMaintenance, branchNet, fameBonus, bizMultiplier,
+  fmt, fmtFull, taxOf, fresh, begin, tick, applyOffline, payBill, billTotalDue, unpaidBills, ASSISTANT_DEFS, assistantSalaryTotal, assistantCan, hireAssistant, fireAssistant, toggleAssistant, runAssistantAutoPay, freshAssistants, type AssistantKind, type AssistantState, type Bill, stageOf, worldYear, branchCount, bizCost, clubMult, clubLevel, clubMembers, clubMonthlyDues, clubFameBuff, clubFameMult, clubPassiveFame, chargeClubMaintenance, branchNet, fameBonus, bizMultiplier,
   bizIncome, yearIncome, living, lotValue, assetDepreciationYr, upkeep, assetVal, bizVal, stockVal, netWorth,
   bizRevenue, bizCosts, bizNet, bizMarketShare, bizRndMult, investBizRnd, farmIncome, facIncome,
   grantSpirit, spiritGainTodayLeft, SPIRIT_DAILY_CAP,
@@ -99,7 +99,7 @@ export const asset = (p: string) => {
 // v11.8 — the bundled version. The /version.json file in /public is polled
 // every 5 minutes; if its version is newer than this, a "reload to update"
 // banner appears even in a running session (no F5 needed).
-export const BUNDLED_VERSION = 'v13.60';
+export const BUNDLED_VERSION = 'v13.66';
 
 export const VERSION_POLL_MS = 5 * 60 * 1000;
 

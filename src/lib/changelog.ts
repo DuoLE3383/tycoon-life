@@ -191,4 +191,58 @@ export const CHANGELOG: Record<string, ChangelogEntry> = {
       'Finance: giu nguyen tach van hanh vs dau tu',
     ],
   },
+  'v13.61': {
+    headline: 'HuyenBao v13.61 - Bang giao dich them cot Ngay',
+    summary: 'v13.61: Bang 30 giao dich van hanh gan nhat them cot Ngay (doi tu tx.day ra ngay that, neu khong co thi hien —).',
+    features: [
+      'Finance: bang 30 giao dich them cot Ngay',
+      'Finance: ngay doi tu tx.day theo lich game',
+    ],
+  },
+  'v13.62': {
+    headline: 'HuyenBao v13.62 - Assets khong bi che nut',
+    summary: 'v13.62: Tang padding-bottom wrap len 140px de nut Auction/List/Sell khong bi bottom nav che. Mini chart hien du tat ca nhom nen tong khop. Tnav them padding-right de nut cuoi khong bi cat.',
+    features: [
+      'Assets: wrap padding-bottom 140px, nut cuoi khong bi che',
+      'Assets: mini chart hien du tat ca nhom, tong khop',
+      'Assets: tnav padding-right 16px, nut Grails khong bi cat',
+    ],
+  },
+  'v13.63': {
+    headline: 'HuyenBao v13.63 - Mini chart tong dung, khong dem trung',
+    summary: 'v13.63: Tong tai san = so mon dang so huu (own), thanh bar chi chia theo BDS/Cao cap/Binh dan. Auction/Hiem/Workshop chi la trang thai, khong cong vao tong nua.',
+    features: [
+      'Assets: tong = own, khong dem trung bds/lux/budget',
+      'Assets: bar chi 3 nhom phan hoach, cong lai dung bang own',
+      'Assets: auction/rare/workshop hien dang trang thai',
+    ],
+  },
+  'v13.64': {
+    headline: 'HuyenBao v13.64 - Nut Tra hoa don len tren cung',
+    summary: 'v13.64: Khoi Hoa don o Finance doi len dau tab, khong can cuon qua chart. PinZone: banner hoa don o dau hop do them nut Tra ngay tra truc tiep hoa don som nhat.',
+    features: [
+      'Finance: khoi Hoa don len dau tab',
+      'PinZone: banner hoa don them nut Tra ngay',
+      'PinZone: nut Tra ngay uu tien hoa don qua han',
+    ],
+  },
+  'v13.65': {
+    headline: 'HuyenBao v13.65 - Thong bao chay chu trong PinZone',
+    summary: 'v13.65: Popup toast doi vao o trong ben phai PinZone lam chu chay, moi thong bao 10s, het thi lay cai tiep theo trong hang cho. Khong con popup che man hinh.',
+    features: [
+      'PinZone: ticker chu chay o trong ben phai hang chip tien',
+      'Thong bao: moi cai 10s, hang cho giu nguyen cua useGameController',
+      'Bo popup #ttoast cu che man hinh',
+    ],
+  },
+  'v13.66': {
+    headline: 'HuyenBao v13.66 - Thuê trợ lý lo hoá đơn, thuế, kinh doanh',
+    summary: 'v13.66: Thuê Trợ lý hoá đơn / Kế toán thuế / Giám đốc kinh doanh. Tự trả hoá đơn đúng hạn, tự nộp thuế năm, giám đốc +mood chi nhánh mỗi tháng. Bật/tắt từng việc, sa thải bất cứ lúc nào.',
+    features: [
+      'Thuê trợ lý: Trợ lý hoá đơn, Kế toán thuế, Giám đốc kinh doanh',
+      'Tự trả hoá đơn tháng + tự nộp thuế năm, tránh phạt +2%/tháng',
+      'Giám đốc: +mood chi nhánh mỗi tháng, giảm nguy cơ đóng cửa',
+      'Bật/tắt từng việc, lương trừ ngày 1, sa thải bất cứ lúc nào',
+    ],
+  },
 };

@@ -78,7 +78,7 @@ export default function Page() {
         <div className="sticky-header">
         <PinZone s={s} t={t} onEdit={() => setEditingProfile(true)} act={act}
           onNav={navTo}
-          expanded={pzExpanded} onToggleExpand={() => setPzExpanded(v => !v)} />
+          expanded={pzExpanded} onToggleExpand={() => setPzExpanded(v => !v)} toast={toast} />
         <NavBar s={s} t={t} tab={tab} activeGroup={activeGroup} curSubs={curSubs}
           friendActivity={comm.ready && (comm.incoming.length > 0 || comm.unclaimedGifts.length > 0)}
           onSelectGroup={(gid: string, first: string) => setTab(lastTab[gid] || first)}
@@ -144,7 +144,7 @@ export default function Page() {
         onSelectTab={(key: string) => navTo(key)} />
       {editingProfile && <EditProfileModal s={s} act={act} onClose={() => setEditingProfile(false)} />}
 
-      {toast && <div id="ttoast" key={toast.id} className="on">{toast.msg}</div>}
+      {/* v13.65 — ttoast cu da doi vao PinZone ticker, khong render popup nua */}
 
       {!s.started && <Intro onBegin={opts => act(st => { begin(st, opts); showToast(`${t('begin')}: ${opts.name} 🎉`); })} />}
       {(s.pending || s.aiEv) && <EventModal s={s} act={act} />}

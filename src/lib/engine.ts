@@ -139,6 +139,28 @@ export function genUid(): string {
   // 'tax' = thue thu nhap nam. dueDay: ngay het han (game-day). penalty: tien phat da cong don.
   // paid=true: da tra, giu lai de hien lich su (khong xoa). amount: goc + penalty hien tai = amount + penalty.
 export interface Bill { id: string; kind: 'monthly' | 'tax'; label: string; amount: number; penalty: number; issuedDay: number; dueDay: number; paid: boolean; paidDay?: number }
+// v13.66 — Tro ly thue: 3 cap, moi cap mo them viec. Luong tra hang thang (ngay 1),
+// tu dong tra hoa don / thue khi den han, giam doc con +mood chi nhanh moi thang.
+export type AssistantKind = 'helper' | 'accountant' | 'director';
+export interface AssistantState { hired: boolean; hiredDay: number; autoBills: boolean; autoTax: boolean; autoBiz: boolean; paidCount: number; savedPenalty: number; }
+export const ASSISTANT_DEFS: { id: AssistantKind; name: string; desc: string; salary: number; hireCost: number }[] = [
+  { id: 'helper', name: '🧾 Trợ lý hoá đơn', desc: 'Tự trả hoá đơn tháng đúng hạn, không để bị phạt +2%/tháng.', salary: 800, hireCost: 2000 },
+  { id: 'accountant', name: '🧮 Kế toán thuế', desc: 'Trả hoá đơn tháng + tự nộp thuế thu nhập năm khi đến hạn.', salary: 2000, hireCost: 5000 },
+  { id: 'director', name: '💼 Giám đốc kinh doanh', desc: 'Trả hoá đơn + thuế + tối ưu chi nhánh: +mood mỗi tháng, chi nhánh ít đóng cửa hơn.', salary: 5000, hireCost: 15000 },
+];
+export const freshAssistants = (): Record<AssistantKind, AssistantState> => ({
+  helper: { hired: false, hiredDay: 0, autoBills: true, autoTax: false, autoBiz: false, paidCount: 0, savedPenalty: 0 },
+  accountant: { hired: false, hiredDay: 0, autoBills: true, autoTax: true, autoBiz: false, paidCount: 0, savedPenalty: 0 },
+  director: { hired: false, hiredDay: 0, autoBills: true, autoTax: true, autoBiz: true, paidCount: 0, savedPenalty: 0 },
+});
+export const assistantSalaryTotal = (s: GameState) => ASSISTANT_DEFS.reduce((sum, d) => sum + ((s.assistants?.[d.id]?.hired) ? d.salary : 0), 0);
+export const assistantCan = (s: GameState, task: 'bills' | 'tax' | 'biz') => ASSISTANT_DEFS.some(d => {
+  const a = s.assistants?.[d.id]; if (!a?.hired) return false;
+  if (task === 'bills') return a.autoBills;
+  if (task === 'tax') return (d.id !== 'helper') && a.autoTax;
+  return d.id === 'director' && a.autoBiz;
+});
+
 export interface GameState {
   schemaVersion: number;
   // v12 — player UID. Short, stable, unique-per-life identifier generated at
@@ -193,6 +215,7 @@ export interface GameState {
   started: boolean;
   bank: { dep: number; loan: number }; fame: number; donated: number; donatedThisYear: number; yIncome: number; yTax: number;
   bills: Bill[]; // v13.49 — hoa don thang + thue nam CHUA tra (phat sinh thay cho tru tu dong).
+  assistants: Record<AssistantKind, AssistantState>; // v13.66 — tro ly thue
   prices: Record<string, number>; hist: Record<string, number[]>;
   eraBiz: number; eraFac: number;
   log: string[]; over: boolean; pending: string | null; aiEv: AIEvent | null;
@@ -735,6 +758,7 @@ export function fresh(): GameState {
     gender: 'nonbinary', birthMonth: 1, birthDay: 15, zodiac: 'capricorn', psychic: freshPsychic(),
     bank: { dep: 0, loan: 0 }, fame: 0, donated: 0, donatedThisYear: 0, yIncome: 0, yTax: 0,
     bills: [],
+    assistants: freshAssistants(),
     prices: {}, hist: {}, eraBiz: 1, eraFac: 1,
     log: [], over: false, pending: null, aiEv: null,
     partner: false, married: false, kids: 0, m1: false, story: { used: [] },
@@ -866,6 +890,8 @@ export function migrate(raw: unknown): GameState {
   // gigOverrides map; default to {} so gigPay / gigReady / gigLock fall
   // straight through to the GIGS array defaults.
   s.gigOverrides = s.gigOverrides && typeof s.gigOverrides === 'object' ? s.gigOverrides : {};
+    // v13.66 — assistants backfill cho save cu.
+    s.assistants = s.assistants && typeof s.assistants === 'object' ? Object.assign(freshAssistants(), s.assistants) : freshAssistants();
   // v14.1 — stockOverrides + customStocks backfill for old saves. Pre-v14.1
   // saves have neither field; default to {} / [] so stocksOf(s) returns
   // the plain STOCKS array unchanged. customStocks entries are filtered
@@ -1652,6 +1678,47 @@ export const payBill = (s: GameState, billId: string): boolean => {
   return true;
 };
 
+// v13.66 — thue / sa thai / bat-tat viec + tu dong tra.
+export const hireAssistant = (s: GameState, id: AssistantKind): boolean => {
+s.assistants ||= freshAssistants();
+const def = ASSISTANT_DEFS.find(d => d.id === id); const a = s.assistants[id];
+if (!def || !a || a.hired) return false;
+if (s.money < def.hireCost) return false;
+s.money -= def.hireCost; a.hired = true; a.hiredDay = s.day;
+recordTx(s, { kind: 'expense', asset: 'bank', ref: 'assistant-' + id, name: `Thuê ${def.name}`, qty: 1, unit: def.hireCost, amount: -def.hireCost });
+pushLog(s, `🤝 Đã thuê ${def.name} — phí tuyển ${fmt(def.hireCost)}, lương ${fmt(def.salary)}/tháng.`);
+return true;
+};
+export const fireAssistant = (s: GameState, id: AssistantKind): boolean => {
+s.assistants ||= freshAssistants(); const a = s.assistants[id];
+if (!a?.hired) return false; a.hired = false;
+pushLog(s, `👋 Đã sa thải ${ASSISTANT_DEFS.find(d => d.id === id)?.name || id}.`);
+return true;
+};
+export const toggleAssistant = (s: GameState, id: AssistantKind, task: 'bills' | 'tax' | 'biz') => {
+s.assistants ||= freshAssistants(); const a = s.assistants[id]; if (!a) return;
+if (task === 'bills') a.autoBills = !a.autoBills;
+if (task === 'tax') a.autoTax = !a.autoTax;
+if (task === 'biz') a.autoBiz = !a.autoBiz;
+};
+export const runAssistantAutoPay = (s: GameState) => {
+s.assistants ||= freshAssistants();
+const canBills = assistantCan(s, 'bills'), canTax = assistantCan(s, 'tax');
+if (!canBills && !canTax) return 0;
+let paid = 0;
+for (const b of [...unpaidBills(s)].sort((x, y) => x.dueDay - y.dueDay)) {
+  const want = (b.kind === 'monthly' && canBills) || (b.kind === 'tax' && canTax);
+  if (!want) continue;
+  const due = billTotalDue(b);
+  if (s.money < due) { pushLog(s, `⚠ Trợ lý chưa trả được ${b.label} — không đủ tiền.`); continue; }
+  const saved = b.penalty;
+  if (payBill(s, b.id)) { paid++; for (const d of ASSISTANT_DEFS) { const a = s.assistants[d.id]; if (a?.hired) { a.paidCount++; a.savedPenalty += saved; } } }
+}
+if (paid > 0) pushLog(s, `🤖 Trợ lý đã tự trả ${paid} hóa đơn.`);
+return paid;
+};
+
+
 export const taxOf = (inc: number) => {
   let t = 0, lo = 0;
   for (const [hi, rate] of TAX_BRACKETS) { if (inc > lo) { t += (Math.min(inc, hi) - lo) * rate; lo = hi; } else break; }
@@ -1890,6 +1957,14 @@ export function processDay(s: GameState, d: number, rng: () => number = Math.ran
     s.money += profit;
     accrueBillPenalty(s);
     if (bills > 0) issueBill(s, 'monthly', `${MONTHS[dt.getUTCMonth()]} ${dt.getUTCFullYear()} — Hóa đơn tháng`, bills, 14);
+      // v13.66 — luong tro ly (ngay 1) + tu tra + giam doc +mood chi nhanh.
+      const salTotal = assistantSalaryTotal(s);
+      if (salTotal > 0) {
+        if (s.money >= salTotal) { s.money -= salTotal; recordTx(s, { kind: 'expense', asset: 'bank', ref: 'assistant-salary', name: 'Lương trợ lý', qty: 1, unit: salTotal, amount: -salTotal }); pushLog(s, `💼 Lương trợ lý tháng này: −${fmt(salTotal)}.`); }
+        else pushLog(s, `⚠ Không đủ tiền trả lương trợ lý (${fmt(salTotal)}) — trợ lý tạm nghỉ tháng này.`);
+      }
+      if (s.money >= salTotal) runAssistantAutoPay(s);
+      if (assistantCan(s, 'biz')) BIZ.forEach(b => (s.branches[b.id] || []).forEach(br => { br.mood = Math.min(1.7, br.mood + 0.05); }));
     if (profit > 0) s.yIncome += profit;
     // social media: follower graph drifts with fame every month (sqrt growth + hard cap)
     // v11.1: raise the cap from 200M to MAX_FOLLOWERS (2B) and clamp properly.
@@ -1923,6 +1998,7 @@ export function processDay(s: GameState, d: number, rng: () => number = Math.ran
       const t = taxOf(taxable);
       s.yTax = t;
       issueBill(s, 'tax', `Thuế thu nhập ${y}`, t, 30);
+        runAssistantAutoPay(s); // v13.66 — ke toan / giam doc tu nop thue
       pushLog(s, `Tax season ${y}: income ${fmt(s.yIncome)} - charity ${fmt(charityDeduction)} → tax bill ${fmt(t)}.`);
       s.yIncome = 0;
       s.donatedThisYear = 0;

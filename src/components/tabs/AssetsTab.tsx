@@ -395,18 +395,18 @@ export function AssetsTab({ s, act, curCat, setCurCat }: { s: GameState; act: Ac
       {/* v13.57 - Chart mini tong quan tai san: luon thay, khong can mo Finance */}
       <div className="asset-mini-chart" style={{ display: 'flex', flexDirection: 'column', gap: 6, padding: '10px 12px', borderRadius: 12, background: 'var(--card)', border: '1px solid var(--line)', marginBottom: 10 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8, fontSize: '.85rem', fontWeight: 700 }}>
-          <span>📊 Tổng tài sản: <b>{secs.reduce((a, [, , , n]) => a + n, 0)} món</b></span>
-          <span>BĐS: {secs[0][3]} · Cao cấp: {secs[1][3]} · Bình dân: {secs[2][3]} · Đấu giá: {secs[3][3]} · Hiếm: {secs[4][3]}</span>
+          <span>📊 Tổng tài sản: <b>{secs.find(([k]) => k === 'own')?.[3] ?? 0} món</b></span>
+          <span>{secs.filter(([k]) => ['bds','lux','budget'].includes(k)).map(([k, , , n]) => `${t('astsec.' + k)}: ${n}`).join(' · ')} · Đấu giá: {secs.find(([k]) => k === 'auction')?.[3] ?? 0} · Hiếm: {secs.find(([k]) => k === 'rare')?.[3] ?? 0} · Workshop: {secs.find(([k]) => k === 'workshop')?.[3] ?? 0}</span>
         </div>
         <div style={{ display: 'flex', gap: 4, height: 10, borderRadius: 999, overflow: 'hidden', background: 'var(--line)' }}>
-          {secs.slice(0, 5).map(([k, , , n], i) => {
-            const total = Math.max(1, secs.slice(0, 5).reduce((a, [, , , x]) => a + x, 0));
+          {secs.filter(([k]) => ['bds','lux','budget'].includes(k)).map(([k, , , n], i) => {
+            const total = Math.max(1, (secs.find(([k]) => k === 'own')?.[3] ?? 1));
             const colors = ['#d4a55a', '#e74c3c', '#2ecc71', '#3498db', '#9b59b6'];
             return <div key={k} title={t('astsec.' + k) + ': ' + n} style={{ width: (n / total * 100) + '%', background: colors[i], minWidth: n > 0 ? 4 : 0 }} />;
           })}
         </div>
       </div>
-      <div className="tnav asec" role="tablist" aria-label="Asset sections" style={{ display: 'flex', flexWrap: 'nowrap', overflowX: 'auto', overflowY: 'hidden', gap: 6, paddingBottom: 4, scrollbarWidth: 'none', WebkitOverflowScrolling: 'touch' }}>
+      <div className="tnav asec" role="tablist" aria-label="Asset sections" style={{ display: 'flex', flexWrap: 'nowrap', overflowX: 'auto', overflowY: 'hidden', gap: 6, paddingBottom: 4, paddingRight: 16, scrollbarWidth: 'none', WebkitOverflowScrolling: 'touch' }}>
         {secs.map(([k, ic, key, n]) => (
           <button key={k} role="tab" aria-selected={sec === k} onClick={() => setSec(k)}>
             <Ic id={ic} className="si navsi" />{t(key)}{n > 0 ? <span className="asec-n">{n}</span> : null}

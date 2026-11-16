@@ -1,11 +1,12 @@
 {
-  "version": "v13.60",
+  "version": "v13.66",
   "releasedAt": "2026-11-16",
-  "headline": "HuyenBao v13.60 - Finance co bieu do dong tien",
-  "summary": "v13.60: Finance them bieu do duong cong don rong van hanh theo tung giao dich + bang chi tiet 30 giao dich gan nhat (loai/kind/tien vao/tien ra).",
+  "headline": "HuyenBao v13.66 - Thuê trợ lý lo hoá đơn, thuế, kinh doanh",
+  "summary": "v13.66: Thuê Trợ lý hoá đơn / Kế toán thuế / Giám đốc kinh doanh. Tự trả hoá đơn đúng hạn, tự nộp thuế năm, giám đốc +mood chi nhánh mỗi tháng. Bật/tắt từng việc, sa thải bất cứ lúc nào.",
   "features": [
-    "Finance: bieu do cong don rong van hanh, diem thap nhat/cao nhat/ket",
-    "Finance: bang chi tiet 30 giao dich van hanh gan nhat",
-    "Finance: giu nguyen tach van hanh vs dau tu"
+    "Thuê trợ lý: Trợ lý hoá đơn, Kế toán thuế, Giám đốc kinh doanh",
+    "Tự trả hoá đơn tháng + tự nộp thuế năm, tránh phạt +2%/tháng",
+    "Giám đốc: +mood chi nhánh mỗi tháng, giảm nguy cơ đóng cửa",
+    "Bật/tắt từng việc, lương trừ ngày 1, sa thải bất cứ lúc nào"
   ]
 }

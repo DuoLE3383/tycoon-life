@@ -1592,3 +1592,16 @@ body:has(.tgame .modal-overlay){overflow:hidden}
 /* v13.59 - PinZone: hang chip gon, NW + Income + Bank vua cho trong */
 .tgame .pinzone-v55 .stats-row{display:flex !important; flex-wrap:wrap !important; gap:6px !important}
 .tgame .pinzone-v55 .stats-row .pchip-big, .tgame .pinzone-v55 .stats-row .cash-chip, .tgame .pinzone-v55 .stats-row .hpill-big{flex-shrink:0 !important; white-space:nowrap !important}
+
+/* v13.62 - Assets: wrap chua du cho bottom nav + subnav, tnav khong cat nut cuoi */
+.tgame .wrap{padding-bottom:calc(140px + env(safe-area-inset-bottom,0px)) !important}
+.tgame .tnav.asec{padding-right:16px !important}
+.tgame .tnav.asec > *{flex-shrink:0 !important; white-space:nowrap !important}
+.tgame .asset-mini-chart{overflow:hidden !important}
+
+/* v13.65 — PinZone ticker: chu chay trong o trong ben phai hang chip tien */
+.tgame .pinzone .stats-row{display:flex !important; align-items:center !important; gap:6px !important; flex-wrap:nowrap !important}
+.tgame .pin-ticker{flex:1 1 0 !important; min-width:80px !important; overflow:hidden !important; white-space:nowrap !important; font-size:.82rem !important; font-weight:600 !important; color:var(--ink) !important; border-left:1px solid var(--line) !important; padding-left:8px !important; align-self:stretch !important; display:flex !important; align-items:center !important}
+.tgame .pin-ticker-text{display:inline-block !important; white-space:nowrap !important; padding-left:100% !important; animation:pinTickerScroll 10s linear forwards !important; will-change:transform !important}
+.tgame .pin-ticker-empty{display:inline-block !important}
+@keyframes pinTickerScroll{from{transform:translateX(0)}to{transform:translateX(-100%)}}
