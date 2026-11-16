@@ -210,12 +210,15 @@ export async function POST(req: Request) {
   if (denied) return denied;
   const body = await readBody(req);
   const query = String((body as { query?: unknown }).query ?? '').trim().slice(0, 120);
+  const promptOverride = String((body as { prompt?: unknown }).prompt ?? '').trim().slice(0, 500); // v13.73 - prompt admin sua tay
+  const searchQuery = promptOverride || query; // co prompt thi search theo prompt, khong thi theo ten item
   if (!query) return NextResponse.json({ ok: false, error: 'bad-query' }, { status: 400 });
 
-  const [images, web] = await Promise.all([searchImages(query), searchWeb(query)]);
+  const [images, web] = await Promise.all([searchImages(searchQuery), searchWeb(searchQuery)]);
   const context = web.map((w, i) => `[${i + 1}] ${w.snippet} (nguon: ${w.url})`).join('\n') || '(khong co ket qua web search)';
   const prompt = [
     `Nguoi dung hoi ve vat pham that: "${query}".`,
+    ...(promptOverride ? [`Yeu cau rieng cua admin (uu tien): ${promptOverride}`] : []),
     `Ket qua web search (uu tien dung thong tin trong nay):`,
     `Specs: CHI lay tu snippet ben tren, copy dung tu ngu trong snippet. Neu snippet khong co thong so nao thi specs=[]. TUYET DOI khong tu nghi ra thong so (vd: khong doan kieu dong co, kieu may).`,
       `Neu web search rong, chi dung kien thuc de xac dinh brand/name/cat/story - RIENG GIA thi price=null, TUYET DOI khong doan gia.`, 

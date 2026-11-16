@@ -115,6 +115,7 @@ export default function AdminPage() {
   const [lookupBrand, setLookupBrand] = useState('');
   const [lookupStory, setLookupStory] = useState('');
   const [lookupMeta, setLookupMeta] = useState<{ lux: number; rate: number; art: string; c: string } | null>(null);
+  const [lookupPrompt, setLookupPrompt] = useState(''); // v13.73 - prompt tra cuu, admin sua tay duoc
   // v12.2 — AI difficulty control. easy = win +10% / penalties -50%,
   // normal = unchanged, hard = win -10% / penalties +50%. Persisted on the
   // player's GameState via the setDifficulty admin action (audit-log row).
@@ -504,13 +505,18 @@ export default function AdminPage() {
                 <b>{editingItemId ? '✏️ Sửa vật phẩm tuỳ chỉnh' : '➕ Tạo vật phẩm mới từ URL ảnh'}</b>
                 {editingItemId && <p className="adm-note">Đang sửa item <code className="adm-mini-code">{editingItemId.slice(0, 18)}…</code> — ấn <b>Cập nhật</b> để lưu, hoặc <b>Huỷ</b> để quay lại tạo mới.</p>}
                 {/* v13.49 — Auto-info: go ten item that -> dien san form, admin duyet roi moi Tao/Cap nhat. */}
+                {/* v13.73 - O Prompt: bam Tra cuu lan dau tu dien prompt mac dinh, admin sua roi bam lai de tim theo prompt moi */}
+                <textarea className="adm-input" value={lookupPrompt} placeholder='Prompt tra cứu — VD: Tìm thông tin thật về "【entity-Hasselblad¦canonical_name=Hasselblad】 907X & CFV 100C": brand, giá USD thật, specs từ web, ảnh sản phẩm chính xác.' onChange={e => setLookupPrompt(e.target.value)} rows={2} style={{ width: '100%', resize: 'vertical' }} />
                 <div className="adm-row">
                   <input className="adm-input" value={lookupBrand} placeholder="Thương hiệu (tự động)" onChange={e => setLookupBrand(e.target.value)} style={{ flex: '1 1 140px' }} />
                   <input className="adm-input" value={lookupStory} placeholder="Mô tả (tự động, tiếng Việt)" onChange={e => setLookupStory(e.target.value)} style={{ flex: '2 1 260px' }} />
                   <button className="adm-btn" disabled={!newItemName.trim() || lookupBusy} onClick={() => void (async () => {
                     setLookupBusy(true); setLookupMsg('Đang tìm thông tin thật…');
                     try {
-                      const r = await adminPost<{ ok: boolean; item?: { name: string; brand: string; cat: string; price: number | null; rarity: string; story: string; lux: number; rate: number; art: string; c: string; images: string[]; priceSource: string }; error?: string }>('/api/admin/items/lookup', { query: newItemName.trim() });
+                      const defaultPrompt = `Tìm thông tin thật về "${newItemName.trim()}": brand, tên chính xác, category, giá USD thật có trong web, specs chỉ lấy từ web, mô tả tiếng Việt, ảnh sản phẩm chính xác đúng model.`;
+                      const promptToUse = lookupPrompt.trim() || defaultPrompt;
+                      if (!lookupPrompt.trim()) setLookupPrompt(promptToUse);
+                      const r = await adminPost<{ ok: boolean; item?: { name: string; brand: string; cat: string; price: number | null; rarity: string; story: string; lux: number; rate: number; art: string; c: string; images: string[]; priceSource: string }; error?: string }>('/api/admin/items/lookup', { query: newItemName.trim(), prompt: promptToUse });
                       if (!r.ok || !r.item) throw new Error(r.error || 'failed');
                       const it = r.item;
                       setNewItemName(it.name); setNewItemCat(it.cat);

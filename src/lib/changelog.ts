@@ -299,4 +299,13 @@ export const CHANGELOG: Record<string, ChangelogEntry> = {
       'Lookup: Bing gio moi tra duoc anh co title verify',
     ],
   },
+  'v13.73': {
+    headline: 'HuyenBao v13.73 - Them o Prompt tra cuu sua tay duoc',
+    summary: 'v13.73: Them o Prompt ngay cho Tra cuu, bam lan dau tu dien prompt mac dinh, admin sua prompt roi bam lai de tim theo prompt moi.',
+    features: [
+      'Admin: o Prompt tra cuu sua tay duoc ngay cho Tao vat pham',
+      'Lookup: search web + anh theo prompt admin nhap, khong chi theo ten',
+      'Lookup: prompt admin duoc dua vao chi dan LLM',
+    ],
+  },
 };
