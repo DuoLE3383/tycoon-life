@@ -214,7 +214,8 @@ export async function POST(req: Request) {
   const searchQuery = promptOverride || query; // co prompt thi search theo prompt, khong thi theo ten item
   if (!query) return NextResponse.json({ ok: false, error: 'bad-query' }, { status: 400 });
 
-  const [images, web] = await Promise.all([searchImages(searchQuery), searchWeb(searchQuery)]);
+  // v13.76 - Prompt is LLM instruction ONLY, never the search query. Searching the full prompt sentence returned wolf wallpapers.
+  const [images, web] = await Promise.all([searchImages(query), searchWeb(query)]);
   const context = web.map((w, i) => `[${i + 1}] ${w.snippet} (nguon: ${w.url})`).join('\n') || '(khong co ket qua web search)';
   const prompt = [
     `Nguoi dung hoi ve vat pham that: "${query}".`,
@@ -223,7 +224,7 @@ export async function POST(req: Request) {
     `Specs: CHI lay tu snippet ben tren, copy dung tu ngu trong snippet. Neu snippet khong co thong so nao thi specs=[]. TUYET DOI khong tu nghi ra thong so (vd: khong doan kieu dong co, kieu may).`,
       `Neu web search rong, chi dung kien thuc de xac dinh brand/name/cat/story - RIENG GIA thi price=null, TUYET DOI khong doan gia.`, 
     context,
-    `Tra ve JSON duy nhat: {"brand": string, "name": string, "cat": string (1 trong 16), "price": number|null (CHI lay gia USD co trong snippet ben tren, copy dung so; neu khong snippet nao co gia thi null, TUYET DOI khong doan), "priceEvidence": string (trich NGUYEN VAN 1 snippet chua gia do, neu khong co gia thi ""), "rarity": "common|uncommon|rare|legendary|mythic", "specs": [string], "story": string (1-2 cau, tieng Viet, toi da 220 ky tu), "lux": number (0-12000), "rate": number (-0.4..0.1), "art": string, "c": string}`, 
+    `Tra ve JSON duy nhat: {"brand": string, "name": string, "cat": string (1 trong 16), "price": number|null (CHI lay gia USD co trong snippet ben tren, copy dung so; neu khong snippet nao co gia thi null, TUYET DOI khong doan), "priceEvidence": string (trich NGUYEN VAN 1 snippet chua gia do, neu khong co gia thi ""), "rarity": "common|uncommon|rare|legendary|mythic", "specs": [string], "story": string (1-2 cau, in English, max 220 chars), "lux": number (0-12000), "rate": number (-0.4..0.1), "art": string, "c": string}`, 
     `Neu khong chac brand/name thi giu nguyen query. price=null neu khong thay gia.`,
   ].join('\n');
   const raw = await callLlama(prompt);
@@ -252,7 +253,7 @@ export async function POST(req: Request) {
       return r;
     })(),
     specs: filterSpecs(Array.isArray(parsed.specs) ? parsed.specs.filter((x) => typeof x === 'string' && x.trim()).map((x) => String(x).trim().slice(0, 80)).slice(0, 5) : [], web.map((w) => w.snippet).join('\n')),
-    story: (typeof parsed.story === 'string' && parsed.story.trim() ? parsed.story.trim() : `Vat pham that: ${query}. Admin kiem tra lai gia/mo ta truoc khi tao.`).slice(0, 280),
+    story: (typeof parsed.story === 'string' && parsed.story.trim() ? parsed.story.trim() : `Real item: ${query}. Admin, verify price/description before creating.`).slice(0, 280),
     lux: typeof parsed.lux === 'number' && Number.isFinite(parsed.lux) ? Math.max(0, Math.min(12000, Math.round(parsed.lux))) : 100,
     rate: typeof parsed.rate === 'number' && Number.isFinite(parsed.rate) ? Math.max(-0.4, Math.min(0.1, parsed.rate)) : 0,
     art: typeof parsed.art === 'string' && parsed.art.startsWith('i-') ? parsed.art.slice(0, 20) : 'i-coin',

@@ -324,4 +324,12 @@ export const CHANGELOG: Record<string, ChangelogEntry> = {
       'Lookup: default prompt sent to API in English',
     ],
   },
+  'v13.76': {
+    headline: 'HuyenBao v13.76 - Lookup prompt is instruction only, story in English',
+    summary: 'v13.76: Prompt no longer used as image/web search query (it returned wolf wallpapers), story template switched to English.',
+    features: [
+      'Lookup: web + image search use item name only, prompt is LLM instruction only',
+      'Lookup: story/description in English, not Vietnamese',
+    ],
+  },
 };

@@ -1,10 +1,10 @@
 {
-  "version": "v13.75",
+  "version": "v13.76",
   "releasedAt": "2026-11-16",
-  "headline": "HuyenBao v13.75 - Lookup prompt in English",
-  "summary": "v13.75: Lookup prompt box, placeholder and default prompt in /admin switched to English.",
+  "headline": "HuyenBao v13.76 - Lookup prompt is instruction only, story in English",
+  "summary": "v13.76: Prompt no longer used as image/web search query (it returned wolf wallpapers), story template switched to English.",
   "features": [
-    "Admin (/admin): lookup prompt label + placeholder in English",
-    "Lookup: default prompt sent to API in English"
+    "Lookup: web + image search use item name only, prompt is LLM instruction only",
+    "Lookup: story/description in English, not Vietnamese"
   ]
 }
