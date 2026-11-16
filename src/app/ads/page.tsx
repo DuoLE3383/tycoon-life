@@ -41,8 +41,8 @@ interface ATop { code: string; name: string; avatar: string; nw: number; level: 
 const KEY_STORE = 'hb_admin_key';
 const BASE = process.env.NEXT_PUBLIC_BASE_PATH || '';
 const asset = (p: string) => BASE + p;
-const fmtN = (n: number) => n.toLocaleString('vi-VN');
-const fmtMoney = (n: number) => '$' + Math.round(n).toLocaleString('vi-VN');
+const fmtN = (n: number) => n.toLocaleString('en-US');
+const fmtMoney = (n: number) => '$' + Math.round(n).toLocaleString('en-US');
 const fmtBytes = (n: number) => n < 1024 ? n + ' B' : n < 1048576 ? (n / 1024).toFixed(1) + ' KB' : (n / 1048576).toFixed(2) + ' MB';
 const fmtAgo = (ts: number) => {
   if (!ts) return '—';
@@ -409,7 +409,7 @@ export default function AdminPage() {
                 <table>
                   <thead><tr><th>Thời gian</th><th>Người gửi</th><th>Nội dung</th><th>Quản trị</th></tr></thead>
                   <tbody>
-                    {(msgs ?? []).map(m => (<tr key={m.id}><td className="adm-time">{new Date(m.ts).toLocaleString('vi-VN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' })}</td><td>{m.avatar} {m.name}<br /><code className="adm-mini-code">{m.uid.slice(0, 10)}…</code></td><td className="adm-msgtext">{m.text}</td><td className="adm-actions"><button className="adm-btn" title="Xoá tin này" onClick={() => void delMsg(m)}>🗑</button><button className="adm-btn adm-danger" title="Xoá tất cả tin của người này" onClick={() => void delUserMsgs(m)}>🧹</button></td></tr>))}
+                    {(msgs ?? []).map(m => (<tr key={m.id}><td className="adm-time">{new Date(m.ts).toLocaleString('en-US', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' })}</td><td>{m.avatar} {m.name}<br /><code className="adm-mini-code">{m.uid.slice(0, 10)}…</code></td><td className="adm-msgtext">{m.text}</td><td className="adm-actions"><button className="adm-btn" title="Xoá tin này" onClick={() => void delMsg(m)}>🗑</button><button className="adm-btn adm-danger" title="Xoá tất cả tin của người này" onClick={() => void delUserMsgs(m)}>🧹</button></td></tr>))}
                     {msgs && msgs.length === 0 && <tr><td colSpan={4}>Chưa có tin nhắn nào.</td></tr>}
                     {!msgs && <tr><td colSpan={4}>Đang tải…</td></tr>}
                   </tbody>
@@ -430,7 +430,7 @@ export default function AdminPage() {
                 <table>
                   <thead><tr><th>Thời gian</th><th>Từ</th><th>Đến</th><th>Số tiền</th><th>Lời nhắn</th><th>Trạng thái</th><th>Quản trị</th></tr></thead>
                   <tbody>
-                    {(gifts ?? []).map(g => (<tr key={g.id} className={g.from === 'hb-system' ? 'adm-sysrow' : ''}><td className="adm-time">{new Date(g.ts).toLocaleString('vi-VN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' })}</td><td>{g.fromName}{g.from === 'hb-system' && ' 📢'}</td><td><code className="adm-mini-code">{g.to.slice(0, 10)}…</code></td><td className="adm-nw">{fmtMoney(g.amount)}</td><td>{g.note || '—'}</td><td>{g.claimed ? '✅ đã nhận' : '⏳ chờ nhận'}</td><td className="adm-actions"><button className="adm-btn adm-danger" title="Xoá quà" onClick={() => void delGift(g)}>🗑</button></td></tr>))}
+                    {(gifts ?? []).map(g => (<tr key={g.id} className={g.from === 'hb-system' ? 'adm-sysrow' : ''}><td className="adm-time">{new Date(g.ts).toLocaleString('en-US', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' })}</td><td>{g.fromName}{g.from === 'hb-system' && ' 📢'}</td><td><code className="adm-mini-code">{g.to.slice(0, 10)}…</code></td><td className="adm-nw">{fmtMoney(g.amount)}</td><td>{g.note || '—'}</td><td>{g.claimed ? '✅ đã nhận' : '⏳ chờ nhận'}</td><td className="adm-actions"><button className="adm-btn adm-danger" title="Xoá quà" onClick={() => void delGift(g)}>🗑</button></td></tr>))}
                     {gifts && gifts.length === 0 && <tr><td colSpan={7}>Chưa có quà tặng nào.</td></tr>}
                     {!gifts && <tr><td colSpan={7}>Đang tải…</td></tr>}
                   </tbody>
@@ -526,7 +526,7 @@ export default function AdminPage() {
                       setLookupMeta({ lux: it.lux, rate: it.rate, art: it.art, c: it.c });
                       setLookupImages(it.images || []);
                       if (it.images?.[0]) setNewItemUrl(it.images[0]);
-                      setLookupMsg(it.price == null ? 'Đã lấy thông tin. Không thấy giá thật — admin nhập giá tay.' : `Đã lấy thông tin. Giá thật: $${it.price.toLocaleString('vi-VN')} (nguồn: ${it.priceSource}). Kiểm tra lại rồi bấm Tạo/Cập nhật.`);
+                      setLookupMsg(it.price == null ? 'Đã lấy thông tin. Không thấy giá thật — admin nhập giá tay.' : `Đã lấy thông tin. Giá thật: $${it.price.toLocaleString('en-US')} (nguồn: ${it.priceSource}). Kiểm tra lại rồi bấm Tạo/Cập nhật.`);
                     } catch { setLookupMsg('Không lấy được thông tin — nhập tay bình thường.'); }
                     setLookupBusy(false);
                   })()}>{lookupBusy ? 'Đang tìm…' : '🔍 Tự động lấy thông tin'}</button>
@@ -628,7 +628,7 @@ export default function AdminPage() {
                         <tr key={it.id}>
                           <td><img src={it.imageUrl} alt="" style={{ width: 28, height: 28, borderRadius: 5, objectFit: 'cover', verticalAlign: 'middle', marginRight: 6 }} />{it.name} <span className="adm-mini-code">custom</span>{it.stock != null ? <span className="adm-mini-code" style={{ marginLeft: 6 }}>stock: {it.stock}</span> : null}</td>
                           <td>{it.cat}</td>
-                          <td className="adm-nw">${it.price.toLocaleString('vi-VN')}</td>
+                          <td className="adm-nw">${it.price.toLocaleString('en-US')}</td>
                           <td>{it.rarity}</td>
                           <td className="adm-actions">
                             {/* v13.2 — Edit button now also loads stock + rarity into the form. */}
@@ -650,7 +650,7 @@ export default function AdminPage() {
                         <tr key={it.id}>
                           <td>{it.name}</td>
                           <td>{it.cat}</td>
-                          <td className="adm-nw">${it.price.toLocaleString('vi-VN')}</td>
+                          <td className="adm-nw">${it.price.toLocaleString('en-US')}</td>
                           <td>{it.rarity}</td>
                           <td className="adm-actions"><button className="adm-btn" title="Cấp item" disabled={!gameUid.trim()} onClick={() => void (async () => { try { await adminPost('/api/admin/game', { action: 'grantItem', uid: gameUid, itemId: it.id }); flash('✅ Đã cấp ' + it.name); } catch { flash('❌ Thất bại'); } })()}>🎁</button></td>
                         </tr>
@@ -666,7 +666,7 @@ export default function AdminPage() {
       )}
 
       <footer className="adm-foot">
-        <span>{phase === 'live' && stats ? 'Cập nhật lúc ' + new Date(stats.ts).toLocaleTimeString('vi-VN') + (tab === 'overview' ? ' · tự refresh 10s' : '') : 'HuyenBao v11.35'}</span>
+        <span>{phase === 'live' && stats ? 'Cập nhật lúc ' + new Date(stats.ts).toLocaleTimeString('en-US') + (tab === 'overview' ? ' · tự refresh 10s' : '') : 'HuyenBao v11.35'}</span>
         <a href="/" className="adm-back">← Về game</a>
       </footer>
     </div>

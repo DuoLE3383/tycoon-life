@@ -74,7 +74,7 @@ export function LinksTab({ s, onNav }: { s: GameState; onNav?: (k: string) => vo
       case 'club': return '×' + clubMult(s).toFixed(2);
       case 'fame': return String(Math.round(s.fame));
       case 'spirit': return Math.round(s.spirit) + '/100';
-      case 'social': return s.social.followers.toLocaleString('vi-VN');
+      case 'social': return s.social.followers.toLocaleString('en-US');
       case 'bank': return fmt(s.bank.dep) + (s.bank.loan > 0 ? ' · ' + fmt(-s.bank.loan) : '');
       case 'charity': return fmt(s.donated);
       case 'income': return '+' + fmt(yearIncome(s)) + t('perYear');

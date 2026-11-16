@@ -219,7 +219,7 @@ export async function POST() {
   // supplies the same four fields so the assembled item is never short.
   const prompt = [
     `Generate a fictional luxury ${cat} for a life-simulation game.`,
-    `Rarity tier: ${tier.r} (luxury score ${lux}, target price ~$${price.toLocaleString('vi-VN')}).`,
+    `Rarity tier: ${tier.r} (luxury score ${lux}, target price ~$${price.toLocaleString('en-US')}).`,
     `Reply with a single JSON object:`,
     `{"brand": string (a plausible fictional brand name, 1-3 words, no real trademarks),`,
     ` "name": string (a model / collection name, 1-4 words),`,

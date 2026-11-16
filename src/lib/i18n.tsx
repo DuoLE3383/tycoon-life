@@ -6,8 +6,8 @@ import { createContext, useContext, useEffect, useState, useSyncExternalStore, t
 
 export type Lang = 'en' | 'vi' | 'zh';
 export const LANGS: { id: Lang; label: string }[] = [
-  { id: 'en', label: 'EN' }, { id: 'vi', label: 'VI' }, { id: 'zh', label: '中文' }
-];
+  { id: 'en', label: 'EN' }
+]; // v13.77 - Game locked to English: items + details in English, currency stays $ USD;
 const IDX: Record<Lang, number> = { en: 0, vi: 1, zh: 2 };
 
 // t('key', 'English fallback') → dictionary value or the English fallback.
@@ -1567,13 +1567,7 @@ function subscribeLang(callback: () => void): () => void {
     try { window.removeEventListener('storage', onStorage); } catch { /* ignore */ }
   };
 }
-function getLangSnapshot(): Lang {
-  try {
-    const v = localStorage.getItem(LANG_KEY);
-    if (v === 'en' || v === 'vi' || v === 'zh') return v;
-  } catch { /* ignore */ }
-  return 'en';
-}
+function getLangSnapshot(): Lang { return 'en'; } // v13.77 - Always English, ignore old saved vi/zh
 function getLangServerSnapshot(): Lang { return 'en'; }
 
 export function LangProvider({ children }: { children: ReactNode }) {

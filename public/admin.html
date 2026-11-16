@@ -1027,8 +1027,8 @@
       .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
       .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
   }
-  function fmtN(n) { return Number(n || 0).toLocaleString('vi-VN'); }
-  function fmtMoney(n) { return '$' + Math.round(Number(n || 0)).toLocaleString('vi-VN'); }
+  function fmtN(n) { return Number(n || 0).toLocaleString('en-US'); }
+  function fmtMoney(n) { return '$' + Math.round(Number(n || 0)).toLocaleString('en-US'); }
   function fmtBytes(n) {
     n = Number(n || 0);
     if (n < 1024) return n + ' B';
@@ -1047,7 +1047,7 @@
   function fmtDateTime(ts) {
     if (!ts) return '—';
     var d = new Date(ts);
-    return d.toLocaleString('vi-VN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' });
+    return d.toLocaleString('en-US', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' });
   }
   function fmtUptime(sec) {
     if (sec < 60) return sec + 's';
@@ -1249,7 +1249,7 @@
   function markRefresh() {
     state.lastRefresh = Date.now();
     var d = new Date(state.lastRefresh);
-    $('last-refresh').textContent = 'cập nhật ' + d.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    $('last-refresh').textContent = 'cập nhật ' + d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
   }
 
   /* ---------- loaders ---------- */

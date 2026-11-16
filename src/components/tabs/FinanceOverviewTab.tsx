@@ -398,7 +398,7 @@ export function FinanceOverviewTab({ s, act, onNav }: { s: GameState; act: Act; 
                         <tbody>
                           {last30.map((tx: any, i: number) => (
                             <tr key={i} style={{ borderBottom: '1px solid var(--line)' }}>
-                              <td style={{ padding: '5px 8px', whiteSpace: 'nowrap', opacity: .8 }}>{(() => { const d = (tx as any).day ?? (tx as any).date ?? (tx as any).createdAt; if (d == null) return '—'; if (typeof d === 'number') return new Date(Date.UTC(s.byear + 18, 8, 1) + Math.floor(d) * 864e5).toLocaleDateString('vi-VN', { timeZone: 'UTC', day: '2-digit', month: '2-digit', year: 'numeric' }); return String(d); })()}</td>
+                              <td style={{ padding: '5px 8px', whiteSpace: 'nowrap', opacity: .8 }}>{(() => { const d = (tx as any).day ?? (tx as any).date ?? (tx as any).createdAt; if (d == null) return '—'; if (typeof d === 'number') return new Date(Date.UTC(s.byear + 18, 8, 1) + Math.floor(d) * 864e5).toLocaleDateString('en-US', { timeZone: 'UTC', day: '2-digit', month: '2-digit', year: 'numeric' }); return String(d); })()}</td>
                               <td style={{ padding: '5px 8px', opacity: .6 }}>{i + 1}</td>
                               <td style={{ padding: '5px 8px', fontWeight: 600 }}>{labelFor(tx.asset)}</td>
                               <td style={{ padding: '5px 8px', opacity: .7 }}>{tx.kind}</td>

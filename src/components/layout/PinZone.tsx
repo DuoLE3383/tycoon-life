@@ -82,7 +82,7 @@ export function PinZone({ s, t, onEdit, act, onNav, expanded, onToggleExpand, to
   // v13.31 - Quick actions gom ve giua, duoi Social Media: Travel / More / Quick gigs + Followers
   const { lang } = useT();
   const _y = worldYear(s), _news = ALLNEWS[_y] || [];
-  const _timelineLocale = { en: 'en-US', vi: 'vi-VN', zh: 'zh-CN' }[lang];
+  const _timelineLocale = { en: 'en-US', vi: 'en-US', zh: 'zh-CN' }[lang];
   const healthColor = s.health < 20 ? 'var(--brick)' : s.health < 40 ? 'var(--amber, #c47b2c)' : s.health < 60 ? 'var(--warn, #d8b13a)' : 'var(--sage)';
   // v12.13 — mobile-first collapse. When NOT expanded the .pinzone-collapsed
   // class is applied; the @media (max-width:700px) rules in globals.css hide
@@ -160,7 +160,7 @@ export function PinZone({ s, t, onEdit, act, onNav, expanded, onToggleExpand, to
 
       {/* v13.34 - Actions: hang rieng full-width, khong nhet vao cot giua */}
       <div className="pin-actions-bar">
-        <span className="pin-followers">👥 <b>{s.social.followers.toLocaleString('vi-VN')}</b> <span>{t('followers')}</span> <em>+{fmt(socialIncome(s))}{t('perYear')}</em></span>
+        <span className="pin-followers">👥 <b>{s.social.followers.toLocaleString('en-US')}</b> <span>{t('followers')}</span> <em>+{fmt(socialIncome(s))}{t('perYear')}</em></span>
         <span className="pin-actions-btns">
           <GigsPopup s={s} act={act} t={t} />
           <TravelSection s={s} act={act} t={t} />

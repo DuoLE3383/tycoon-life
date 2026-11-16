@@ -33,7 +33,7 @@ export function SocialTab({ s, act }: { s: GameState; act: Act }) {
       } catch { /* fall through to local */ }
     }
     if (!text) text = creativePost(getState(), canHype ? 'hype' : 'update');
-    act(st => { addPost(st, text!, 1.4); return t('posted', '', { n: st.social.followers.toLocaleString('vi-VN') }); });
+    act(st => { addPost(st, text!, 1.4); return t('posted', '', { n: st.social.followers.toLocaleString('en-US') }); });
     setAiBusy(false);
   };
   return (
@@ -45,7 +45,7 @@ export function SocialTab({ s, act }: { s: GameState; act: Act }) {
             {s.social.verified && <span className="vbadge" title={t('verified')}>✓</span>}</b>
           <div className="mini">{s.nation} · {t('fame')} {Math.round(s.fame)}</div>
           <div className="sstat">
-            <div><b>{s.social.followers.toLocaleString('vi-VN')}</b><div className="mini">{t('followers')}</div></div>
+            <div><b>{s.social.followers.toLocaleString('en-US')}</b><div className="mini">{t('followers')}</div></div>
             <div><b>{s.social.posts.length}</b><div className="mini">{t('posts')}</div></div>
             <div><b>{ann > 0 ? '+' + fmt(ann) : '—'}</b><div className="mini">{t('adRevenue')}{t('perYear')}</div></div>
           </div>
@@ -56,10 +56,10 @@ export function SocialTab({ s, act }: { s: GameState; act: Act }) {
         {/* v11.9 — all post buttons disabled during the one-post-per-game-day cooldown.
             This kills the spam-click exploit (repeat clicks kept adding followers/likes). */}
         <Btn ic="ic-ai" label={aiBusy ? t('divine.thinking') : t('postAi')} disabled={aiBusy || !canPost(s)} onClick={aiPost} />
-        <Btn ic="ic-plus" label={t('postUpdate')} disabled={!canPost(s)} onClick={() => act(st => { addPost(st, creativePost(st, 'update'), 1); const n = st.social.followers.toLocaleString('vi-VN'); return t('posted', '', { n }); })} />
-        <Btn ic="ic-up" label={t('postHype')} disabled={!canHype || !canPost(s)} onClick={() => act(st => { addPost(st, creativePost(st, 'hype'), 1.6); const n = st.social.followers.toLocaleString('vi-VN'); return t('posted', '', { n }); })} />
-        <Btn ic="ic-heart" label={t('postCharity')} disabled={!canCharity || !canPost(s)} onClick={() => act(st => { addPost(st, creativePost(st, 'charity'), 1.4); const n = st.social.followers.toLocaleString('vi-VN'); return t('posted', '', { n }); })} />
-        <Btn ic="ic-star" label={t('postMilestone')} disabled={!canPost(s)} onClick={() => act(st => { addPost(st, creativePost(st, 'milestone'), 1.5); const n = st.social.followers.toLocaleString('vi-VN'); return t('posted', '', { n }); })} />
+        <Btn ic="ic-plus" label={t('postUpdate')} disabled={!canPost(s)} onClick={() => act(st => { addPost(st, creativePost(st, 'update'), 1); const n = st.social.followers.toLocaleString('en-US'); return t('posted', '', { n }); })} />
+        <Btn ic="ic-up" label={t('postHype')} disabled={!canHype || !canPost(s)} onClick={() => act(st => { addPost(st, creativePost(st, 'hype'), 1.6); const n = st.social.followers.toLocaleString('en-US'); return t('posted', '', { n }); })} />
+        <Btn ic="ic-heart" label={t('postCharity')} disabled={!canCharity || !canPost(s)} onClick={() => act(st => { addPost(st, creativePost(st, 'charity'), 1.4); const n = st.social.followers.toLocaleString('en-US'); return t('posted', '', { n }); })} />
+        <Btn ic="ic-star" label={t('postMilestone')} disabled={!canPost(s)} onClick={() => act(st => { addPost(st, creativePost(st, 'milestone'), 1.5); const n = st.social.followers.toLocaleString('en-US'); return t('posted', '', { n }); })} />
       </div>
       {!canPost(s) && <p className="mini" style={{ margin: '-2px 0 8px', opacity: .8 }}>{t('postCooldown', '', { n: postCooldownLeft(s) })}</p>}
       <div className="card">
@@ -69,7 +69,7 @@ export function SocialTab({ s, act }: { s: GameState; act: Act }) {
             <div style={{ flex: 1, minWidth: 0 }}>
               <b style={{ fontSize: '.9rem' }}>@{s.name.toLowerCase().replace(/[^a-z0-9_]/g, '') || 'huyenbao'}{s.social.verified && <span className="vbadge">✓</span>}</b>
               <div style={{ fontSize: '.92rem' }}>{p.t}</div>
-              <span className="mini">♥ {p.likes.toLocaleString('vi-VN')} · {t('followers')} +{Math.round(p.likes * 0.3).toLocaleString('vi-VN')}</span>
+              <span className="mini">♥ {p.likes.toLocaleString('en-US')} · {t('followers')} +{Math.round(p.likes * 0.3).toLocaleString('en-US')}</span>
               {/* v11.50 — NPC reactions on AI-event posts. Friends comment
                   supportive, rivals snark — sentiment coloured accordingly. */}
               {p.reactions && p.reactions.length > 0 && (
@@ -82,7 +82,7 @@ export function SocialTab({ s, act }: { s: GameState; act: Act }) {
                 </div>
               )}
             </div>
-            <span className="plikes">♥ {p.likes.toLocaleString('vi-VN')}</span>
+            <span className="plikes">♥ {p.likes.toLocaleString('en-US')}</span>
           </div>
         )) : <div className="sub">{t('noPosts')}</div>}
       </div>

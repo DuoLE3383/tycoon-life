@@ -82,7 +82,7 @@ export function HomeTab({ s, act, askAI, aiBusy, aiNote, eraName, onNav }: { s: 
   const healthChangeText = recoveryRate > 0
     ? `+${(recoveryRate * 100).toFixed(0)}%/day recovery`
     : `${healthChange > 0 ? '+' : ''}${healthChange}%`;
-  const timelineLocale = { en: 'en-US', vi: 'vi-VN', zh: 'zh-CN' }[lang];
+  const timelineLocale = { en: 'en-US', vi: 'en-US', zh: 'zh-CN' }[lang];
   const incRows: [string, number][] = [
     [t('inc.salary'), jobIncome(s)],
     [t('inc.biz'), bizIncome(s)],
