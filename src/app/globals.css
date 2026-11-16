@@ -1505,3 +1505,22 @@ body:has(.tgame .modal-overlay){overflow:hidden}
 .gigs-popup, [class*="gigs"][class*="popup"], [class*="popup"][class*="gigs"] { position: fixed !important; left: 50% !important; top: 50% !important; transform: translate(-50%, -50%) !important; max-width: calc(100vw - 24px); max-height: calc(100vh - 24px); overflow-y: auto; z-index: 9999; box-shadow: 0 20px 60px rgba(0,0,0,.5); }
 /* Nen mo phia sau popup */
 .pin-actions-btns::after { content: ""; }
+
+/* v13.50 - PinZone gon: bo min-height ep cao, 2 cot tu cao theo noi dung */
+.tgame .pinzone-v55 .dash-charts { align-items: flex-start !important; gap: 4px !important; }
+.tgame .pinzone-v55 .dash-chart-box { min-height: 0 !important; height: auto !important; padding: 6px 8px !important; }
+.tgame .pinzone-v55 .dash-chart-col .dash-chart-box { min-height: 0 !important; height: auto !important; }
+.tgame .pinzone-v55 .pin-actions-bar { margin-top: 4px !important; }
+
+/* v13.50b - PinZone sieu gon: chip nho, cac hang sat nhau */
+.tgame .pinzone-v55 { padding: 4px 10px 4px !important; gap: 2px !important; }
+.tgame .pinzone-v55 .agehead { gap: 4px !important; padding: 1px 0 !important; }
+.tgame .pinzone-v55 .stats-row { gap: 4px !important; margin: 2px 0 !important; }
+.tgame .pinzone-v55 .pchip-big, .tgame .pinzone-v55 .hpill-big, .tgame .pinzone-v55 .cash-chip { font-size: .78rem !important; padding: 2px 6px !important; line-height: 1.2 !important; }
+.tgame .pinzone-v55 .dash-charts { gap: 4px !important; margin: 2px 0 !important; padding-top: 2px !important; }
+.tgame .pinzone-v55 .dash-chart-box { padding: 4px 6px !important; gap: 2px !important; }
+.tgame .pinzone-v55 .sleep-block { padding: 1px 0 !important; margin: 0 !important; gap: 2px !important; }
+.tgame .pinzone-v55 .sleep-effects { display: flex !important; gap: 8px !important; }
+.tgame .pinzone-v55 .pin-actions-bar { padding: 4px 8px !important; margin-top: 2px !important; }
+.tgame .pinzone-v55 .track.slim { margin-top: 2px !important; }
+.tgame .pinzone-v55 .ms { margin-top: 0 !important; }

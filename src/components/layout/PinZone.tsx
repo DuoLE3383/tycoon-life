@@ -94,11 +94,11 @@ export function PinZone({ s, t, onEdit, act, onNav, expanded, onToggleExpand }: 
           Each warning is a clickable chip → relevant tab. Critical = red,
           warn = orange, info = muted. */}
       {unpaidBills.length > 0 && (
-        <div role="status" aria-live="polite" onClick={() => onNav('finance-overview')} style={{ cursor: 'pointer', marginBottom: 8, padding: '8px 12px', borderRadius: 8, background: overdueBills.length > 0 ? 'rgba(192,57,43,.12)' : 'rgba(212,165,90,.14)', border: `1px solid ${overdueBills.length > 0 ? 'rgba(192,57,43,.5)' : 'rgba(212,165,90,.5)'}` }}>
+        <button type="button" aria-live="polite" onClick={(e) => { e.stopPropagation(); onNav('finance-overview'); }} style={{ display: 'block', width: '100%', textAlign: 'left', cursor: 'pointer', marginBottom: 8, padding: '8px 12px', borderRadius: 8, background: overdueBills.length > 0 ? 'rgba(192,57,43,.12)' : 'rgba(212,165,90,.14)', border: `1px solid ${overdueBills.length > 0 ? 'rgba(192,57,43,.5)' : 'rgba(212,165,90,.5)'}`, color: 'inherit', font: 'inherit', position: 'relative', zIndex: 5, pointerEvents: 'auto' }}>
           <span>{overdueBills.length > 0 ? '🔴' : '🟠'}</span>{' '}
           <b>{overdueBills.length > 0 ? `Có ${overdueBills.length} hóa đơn quá hạn!` : `Có ${unpaidBills.length} hóa đơn cần thanh toán`}</b>{' '}
           <span className="mini">— tổng {fmt(billsDueTotal)}{overdueBills.length > 0 ? ' (đã gồm tiền phạt)' : ''} · bấm để trả →</span>
-        </div>
+        </button>
       )}
       {warns.length > 0 && (
         <div className="pinzone-warns" role="status" aria-live="polite">
@@ -152,13 +152,13 @@ export function PinZone({ s, t, onEdit, act, onNav, expanded, onToggleExpand }: 
 
       {/* Row 3: Charts — bigger donut + bar + sleep, 3-col desktop / 1-col mobile */}
       {nw > 0 && (
-        <div className="dash-charts" style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: 8 }}>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        <div className="dash-charts" style={{ display: 'grid', gridTemplateColumns: '0.82fr 1.18fr', gap: 4, alignItems: 'start' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
           {/* Asset donut chart */}
           <button className="dash-chart-box nav-link" onClick={() => onNav('assets')}>
             <span className="mini wl">{t('netWorth')} · {fmt(nw)}</span>
             <div className="dash-chart-wrap">
-              <DonutChart size={72} segs={assetSegs.filter(([, v]) => v > 0).map(([label, value, color]) => ({ label, value, color }))} />
+              <DonutChart size={60} segs={assetSegs.filter(([, v]) => v > 0).map(([label, value, color]) => ({ label, value, color }))} />
               <div className="dash-chart-legend">
                 {assetSegs.filter(([, v]) => v > 0).map(([label, v, color]) => (
                   <span key={label} className="asset-leg-item"><span className="sw" style={{ background: color }} />{label} <b>{fmt(v)}</b></span>

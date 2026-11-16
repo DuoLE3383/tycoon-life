@@ -300,7 +300,13 @@ export function FinanceOverviewTab({ s, act, onNav }: { s: GameState; act: Act; 
       {/* v13.49 — Hoa don phai tra: thang + thue nam. Da tra thi an khoi danh sach (giữ trong s.bills, paid=true). */}
       {(() => {
         const unpaid = (s.bills || []).filter((b: Bill) => !b.paid);
-        if (unpaid.length === 0) return null;
+        if (unpaid.length === 0) return (
+          <div className="card" style={{ marginBottom: 10, padding: 14, borderLeft: '3px solid var(--sage)' }}>
+            <div className="mini" style={{ textTransform: 'uppercase', letterSpacing: '.4px', color: 'var(--accent)', marginBottom: 6 }}>🧾 Hóa đơn cần thanh toán</div>
+            <div style={{ fontSize: '.9rem' }}>✓ Hiện không có hóa đơn chưa trả.</div>
+            <p className="mini" style={{ opacity: .7, marginTop: 6 }}>Hóa đơn tháng (tiền nhà + sinh hoạt + học phí) và Thuế thu nhập năm sẽ tự hiện ở đây khi đến hạn — hạn 14/30 ngày, quá hạn phạt +2%/tháng. Chơi tiếp qua tháng / qua năm để thấy hóa đơn đầu tiên.</p>
+          </div>
+        );
         return (
           <div className="card" style={{ marginBottom: 10, padding: 14, borderLeft: '3px solid var(--brick)' }}>
             <div className="mini" style={{ textTransform: 'uppercase', letterSpacing: '.4px', color: 'var(--accent)', marginBottom: 6 }}>🧾 Hóa đơn cần thanh toán</div>

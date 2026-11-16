@@ -1,6 +1,6 @@
 {
   "version": "v13.50",
-  "releasedAt": "2026-11-15",
+  "releasedAt": "2026-11-16",
   "headline": "HuyenBao v13.50 - Tra cuu Bing + Rarity theo gia + Loai vat pham",
   "summary": "v13.50: Lookup them Bing/Openverse (khong can API key), anh thu handbag/bag tranh Tabby ra buom. Rarity floor theo gia that: >=20k len Legendary, >=5k len Rare. Them Loai used/standard/custom/rare + loc list.",
   "features": [
