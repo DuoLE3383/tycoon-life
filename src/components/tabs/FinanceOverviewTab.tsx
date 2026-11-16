@@ -222,30 +222,30 @@ export function FinanceOverviewTab({ s, act, onNav }: { s: GameState; act: Act; 
     <>
               {/* v13.66 — Thuê trợ lý */}
         <div className="card" style={{ marginBottom: 10, padding: 14, borderLeft: '3px solid var(--accent)' }}>
-          <div className="mini" style={{ textTransform: 'uppercase', letterSpacing: '.4px', color: 'var(--accent)', marginBottom: 4 }}>🤝 Thuê trợ lý</div>
+          <div className="mini" style={{ textTransform: 'uppercase', letterSpacing: '.4px', color: 'var(--accent)', marginBottom: 4 }}>{t('fin.hireTitle')}</div>
           <div className="mini" style={{ opacity: .75, marginBottom: 10 }}>Trợ lý tự trả hoá đơn đúng hạn (tránh phạt +2%/tháng), kế toán tự nộp thuế năm, giám đốc còn +mood chi nhánh mỗi tháng. Lương trừ ngày 1 hàng tháng. {assistantSalaryTotal(s) > 0 ? `Đang trả lương: ${fmtFull(assistantSalaryTotal(s))}/tháng.` : 'Chưa thuê ai.'}</div>
           {ASSISTANT_DEFS.map((d) => {
             const a = s.assistants?.[d.id]; const hired = !!a?.hired;
             const tasks: { key: 'bills' | 'tax' | 'biz'; label: string; on: boolean; disabled: boolean }[] = [
-              { key: 'bills', label: '🧾 Trả hoá đơn tháng', on: !!a?.autoBills, disabled: false },
-              { key: 'tax', label: '🧮 Nộp thuế năm', on: !!a?.autoTax, disabled: d.id === 'helper' },
-              { key: 'biz', label: '💼 Tối ưu kinh doanh', on: !!a?.autoBiz, disabled: d.id !== 'director' },
+              { key: 'bills', label: t('fin.task.bills'), on: !!a?.autoBills, disabled: false },
+              { key: 'tax', label: t('fin.task.tax'), on: !!a?.autoTax, disabled: d.id === 'helper' },
+              { key: 'biz', label: t('fin.task.biz'), on: !!a?.autoBiz, disabled: d.id !== 'director' },
             ];
             return (
               <div key={d.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, padding: '10px 0', borderTop: '1px solid var(--line)', flexWrap: 'wrap' }}>
                 <div style={{ minWidth: 220, flex: 1 }}>
-                  <div style={{ fontSize: '.92rem', fontWeight: 800 }}>{d.name} {hired ? <span style={{ color: 'var(--up)' }}>· Đang làm việc</span> : ''}</div>
+                  <div style={{ fontSize: '.92rem', fontWeight: 800 }}>{d.name} {hired ? <span style={{ color: 'var(--up)' }}>{t('fin.working')}</span> : ''}</div>
                   <div className="mini" style={{ opacity: .7 }}>{d.desc}</div>
                   <div className="mini" style={{ opacity: .7 }}>Phí tuyển {fmtFull(d.hireCost)} · Lương {fmtFull(d.salary)}/tháng{hired ? ` · Đã tự trả ${a!.paidCount} hoá đơn · Tránh phạt ${fmtFull(a!.savedPenalty)}` : ''}</div>
                   {hired && <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 6 }}>{tasks.map((tk) => (
-                    <button key={tk.key} className="btn" disabled={tk.disabled} title={tk.disabled ? 'Cấp này chưa làm được việc này — thuê cấp cao hơn.' : ''} style={{ opacity: tk.disabled ? .45 : 1, background: tk.on ? 'var(--up)' : 'var(--mute)', color: '#fff', fontWeight: 700, padding: '6px 10px', borderRadius: 8, border: 'none', cursor: tk.disabled ? 'not-allowed' : 'pointer' }} onClick={() => act((st) => { toggleAssistant(st, d.id as AssistantKind, tk.key); return null; })}>
+                    <button key={tk.key} className="btn" disabled={tk.disabled} title={tk.disabled ? t('fin.taskDisabled') : ''} style={{ opacity: tk.disabled ? .45 : 1, background: tk.on ? 'var(--up)' : 'var(--mute)', color: '#fff', fontWeight: 700, padding: '6px 10px', borderRadius: 8, border: 'none', cursor: tk.disabled ? 'not-allowed' : 'pointer' }} onClick={() => act((st) => { toggleAssistant(st, d.id as AssistantKind, tk.key); return null; })}>
                       {tk.on ? '✓ ' : '○ '}{tk.label}
                     </button>
                   ))}</div>}
                 </div>
                 {hired
-                  ? <button className="btn" style={{ background: 'var(--brick)', color: '#fff', fontWeight: 800, padding: '10px 16px', borderRadius: 10, border: 'none', cursor: 'pointer' }} onClick={() => act((st) => { fireAssistant(st, d.id as AssistantKind); return null; })}>Sa thải</button>
-                  : <button className="btn" style={{ background: s.money < d.hireCost ? 'var(--mute)' : 'var(--up)', color: '#fff', fontWeight: 800, padding: '10px 16px', borderRadius: 10, border: 'none', cursor: s.money < d.hireCost ? 'not-allowed' : 'pointer' }} disabled={s.money < d.hireCost} onClick={() => act((st) => { const ok = hireAssistant(st, d.id as AssistantKind); return ok ? null : 'Không đủ tiền thuê trợ lý này.'; })}>Thuê · {fmtFull(d.hireCost)}</button>}
+                  ? <button className="btn" style={{ background: 'var(--brick)', color: '#fff', fontWeight: 800, padding: '10px 16px', borderRadius: 10, border: 'none', cursor: 'pointer' }} onClick={() => act((st) => { fireAssistant(st, d.id as AssistantKind); return null; })}>{t('fin.fire')}</button>
+                  : <button className="btn" style={{ background: s.money < d.hireCost ? 'var(--mute)' : 'var(--up)', color: '#fff', fontWeight: 800, padding: '10px 16px', borderRadius: 10, border: 'none', cursor: s.money < d.hireCost ? 'not-allowed' : 'pointer' }} disabled={s.money < d.hireCost} onClick={() => act((st) => { const ok = hireAssistant(st, d.id as AssistantKind); return ok ? null : t('fin.hireFail'); })}>Thuê · {fmtFull(d.hireCost)}</button>}
               </div>
             );
           })}
@@ -256,8 +256,8 @@ export function FinanceOverviewTab({ s, act, onNav }: { s: GameState; act: Act; 
         const unpaid = (s.bills || []).filter((b: Bill) => !b.paid);
         if (unpaid.length === 0) return (
           <div className="card" style={{ marginBottom: 10, padding: 14, borderLeft: '3px solid var(--sage)' }}>
-            <div className="mini" style={{ textTransform: 'uppercase', letterSpacing: '.4px', color: 'var(--accent)', marginBottom: 6 }}>🧾 Hóa đơn cần thanh toán</div>
-            <div style={{ fontSize: '.9rem' }}>✓ Hiện không có hóa đơn chưa trả.</div>
+            <div className="mini" style={{ textTransform: 'uppercase', letterSpacing: '.4px', color: 'var(--accent)', marginBottom: 6 }}>{t('fin.billsTitle')}</div>
+            <div style={{ fontSize: '.9rem' }}>{t('fin.noBills')}</div>
             <p className="mini" style={{ opacity: .7, marginTop: 6 }}>Hóa đơn tháng (tiền nhà + sinh hoạt + học phí) và Thuế thu nhập năm sẽ tự hiện ở đây khi đến hạn — hạn 14/30 ngày, quá hạn phạt +2%/tháng. Chơi tiếp qua tháng / qua năm để thấy hóa đơn đầu tiên.</p>
           </div>
         );
@@ -277,13 +277,13 @@ export function FinanceOverviewTab({ s, act, onNav }: { s: GameState; act: Act; 
                       {' · '}Gốc {fmtFull(b.amount)}
                     </div>
                   </div>
-                  <button className="btn" style={{ background: s.money < due ? "var(--mute)" : "var(--up)", color: "#fff", fontWeight: 800, padding: "10px 16px", borderRadius: 10, cursor: s.money < due ? "not-allowed" : "pointer", border: "none" }} disabled={s.money < due} onClick={() => act((st) => { const ok = payBill(st, b.id); return ok ? null : 'Không đủ tiền để trả hóa đơn này.'; })}>
+                  <button className="btn" style={{ background: s.money < due ? "var(--mute)" : "var(--up)", color: "#fff", fontWeight: 800, padding: "10px 16px", borderRadius: 10, cursor: s.money < due ? "not-allowed" : "pointer", border: "none" }} disabled={s.money < due} onClick={() => act((st) => { const ok = payBill(st, b.id); return ok ? null : t('fin.payFail'); })}>
                     Trả {fmtFull(due)}
                   </button>
                 </div>
               );
             })}
-            <p className="mini" style={{ opacity: .7, marginTop: 8 }}>Quá hạn: +2%/tháng phạt cộng dồn. Trả chậm không bị trừ tiền tự động nữa — nhưng phạt vẫn tăng mỗi tháng.</p>
+            <p className="mini" style={{ opacity: .7, marginTop: 8 }}>{t('fin.overdueHint')}</p>
           </div>
         );
       })()}
@@ -325,7 +325,7 @@ export function FinanceOverviewTab({ s, act, onNav }: { s: GameState; act: Act; 
           tong tai san (tien + gia tai san/co phieu/biz - no). Khau hao + gia tai san
           tut la mat gia phi tien mat, khong hien trong dong tien. */}
       {(() => {
-        const labelFor = (a: string): string => ({ stock: 'Cổ phiếu', lot: 'Vật phẩm', biz: 'Kinh doanh', branch: 'Chi nhánh', farm: 'Trang trại', fac: 'Nhà máy', space: 'Bất động sản', bank: 'Ngân hàng', gig: 'Việc vặt', job: 'Lương', tuition: 'Học phí', donate: 'Từ thiện', biz_sell: 'Bán doanh nghiệp' } as Record<string, string>)[a] || a;
+        const labelFor = (a: string): string => ({ stock: 'Cổ phiếu', lot: 'Vật phẩm', biz: 'Kinh doanh', branch: t('fin.label.branch'), farm: t('fin.label.farm'), fac: t('fin.label.fac'), space: t('fin.label.space'), bank: t('fin.label.bank'), gig: 'Việc vặt', job: t('fin.label.job'), tuition: t('fin.label.tuition'), donate: 'Từ thiện', biz_sell: t('fin.label.bizSell') } as Record<string, string>)[a] || a;
         // v13.49b — TACH: van hanh (income/expense/dividend = lai that, khop P&L) vs dau tu (buy/sell = mua/ban tai san, von).
         // Truoc day gop chung nen mua chi nhanh $5,14 nghìn tỷ bi dem nhu 'tien ra', lam Ròng -$1,02 nghìn tỷ du P&L +$1,55B.
         const groups = new Map<string, { inAmt: number; outAmt: number }>();
@@ -342,14 +342,14 @@ export function FinanceOverviewTab({ s, act, onNav }: { s: GameState; act: Act; 
         const depr = assetDepreciationYr(s);
         return (
           <div className="card" style={{ marginBottom: 10, padding: 14 }}>
-            <div className="mini" style={{ textTransform: 'uppercase', letterSpacing: '.4px', color: 'var(--accent)', marginBottom: 6 }}>💸 Dòng tiền vận hành — 200 giao dịch gần nhất (không tính mua/bán tài sản)</div>
+            <div className="mini" style={{ textTransform: 'uppercase', letterSpacing: '.4px', color: 'var(--accent)', marginBottom: 6 }}>{t('fin.cashflowTitle')}</div>
             <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', marginBottom: 10 }}>
-              <span className="mini">Tiền vào: <b style={{ color: 'var(--up)' }}>+{fmtFull(txIn)}</b></span>
+              <span className="mini">{t('fin.in')} <b style={{ color: 'var(--up)' }}>+{fmtFull(txIn)}</b></span>
               <span className="mini">Tiền ra: <b style={{ color: 'var(--down)' }}>−{fmtFull(txOut)}</b></span>
-              <span className="mini">Ròng giao dịch: <b style={{ color: txIn - txOut >= 0 ? 'var(--up)' : 'var(--down)' }}>{txIn - txOut >= 0 ? '+' : '−'}{fmtFull(Math.abs(txIn - txOut))}</b></span>
-              <span className="mini">Khấu hao tài sản / năm (không phải tiền mặt): <b style={{ color: 'var(--down)' }}>−{fmtFull(depr)}</b></span>
+              <span className="mini">{t('fin.net')} <b style={{ color: txIn - txOut >= 0 ? 'var(--up)' : 'var(--down)' }}>{txIn - txOut >= 0 ? '+' : '−'}{fmtFull(Math.abs(txIn - txOut))}</b></span>
+              <span className="mini">{t('fin.depr')} <b style={{ color: 'var(--down)' }}>−{fmtFull(depr)}</b></span>
             </div>
-            {rows.length === 0 ? <p className="sub">Chưa có giao dịch nào.</p> : rows.map((r) => (
+            {rows.length === 0 ? <p className="sub">{t('fin.noTx')}</p> : rows.map((r) => (
               <div key={r.asset} style={{ marginBottom: 8 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '.82rem' }}>
                   <b>{r.label}</b>
@@ -377,7 +377,7 @@ export function FinanceOverviewTab({ s, act, onNav }: { s: GameState; act: Act; 
               const last30 = [...(s.transactions || [])].filter((tx: any) => tx.kind !== 'transfer' && tx.kind !== 'buy' && tx.kind !== 'sell').slice(0, 30);
               return (
                 <>
-                  <div style={{ marginTop: 10, marginBottom: 6, fontSize: '.82rem', fontWeight: 800 }}>📈 Biểu đồ cộng dồn — Ròng vận hành theo từng giao dịch (cũ → mới)</div>
+                  <div style={{ marginTop: 10, marginBottom: 6, fontSize: '.82rem', fontWeight: 800 }}>{t('fin.chartTitle')}</div>
                   {pts.length === 0 ? <p className="sub">Chua co giao dich van hanh nao.</p> : (
                     <div style={{ overflowX: 'auto' }}>
                       <div style={{ display: 'flex', alignItems: 'flex-end', gap: 1, height: 150, borderBottom: '1px dashed var(--line)', minWidth: 320 }}>
@@ -390,11 +390,11 @@ export function FinanceOverviewTab({ s, act, onNav }: { s: GameState; act: Act; 
                       </div>
                     </div>
                   )}
-                  <div style={{ marginTop: 12, marginBottom: 6, fontSize: '.82rem', fontWeight: 800 }}>🧾 Chi tiết — 30 giao dịch vận hành gần nhất (mới → cũ)</div>
+                  <div style={{ marginTop: 12, marginBottom: 6, fontSize: '.82rem', fontWeight: 800 }}>{t('fin.detailTitle')}</div>
                   {last30.length === 0 ? <p className="sub">Chưa có giao dịch nào.</p> : (
                     <div style={{ overflowX: 'auto' }}>
                       <table style={{ width: '100%', fontSize: '.78rem', borderCollapse: 'collapse' }}>
-                        <thead><tr style={{ borderBottom: '1px solid var(--line)', textAlign: 'left' }}><th style={{ padding: '5px 8px' }}>Ngày</th><th style={{ padding: '5px 8px' }}>#</th><th style={{ padding: '5px 8px' }}>Loại</th><th style={{ padding: '5px 8px' }}>Kind</th><th style={{ padding: '5px 8px', textAlign: 'right' }}>Tiền vào</th><th style={{ padding: '5px 8px', textAlign: 'right' }}>Tiền ra</th></tr></thead>
+                        <thead><tr style={{ borderBottom: '1px solid var(--line)', textAlign: 'left' }}><th style={{ padding: '5px 8px' }}>{t('fin.date')}</th><th style={{ padding: '5px 8px' }}>#</th><th style={{ padding: '5px 8px' }}>{t('fin.type')}</th><th style={{ padding: '5px 8px' }}>Kind</th><th style={{ padding: '5px 8px', textAlign: 'right' }}>{t('fin.inCol')}</th><th style={{ padding: '5px 8px', textAlign: 'right' }}>Tiền ra</th></tr></thead>
                         <tbody>
                           {last30.map((tx: any, i: number) => (
                             <tr key={i} style={{ borderBottom: '1px solid var(--line)' }}>
