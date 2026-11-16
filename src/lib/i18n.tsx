@@ -1592,6 +1592,17 @@ const D: Record<string, [string, string, string]> = {
   'fin.date': ['Date', 'Ngày', '日期'],
   'fin.type': ['Type', 'Loại', '类型'],
   'fin.inCol': ['Money in', 'Tiền vào', '收入'],
+  'fin.asst.helper.name': ['🧾 Bill Assistant', '🧾 Trợ lý hoá đơn', '🧾 账单助理'],
+  'fin.asst.helper.desc': ['Auto-pays monthly bills on time, no +2%/month penalty.', 'Tự trả hoá đơn tháng đúng hạn, không để bị phạt +2%/tháng.', '按时自动支付月度账单，避免 +2%/月罚款。'],
+  'fin.asst.accountant.name': ['🧮 Tax Accountant', '🧮 Kế toán thuế', '🧮 税务会计'],
+  'fin.asst.accountant.desc': ['Pays monthly bills + auto-files annual income tax when due.', 'Trả hoá đơn tháng + tự nộp thuế thu nhập năm khi đến hạn.', '支付月度账单 + 到期时自动申报年度所得税。'],
+  'fin.asst.director.name': ['💼 Business Director', '💼 Giám đốc kinh doanh', '💼 业务总监'],
+  'fin.asst.director.desc': ['Bills + tax + branch optimization: +mood each month, branches close less often.', 'Trả hoá đơn + thuế + tối ưu chi nhánh: +mood mỗi tháng, chi nhánh ít đóng cửa hơn.', '账单 + 税款 + 分店优化：每月 +士气，分店更少关闭。'],
+  'fin.hireDesc': ['Assistant auto-pays bills on time (avoid +2%/month penalty), accountant auto-files annual tax, director also +branch mood each month. Salary deducted on day 1 each month.', 'Trợ lý tự trả hoá đơn đúng hạn (tránh phạt +2%/tháng), kế toán tự nộp thuế năm, giám đốc còn +mood chi nhánh mỗi tháng. Lương trừ ngày 1 hàng tháng.', '助理按时自动支付账单（避免 +2%/月罚款），会计自动申报年度税款，总监每月还提升分店士气。工资于每月 1 号扣除。'],
+  'fin.hireStats': ['Hiring fee {hire} · Salary {salary}/month · Auto-paid {paid} bills · Saved penalty {saved}', 'Phí tuyển {hire} · Lương {salary}/tháng · Đã tự trả {paid} hoá đơn · Tránh phạt {saved}', '招聘费 {hire} · 工资 {salary}/月 · 已自动支付 {paid} 张账单 · 避免罚款 {saved}'],
+  'fin.hireStatsSimple': ['Hiring fee {hire} · Salary {salary}/month', 'Phí tuyển {hire} · Lương {salary}/tháng', '招聘费 {hire} · 工资 {salary}/月'],
+  'fin.payBill': ['Pay {total}', 'Trả {total}', '支付 {total}'],
+  'fin.netLabel': ['Net', 'Ròng', '净额'],
   'fin.legend': ['Green = money in, red = money out. Only operating profit counts, so it matches P&L. Branch / land / item buy/sell is investment flow (money ↔ assets, total assets unchanged) so it is not counted here.', 'Xanh = tiền vào, đỏ = tiền ra. Chỉ tính lãi vận hành nên khớp P&L. Tiền mua/bán chi nhánh, đất, đồ là dòng đầu tư (đổi tiền ↔ tài sản, tổng tài sản không đổi) nên không tính ở đây.', '绿色 = 收入，红色 = 支出。仅计算经营利润，因此与损益表一致。分店 / 土地 / 物品买卖属于投资流（钱 ↔ 资产，总资产不变），因此不在此计算。'],
 
 };

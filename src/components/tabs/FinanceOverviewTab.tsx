@@ -223,7 +223,7 @@ export function FinanceOverviewTab({ s, act, onNav }: { s: GameState; act: Act; 
               {/* v13.66 — Thuê trợ lý */}
         <div className="card" style={{ marginBottom: 10, padding: 14, borderLeft: '3px solid var(--accent)' }}>
           <div className="mini" style={{ textTransform: 'uppercase', letterSpacing: '.4px', color: 'var(--accent)', marginBottom: 4 }}>{t('fin.hireTitle')}</div>
-          <div className="mini" style={{ opacity: .75, marginBottom: 10 }}>Trợ lý tự trả hoá đơn đúng hạn (tránh phạt +2%/tháng), kế toán tự nộp thuế năm, giám đốc còn +mood chi nhánh mỗi tháng. Lương trừ ngày 1 hàng tháng. {assistantSalaryTotal(s) > 0 ? `Đang trả lương: ${fmtFull(assistantSalaryTotal(s))}/tháng.` : 'Chưa thuê ai.'}</div>
+          <div className="mini" style={{ opacity: .75, marginBottom: 10 }}>{t('fin.hireDesc')} {assistantSalaryTotal(s) > 0 ? t('fin.hirePaying', '', { total: fmtFull(assistantSalaryTotal(s)) }) : t('fin.hireNone')}</div>
           {ASSISTANT_DEFS.map((d) => {
             const a = s.assistants?.[d.id]; const hired = !!a?.hired;
             const tasks: { key: 'bills' | 'tax' | 'biz'; label: string; on: boolean; disabled: boolean }[] = [
@@ -234,9 +234,9 @@ export function FinanceOverviewTab({ s, act, onNav }: { s: GameState; act: Act; 
             return (
               <div key={d.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, padding: '10px 0', borderTop: '1px solid var(--line)', flexWrap: 'wrap' }}>
                 <div style={{ minWidth: 220, flex: 1 }}>
-                  <div style={{ fontSize: '.92rem', fontWeight: 800 }}>{d.name} {hired ? <span style={{ color: 'var(--up)' }}>{t('fin.working')}</span> : ''}</div>
-                  <div className="mini" style={{ opacity: .7 }}>{d.desc}</div>
-                  <div className="mini" style={{ opacity: .7 }}>Phí tuyển {fmtFull(d.hireCost)} · Lương {fmtFull(d.salary)}/tháng{hired ? ` · Đã tự trả ${a!.paidCount} hoá đơn · Tránh phạt ${fmtFull(a!.savedPenalty)}` : ''}</div>
+                  <div style={{ fontSize: '.92rem', fontWeight: 800 }}>{t(d.id === 'helper' ? 'fin.asst.helper.name' : d.id === 'accountant' ? 'fin.asst.accountant.name' : 'fin.asst.director.name')} {hired ? <span style={{ color: 'var(--up)' }}>{t('fin.working')}</span> : ''}</div>
+                  <div className="mini" style={{ opacity: .7 }}>{t(d.id === 'helper' ? 'fin.asst.helper.desc' : d.id === 'accountant' ? 'fin.asst.accountant.desc' : 'fin.asst.director.desc')}</div>
+                  <div className="mini" style={{ opacity: .7 }}>{hired ? t('fin.hireStats', '', { hire: fmtFull(d.hireCost), salary: fmtFull(d.salary), paid: a!.paidCount, saved: fmtFull(a!.savedPenalty) }) : t('fin.hireStatsSimple', '', { hire: fmtFull(d.hireCost), salary: fmtFull(d.salary) })}</div>
                   {hired && <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 6 }}>{tasks.map((tk) => (
                     <button key={tk.key} className="btn" disabled={tk.disabled} title={tk.disabled ? t('fin.taskDisabled') : ''} style={{ opacity: tk.disabled ? .45 : 1, background: tk.on ? 'var(--up)' : 'var(--mute)', color: '#fff', fontWeight: 700, padding: '6px 10px', borderRadius: 8, border: 'none', cursor: tk.disabled ? 'not-allowed' : 'pointer' }} onClick={() => act((st) => { toggleAssistant(st, d.id as AssistantKind, tk.key); return null; })}>
                       {tk.on ? '✓ ' : '○ '}{tk.label}
@@ -245,7 +245,7 @@ export function FinanceOverviewTab({ s, act, onNav }: { s: GameState; act: Act; 
                 </div>
                 {hired
                   ? <button className="btn" style={{ background: 'var(--brick)', color: '#fff', fontWeight: 800, padding: '10px 16px', borderRadius: 10, border: 'none', cursor: 'pointer' }} onClick={() => act((st) => { fireAssistant(st, d.id as AssistantKind); return null; })}>{t('fin.fire')}</button>
-                  : <button className="btn" style={{ background: s.money < d.hireCost ? 'var(--mute)' : 'var(--up)', color: '#fff', fontWeight: 800, padding: '10px 16px', borderRadius: 10, border: 'none', cursor: s.money < d.hireCost ? 'not-allowed' : 'pointer' }} disabled={s.money < d.hireCost} onClick={() => act((st) => { const ok = hireAssistant(st, d.id as AssistantKind); return ok ? null : t('fin.hireFail'); })}>Thuê · {fmtFull(d.hireCost)}</button>}
+                  : <button className="btn" style={{ background: s.money < d.hireCost ? 'var(--mute)' : 'var(--up)', color: '#fff', fontWeight: 800, padding: '10px 16px', borderRadius: 10, border: 'none', cursor: s.money < d.hireCost ? 'not-allowed' : 'pointer' }} disabled={s.money < d.hireCost} onClick={() => act((st) => { const ok = hireAssistant(st, d.id as AssistantKind); return ok ? null : t('fin.hireFail'); })}>{t('fin.hireBtn', '', { cost: fmtFull(d.hireCost) })}</button>}
               </div>
             );
           })}
@@ -258,12 +258,12 @@ export function FinanceOverviewTab({ s, act, onNav }: { s: GameState; act: Act; 
           <div className="card" style={{ marginBottom: 10, padding: 14, borderLeft: '3px solid var(--sage)' }}>
             <div className="mini" style={{ textTransform: 'uppercase', letterSpacing: '.4px', color: 'var(--accent)', marginBottom: 6 }}>{t('fin.billsTitle')}</div>
             <div style={{ fontSize: '.9rem' }}>{t('fin.noBills')}</div>
-            <p className="mini" style={{ opacity: .7, marginTop: 6 }}>Hóa đơn tháng (tiền nhà + sinh hoạt + học phí) và Thuế thu nhập năm sẽ tự hiện ở đây khi đến hạn — hạn 14/30 ngày, quá hạn phạt +2%/tháng. Chơi tiếp qua tháng / qua năm để thấy hóa đơn đầu tiên.</p>
+            <p className="mini" style={{ opacity: .7, marginTop: 6 }}>{t('fin.billsHint')}</p>
           </div>
         );
         return (
           <div className="card" style={{ marginBottom: 10, padding: 14, borderLeft: '3px solid var(--brick)' }}>
-            <div className="mini" style={{ textTransform: 'uppercase', letterSpacing: '.4px', color: 'var(--accent)', marginBottom: 6 }}>🧾 Hóa đơn cần thanh toán</div>
+            <div className="mini" style={{ textTransform: 'uppercase', letterSpacing: '.4px', color: 'var(--accent)', marginBottom: 6 }}>{t('fin.billsTitle')}</div>
             {unpaid.map((b: Bill) => {
               const due = billTotalDue(b);
               const daysLeft = b.dueDay - s.day;
@@ -273,12 +273,12 @@ export function FinanceOverviewTab({ s, act, onNav }: { s: GameState; act: Act; 
                   <div>
                     <div style={{ fontSize: '.9rem', fontWeight: 700 }}>{b.label}{b.kind === 'tax' ? ' · Thuế' : ''}</div>
                     <div className="mini" style={{ opacity: .7 }}>
-                      {overdue ? `Quá hạn ${Math.abs(daysLeft).toFixed(2)} ngày · Phạt ${fmtFull(b.penalty)}` : `Còn ${daysLeft.toFixed(2)} ngày · Hạn ngày ${b.dueDay.toFixed(2)}`}
+                      {overdue ? `t('fin.overdue', '', { days: Math.abs(daysLeft).toFixed(2), penalty: fmtFull(b.penalty) })` : `t('fin.remaining', '', { days: daysLeft.toFixed(2), due: b.dueDay.toFixed(2) })`}
                       {' · '}Gốc {fmtFull(b.amount)}
                     </div>
                   </div>
                   <button className="btn" style={{ background: s.money < due ? "var(--mute)" : "var(--up)", color: "#fff", fontWeight: 800, padding: "10px 16px", borderRadius: 10, cursor: s.money < due ? "not-allowed" : "pointer", border: "none" }} disabled={s.money < due} onClick={() => act((st) => { const ok = payBill(st, b.id); return ok ? null : t('fin.payFail'); })}>
-                    Trả {fmtFull(due)}
+                    {t('fin.payBill', '', { total: fmtFull(due) })}
                   </button>
                 </div>
               );
@@ -353,7 +353,7 @@ export function FinanceOverviewTab({ s, act, onNav }: { s: GameState; act: Act; 
               <div key={r.asset} style={{ marginBottom: 8 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '.82rem' }}>
                   <b>{r.label}</b>
-                  <span className="mini">+{fmtFull(r.inAmt)} · −{fmtFull(r.outAmt)} · Ròng <b style={{ color: r.net >= 0 ? 'var(--up)' : 'var(--down)' }}>{r.net >= 0 ? '+' : '−'}{fmtFull(Math.abs(r.net))}</b></span>
+                  <span className="mini">+{fmtFull(r.inAmt)} · −{fmtFull(r.outAmt)} · {t('fin.netLabel')} <b style={{ color: r.net >= 0 ? 'var(--up)' : 'var(--down)' }}>{r.net >= 0 ? '+' : '−'}{fmtFull(Math.abs(r.net))}</b></span>
                 </div>
                 <div style={{ display: 'flex', gap: 4, marginTop: 3 }}>
                   <div style={{ height: 10, borderRadius: 5, background: 'var(--up)', width: `${Math.max(2, (r.inAmt / maxV) * 100)}%`, opacity: .85 }} />
@@ -391,7 +391,7 @@ export function FinanceOverviewTab({ s, act, onNav }: { s: GameState; act: Act; 
                     </div>
                   )}
                   <div style={{ marginTop: 12, marginBottom: 6, fontSize: '.82rem', fontWeight: 800 }}>{t('fin.detailTitle')}</div>
-                  {last30.length === 0 ? <p className="sub">Chưa có giao dịch nào.</p> : (
+                  {last30.length === 0 ? <p className="sub">{t('fin.noTx')}</p> : (
                     <div style={{ overflowX: 'auto' }}>
                       <table style={{ width: '100%', fontSize: '.78rem', borderCollapse: 'collapse' }}>
                         <thead><tr style={{ borderBottom: '1px solid var(--line)', textAlign: 'left' }}><th style={{ padding: '5px 8px' }}>{t('fin.date')}</th><th style={{ padding: '5px 8px' }}>#</th><th style={{ padding: '5px 8px' }}>{t('fin.type')}</th><th style={{ padding: '5px 8px' }}>Kind</th><th style={{ padding: '5px 8px', textAlign: 'right' }}>{t('fin.inCol')}</th><th style={{ padding: '5px 8px', textAlign: 'right' }}>Tiền ra</th></tr></thead>
@@ -413,7 +413,7 @@ export function FinanceOverviewTab({ s, act, onNav }: { s: GameState; act: Act; 
                 </>
               );
             })()}
-            <p className="mini" style={{ opacity: .7, marginTop: 8 }}>Xanh = tiền vào, đỏ = tiền ra. Chỉ tính lãi vận hành nên khớp P&L. Tiền mua/bán chi nhánh, đất, đồ là dòng đầu tư (đổi tiền ↔ tài sản, tổng tài sản không đổi) nên không tính ở đây.</p>
+            <p className="mini" style={{ opacity: .7, marginTop: 8 }}>{t('fin.legend')}</p>
           </div>
         );
       })()}
