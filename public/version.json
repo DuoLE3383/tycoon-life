@@ -1,10 +1,11 @@
 {
-  "version": "v13.76",
+  "version": "v13.78",
   "releasedAt": "2026-11-16",
-  "headline": "HuyenBao v13.76 - Lookup prompt is instruction only, story in English",
-  "summary": "v13.76: Prompt no longer used as image/web search query (it returned wolf wallpapers), story template switched to English.",
+  "headline": "HuyenBao v13.78 - Full 3-language UI (EN/VI/ZH), items stay English, $ USD",
+  "summary": "v13.78: Hardcoded UI (profile switch, intro, PinZone bills, assets total) moved into i18n with EN/VI/ZH. Items + details stay English, currency stays $ USD.",
   "features": [
-    "Lookup: web + image search use item name only, prompt is LLM instruction only",
-    "Lookup: story/description in English, not Vietnamese"
+    "UI: profile switch / intro / PinZone bills / assets total now follow language selector (EN/VI/ZH)",
+    "Items + item details stay English in all languages",
+    "Currency stays $ USD with en-US number format for all languages"
   ]
 }

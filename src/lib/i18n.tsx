@@ -6,8 +6,8 @@ import { createContext, useContext, useEffect, useState, useSyncExternalStore, t
 
 export type Lang = 'en' | 'vi' | 'zh';
 export const LANGS: { id: Lang; label: string }[] = [
-  { id: 'en', label: 'EN' }
-]; // v13.77 - Game locked to English: items + details in English, currency stays $ USD;
+  { id: 'en', label: 'EN' }, { id: 'vi', label: 'VI' }, { id: 'zh', label: '中文' }
+];
 const IDX: Record<Lang, number> = { en: 0, vi: 1, zh: 2 };
 
 // t('key', 'English fallback') → dictionary value or the English fallback.
@@ -1531,7 +1531,25 @@ const D: Record<string, [string, string, string]> = {
   'club.maintenance': ['Maintenance {x}/yr', 'Bảo trì {x}/năm', '维护 {x}/年'],
   'club.event': ['Event', 'Sự kiện', '活动'],
   'club.buff': ['Buff', 'Buff', '加成'],
-};
+
+  'profile.switch.enterId': ['Enter Game ID first.', 'Nhập Game ID trước đã.', '请先输入游戏 ID。'],
+  'profile.switch.already': ['This character is already active.', 'Đây là nhân vật đang chơi rồi.', '这已经是当前角色。'],
+  'profile.switch.tryServer': ['No save on this device, trying to load from server…', 'Không có save ở máy này, đang thử tải từ server…', '此设备上没有存档，正在尝试从服务器加载…'],
+  'profile.switch.notFound': ['No game found for ID "{id}" on this device or server. Open the game once on the old device so it uploads the save, then try again.', 'Không tìm thấy game cho ID "{id}" ở máy này và trên server. Mở game 1 lần ở máy cũ của nhân vật đó để nó upload save lên server rồi thử lại.', '在此设备或服务器上未找到 ID 为“{id}”的游戏。请先在旧设备上打开一次游戏以上传存档，然后重试。'],
+  'profile.switch.title': ['🔑 Switch character — enter another Game ID', '🔑 Đổi nhân vật — nhập Game ID khác', '🔑 切换角色 — 输入另一个游戏 ID'],
+  'profile.switch.btn': ['Switch character', 'Đổi nhân vật', '切换角色'],
+  'profile.switch.current': ['Current Game ID: {id}. Enter another ID to load that character, the old ID stays intact.', 'Game ID hiện tại: {id}. Nhập ID khác là load nhân vật đó, ID cũ vẫn còn nguyên.', '当前游戏 ID：{id}。输入另一个 ID 即可加载该角色，旧 ID 保持不变。'],
+  'intro.continue.enterId': ['Enter User ID first.', 'Nhập User ID trước đã.', '请先输入用户 ID。'],
+  'intro.continue.notFound': ['No game found for ID "{id}". Create a new game with this ID below.', 'Không tìm thấy game cho ID "{id}". Tạo mới với ID này ở dưới nhé.', '未找到 ID 为“{id}”的游戏。请在下方用此 ID 创建新游戏。'],
+  'intro.userId.label': ['🔑 User ID — continue old game', '🔑 User ID — tiếp tục game cũ', '🔑 用户 ID — 继续旧游戏'],
+  'intro.userId.hint': ['Old games without an ID are still there — leave ID empty to continue the old save. New ID + create = new game linked to that ID.', 'Game cũ không có ID vẫn ở đó — để trống ID là chơi tiếp save cũ. Nhập ID mới + tạo mới = game mới gắn với ID đó.', '没有 ID 的旧游戏仍在 — 留空 ID 即可继续旧存档。新 ID + 创建 = 绑定该 ID 的新游戏。'],
+  'pin.bills.overdue': ['{n} overdue bills!', '{n} hóa đơn quá hạn!', '{n} 张账单已逾期！'],
+  'pin.bills.unpaid': ['{n} bills to pay', '{n} hóa đơn cần thanh toán', '{n} 张账单待支付'],
+  'pin.bills.total': ['total {total}', 'tổng {total}', '合计 {total}'],
+  'pin.bills.totalPenalty': ['total {total} (incl. penalty)', 'tổng {total} (đã gồm tiền phạt)', '合计 {total}（含罚款）'],
+  'pin.bills.payNow': ['🧾 Pay now {total}', '🧾 Trả ngay {total}', '🧾 立即支付 {total}'],
+  'pin.bills.insufficient': ['Not enough money to pay this bill.', 'Không đủ tiền để trả hóa đơn này.', '钱不够，无法支付此账单。'],
+  'assets.total': ['📊 Total assets: {n} items', '📊 Tổng tài sản: {n} món', '📊 总资产：{n} 件'],};
 
 export function makeT(lang: Lang) {
   const i = IDX[lang];
@@ -1567,7 +1585,13 @@ function subscribeLang(callback: () => void): () => void {
     try { window.removeEventListener('storage', onStorage); } catch { /* ignore */ }
   };
 }
-function getLangSnapshot(): Lang { return 'en'; } // v13.77 - Always English, ignore old saved vi/zh
+function getLangSnapshot(): Lang {
+  try {
+    const v = localStorage.getItem('tycoon_lang');
+    if (v === 'en' || v === 'vi' || v === 'zh') return v;
+  } catch {}
+  return 'en';
+}
 function getLangServerSnapshot(): Lang { return 'en'; }
 
 export function LangProvider({ children }: { children: ReactNode }) {

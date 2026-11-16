@@ -28,7 +28,7 @@ export function Intro({ onBegin }: { onBegin: (o: { name: string; byear: number;
   const [continueMsg, setContinueMsg] = useState('');
   const onContinue = () => {
     const id = userId.trim();
-    if (!id) { setContinueMsg('Nhập User ID trước đã.'); return; }
+    if (!id) { setContinueMsg(t('intro.continue.enterId')); return; }
     if (!hasSaveFor(id)) { setContinueMsg(`Không tìm thấy game cho ID "${id}". Tạo mới với ID này ở dưới nhé.`); return; }
     setActiveUserId(id);
     window.location.reload();
@@ -101,7 +101,7 @@ export function Intro({ onBegin }: { onBegin: (o: { name: string; byear: number;
       <h2>{t('createLife')}</h2>
       {/* v13.21 — continue by user id, above the create-new form. */}
       <div className="field" style={{ background: 'rgba(0,0,0,0.04)', padding: '10px', borderRadius: 6 }}>
-        <label>🔑 User ID — tiếp tục game cũ</label>
+        <label>{t('intro.userId.label')}</label>
         <div className="trade" style={{ gap: 8 }}>
           <input style={{ flex: 1 }} maxLength={32} placeholder="vd: minh1997" value={userId} onChange={e => setUserId(e.target.value)} />
           <button type="button" className="ibtn" onClick={onContinue}>Continue game</button>

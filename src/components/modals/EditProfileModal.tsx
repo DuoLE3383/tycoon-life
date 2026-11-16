@@ -26,12 +26,12 @@ export function EditProfileModal({ s, act, onClose }: { s: GameState; act: Act; 
   const [switchMsg, setSwitchMsg] = useState('');
   const onSwitch = async () => {
     const id = switchId.trim();
-    if (!id) { setSwitchMsg('Nhập Game ID trước đã.'); return; }
-    if (id === (getActiveUserId() || '')) { setSwitchMsg('Đây là nhân vật đang chơi rồi.'); return; }
+    if (!id) { setSwitchMsg(t('profile.switch.enterId')); return; }
+    if (id === (getActiveUserId() || '')) { setSwitchMsg(t('profile.switch.already')); return; }
     if (hasSaveFor(id)) { setActiveUserId(id); window.location.reload(); return; }
-    setSwitchMsg('Không có save ở máy này, đang thử tải từ server…');
+    setSwitchMsg(t('profile.switch.tryServer'));
     const ok = await fetchServerSave(id);
-    if (!ok) { setSwitchMsg(`Không tìm thấy game cho ID "${id}" ở máy này và trên server. Mở game 1 lần ở máy cũ của nhân vật đó để nó upload save lên server rồi thử lại.`); return; }
+    if (!ok) { setSwitchMsg(t('profile.switch.notFound', '', { id })); return; }
     setActiveUserId(id);
     window.location.reload();
   };
@@ -77,10 +77,10 @@ export function EditProfileModal({ s, act, onClose }: { s: GameState; act: Act; 
           </label>
           {/* v13.39 - Doi nhan vat = nhap Game ID khac */}
           <div className="field" style={{ background: 'rgba(0,0,0,0.04)', padding: '10px', borderRadius: 6, marginTop: 12 }}>
-            <label>🔑 Đổi nhân vật — nhập Game ID khác</label>
+            <label>{t('profile.switch.title')}</label>
             <div className="trade" style={{ gap: 8 }}>
               <input style={{ flex: 1 }} maxLength={32} placeholder="vd: minh1997" value={switchId} onChange={e => setSwitchId(e.target.value)} />
-              <button type="button" className="ibtn" onClick={onSwitch}>Đổi nhân vật</button>
+              <button type="button" className="ibtn" onClick={onSwitch}>{t('profile.switch.btn')}</button>
             </div>
             {switchMsg && <p className="mini" style={{ margin: '6px 0 0' }}>{switchMsg}</p>}
             <p className="mini" style={{ margin: '6px 0 0', opacity: .8 }}>Game ID hiện tại: {getActiveUserId() || '(save cũ, chưa có ID)'}. Nhập ID khác là load nhân vật đó, ID cũ vẫn còn nguyên.</p>

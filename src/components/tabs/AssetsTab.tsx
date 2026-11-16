@@ -395,7 +395,7 @@ export function AssetsTab({ s, act, curCat, setCurCat }: { s: GameState; act: Ac
       {/* v13.57 - Chart mini tong quan tai san: luon thay, khong can mo Finance */}
       <div className="asset-mini-chart" style={{ display: 'flex', flexDirection: 'column', gap: 6, padding: '10px 12px', borderRadius: 12, background: 'var(--card)', border: '1px solid var(--line)', marginBottom: 10 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8, fontSize: '.85rem', fontWeight: 700 }}>
-          <span>📊 Tổng tài sản: <b>{secs.find(([k]) => k === 'own')?.[3] ?? 0} món</b></span>
+          <span>{t('assets.total', '', { n: secs.find(([k]) => k === 'own')?.[3] ?? 0 })}</span>
           <span>{secs.filter(([k]) => ['bds','lux','budget'].includes(k)).map(([k, , , n]) => `${t('astsec.' + k)}: ${n}`).join(' · ')} · Đấu giá: {secs.find(([k]) => k === 'auction')?.[3] ?? 0} · Hiếm: {secs.find(([k]) => k === 'rare')?.[3] ?? 0} · Workshop: {secs.find(([k]) => k === 'workshop')?.[3] ?? 0}</span>
         </div>
         <div style={{ display: 'flex', gap: 4, height: 10, borderRadius: 999, overflow: 'hidden', background: 'var(--line)' }}>
