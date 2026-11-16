@@ -1,11 +1,11 @@
 {
   "version": "v13.57",
   "releasedAt": "2026-11-16",
-  "headline": "HuyenBao v13.50 - Tra cuu Bing + Rarity theo gia + Loai vat pham",
-  "summary": "v13.50: Lookup them Bing/Openverse (khong can API key), anh thu handbag/bag tranh Tabby ra buom. Rarity floor theo gia that: >=20k len Legendary, >=5k len Rare. Them Loai used/standard/custom/rare + loc list.",
+  "headline": "HuyenBao v13.57 - PinZone gon + Assets chart + Tab scroll",
+  "summary": "v13.57: PinZone gon chi con hop do: bill banner + ten/tuoi + chip tien. Assets them mini chart lich su + tab bar scroll ngang khong tran 2 ben.",
   "features": [
-    "Lookup: z-ai -> Bing (thu handbag/bag/product) -> Openverse -> Wikimedia, 1 anh, khong can Google API",
-    "Rarity: floor theo gia that, Birkin 28k khong con Common",
-    "Loai: form chon used/standard/custom/rare + list Loc Loai, backend luu isRare/isSeed/isUsed"
+    "PinZone: chi giu bill banner + ten/tuoi + chip tien, bo donut/tong tai san/thu nhap nam/ngu/quick actions ra Finance/Overview",
+    "Assets: mini chart lich su tai san + tab bar scroll ngang, nut gon khong tran",
+    "Finance: bill Pay la nut that noi bat, so ngay 2 so thap phan, am do / duong xanh"
   ]
 }

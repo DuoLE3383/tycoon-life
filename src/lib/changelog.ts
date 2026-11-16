@@ -155,4 +155,13 @@ export const CHANGELOG: Record<string, ChangelogEntry> = {
     ],
   },
 
+  'v13.57': {
+    headline: 'HuyenBao v13.57 - PinZone gon + Assets chart + Tab scroll',
+    summary: 'v13.57: PinZone gon chi con hop do: bill banner + ten/tuoi + chip tien. Assets them mini chart lich su + tab bar scroll ngang khong tran 2 ben.',
+    features: [
+      'PinZone: chi giu bill banner + ten/tuoi + chip tien, bo donut/tong tai san/thu nhap nam/ngu/quick actions ra Finance/Overview',
+      'Assets: mini chart lich su tai san + tab bar scroll ngang, nut gon khong tran',
+      'Finance: bill Pay la nut that noi bat, so ngay 2 so thap phan, am do / duong xanh',
+    ],
+  },
 };
