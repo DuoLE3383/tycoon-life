@@ -1139,8 +1139,7 @@ html[data-theme="dark"] .tgame .pchip-big.income-chip.down{color:#fca5a5;backgro
   .tgame .pinzone.pinzone-collapsed .pinzone-warns,
   .tgame .pinzone.pinzone-collapsed .track.slim,
   .tgame .pinzone.pinzone-collapsed .ms{display:none !important}
-  /* v13.51: dash-charts LUON HIEN - khong giu chart khi collapsed nua */
-  .tgame .pinzone.pinzone-collapsed .dash-charts{display:grid !important}
+
 
   /* Collapse toggle button (mobile-only — desktop hides it via the root
      default above). Sits at the right end of the identity row. */
@@ -1525,3 +1524,32 @@ body:has(.tgame .modal-overlay){overflow:hidden}
 .tgame .pinzone-v55 .pin-actions-bar { padding: 4px 8px !important; margin-top: 2px !important; }
 .tgame .pinzone-v55 .track.slim { margin-top: 2px !important; }
 .tgame .pinzone-v55 .ms { margin-top: 0 !important; }
+
+/* v13.52 - PinZone redesign: 3 tang, so Net Worth to nhat */
+.tgame .pinzone-v55{padding:12px 14px 10px !important; gap:10px !important; border-radius:14px !important}
+.tgame .pinzone-v55 .agehead{padding:2px 0 !important}
+.tgame .pinzone-v55 .stats-row{gap:8px !important; margin:6px 0 2px !important; flex-wrap:wrap}
+.tgame .pinzone-v55 .pchip-big{font-size:.85rem !important; padding:4px 9px !important; border-radius:999px !important}
+.tgame .pinzone-v55 .dash-charts{display:grid !important; grid-template-columns:1.05fr 0.95fr !important; gap:12px !important; margin:8px 0 4px !important; padding-top:10px !important; border-top:1px solid var(--line)}
+.tgame .pinzone-v55 .dash-chart-box{padding:10px 12px !important; border-radius:12px !important; background:rgba(255,255,255,.03)}
+.tgame .pinzone-v55 .dash-chart-legend{font-size:.8rem !important; gap:4px !important; line-height:1.45}
+.tgame .pinzone-v55 .dash-chart-legend .asset-leg-item{font-size:.8rem !important}
+.tgame .pinzone-v55 .pinzone-sleep{padding:2px 0 !important}
+.tgame .pinzone-v55 .sleep-block{padding:3px 0 !important; gap:4px !important}
+.tgame .pinzone-v55 .pin-actions-bar{display:flex !important; gap:8px !important; padding:8px 0 2px !important; margin-top:6px !important}
+.tgame .pinzone-v55 .pin-actions-bar button{flex:1; border-radius:10px !important; padding:9px 8px !important; font-weight:700}
+.tgame .pinzone-v55 .pin-followers{font-size:.85rem !important}
+.tgame .pinzone-v55 .track.slim{margin-top:10px !important; height:8px !important; border-radius:999px}
+@media (max-width: 640px){
+  .tgame .pinzone-v55 .dash-charts{grid-template-columns:1fr !important}
+}
+
+/* v13.53 - PinZone chi con hop do: header + stats, giu chart/sleep/actions/track */
+.tgame .pinzone.pinzone-collapsed .dash-charts,
+.tgame .pinzone.pinzone-collapsed .pinzone-sleep,
+.tgame .pinzone.pinzone-collapsed .pinzone-bills,
+.tgame .pinzone.pinzone-collapsed .pin-actions-bar,
+.tgame .pinzone.pinzone-collapsed .track.slim,
+.tgame .pinzone.pinzone-collapsed .ms{display:none !important}
+.tgame .pinzone-v55{padding:8px 12px 8px !important; gap:4px !important}
+.tgame .pinzone-v55 .stats-row{margin:4px 0 0 !important}
