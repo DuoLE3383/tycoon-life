@@ -1,11 +1,11 @@
 {
-  "version": "v13.69",
+  "version": "v13.70",
   "releasedAt": "2026-11-16",
-  "headline": "HuyenBao v13.69 - Lookup anh lay tu Bing co verify title",
-  "summary": "v13.69: Anh lay tu Bing truoc (verify title chua ten item), bo thu handbag/bag, z-ai xuong cuoi vi khong co title.",
+  "headline": "HuyenBao v13.70 - Lookup anh khong qua LLM, bo z-ai anh",
+  "summary": "v13.70: Anh chi search thang Bing + Openverse co verify title, bo z-ai anh hay tra anh lac, sua regex Bing bat ca 2 thu tu t/murl.",
   "features": [
-    "Lookup: anh Bing verify bang title, khong nhan anh lac",
-    "Lookup: bo thu handbag/bag gay lac khi tim xe",
-    "Lookup: z-ai xuong cuoi vi khong tra title de verify"
+    "Lookup: anh chi Bing + Openverse, verify title chua ten item",
+    "Lookup: bo z-ai anh (khong co title, hay tra anh Flickr lac)",
+    "Lookup: sua regex Bing bat ca truong hop t truoc murl"
   ]
 }

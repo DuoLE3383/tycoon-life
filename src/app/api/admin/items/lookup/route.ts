@@ -63,13 +63,22 @@ async function searchBingOne(query: string): Promise<string[]> {
     const toks = bingTokens(query);
     const out: string[] = [];
     // Bing tra tung item dang {"murl":"...","t":"title ..."} - lay ca 2 de verify title chua ten item
-    const re = /"murl":"(https:[^"]+)"[\s\S]{0,1500}?"t":"([^"]{3,200})"/g;
+    // v13.70 - Bing de "t" TRUOC "murl" nen phai bat ca 2 thu tu, khong thi Bing luon tra 0 anh
+    const re1 = /"t":"([^"]{3,200})"[\s\S]{0,1500}?"murl":"(https:[^"]+)"/g;
+    const re2 = /"murl":"(https:[^"]+)"[\s\S]{0,1500}?"t":"([^"]{3,200})"/g;
+    const seen = new Set<string>();
     let m: RegExpExecArray | null;
-    while ((m = re.exec(html)) && out.length < 5) {
-      const title = m[2].replace(/\\u0026/g, '&').toLowerCase();
-      if (toks.length && !toks.some((tk) => title.includes(tk))) continue; // title khong chua ten item -> anh lac
-      const c = cleanUrl(m[1].replace(/\\u0026/g, '&'));
-      if (c && !out.includes(c)) out.push(c);
+    while ((m = re1.exec(html)) && out.length < 5) {
+      const title = m[1].replace(/\u0026/g, '&').toLowerCase();
+      if (toks.length && !toks.some((tk) => title.includes(tk))) continue;
+      const c = cleanUrl(m[2].replace(/\u0026/g, '&'));
+      if (c && !seen.has(c)) { seen.add(c); out.push(c); }
+    }
+    while ((m = re2.exec(html)) && out.length < 5) {
+      const title = m[2].replace(/\u0026/g, '&').toLowerCase();
+      if (toks.length && !toks.some((tk) => title.includes(tk))) continue;
+      const c = cleanUrl(m[1].replace(/\u0026/g, '&'));
+      if (c && !seen.has(c)) { seen.add(c); out.push(c); }
     }
     return out;
   } catch (e) { console.error('[lookup] bing images failed:', e); return []; }
@@ -87,29 +96,11 @@ async function searchOpenverse(query: string): Promise<string[]> {
   } catch (e) { console.error('[lookup] openverse failed:', e); return []; }
 }
 async function searchImages(query: string): Promise<string[]> {
+  // v13.70 - Anh KHONG qua LLM, chi search thang: Bing (co title verify) -> Openverse (co title verify).
+  // BO z-ai anh: no khong tra title nen khong verify duoc, hay tra anh lac (vd: iPhone -> day cap Flickr).
   const out: string[] = [];
-  // v13.69 - Bing truoc (co title verify), z-ai sau (khong co title, khong verify duoc)
   for (const u of await searchBingImages(query)) if (!out.includes(u)) out.push(u);
   if (out.length === 0) { for (const u of await searchOpenverse(query)) if (!out.includes(u)) out.push(u); }
-  if (out.length > 0) return out.slice(0, 1);
-  try {
-    const zai = await getZai();
-    const tries = [query, `"${query}"`, query + ' product photo']; // v13.67 - khong them car/motorcycle/bag: de anh lac sang item khac
-    for (const q of tries) {
-      const r = await zai.images.search.create({ query: q, count: 6 });
-      for (const it of (r?.results ?? [])) {
-        const ttl = String((it as { title?: unknown }).title ?? (it as { alt?: unknown }).alt ?? '').toLowerCase();
-        const toks = query.toLowerCase().replace(/[^a-z0-9 ]/g, ' ').split(' ').filter((w) => w.length >= 3);
-        if (ttl && toks.length && !toks.some((tk) => ttl.includes(tk))) continue; // co title ma khong lien quan -> bo
-        const u = cleanUrl((it as { original_url?: unknown }).original_url)
-          || cleanUrl((it as { url?: unknown }).url);
-        if (u && !out.includes(u)) out.push(u);
-      }
-      if (out.length >= 3) break;
-    }
-  } catch (e) { console.error('[lookup] z-ai images failed:', e); }
-  // v13.69 - Bing/Openverse da chay o tren, chi con z-ai o day
-  // v13.68 - BO fallback Wikimedia: no tra anh theo mo ta file (vd: rung) chu khong theo ten item -> anh lac.
   return out.slice(0, 1); // Quy uoc: chi 1 anh duy nhat
 }
 

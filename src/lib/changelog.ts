@@ -273,4 +273,13 @@ export const CHANGELOG: Record<string, ChangelogEntry> = {
       'Lookup: z-ai xuong cuoi vi khong tra title de verify',
     ],
   },
+  'v13.70': {
+    headline: 'HuyenBao v13.70 - Lookup anh khong qua LLM, bo z-ai anh',
+    summary: 'v13.70: Anh chi search thang Bing + Openverse co verify title, bo z-ai anh hay tra anh lac, sua regex Bing bat ca 2 thu tu t/murl.',
+    features: [
+      'Lookup: anh chi Bing + Openverse, verify title chua ten item',
+      'Lookup: bo z-ai anh (khong co title, hay tra anh Flickr lac)',
+      'Lookup: sua regex Bing bat ca truong hop t truoc murl',
+    ],
+  },
 };
