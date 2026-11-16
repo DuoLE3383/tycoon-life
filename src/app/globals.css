@@ -1571,3 +1571,10 @@ body:has(.tgame .modal-overlay){overflow:hidden}
 .tgame .tab-bar::-webkit-scrollbar, .tgame .tabs::-webkit-scrollbar, .tgame .sub-tabs::-webkit-scrollbar{display:none !important}
 .tgame .tab-bar > *, .tgame .tabs > *, .tgame .sub-tabs > *{flex-shrink:0 !important; white-space:nowrap !important}
 .tgame .tab-bar .btn-create, .tgame .tabs .btn-create{margin-left:auto !important; flex-shrink:0}
+
+/* v13.57 - Tab Tai san: tnav asec cuon ngang, khong tran 2 ben */
+.tgame .tnav.asec{display:flex !important; flex-wrap:nowrap !important; overflow-x:auto !important; overflow-y:hidden !important; gap:6px !important; padding-bottom:4px !important; scrollbar-width:none !important; -webkit-overflow-scrolling:touch}
+.tgame .tnav.asec::-webkit-scrollbar{display:none !important}
+.tgame .tnav.asec > *{flex-shrink:0 !important; white-space:nowrap !important}
+.tgame .tnav.asec .asec-n{flex-shrink:0}
+.tgame .asset-mini-chart{margin-bottom:10px !important}
