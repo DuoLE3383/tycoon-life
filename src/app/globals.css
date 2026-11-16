@@ -1588,3 +1588,7 @@ body:has(.tgame .modal-overlay){overflow:hidden}
 .tgame .pinzone-v55 .pin-actions-bar .pin-actions-btns{display:flex !important; gap:6px !important; flex-wrap:nowrap !important}
 .tgame .pinzone-v55 .pin-actions-bar .pin-actions-btns button{flex-shrink:0 !important; white-space:nowrap !important; padding:6px 10px !important; font-size:.8rem !important; border-radius:999px !important}
 .tgame .pinzone-v55 .dash-charts, .tgame .pinzone-v55 .track.slim, .tgame .pinzone-v55 .ms{display:none !important}
+
+/* v13.59 - PinZone: hang chip gon, NW + Income + Bank vua cho trong */
+.tgame .pinzone-v55 .stats-row{display:flex !important; flex-wrap:wrap !important; gap:6px !important}
+.tgame .pinzone-v55 .stats-row .pchip-big, .tgame .pinzone-v55 .stats-row .cash-chip, .tgame .pinzone-v55 .stats-row .hpill-big{flex-shrink:0 !important; white-space:nowrap !important}

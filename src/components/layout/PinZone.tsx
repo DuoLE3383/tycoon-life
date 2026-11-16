@@ -145,7 +145,9 @@ export function PinZone({ s, t, onEdit, act, onNav, expanded, onToggleExpand }: 
           <Ic id="w-heart" className="bsi" />{Math.round(s.health)}
         </span>
         <span className="hpill hpill-big"><Ic id="w-lotus" className="bsi" />{Math.round(s.spirit)}</span>
-        <span className="pchip pchip-big" data-tip={`Lv ${s.level} · ${s.xp}/${xpNeed(s.level)} XP (${xpPct}%)`}>⭐ {s.level}</span>
+          {(nw > 0 || yi !== 0) && <span className="pchip pchip-big nw-chip" data-tip={t('netWorth')}><Ic id="t-bank" className="bsi" />{fmt(nw)}</span>}
+          {yi !== 0 && <span className={'pchip pchip-big income-chip ' + (yi >= 0 ? 'up' : 'down')} data-tip={t('inc.total', 'Income/yr')}>{yi >= 0 ? '+' : ''}{fmt(yi)}{t('perYear')}</span>}
+          {s.bank.dep > 0 && <span className="pchip pchip-big" data-tip={t('bank')}>🏦 {fmt(s.bank.dep)}</span>}
       </div>
 
       {/* v13.34 - Actions: hang rieng full-width, khong nhet vao cot giua */}

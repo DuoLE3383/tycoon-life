@@ -293,6 +293,55 @@ export function FinanceOverviewTab({ s, act, onNav }: { s: GameState; act: Act; 
                 </div>
               </div>
             ))}
+            {(() => {
+              // v13.60 - Bieu do duong cong don + bang chi tiet 30 giao dich gan nhat
+              const ops = [...(s.transactions || [])].filter((tx: any) => tx.kind !== 'transfer' && tx.kind !== 'buy' && tx.kind !== 'sell').reverse();
+              let run = 0;
+              const pts = ops.map((tx: any) => { run += tx.amount; return run; });
+              const W = 560, H = 150, PAD = 8;
+              const mn = Math.min(0, ...pts), mx = Math.max(0, ...pts);
+              const span = Math.max(1, mx - mn);
+              const X = (i: number) => pts.length <= 1 ? W / 2 : PAD + (i / (pts.length - 1)) * (W - PAD * 2);
+              const Y = (v: number) => PAD + (1 - (v - mn) / span) * (H - PAD * 2);
+              const d = pts.map((v, i) => `${i === 0 ? 'M' : 'L'}${X(i).toFixed(1)},${Y(v).toFixed(1)}`).join(' ');
+              const last30 = [...(s.transactions || [])].filter((tx: any) => tx.kind !== 'transfer' && tx.kind !== 'buy' && tx.kind !== 'sell').slice(0, 30);
+              return (
+                <>
+                  <div style={{ marginTop: 10, marginBottom: 6, fontSize: '.82rem', fontWeight: 800 }}>📈 Biểu đồ cộng dồn — Ròng vận hành theo từng giao dịch (cũ → mới)</div>
+                  {pts.length === 0 ? <p className="sub">Chua co giao dich van hanh nao.</p> : (
+                    <div style={{ overflowX: 'auto' }}>
+                      <div style={{ display: 'flex', alignItems: 'flex-end', gap: 1, height: 150, borderBottom: '1px dashed var(--line)', minWidth: 320 }}>
+                        {pts.map((v: number, i: number) => (
+                          <div key={i} title={'GD #' + (i + 1)} style={{ flex: 1, height: `${Math.max(2, ((v - mn) / span) * 100)}%`, background: v >= 0 ? 'var(--up)' : 'var(--down)', opacity: 0.85, minWidth: 2 }} />
+                        ))}
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between' }} className="mini">
+                        <span>Bat dau: <b>0</b></span><span>Thap nhat: <b style={{ color: 'var(--down)' }}>{fmtFull(mn)}</b></span><span>Cao nhat: <b style={{ color: 'var(--up)' }}>{fmtFull(mx)}</b></span><span>Ket: <b style={{ color: pts[pts.length - 1] >= 0 ? 'var(--up)' : 'var(--down)' }}>{pts[pts.length - 1] >= 0 ? '+' : '−'}{fmtFull(Math.abs(pts[pts.length - 1]))}</b></span>
+                      </div>
+                    </div>
+                  )}
+                  <div style={{ marginTop: 12, marginBottom: 6, fontSize: '.82rem', fontWeight: 800 }}>🧾 Chi tiết — 30 giao dịch vận hành gần nhất (mới → cũ)</div>
+                  {last30.length === 0 ? <p className="sub">Chưa có giao dịch nào.</p> : (
+                    <div style={{ overflowX: 'auto' }}>
+                      <table style={{ width: '100%', fontSize: '.78rem', borderCollapse: 'collapse' }}>
+                        <thead><tr style={{ borderBottom: '1px solid var(--line)', textAlign: 'left' }}><th style={{ padding: '5px 8px' }}>#</th><th style={{ padding: '5px 8px' }}>Loại</th><th style={{ padding: '5px 8px' }}>Kind</th><th style={{ padding: '5px 8px', textAlign: 'right' }}>Tiền vào</th><th style={{ padding: '5px 8px', textAlign: 'right' }}>Tiền ra</th></tr></thead>
+                        <tbody>
+                          {last30.map((tx: any, i: number) => (
+                            <tr key={i} style={{ borderBottom: '1px solid var(--line)' }}>
+                              <td style={{ padding: '5px 8px', opacity: .6 }}>{i + 1}</td>
+                              <td style={{ padding: '5px 8px', fontWeight: 600 }}>{labelFor(tx.asset)}</td>
+                              <td style={{ padding: '5px 8px', opacity: .7 }}>{tx.kind}</td>
+                              <td style={{ padding: '5px 8px', textAlign: 'right', color: 'var(--up)', fontWeight: 700 }}>{tx.amount >= 0 ? `+${fmtFull(tx.amount)}` : '—'}</td>
+                              <td style={{ padding: '5px 8px', textAlign: 'right', color: 'var(--down)', fontWeight: 700 }}>{tx.amount < 0 ? `−${fmtFull(Math.abs(tx.amount))}` : '—'}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </>
+              );
+            })()}
             <p className="mini" style={{ opacity: .7, marginTop: 8 }}>Xanh = tiền vào, đỏ = tiền ra. Chỉ tính lãi vận hành nên khớp P&L. Tiền mua/bán chi nhánh, đất, đồ là dòng đầu tư (đổi tiền ↔ tài sản, tổng tài sản không đổi) nên không tính ở đây.</p>
           </div>
         );

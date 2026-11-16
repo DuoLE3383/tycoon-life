@@ -173,4 +173,22 @@ export const CHANGELOG: Record<string, ChangelogEntry> = {
       'PinZone: Gigs/Travel/More gon 1 hang, khong tran 2 ben',
     ],
   },
+  'v13.59': {
+    headline: 'HuyenBao v13.59 - PinZone them Net Worth',
+    summary: 'v13.59: PinZone bo chip level trung, them Net Worth + Thu nhap/nam + Tien gui ngan hang vao cho trong hang chip.',
+    features: [
+      'PinZone: bo chip level (da co o tren)',
+      'PinZone: them chip Net Worth + Income/nam + Bank dep',
+      'PinZone: hang chip gon, khong tran',
+    ],
+  },
+  'v13.60': {
+    headline: 'HuyenBao v13.60 - Finance co bieu do dong tien',
+    summary: 'v13.60: Finance them bieu do duong cong don rong van hanh theo tung giao dich + bang chi tiet 30 giao dich gan nhat (loai/kind/tien vao/tien ra).',
+    features: [
+      'Finance: bieu do cong don rong van hanh, diem thap nhat/cao nhat/ket',
+      'Finance: bang chi tiet 30 giao dich van hanh gan nhat',
+      'Finance: giu nguyen tach van hanh vs dau tu',
+    ],
+  },
 };
