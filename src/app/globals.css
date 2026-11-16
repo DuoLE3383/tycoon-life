@@ -1137,9 +1137,10 @@ html[data-theme="dark"] .tgame .pchip-big.income-chip.down{color:#fca5a5;backgro
      Identity row + stats row + toggle stay visible so the player still sees
      name/age/stage + cash/health/spirit/level/nw/income at a glance. */
   .tgame .pinzone.pinzone-collapsed .pinzone-warns,
-  .tgame .pinzone.pinzone-collapsed .dash-charts,
   .tgame .pinzone.pinzone-collapsed .track.slim,
   .tgame .pinzone.pinzone-collapsed .ms{display:none !important}
+  /* v13.51: dash-charts LUON HIEN - khong giu chart khi collapsed nua */
+  .tgame .pinzone.pinzone-collapsed .dash-charts{display:grid !important}
 
   /* Collapse toggle button (mobile-only — desktop hides it via the root
      default above). Sits at the right end of the identity row. */
