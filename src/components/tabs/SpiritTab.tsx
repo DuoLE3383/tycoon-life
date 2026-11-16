@@ -160,7 +160,7 @@ export function KinhDichPanel({ act }: { act: Act }) {
       // mutates s.spirit via grantSpirit() and surfaces the gain as a toast.
       act(st => {
         const g = grantSpirit(st, 2, 'Kinh Dịch cast');
-        return g > 0 ? t('sp.spiritGain', '', { n: g, src: 'Kinh Dịch' }) : null;
+        return g > 0 ? t('sp.spiritGain', '', { n: g, src: t('sp.src.iching') }) : null;
       });
     } catch {
       setErr(t('kd.errFetch'));
@@ -273,7 +273,7 @@ export function TuViPanel({ s, act }: { s: GameState; act: Act }) {
       // grant 2-4 spirit (capped per game-day via grantSpirit).
       act(st => {
         const g = grantSpirit(st, 3, 'Tử Vi chart');
-        return g > 0 ? t('sp.spiritGain', '', { n: g, src: 'Tử Vi' }) : null;
+        return g > 0 ? t('sp.spiritGain', '', { n: g, src: t('sp.src.tuvi') }) : null;
       });
     } catch {
       setErr(t('tv.errFetch'));
@@ -350,7 +350,7 @@ export function TuViPanel({ s, act }: { s: GameState; act: Act }) {
                   <div className="mini" style={{ marginTop: 3, opacity: .7, fontSize: '.72rem' }}>{p.phuTinh.join(', ')}</div>
                 )}
                 {p.laMenh && <div className="mini" style={{ color: 'var(--accent)', fontWeight: 700, marginTop: 2 }}>★ Mệnh</div>}
-                {!p.laMenh && p.laThan && <div className="mini" style={{ color: 'var(--slate)', fontWeight: 700, marginTop: 2 }}>Thân</div>}
+                {!p.laMenh && p.laThan && <div className="mini" style={{ color: 'var(--slate)', fontWeight: 700, marginTop: 2 }}>{t('sp.bodyThan')}</div>}
               </div>
             ))}
           </div>
@@ -419,7 +419,7 @@ export function PhongThuyPanel({ s, act }: { s: GameState; act: Act }) {
       // grant 1-3 spirit (capped per game-day via grantSpirit).
       act(st => {
         const g = grantSpirit(st, 2, 'Phong Thuỷ analysis');
-        return g > 0 ? t('sp.spiritGain', '', { n: g, src: 'Phong Thuỷ' }) : null;
+        return g > 0 ? t('sp.spiritGain', '', { n: g, src: t('sp.src.phongthuy') }) : null;
       });
     } catch {
       setErr(t('pt.errFetch'));

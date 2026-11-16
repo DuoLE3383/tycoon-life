@@ -1549,7 +1549,13 @@ const D: Record<string, [string, string, string]> = {
   'pin.bills.totalPenalty': ['total {total} (incl. penalty)', 'tổng {total} (đã gồm tiền phạt)', '合计 {total}（含罚款）'],
   'pin.bills.payNow': ['🧾 Pay now {total}', '🧾 Trả ngay {total}', '🧾 立即支付 {total}'],
   'pin.bills.insufficient': ['Not enough money to pay this bill.', 'Không đủ tiền để trả hóa đơn này.', '钱不够，无法支付此账单。'],
-  'assets.total': ['📊 Total assets: {n} items', '📊 Tổng tài sản: {n} món', '📊 总资产：{n} 件'],};
+  'assets.total': ['📊 Total assets: {n} items', '📊 Tổng tài sản: {n} món', '📊 总资产：{n} 件'],
+  'sp.src.iching': ['I Ching cast', 'Kinh Dịch cast', '易经占卜'],
+  'sp.src.tuvi': ['Tu Vi chart', 'Tử Vi chart', '紫微斗数命盘'],
+  'sp.src.phongthuy': ['Feng Shui analysis', 'Phong Thuỷ analysis', '风水分析'],
+  'sp.src.tarot': ['Tarot spread', 'Tarot spread', '塔罗牌阵'],
+  'sp.bodyThan': ['Body', 'Thân', '身'],
+};
 
 export function makeT(lang: Lang) {
   const i = IDX[lang];
