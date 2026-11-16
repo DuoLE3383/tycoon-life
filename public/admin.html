@@ -612,6 +612,11 @@
             <div class="field shrink"><label>&nbsp;</label><button type="button" class="btn" id="btn-item-lookup" onclick="lookupItem()">🔍 Tự tra cứu</button></div>
             <div class="field" style="flex:3"><label>Kết quả tra cứu</label><div id="item-lookup-result" class="hint">Gõ tên vật phẩm rồi bấm Tự tra cứu — sẽ tự điền Brand / Category / Giá thật / Rarity, bạn duyệt rồi mới bấm Tạo / Cập nhật.</div></div>
           </div>
+          <!-- v13.74 - O Prompt: bam Tra cuu lan dau tu dien prompt mac dinh, sua roi bam lai de tim theo prompt moi -->
+          <div style="margin-top:10px">
+            <label style="display:block;font-size:.85rem;opacity:.8;margin-bottom:4px">Prompt tra cứu (sửa tay được — bấm Tra cứu lại để tìm theo prompt mới)</label>
+            <textarea id="if-prompt" rows="2" style="width:100%;resize:vertical" placeholder='VD: Chỉ lấy ảnh Hasselblad 907X CFV 100C từ trang hasselblad.com, không lấy ảnh Flickr'></textarea>
+          </div>
           <div style="display:flex;gap:10px;margin-top:8px;align-items:flex-start">
             <img id="item-lookup-preview" style="width:96px;height:96px;object-fit:cover;border-radius:8px;display:none" />
             <div id="item-lookup-detail" class="hint" style="flex:1">Mô tả sẽ hiện ở đây sau khi tra cứu (1-2 câu).</div>
@@ -1507,11 +1512,17 @@
     if (!nameOnly) { toast('❌ Gõ tên vật phẩm trước', 'err'); return; }
     // Gui kem Brand da co (【entity-BMW¦canonical_name=BMW】 M3, 【entity-Ferrari¦canonical_name=Ferrari】 296 GTB) — ten tran nhu M3 / 296 GTB LLM + Wikimedia khong biet la gi
     var q = brandVal ? (brandVal + ' ' + nameOnly) : nameOnly;
+    var promptEl = $('if-prompt');
+    var promptVal = promptEl ? promptEl.value.trim() : '';
+    if (!promptVal) {
+      promptVal = 'Tìm thông tin thật về "' + q + '": brand, tên chính xác, category, giá USD thật có trong web, specs chỉ lấy từ web, mô tả tiếng Việt, ảnh sản phẩm chính xác đúng model.';
+      if (promptEl) promptEl.value = promptVal;
+    }
     if (!state.key) { toast('❌ Chưa nhập ADMIN_KEY', 'err'); return; }
     var btn = $('btn-item-lookup'); var old = btn.textContent; btn.textContent = '⏳ Đang tra cứu…'; btn.disabled = true;
     $('item-lookup-result').textContent = 'Đang tra cứu "' + q + '" (web thật + ảnh thật)…';
     var ctrl = new AbortController(); var timer = setTimeout(function () { ctrl.abort(); }, 30000);
-    fetch('/api/admin/items/lookup', { method: 'POST', headers: { 'X-Admin-Key': state.key, 'Content-Type': 'application/json', 'Accept': 'application/json' }, body: JSON.stringify({ key: state.key, query: q }), cache: 'no-store', signal: ctrl.signal })
+    fetch('/api/admin/items/lookup', { method: 'POST', headers: { 'X-Admin-Key': state.key, 'Content-Type': 'application/json', 'Accept': 'application/json' }, body: JSON.stringify({ key: state.key, query: q, prompt: promptVal }), cache: 'no-store', signal: ctrl.signal })
       .then(function (r) { clearTimeout(timer); return r.json().then(function (j) { if (!r.ok || !j.ok) throw new Error(j.error || ('HTTP ' + r.status)); return j; }); })
       .then(function (j) {
         var it = j.item || {};

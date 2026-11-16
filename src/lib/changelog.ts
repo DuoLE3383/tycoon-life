@@ -308,4 +308,12 @@ export const CHANGELOG: Record<string, ChangelogEntry> = {
       'Lookup: prompt admin duoc dua vao chi dan LLM',
     ],
   },
+  'v13.74': {
+    headline: 'HuyenBao v13.74 - Them o Prompt vao /admin (admin.html)',
+    summary: 'v13.74: O Prompt tra cuu nam dung trong /admin (admin.html), khong phai /ads. Bam Tra cuu tu dien prompt mac dinh, sua roi bam lai.',
+    features: [
+      'Admin (/admin): them o Prompt tra cuu sua tay duoc',
+      'Admin: prompt duoc gui kem len API lookup',
+    ],
+  },
 };

@@ -1,11 +1,10 @@
 {
-  "version": "v13.73",
+  "version": "v13.74",
   "releasedAt": "2026-11-16",
-  "headline": "HuyenBao v13.73 - Them o Prompt tra cuu sua tay duoc",
-  "summary": "v13.73: Them o Prompt ngay cho Tra cuu, bam lan dau tu dien prompt mac dinh, admin sua prompt roi bam lai de tim theo prompt moi.",
+  "headline": "HuyenBao v13.74 - Them o Prompt vao /admin (admin.html)",
+  "summary": "v13.74: O Prompt tra cuu nam dung trong /admin (admin.html), khong phai /ads. Bam Tra cuu tu dien prompt mac dinh, sua roi bam lai.",
   "features": [
-    "Admin: o Prompt tra cuu sua tay duoc ngay cho Tao vat pham",
-    "Lookup: search web + anh theo prompt admin nhap, khong chi theo ten",
-    "Lookup: prompt admin duoc dua vao chi dan LLM"
+    "Admin (/admin): them o Prompt tra cuu sua tay duoc",
+    "Admin: prompt duoc gui kem len API lookup"
   ]
 }
