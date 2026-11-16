@@ -291,4 +291,12 @@ export const CHANGELOG: Record<string, ChangelogEntry> = {
       'Lookup: ap dung siet title cho ca Bing va Openverse',
     ],
   },
+  'v13.72': {
+    headline: 'HuyenBao v13.72 - Lookup sua parse Bing bi escape &quot;',
+    summary: 'v13.72: Bing tra &quot;murl&quot; nen regex cu luon truot, decode &quot; truoc khi parse thi Bing moi tra duoc anh.',
+    features: [
+      'Lookup: decode &quot; &amp; truoc khi parse HTML Bing',
+      'Lookup: Bing gio moi tra duoc anh co title verify',
+    ],
+  },
 };

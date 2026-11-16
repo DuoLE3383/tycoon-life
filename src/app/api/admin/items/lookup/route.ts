@@ -75,7 +75,9 @@ async function searchBingOne(query: string): Promise<string[]> {
   try {
     const r = await fetch(`https://www.bing.com/images/search?q=${encodeURIComponent(query)}&form=HDRSC2`, { headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120 Safari/537.36' }, signal: AbortSignal.timeout(8000) });
     if (!r.ok) { console.error('[lookup] bing images HTTP', r.status); return []; }
-    const html = await r.text();
+    let html = await r.text();
+    // v13.72 - Bing tra HTML escape quote: &quot;murl&quot;:&quot;... thay vi "murl":"... -> decode truoc khi regex
+    html = html.replace(/&quot;/g, '"').replace(/&amp;/g, '&').replace(/&#39;/g, "'");
     const toks = bingTokens(query);
     const out: string[] = [];
     // Bing tra tung item dang {"murl":"...","t":"title ..."} - lay ca 2 de verify title chua ten item
