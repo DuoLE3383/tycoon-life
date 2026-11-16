@@ -614,8 +614,8 @@
           </div>
           <!-- v13.74 - O Prompt: bam Tra cuu lan dau tu dien prompt mac dinh, sua roi bam lai de tim theo prompt moi -->
           <div style="margin-top:10px">
-            <label style="display:block;font-size:.85rem;opacity:.8;margin-bottom:4px">Prompt tra cứu (sửa tay được — bấm Tra cứu lại để tìm theo prompt mới)</label>
-            <textarea id="if-prompt" rows="2" style="width:100%;resize:vertical" placeholder='VD: Chỉ lấy ảnh Hasselblad 907X CFV 100C từ trang hasselblad.com, không lấy ảnh Flickr'></textarea>
+            <label style="display:block;font-size:.85rem;opacity:.8;margin-bottom:4px">Lookup prompt (editable — edit it, then click Lookup again to search with the new prompt)</label>
+            <textarea id="if-prompt" rows="2" style="width:100%;resize:vertical" placeholder='E.g.: Only use photos of Hasselblad 907X CFV 100C from hasselblad.com, no Flickr photos'></textarea>
           </div>
           <div style="display:flex;gap:10px;margin-top:8px;align-items:flex-start">
             <img id="item-lookup-preview" style="width:96px;height:96px;object-fit:cover;border-radius:8px;display:none" />
@@ -1515,7 +1515,7 @@
     var promptEl = $('if-prompt');
     var promptVal = promptEl ? promptEl.value.trim() : '';
     if (!promptVal) {
-      promptVal = 'Tìm thông tin thật về "' + q + '": brand, tên chính xác, category, giá USD thật có trong web, specs chỉ lấy từ web, mô tả tiếng Việt, ảnh sản phẩm chính xác đúng model.';
+      promptVal = 'Find real info about "' + q + '": brand, exact name, category, real USD price found on the web, specs only from the web, description in English, exact product photo of the correct model.';
       if (promptEl) promptEl.value = promptVal;
     }
     if (!state.key) { toast('❌ Chưa nhập ADMIN_KEY', 'err'); return; }

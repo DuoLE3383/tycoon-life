@@ -316,4 +316,12 @@ export const CHANGELOG: Record<string, ChangelogEntry> = {
       'Admin: prompt duoc gui kem len API lookup',
     ],
   },
+  'v13.75': {
+    headline: 'HuyenBao v13.75 - Lookup prompt in English',
+    summary: 'v13.75: Lookup prompt box, placeholder and default prompt in /admin switched to English.',
+    features: [
+      'Admin (/admin): lookup prompt label + placeholder in English',
+      'Lookup: default prompt sent to API in English',
+    ],
+  },
 };

@@ -1,10 +1,10 @@
 {
-  "version": "v13.74",
+  "version": "v13.75",
   "releasedAt": "2026-11-16",
-  "headline": "HuyenBao v13.74 - Them o Prompt vao /admin (admin.html)",
-  "summary": "v13.74: O Prompt tra cuu nam dung trong /admin (admin.html), khong phai /ads. Bam Tra cuu tu dien prompt mac dinh, sua roi bam lai.",
+  "headline": "HuyenBao v13.75 - Lookup prompt in English",
+  "summary": "v13.75: Lookup prompt box, placeholder and default prompt in /admin switched to English.",
   "features": [
-    "Admin (/admin): them o Prompt tra cuu sua tay duoc",
-    "Admin: prompt duoc gui kem len API lookup"
+    "Admin (/admin): lookup prompt label + placeholder in English",
+    "Lookup: default prompt sent to API in English"
   ]
 }
