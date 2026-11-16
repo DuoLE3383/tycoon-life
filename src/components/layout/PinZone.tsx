@@ -154,8 +154,8 @@ export function PinZone({ s, t, onEdit, act, onNav, expanded, onToggleExpand, to
           {(nw > 0 || yi !== 0) && <span className="pchip pchip-big nw-chip" data-tip={t('netWorth')}><Ic id="t-bank" className="bsi" />{fmt(nw)}</span>}
           {yi !== 0 && <span className={'pchip pchip-big income-chip ' + (yi >= 0 ? 'up' : 'down')} data-tip={t('inc.total', 'Income/yr')}>{yi >= 0 ? '+' : ''}{fmt(yi)}{t('perYear')}</span>}
           {s.bank.dep > 0 && <span className="pchip pchip-big" data-tip={t('bank')}>🏦 {fmt(s.bank.dep)}</span>}
-          {/* v13.65 — ticker thong bao: o trong ben phai hang chip tien, chu chay 10s/thong bao, het thi lay cai tiep theo trong hang cho cua useGameController */}
-          <span className="pin-ticker" aria-live="polite">{toast ? <span key={toast.id} className="pin-ticker-text">{toast.msg}</span> : <span className="pin-ticker-empty"> </span>}</span>
+          {/* v13.65 — ticker thong bao: o trong ben phai hang chip tien, chu chay 14-30s/thong bao theo do dai, het thi lay cai tiep theo trong hang cho cua useGameController */}
+          <span className="pin-ticker" aria-live="polite">{toast ? <span key={toast.id} className="pin-ticker-text" style={{ ['--ticker-dur' as string]: `${Math.min(30, Math.max(14, 12 + toast.msg.length * 0.12))}s` } as React.CSSProperties}>{toast.msg}</span> : <span className="pin-ticker-empty"> </span>}</span>
       </div>
 
       {/* v13.34 - Actions: hang rieng full-width, khong nhet vao cot giua */}

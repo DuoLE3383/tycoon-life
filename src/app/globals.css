@@ -1602,6 +1602,7 @@ body:has(.tgame .modal-overlay){overflow:hidden}
 /* v13.65 — PinZone ticker: chu chay trong o trong ben phai hang chip tien */
 .tgame .pinzone .stats-row{display:flex !important; align-items:center !important; gap:6px !important; flex-wrap:nowrap !important}
 .tgame .pin-ticker{flex:1 1 0 !important; min-width:80px !important; overflow:hidden !important; white-space:nowrap !important; font-size:.82rem !important; font-weight:600 !important; color:var(--ink) !important; border-left:1px solid var(--line) !important; padding-left:8px !important; align-self:stretch !important; display:flex !important; align-items:center !important}
-.tgame .pin-ticker-text{display:inline-block !important; white-space:nowrap !important; padding-left:100% !important; animation:pinTickerScroll 10s linear forwards !important; will-change:transform !important}
+.tgame .pin-ticker-text{display:inline-block !important; white-space:nowrap !important; padding-left:100% !important; animation:pinTickerScroll var(--ticker-dur,20s) linear forwards !important; will-change:transform !important}
 .tgame .pin-ticker-empty{display:inline-block !important}
+.tgame .pin-ticker:hover .pin-ticker-text{animation-play-state:paused !important} /* hover de dung lai doc */
 @keyframes pinTickerScroll{from{transform:translateX(0)}to{transform:translateX(-100%)}}

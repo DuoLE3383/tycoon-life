@@ -2,7 +2,9 @@
 import { useState } from '@/components/gameDeps';
 import { NATIONS, LANGUAGES, NATION_LANGUAGES, displayNation, fmt, type GameState, langCost, langDays, canLearnLang, startLangStudy, canApplyCitizenship, applyCitizenship, travelToNation, netWorth } from '@/components/gameDeps';
 import { type Act, Btn, Row } from '@/components/shared';
+import { useT } from '@/lib/i18n';
 export function IdentityTab({ s, act }: { s: GameState; act: Act }) {
+  const { t } = useT();
   const [nation, setNation] = useState(s.nation);
   const nw = netWorth(s);
   const studying = s.langStudy;
