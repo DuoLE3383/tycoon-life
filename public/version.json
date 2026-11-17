@@ -4,8 +4,7 @@
   "headline": "HuyenBao v13.78i - Auto-save: auto ID on start, always save session to DB",
   "summary": "Starting a game with blank ID now auto-generates a valid UID, persist() always POSTs to /api/social/save, so every new session is saved to SQLite.",
   "features": [
-    "UI: profile switch / intro / PinZone bills / assets total now follow language selector (EN/VI/ZH)",
-    "Items + item details stay English in all languages",
-    "Currency stays $ USD with en-US number format for all languages"
+    "Auto-save: blank ID on start auto-generates UID",
+    "persist() always saves session to DB"
   ]
 }

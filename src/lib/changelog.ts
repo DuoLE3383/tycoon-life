@@ -327,6 +327,7 @@ export const CHANGELOG: Record<string, ChangelogEntry> = {
   'v13.78i': {
     headline: 'HuyenBao v13.78i - Auto-save: auto ID on start, always save session to DB',
     summary: 'Starting a game with blank ID now auto-generates a valid UID, persist() always POSTs to /api/social/save, so every new session is saved to SQLite.',
+    features: ['Auto-save: blank ID on start auto-generates UID', 'persist() always saves session to DB'],
   },
   'v13.78': {
     headline: 'HuyenBao v13.78 - Full 3-language UI (EN/VI/ZH), items stay English, $ USD',
