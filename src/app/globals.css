@@ -61,11 +61,25 @@ html[data-theme="light"] body{background:#e2e7df}
 .tgame .ms span:last-child{transform:translateX(-100%)}
 .tgame .tnav{display:flex;gap:6px;overflow-x:auto;padding:2px 0 10px;scrollbar-width:none;scroll-snap-type:x proximity;-webkit-mask-image:linear-gradient(90deg,#000 calc(100% - 20px),rgba(0,0,0,0));mask-image:linear-gradient(90deg,#000 calc(100% - 20px),rgba(0,0,0,0))}
 .tgame .tnav::-webkit-scrollbar{display:none}
-.tgame .tnav button{display:flex;align-items:center;gap:6px;padding:8px 13px;border-radius:999px;border:1px solid var(--line);background:var(--card);white-space:nowrap;color:var(--mute);font-weight:600;transition:background .2s,color .2s,border-color .2s;scroll-snap-align:start}
+.tgame .tnav button{display:flex;align-items:center;justify-content:center;width:auto;min-width:64px;height:48px;flex:0 0 auto;padding:0 14px;gap:6px;border-radius:16px;border:1px solid var(--line);background:var(--card);white-space:nowrap;color:var(--ink);font-weight:600;transition:transform .18s,background .2s,color .2s,border-color .2s,box-shadow .2s;scroll-snap-align:start}
+.tgame .tnav button .si{color:inherit}
+.tgame .tnav button[data-g="life"]{color:#e11d48}.tgame .tnav button[data-g="assets"]{color:#b45309}.tgame .tnav button[data-g="edu"]{color:#2563eb}.tgame .tnav button[data-g="career"]{color:#0f766e}.tgame .tnav button[data-g="finance"]{color:#15803d}.tgame .tnav button[data-g="empire"]{color:#7c3aed}.tgame .tnav button[data-g="network"]{color:#db2777}.tgame .tnav button[data-g="world"]{color:#4f46e5}
+.tgame .tnav button[aria-selected="true"]{color:#fff !important;transform:translateY(-1px) scale(1.04);box-shadow:0 6px 16px rgba(0,0,0,.18)}
+.tgame .tnav button[data-g="life"][aria-selected="true"]{background:linear-gradient(135deg,#fb7185,#e11d48);border-color:#e11d48}
+.tgame .tnav button[data-g="assets"][aria-selected="true"]{background:linear-gradient(135deg,#fbbf24,#b45309);border-color:#b45309}
+.tgame .tnav button[data-g="edu"][aria-selected="true"]{background:linear-gradient(135deg,#60a5fa,#2563eb);border-color:#2563eb}
+.tgame .tnav button[data-g="career"][aria-selected="true"]{background:linear-gradient(135deg,#2dd4bf,#0f766e);border-color:#0f766e}
+.tgame .tnav button[data-g="finance"][aria-selected="true"]{background:linear-gradient(135deg,#4ade80,#15803d);border-color:#15803d}
+.tgame .tnav button[data-g="empire"][aria-selected="true"]{background:linear-gradient(135deg,#a78bfa,#7c3aed);border-color:#7c3aed}
+.tgame .tnav button[data-g="network"][aria-selected="true"]{background:linear-gradient(135deg,#f472b6,#db2777);border-color:#db2777}
+.tgame .tnav button[data-g="world"][aria-selected="true"]{background:linear-gradient(135deg,#818cf8,#4f46e5);border-color:#4f46e5}
+.tgame .tnav button[data-t="friends"]{color:#db2777}.tgame .tnav button[data-t="chat"]{color:#2563eb}.tgame .tnav button[data-t="lboard"]{color:#b45309}.tgame .tnav button[data-t="health"]{color:#e11d48}.tgame .tnav button[data-t="spirit"]{color:#7c3aed}.tgame .tnav button[data-t="pets"]{color:#ea580c}.tgame .tnav button[data-t="markets"]{color:#15803d}.tgame .tnav button[data-t="bank"]{color:#0f766e}.tgame .tnav button[data-t="power"]{color:#dc2626}.tgame .tnav button[data-t="entity"]{color:#4f46e5}.tgame .tnav button[data-t="space"]{color:#6366f1}
 .tgame .tnav button:hover{color:var(--ink);border-color:var(--line2)}
 .tgame .tnav button[aria-selected="true"]{background:var(--ink);border-color:var(--ink);color:var(--paper);font-weight:700}
 .tgame .si{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;flex:none}
-.tgame .navsi{width:16px;height:16px}
+.tgame .navsi{width:28px;height:28px;flex:none}
+.tgame .tnav.asec button{width:auto;min-width:72px;padding:0 12px;white-space:nowrap}
+.tgame .tnav.asec button .asec-n{margin-left:2px}
 .tgame .bsi{width:17px;height:17px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
 .tgame .art{width:54px;height:54px;flex:none;border-radius:12px;background:var(--paper2);border:1px solid var(--line);padding:5px;filter:saturate(.8)}
 .tgame .sart{fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;color:var(--mute)}
@@ -143,8 +157,8 @@ html[data-theme="light"] body{background:#e2e7df}
    v11.51 — wrapped in @media (hover: hover) so touch devices don't show
    the tooltip stuck open after a tap (was the 'phong thuy +2' popup bug). */
 @media (hover: hover) {
-  .tgame .subnav button[data-tip]{position:relative}
-  .tgame .subnav button[data-tip]::after{
+  .tgame .tnav button[data-tip]{position:relative}
+  .tgame .tnav button[data-tip]::after{
     content:attr(data-tip);
     position:absolute;top:calc(100% + 6px);left:50%;
     transform:translateX(-50%) translateY(-2px);
@@ -157,12 +171,12 @@ html[data-theme="light"] body{background:#e2e7df}
     z-index:300;box-shadow:0 4px 14px rgba(40,35,25,.3);
     border:1px solid var(--accent)
   }
-  .tgame .subnav button[data-tip]:hover::after,
-  .tgame .subnav button[data-tip]:focus-visible::after{
+  .tgame .tnav button[data-tip]:hover::after,
+  .tgame .tnav button[data-tip]:focus-visible::after{
     opacity:1;transform:translateX(-50%) translateY(0)
   }
   /* small caret pointing up at the button */
-  .tgame .subnav button[data-tip]::before{
+  .tgame .tnav button[data-tip]::before{
     content:"";position:absolute;
     top:calc(100% + 2px);left:50%;
     transform:translateX(-50%);
@@ -171,8 +185,8 @@ html[data-theme="light"] body{background:#e2e7df}
     opacity:0;transition:opacity .18s ease;
     pointer-events:none;z-index:301
   }
-  .tgame .subnav button[data-tip]:hover::before,
-  .tgame .subnav button[data-tip]:focus-visible::before{opacity:1}
+  .tgame .tnav button[data-tip]:hover::before,
+  .tgame .tnav button[data-tip]:focus-visible::before{opacity:1}
 }
 
 /* ===== v11.24 — 3D animated nav buttons =====
@@ -419,12 +433,12 @@ html[data-theme="dark"] .tgame #ttoast{box-shadow:0 0 0 3px rgba(251,191,36,.12)
    - Divider line between the two rows
    - Level 1: bigger, bolder; Level 2: smaller, muted */
 .tgame .gnav{padding-bottom:4px;border-bottom:1px solid var(--line);margin-bottom:1px}
-.tgame .gnav button{font-weight:700;padding:5px 10px;font-size:.78rem;border-width:1px}
+.tgame .gnav button{font-weight:700;border-width:1px}
 /* Level 1 active = gold accent bg + dark text (stands out from Level 2) */
 .tgame .gnav button[aria-selected="true"]{background:linear-gradient(180deg,rgba(255,255,255,.25) 0%,rgba(255,255,255,0) 45%),var(--accent);border-color:var(--accent);color:var(--accentInk);font-weight:750;box-shadow:0 2px 0 rgba(80,60,20,.5),0 2px 6px rgba(200,160,40,.25),inset 0 1px 0 rgba(255,255,255,.3)}
 .tgame .gnav button:hover:not([aria-selected="true"]){transform:translateY(-1px);box-shadow:0 2px 0 rgba(60,55,40,.15),0 2px 5px rgba(60,55,40,.1)}
 .tgame .subnav{padding-top:3px;padding-bottom:5px}
-.tgame .subnav button{padding:3px 8px;font-size:.7rem;font-weight:550;color:var(--mute)}
+.tgame .subnav button{font-weight:550}
 /* Level 2 active = subtle: muted bg + gold border + gold text (NOT gold bg) */
 .tgame .subnav button[aria-selected="true"]{background:var(--paper2);border-color:var(--accent);color:var(--accent);font-weight:700;box-shadow:0 1px 2px rgba(200,160,40,.15)}
 .tgame .subnav button:hover{color:var(--ink);border-color:var(--line2)}
@@ -1196,18 +1210,19 @@ html[data-theme="dark"] .tgame .pchip-big.income-chip.down{color:#fca5a5;backgro
   .tgame .mobile-subnav::-webkit-scrollbar{display:none}
   .tgame .mobile-subnav-btn{
     display:inline-flex;align-items:center;justify-content:center;
-    width:42px;height:38px;flex:none;
+    width:48px;height:48px;flex:none;
     border-radius:10px;border:1px solid var(--line);
     background:var(--card);color:var(--mute);
     cursor:pointer;scroll-snap-align:start;
     transition:background .12s,color .12s,border-color .12s,transform .08s;
     -webkit-tap-highlight-color:transparent;
   }
-  .tgame .mobile-subnav-btn .si{width:20px;height:20px}
+  .tgame .mobile-subnav-btn .si{width:28px;height:28px}
+  .tgame .mobile-subnav-btn[data-t="friends"]{color:#db2777}.tgame .mobile-subnav-btn[data-t="chat"]{color:#2563eb}.tgame .mobile-subnav-btn[data-t="lboard"]{color:#b45309}.tgame .mobile-subnav-btn[data-t="health"]{color:#e11d48}.tgame .mobile-subnav-btn[data-t="spirit"]{color:#7c3aed}.tgame .mobile-subnav-btn[data-t="pets"]{color:#ea580c}.tgame .mobile-subnav-btn[data-t="markets"]{color:#15803d}.tgame .mobile-subnav-btn[data-t="bank"]{color:#0f766e}.tgame .mobile-subnav-btn[data-t="power"]{color:#dc2626}.tgame .mobile-subnav-btn[data-t="entity"]{color:#4f46e5}.tgame .mobile-subnav-btn[data-t="space"]{color:#6366f1}
   .tgame .mobile-subnav-btn:hover{color:var(--ink);border-color:var(--line2)}
   .tgame .mobile-subnav-btn:active{transform:scale(.94)}
   .tgame .mobile-subnav-btn[aria-selected="true"]{
-    background:var(--ink);border-color:var(--ink);color:var(--paper);
+    background:var(--ink);border-color:var(--ink);color:#fff !important;box-shadow:0 4px 12px rgba(0,0,0,.18);transform:scale(1.05);
   }
 
   /* Bottom icon nav — evenly-spaced row of GROUP icons.
@@ -1227,10 +1242,12 @@ html[data-theme="dark"] .tgame .pchip-big.income-chip.down{color:#fca5a5;backgro
     transition:color .12s,background .12s,transform .08s;
     -webkit-tap-highlight-color:transparent;
   }
-  .tgame .mobile-nav-btn .si{width:22px;height:22px;stroke-width:1.9}
+  .tgame .mobile-nav-btn .si{width:28px;height:28px;stroke-width:1.9}
+  .tgame .mobile-nav-btn[data-g="life"]{color:#e11d48}.tgame .mobile-nav-btn[data-g="assets"]{color:#b45309}.tgame .mobile-nav-btn[data-g="edu"]{color:#2563eb}.tgame .mobile-nav-btn[data-g="career"]{color:#0f766e}.tgame .mobile-nav-btn[data-g="finance"]{color:#15803d}.tgame .mobile-nav-btn[data-g="empire"]{color:#7c3aed}.tgame .mobile-nav-btn[data-g="network"]{color:#db2777}.tgame .mobile-nav-btn[data-g="world"]{color:#4f46e5}
   .tgame .mobile-nav-btn[aria-selected="true"]{
-    color:var(--accent);
-    background:rgba(176,138,62,.14);
+    color:#fff !important;
+    background:linear-gradient(135deg,var(--accent),var(--ink));
+    box-shadow:0 4px 12px rgba(0,0,0,.18);
   }
   html[data-theme="dark"] .tgame .mobile-nav-btn[aria-selected="true"]{
     background:rgba(217,180,92,.16);

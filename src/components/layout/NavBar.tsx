@@ -28,8 +28,9 @@ export function NavBar({ s, t, tab, activeGroup, curSubs, friendActivity, onSele
             : subs;
           return (
             <button key={gid} role="tab" aria-selected={activeGroup === gid} data-g={gid}
+              aria-label={t('grp.' + gid, name)} title={t('grp.' + gid, name)} data-tip={t('grp.' + gid, name)}
               onClick={() => onSelectGroup(gid, visible[0][0])}>
-              {Ic({ id: icon, className: 'si navsi' })}{t('grp.' + gid, name)}
+              {Ic({ id: icon, className: 'si navsi' })}
             </button>
           );
         })}
@@ -39,8 +40,9 @@ export function NavBar({ s, t, tab, activeGroup, curSubs, friendActivity, onSele
           {visibleSubs.map(([key, name, icon]) => (
             <button key={key} role="tab" aria-selected={tab === key} data-t={key}
               data-tip={t('ttab.' + key, '')}
+              aria-label={t('tab.' + key, name)} title={t('tab.' + key, name)}
               onClick={() => onSelectTab(key)}>
-              {Ic({ id: icon, className: 'si navsi' })}{t('tab.' + key, name)}
+              {Ic({ id: icon, className: 'si navsi' })}
               {key === 'friends' && friendActivity && <span className="navdot" />}
             </button>
           ))}

@@ -1129,11 +1129,11 @@ const D: Record<string, [string, string, string]> = {
   'biz.shareVsDetail': ['You: {you} branches · Rivals: {them}', 'Bạn: {you} chi nhánh · Đối thủ: {them}', '你：{you} 间分店 · 对手：{them}'],
   'biz.noBranches': ['No branches yet — open one below.', 'Chưa có chi nhánh — mở bên dưới.', '尚未开设分店 — 在下方开设。'],
   'biz.rndTitle': ['R&D investment', 'Đầu tư R&D', '研发投入'],
-  'biz.rndBlurb': ['Invest cash into R&D for a temporary biz-multiplier boost (5–25% for 365 game-days). Log-scaled: $50k → +5%, $500k → +20%, $5M caps at +25%. Re-investing replaces the active boost.', 'Đầu tư tiền vào R&D để nhận boost tạm thời cho biz-multiplier (5–25% trong 365 ngày-game). Log-scaled: $50k → +5%, $500k → +20%, $5M chạm trần +25%. Đầu tư lại sẽ thay thế boost đang hoạt động.', '投入研发资金以获得临时的业务倍率加成（365 游戏日，5–25%）。对数缩放：$5万→+5%，$50万→+20%，$500万封顶 +25%。重复投入会替换当前加成。'],
+  'biz.rndBlurb': ['Invest cash into R&D for a temporary biz-multiplier boost (5–25%). 365 game-days up to $5M; above $5M the duration grows (up to 1825 days). Log-scaled: $50k → +5%, $500k → +20%, $5M caps at +25%. Re-investing replaces the active boost.', 'Đầu tư tiền vào R&D để nhận boost tạm thời cho biz-multiplier (5–25%). 365 ngày-game đến $5M; trên $5M tăng thêm số ngày (tối đa 1825 ngày). Log-scaled: $50k → +5%, $500k → +20%, $5M chạm trần +25%. Đầu tư lại sẽ thay thế boost đang hoạt động.', '投入研发资金以获得临时的业务倍率加成（5–25%）。$500万以下 365 游戏日；超过 $500万 持续时间延长（最多 1825 日）。对数缩放：$5万→+5%，$50万→+20%，$500万封顶 +25%。重复投入会替换当前加成。'],
   'biz.rndAmount': ['Amount ($)', 'Số tiền ($)', '金额（$）'],
   'biz.rndInvest': ['Invest', 'Đầu tư', '投入'],
   'biz.rndActive': ['Active: +{n}% until day {d} ({left} days left)', 'Đang hoạt động: +{n}% đến ngày {d} (còn {left} ngày)', '生效中：+{n}% 至第 {d} 日（剩 {left} 日）'],
-  'biz.rndResult': ['R&D invested {amt} → biz +{n}% for 365 days', 'R&D đầu tư {amt} → biz +{n}% trong 365 ngày', '研发投入 {amt} → 业务 +{n}% 持续 365 天'],
+  'biz.rndResult': ['R&D invested {amt} → biz +{n}% for {days} days', 'R&D đầu tư {amt} → biz +{n}% trong {days} ngày', '研发投入 {amt} → 业务 +{n}% 持续 {days} 天'],
   'biz.rndErrMin': ['Minimum R&D investment is $50,000.', 'Đầu tư R&D tối thiểu $50,000.', '研发投入最低 $50,000。'],
   'biz.rndErrCash': ['Not enough cash for R&D investment.', 'Không đủ tiền đầu tư R&D.', '现金不足以投入研发。'],
   // ---- v11.20 — ads/hype reduce health

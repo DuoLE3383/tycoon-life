@@ -160,7 +160,7 @@ export function BizTab({ s, act }: { s: GameState; act: Act }) {
               if (st.money < rndAmount) return t('biz.rndErrCash');
               const r = investBizRnd(st, rndAmount);
               if (!r) return t('biz.rndErrCash');
-              return t('biz.rndResult', '', { amt: fmt(rndAmount), n: r.pct.toFixed(1) });
+              return t('biz.rndResult', '', { amt: fmt(rndAmount), n: r.pct.toFixed(1), days: (r as { days?: number }).days ?? 365 });
             })}>{t('biz.rndInvest')}</button>
         </div>
       </div>

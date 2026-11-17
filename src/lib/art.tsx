@@ -75,6 +75,7 @@ export const ART_DEFS = `<svg width="0" height="0" style="position:absolute" ari
 <symbol id="t-space" viewBox="0 0 24 24"><path d="M12 2c3.5 2.5 5 6.5 5 10l-1.5 4h-7L7 12c0-3.5 1.5-7.5 5-10z"/><circle cx="12" cy="9" r="1.8"/><path d="M8.5 16L7 21l3-1.5M15.5 16L17 21l-3-1.5M12 17v3"/></symbol>
 <symbol id="t-social" viewBox="0 0 24 24"><path d="M4 5h16v11H9l-5 4z"/><path d="M12 13.2s-3.6-2.4-4.5-4.3a2.1 2.1 0 0 1 4.5-1.4 2.1 2.1 0 0 1 4.5 1.4c-.9 1.9-4.5 4.3-4.5 4.3z"/></symbol>
 <symbol id="t-cap" viewBox="0 0 24 24"><path d="M12 5L2.5 9.5 12 14l9.5-4.5z"/><path d="M6.5 11.8V16c0 1.6 2.5 3 5.5 3s5.5-1.4 5.5-3v-4.2M21.5 9.5V15"/></symbol>
+<symbol id="t-id" viewBox="0 0 24 24"><rect x="2" y="5" width="20" height="14" rx="2"/><circle cx="8.5" cy="11" r="2"/><path d="M4.5 16c.8-2 2.2-3 4-3s3.2 1 4 3"/><path d="M14 9.5h4M14 12.5h4M14 15.5h2.5"/></symbol>
 <symbol id="ic-play" viewBox="0 0 24 24"><path d="M8 5l11 7-11 7z"/></symbol>
 <symbol id="ic-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2.5v2.2M12 19.3v2.2M2.5 12h2.2M19.3 12h2.2M5.3 5.3l1.6 1.6M17.1 17.1l1.6 1.6M18.7 5.3l-1.6 1.6M6.9 17.1l-1.6 1.6"/></symbol>
 <symbol id="ic-moon" viewBox="0 0 24 24"><path d="M20 14.5A8.5 8.5 0 0 1 9.5 4 8.5 8.5 0 1 0 20 14.5z"/></symbol>

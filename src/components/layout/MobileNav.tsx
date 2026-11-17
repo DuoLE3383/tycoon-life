@@ -25,7 +25,7 @@ export function MobileNav({ s, t, tab, activeGroup, curSubs, onSelectGroup, onSe
           {visibleSubs.map(([key, name, icon]) => (
             <button key={key} type="button" role="tab" aria-selected={tab === key}
               className="mobile-subnav-btn" data-t={key}
-              aria-label={t('tab.' + key, name)} onClick={() => onSelectTab(key)}>
+              aria-label={t('tab.' + key, name)} title={t('tab.' + key, name)} onClick={() => onSelectTab(key)}>
               {Ic({ id: icon, className: 'si' })}
             </button>
           ))}
@@ -39,7 +39,7 @@ export function MobileNav({ s, t, tab, activeGroup, curSubs, onSelectGroup, onSe
           return (
             <button key={gid} type="button" role="tab" aria-selected={activeGroup === gid}
               className="mobile-nav-btn" data-g={gid}
-              aria-label={t('grp.' + gid, name)} aria-current={activeGroup === gid}
+              aria-label={t('grp.' + gid, name)} title={t('grp.' + gid, name)} aria-current={activeGroup === gid}
               onClick={() => onSelectGroup(gid, visible[0][0])}>
               {Ic({ id: icon, className: 'si' })}
             </button>

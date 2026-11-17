@@ -229,7 +229,7 @@ export function Intro({ onBegin }: { onBegin: (o: { name: string; byear: number;
           <div className="trade">
             <button className="ibtn ghost" onClick={() => setStep('edit')}><Ic id="ic-x" className="bsi" /><span>{t('v11.back')}</span></button>
             {/* v11.10 — Begin stays disabled until the disclaimer is acknowledged */}
-            <button className="ibtn" style={{ flex: 1 }} disabled={!ack} onClick={() => { if (userId.trim()) setActiveUserId(userId); onBegin({ name: name || 'Alex', byear, nation, religion, ints, tals, gender, birthMonth, birthDay }); }}>
+            <button className="ibtn" style={{ flex: 1 }} disabled={!ack} onClick={() => { if (userId.trim()) setActiveUserId(userId); else { const gen = ('u' + Math.random().toString(36).slice(2, 10) + Date.now().toString(36)).slice(0, 32); setActiveUserId(gen); setUserId(gen); } onBegin({ name: name || 'Alex', byear, nation, religion, ints, tals, gender, birthMonth, birthDay }); }}>
               <Ic id="ic-plus" className="bsi" /><span>{t('begin')}</span>
             </button>
           </div>

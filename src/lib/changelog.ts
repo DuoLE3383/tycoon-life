@@ -324,6 +324,10 @@ export const CHANGELOG: Record<string, ChangelogEntry> = {
       'Lookup: default prompt sent to API in English',
     ],
   },
+  'v13.78i': {
+    headline: 'HuyenBao v13.78i - Auto-save: auto ID on start, always save session to DB',
+    summary: 'Starting a game with blank ID now auto-generates a valid UID, persist() always POSTs to /api/social/save, so every new session is saved to SQLite.',
+  },
   'v13.78': {
     headline: 'HuyenBao v13.78 - Full 3-language UI (EN/VI/ZH), items stay English, $ USD',
     summary: 'v13.78: Hardcoded UI (profile switch, intro, PinZone bills, assets total) moved into i18n with EN/VI/ZH. Items + details stay English, currency stays $ USD.',

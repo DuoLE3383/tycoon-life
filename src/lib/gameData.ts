@@ -705,7 +705,7 @@ export const BOTS: [string, number, string, string, number][] = [
 ];
 export const TABS: [string, string, string][] = [
   ['home', 'Overview', 't-life'], ['career', 'Career', 't-work'], ['edu', 'Education', 't-cap'], ['biz', 'Business', 't-biz'], ['space', 'Space', 't-space'],
-  ['health', 'Wellbeing', 'w-heart'], ['spirit', 'Mind', 'w-lotus'], ['pets', 'Companions', 'ic-paw'], ['identity', 'Identity', 't-cap'],
+  ['health', 'Wellbeing', 'w-heart'], ['spirit', 'Mind', 'w-lotus'], ['pets', 'Companions', 'ic-paw'], ['identity', 'Identity', 't-id'],
   ['assets', 'Assets', 'ic-bag'], ['markets', 'Markets', 't-stock'], ['bank', 'Banking', 't-bank'],
   ['social', 'Social', 't-social'], ['relations', 'Relations', 'ic-heart'], ['club', 'Clubs', 't-club'],
   ['power', 'Power', 't-power'], ['entity', 'Empire', 'b-corp'], ['rank', 'Ranking', 't-rank'], ['fame', 'Hall of Fame', 'ic-trophy']
@@ -735,7 +735,7 @@ export const TABS: [string, string, string][] = [
 //   Old order: life → growth → assets → finance → empire → network → …
 //   New order: life → ASSETS → growth → finance → empire → network → …
 export const GROUPS: [string, string, string, [string, string, string][]][] = [
-  ['life', 'Character', 't-life', [['home', 'Overview', 't-life'], ['health', 'Wellbeing', 'w-heart'], ['spirit', 'Mind', 'w-lotus'], ['pets', 'Companions', 'ic-paw'], ['identity', 'Identity', 't-cap']]],
+  ['life', 'Character', 't-life', [['home', 'Overview', 't-life'], ['health', 'Wellbeing', 'w-heart'], ['spirit', 'Mind', 'w-lotus'], ['pets', 'Companions', 'ic-paw'], ['identity', 'Identity', 't-id']]],
   ['assets', 'Assets', 'ic-bag', [['assets', 'Assets', 'ic-bag']]],
   // v11.41 — Education split from Career per UX feedback. Education = degrees/
   // licences/short courses. Career = jobs + experience + contracts + raise.

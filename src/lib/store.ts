@@ -30,6 +30,12 @@ export function hasSaveFor(userId: string): boolean {
     return !!j && j.started === true;
   } catch { return false; }
 }
+export function ensureUserId(): string {
+  const cur = getActiveUserId();
+  if (cur) return cur;
+  const gen = ('u' + Math.random().toString(36).slice(2, 10) + Date.now().toString(36)).slice(0, 32);
+  return setActiveUserId(gen) || gen;
+}
 export function setActiveUserId(raw: string): string | null {
   const id = sanitizeUserId(raw);
   try { if (id) localStorage.setItem(USER_KEY, id); else localStorage.removeItem(USER_KEY); } catch { /* ignore */ }
@@ -59,8 +65,8 @@ export function persist() {
   let raw = '';
   try { raw = JSON.stringify(S); localStorage.setItem(getSaveKey(), raw); } catch { /* ignore */ }
   try {
-    const id = getActiveUserId();
-    if (!id || !raw) return;
+    if (!raw) return;
+    const id = ensureUserId(); // v13.78i — bat dau choi ma chua co ID -> tu sinh ID de luon save DB
     if (_saveTimer) clearTimeout(_saveTimer);
     _saveTimer = setTimeout(() => {
       fetch('/api/social/save', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ uid: id, data: raw }) }).catch(() => {});

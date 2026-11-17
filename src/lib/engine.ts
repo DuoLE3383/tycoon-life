@@ -1164,7 +1164,7 @@ export const effRisk = (s: GameState) => (s.crisis ? s.crisis.risk : 0);
 export const effDemand = (s: GameState) => s.crisis ? s.crisis.demand : 1;
 // v11.20 — R&D boost factor (1.0 if no active R&D or expired). Boost scales
 // with amount invested: $50k → +5%, $500k → +20%, capped at +25%. Duration
-// is 365 game-days (one year) regardless of amount.
+// is 365 game-days up to $5M, longer above $5M (cap 1825 days).
 export const bizRndMult = (s: GameState): number => {
   if (!s.bizRnd) return 1;
   if (s.day > s.bizRnd.untilDay) return 1;
@@ -1491,20 +1491,23 @@ export const bizMarketShare = (s: GameState): number => {
   return Math.min(1, total / 60);
 };
 // v11.20 — R&D investment action. `amount` is the cash spent; returns the
-// boost % granted (5-25%). Boost lasts 365 game-days. Re-investing while
+// boost % granted (5-25%) + duration. Boost lasts 365 game-days up to $5M;
+// above $5M the DURATION grows: days = 365 + 365*log10(amount/5M), capped
+// at 1825 days (5 years). Boost % still caps at +25%. Re-investing while
 // active replaces the previous boost (doesn't stack). Throws nothing —
 // returns null on insufficient funds.
-export function investBizRnd(s: GameState, amount: number): { pct: number; untilDay: number } | null {
+export function investBizRnd(s: GameState, amount: number): { pct: number; untilDay: number; days: number } | null {
   if (!Number.isFinite(amount) || amount < 50_000) return null;
   if (s.money < amount) return null;
   // Boost: log-capped. $50k → 5%, $500k → ~20%, $5M → cap 25%.
   // Formula: 5 + 8 * log10(amount / 50000), clamped to [5, 25].
   const pct = Math.max(5, Math.min(25, 5 + 8 * Math.log10(amount / 50_000)));
   const boostMult = 1 + pct / 100;
+  const days = amount <= 5_000_000 ? 365 : Math.min(1825, Math.round(365 + 365 * Math.log10(amount / 5_000_000)));
   s.money -= amount;
-  s.bizRnd = { amount, investedDay: s.day, untilDay: s.day + 365, boostMult };
-  pushLog(s, `R&D invested ${fmt(amount)} → biz +${pct.toFixed(1)}% for 365 days.`);
-  return { pct, untilDay: s.day + 365 };
+  s.bizRnd = { amount, investedDay: s.day, untilDay: s.day + days, boostMult };
+  pushLog(s, `R&D invested ${fmt(amount)} → biz +${pct.toFixed(1)}% for ${days} days.`);
+  return { pct, untilDay: s.day + days, days };
 }
 export const assetVal = (s: GameState) => s.lots.reduce((a, l) => a + lotValue(s, l), 0);
 export const bizVal = (s: GameState) => {
