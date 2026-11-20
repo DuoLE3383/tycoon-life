@@ -1,13 +1,12 @@
 {
-  "version": "v13.78j",
+  "version": "v13.78l",
   "releasedAt": "2026-11-20",
-  "headline": "HuyenBao v13.78j - Finance audit fixes ported to main + last-30-days ledger",
-  "summary": "Ports the remaining v13.13 audit fixes to main (raise actually applied, diet x365, biz multiplier display complete, bank effective rate) and the Details ledger now really covers the last 30 days.",
+  "headline": "HuyenBao v13.78l - Finance details: daily totals, not per-transaction list",
+  "summary": "The last-30-days Details table now shows ONE row per day (money in / money out / net + tx count) plus a grand-total row, instead of listing every transaction. Column labels moved to i18n.",
   "features": [
-    "Career: negotiated raises now actually increase job income (salaryBonus, backfilled for old saves)",
-    "Finance: diet expense shown at real annual cost (charged daily in-game, was x12 display)",
-    "Finance: biz multiplier breakdown now includes board nominee, constitution and zodiac factors",
-    "Bank: header + repay preview show the effective loan rate during crisis (was flat 6%)",
-    "Finance: Details table filters operating transactions to the last 30 game-days, newest first (was oldest 30 of the 200-tx window)"
+    "Finance: Details table aggregates by game-day, newest first (was one row per transaction)",
+    "Finance: new Total row sums the whole 30-day window (in / out / net)",
+    "Finance: unknown-day transactions grouped into their own bucket so no numbers are lost",
+    "i18n: Money out / Tx count / Total labels added for EN/VI/ZH (was hardcoded Vietnamese)"
   ]
 }

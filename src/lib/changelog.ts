@@ -324,6 +324,26 @@ export const CHANGELOG: Record<string, ChangelogEntry> = {
       'Lookup: default prompt sent to API in English',
     ],
   },
+  'v13.78l': {
+    headline: 'HuyenBao v13.78l - Finance details: daily totals, not per-transaction list',
+    summary: 'The last-30-days Details table now shows ONE row per day (money in / money out / net + tx count) plus a grand-total row, instead of listing every transaction. Column labels moved to i18n.',
+    features: [
+      'Finance: Details table aggregates by game-day, newest first (was one row per transaction)',
+      'Finance: new Total row sums the whole 30-day window (in / out / net)',
+      'Finance: unknown-day transactions grouped into their own bucket so no numbers are lost',
+      'i18n: Money out / Tx count / Total labels added for EN/VI/ZH (was hardcoded Vietnamese)',
+    ],
+  },
+  'v13.78k': {
+    headline: 'HuyenBao v13.78k - Asset section tabs icon-only on mobile',
+    summary: 'The 7 asset section tabs (Real estate / Luxury / Everyday / Auction & Market / Grails / Workshop / My assets) no longer overflow phones: below 700px they collapse to 44px icon tiles with corner count badges; desktop keeps labels.',
+    features: [
+      'Mobile: asset section tabs icon-only (labels hidden <=700px), no more horizontal overflow',
+      'Mobile: count badges become small corner superscripts on icon tiles',
+      'A11y: tab names kept via aria-label + title tooltip',
+      'Desktop: unchanged, labels still shown above 700px',
+    ],
+  },
   'v13.78j': {
     headline: 'HuyenBao v13.78j - Finance audit fixes ported to main + last-30-days ledger',
     summary: 'Ports the remaining v13.13 audit fixes to main (raise actually applied, diet x365, biz multiplier display complete, bank effective rate) and the Details ledger now really covers the last 30 days.',
