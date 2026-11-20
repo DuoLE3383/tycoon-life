@@ -1588,7 +1588,7 @@ const D: Record<string, [string, string, string]> = {
   'fin.depr': ['Asset depreciation / year (non-cash):', 'Khấu hao tài sản / năm (không phải tiền mặt):', '资产折旧 / 年（非现金）：'],
   'fin.noTx': ['No transactions yet.', 'Chưa có giao dịch nào.', '暂无交易。'],
   'fin.chartTitle': ['📈 Cumulative Chart — Operating Net per Transaction (old → new)', '📈 Biểu đồ cộng dồn — Ròng vận hành theo từng giao dịch (cũ → mới)', '📈 累计图表 — 每笔交易的经营净额（旧 → 新）'],
-  'fin.detailTitle': ['🧾 Details — last 30 operating transactions (new → old)', '🧾 Chi tiết — 30 giao dịch vận hành gần nhất (mới → cũ)', '🧾 明细 — 最近 30 笔经营交易（新 → 旧）'],
+  'fin.detailTitle': ['🧾 Details — last 30 ngày', '🧾 Chi tiết — 30 giao dịch vận hành gần nhất (mới → cũ)', '🧾 明细 — 最近 30 笔经营交易（新 → 旧）'],
   'fin.date': ['Date', 'Ngày', '日期'],
   'fin.type': ['Type', 'Loại', '类型'],
   'fin.inCol': ['Money in', 'Tiền vào', '收入'],
