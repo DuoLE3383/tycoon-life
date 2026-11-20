@@ -324,6 +324,16 @@ export const CHANGELOG: Record<string, ChangelogEntry> = {
       'Lookup: default prompt sent to API in English',
     ],
   },
+  'v13.79': {
+    headline: 'HuyenBao v13.79 - Mobile asset tabs icon-only + per-day finance stats',
+    summary: 'Version up bundling v13.78k/l/m: the 7 asset section tabs collapse to icon tiles on phones, the finance Details table shows daily totals (one row per game-day) and the cumulative chart is per-day too.',
+    features: [
+      'Assets: section tabs icon-only below 700px (names kept via tooltip), no more screen overflow',
+      'Finance: Details table = daily totals, one row per displayed date + Total row',
+      'Finance: cumulative chart one bar per game-day, tooltip shows date + day net',
+      'i18n: new table/chart labels for EN/VI/ZH',
+    ],
+  },
   'v13.78m': {
     headline: 'HuyenBao v13.78m - Finance section is truly per-DAY stats',
     summary: 'Game days advance in fractional steps (s.day += dtMs / DAY_MS), so the previous per-tx chart drew one bar per tick and the table grouped by raw fractional day — the same displayed date could appear in many rows. Both now aggregate by the displayed game-day.',
