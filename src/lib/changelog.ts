@@ -324,6 +324,16 @@ export const CHANGELOG: Record<string, ChangelogEntry> = {
       'Lookup: default prompt sent to API in English',
     ],
   },
+  'v13.78m': {
+    headline: 'HuyenBao v13.78m - Finance section is truly per-DAY stats',
+    summary: 'Game days advance in fractional steps (s.day += dtMs / DAY_MS), so the previous per-tx chart drew one bar per tick and the table grouped by raw fractional day — the same displayed date could appear in many rows. Both now aggregate by the displayed game-day.',
+    features: [
+      'Finance: Details table buckets by floor(day) — exactly ONE row per displayed date, no more duplicate dates',
+      'Finance: cumulative chart now one bar per DAY (was one bar per transaction/tick)',
+      'Finance: chart bar tooltip shows the date + that day operating net',
+      'i18n: chart title updated to Operating Net per Day (EN/VI/ZH)',
+    ],
+  },
   'v13.78l': {
     headline: 'HuyenBao v13.78l - Finance details: daily totals, not per-transaction list',
     summary: 'The last-30-days Details table now shows ONE row per day (money in / money out / net + tx count) plus a grand-total row, instead of listing every transaction. Column labels moved to i18n.',

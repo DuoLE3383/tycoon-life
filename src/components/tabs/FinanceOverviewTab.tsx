@@ -369,10 +369,21 @@ export function FinanceOverviewTab({ s, act, onNav }: { s: GameState; act: Act; 
               </div>
             ))}
             {(() => {
-              // v13.60 - Bieu do duong cong don + bang chi tiet 30 giao dich gan nhat
-              const ops = [...(s.transactions || [])].filter((tx: any) => tx.kind !== 'transfer' && tx.kind !== 'buy' && tx.kind !== 'sell').reverse();
+              // v13.78m — THONG KE NGAY, KHONG PHAI GIAO DICH. Game day tang
+              // lien tuc theo phan thap phan (engine: s.day += dtMs / DAY_MS)
+              // nen: (1) bieu do cu ve 1 cot/GD = thuc te 1 cot/tick, (2) bang
+              // gop theo day tho → cung 1 ngay van ra nhieu dong. Ca 2 nen
+              // gop theo Math.floor(day) = dung ngay hien thi.
+              const ops = [...(s.transactions || [])].filter((tx: any) => tx.kind !== 'transfer' && tx.kind !== 'buy' && tx.kind !== 'sell');
+              const dayNet = new Map<number, number>();
+              for (const tx of ops) {
+                const k = typeof tx.day === 'number' ? Math.floor(tx.day) : -1;
+                dayNet.set(k, (dayNet.get(k) || 0) + tx.amount);
+              }
+              const dayKeys = [...dayNet.keys()].sort((a, b) => a - b); // cu → moi
               let run = 0;
-              const pts = ops.map((tx: any) => { run += tx.amount; return run; });
+              const pts = dayKeys.map(k => { run += dayNet.get(k) || 0; return run; });
+              const dateOf = (k: number) => k < 0 ? '—' : new Date(Date.UTC(s.byear + 18, 8, 1) + Math.floor(k) * 864e5).toLocaleDateString('en-US', { timeZone: 'UTC', day: '2-digit', month: '2-digit', year: 'numeric' });
               const W = 560, H = 150, PAD = 8;
               const mn = Math.min(0, ...pts), mx = Math.max(0, ...pts);
               const span = Math.max(1, mx - mn);
@@ -385,18 +396,17 @@ export function FinanceOverviewTab({ s, act, onNav }: { s: GameState; act: Act; 
               // newest at the end) — the exact opposite of the label — and it
               // did not filter by time at all. Operating transactions
               // (exclude transfer/buy/sell) whose game-day falls in the last
-              // 30 days, newest first.
+              // 30 days.
               const fromDay = s.lastDay - 30;
               const last30 = [...(s.transactions || [])]
                 .filter((tx: any) => tx.kind !== 'transfer' && tx.kind !== 'buy' && tx.kind !== 'sell')
-                .filter((tx: any) => typeof tx.day === 'number' ? tx.day >= fromDay : true)
-                .reverse();
-              // v13.78l — GOP THEO NGAY: bang chi tiet chi con 1 dong/ngay
-              // (tong tien vao / tien ra / rong + so GD), khong liet ke tung
-              // giao dich nua. Ngay xep moi → cu; day khong ro hop nhom -1.
+                .filter((tx: any) => typeof tx.day === 'number' ? tx.day >= fromDay : true);
+              // v13.78m — GOP THEO NGAY HIENTHI: bucket = Math.floor(day)
+              // (day thap phan!), moi ngay dung 1 dong: tong vao/ra + so GD.
+              // Ngay xep moi → cu; day khong ro hop nhom -1.
               const dayMap = new Map<number, { in: number; out: number; n: number }>();
               for (const tx of last30) {
-                const d = typeof tx.day === 'number' ? tx.day : -1;
+                const d = typeof tx.day === 'number' ? Math.floor(tx.day) : -1;
                 const a = dayMap.get(d) || { in: 0, out: 0, n: 0 };
                 if (tx.amount >= 0) a.in += tx.amount; else a.out += Math.abs(tx.amount);
                 a.n++;
@@ -413,7 +423,7 @@ export function FinanceOverviewTab({ s, act, onNav }: { s: GameState; act: Act; 
                     <div style={{ overflowX: 'auto' }}>
                       <div style={{ display: 'flex', alignItems: 'flex-end', gap: 1, height: 150, borderBottom: '1px dashed var(--line)', minWidth: 320 }}>
                         {pts.map((v: number, i: number) => (
-                          <div key={i} title={'GD #' + (i + 1)} style={{ flex: 1, height: `${Math.max(2, ((v - mn) / span) * 100)}%`, background: v >= 0 ? 'var(--up)' : 'var(--down)', opacity: 0.85, minWidth: 2 }} />
+                          <div key={i} title={dateOf(dayKeys[i]) + ' · ' + ((dayNet.get(dayKeys[i]) || 0) >= 0 ? '+' : '−') + fmtFull(Math.abs(dayNet.get(dayKeys[i]) || 0))} style={{ flex: 1, height: `${Math.max(2, ((v - mn) / span) * 100)}%`, background: v >= 0 ? 'var(--up)' : 'var(--down)', opacity: 0.85, minWidth: 2 }} />
                         ))}
                       </div>
                       <div style={{ display: 'flex', justifyContent: 'space-between' }} className="mini">
@@ -431,7 +441,7 @@ export function FinanceOverviewTab({ s, act, onNav }: { s: GameState; act: Act; 
                             const net = a.in - a.out;
                             return (
                               <tr key={day} style={{ borderBottom: '1px solid var(--line)' }}>
-                                <td style={{ padding: '5px 8px', whiteSpace: 'nowrap', opacity: .8 }}>{day < 0 ? '—' : new Date(Date.UTC(s.byear + 18, 8, 1) + Math.floor(day) * 864e5).toLocaleDateString('en-US', { timeZone: 'UTC', day: '2-digit', month: '2-digit', year: 'numeric' })}</td>
+                                <td style={{ padding: '5px 8px', whiteSpace: 'nowrap', opacity: .8 }}>{dateOf(day)}</td>
                                 <td style={{ padding: '5px 8px', textAlign: 'right', opacity: .6 }}>{a.n}</td>
                                 <td style={{ padding: '5px 8px', textAlign: 'right', color: 'var(--up)', fontWeight: 700 }}>{a.in > 0 ? `+${fmtFull(a.in)}` : '—'}</td>
                                 <td style={{ padding: '5px 8px', textAlign: 'right', color: 'var(--down)', fontWeight: 700 }}>{a.out > 0 ? `−${fmtFull(a.out)}` : '—'}</td>
