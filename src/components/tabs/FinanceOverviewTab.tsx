@@ -391,6 +391,21 @@ export function FinanceOverviewTab({ s, act, onNav }: { s: GameState; act: Act; 
                 .filter((tx: any) => tx.kind !== 'transfer' && tx.kind !== 'buy' && tx.kind !== 'sell')
                 .filter((tx: any) => typeof tx.day === 'number' ? tx.day >= fromDay : true)
                 .reverse();
+              // v13.78l — GOP THEO NGAY: bang chi tiet chi con 1 dong/ngay
+              // (tong tien vao / tien ra / rong + so GD), khong liet ke tung
+              // giao dich nua. Ngay xep moi → cu; day khong ro hop nhom -1.
+              const dayMap = new Map<number, { in: number; out: number; n: number }>();
+              for (const tx of last30) {
+                const d = typeof tx.day === 'number' ? tx.day : -1;
+                const a = dayMap.get(d) || { in: 0, out: 0, n: 0 };
+                if (tx.amount >= 0) a.in += tx.amount; else a.out += Math.abs(tx.amount);
+                a.n++;
+                dayMap.set(d, a);
+              }
+              const dayRows = [...dayMap.entries()].sort((x, y) => y[0] - x[0]);
+              let totIn = 0, totOut = 0;
+              for (const [, a] of dayRows) { totIn += a.in; totOut += a.out; }
+              const totNet = totIn - totOut;
               return (
                 <>
                   <div style={{ marginTop: 10, marginBottom: 6, fontSize: '.82rem', fontWeight: 800 }}>{t('fin.chartTitle')}</div>
@@ -410,19 +425,28 @@ export function FinanceOverviewTab({ s, act, onNav }: { s: GameState; act: Act; 
                   {last30.length === 0 ? <p className="sub">{t('fin.noTx')}</p> : (
                     <div style={{ overflowX: 'auto' }}>
                       <table style={{ width: '100%', fontSize: '.78rem', borderCollapse: 'collapse' }}>
-                        <thead><tr style={{ borderBottom: '1px solid var(--line)', textAlign: 'left' }}><th style={{ padding: '5px 8px' }}>{t('fin.date')}</th><th style={{ padding: '5px 8px' }}>#</th><th style={{ padding: '5px 8px' }}>{t('fin.type')}</th><th style={{ padding: '5px 8px' }}>Kind</th><th style={{ padding: '5px 8px', textAlign: 'right' }}>{t('fin.inCol')}</th><th style={{ padding: '5px 8px', textAlign: 'right' }}>Tiền ra</th></tr></thead>
+                        <thead><tr style={{ borderBottom: '1px solid var(--line)', textAlign: 'left' }}><th style={{ padding: '5px 8px' }}>{t('fin.date')}</th><th style={{ padding: '5px 8px', textAlign: 'right' }}>{t('fin.nTx')}</th><th style={{ padding: '5px 8px', textAlign: 'right' }}>{t('fin.inCol')}</th><th style={{ padding: '5px 8px', textAlign: 'right' }}>{t('fin.outCol')}</th><th style={{ padding: '5px 8px', textAlign: 'right' }}>{t('fin.netLabel')}</th></tr></thead>
                         <tbody>
-                          {last30.map((tx: any, i: number) => (
-                            <tr key={i} style={{ borderBottom: '1px solid var(--line)' }}>
-                              <td style={{ padding: '5px 8px', whiteSpace: 'nowrap', opacity: .8 }}>{(() => { const d = (tx as any).day ?? (tx as any).date ?? (tx as any).createdAt; if (d == null) return '—'; if (typeof d === 'number') return new Date(Date.UTC(s.byear + 18, 8, 1) + Math.floor(d) * 864e5).toLocaleDateString('en-US', { timeZone: 'UTC', day: '2-digit', month: '2-digit', year: 'numeric' }); return String(d); })()}</td>
-                              <td style={{ padding: '5px 8px', opacity: .6 }}>{i + 1}</td>
-                              <td style={{ padding: '5px 8px', fontWeight: 600 }}>{labelFor(tx.asset)}</td>
-                              <td style={{ padding: '5px 8px', opacity: .7 }}>{tx.kind}</td>
-                              <td style={{ padding: '5px 8px', textAlign: 'right', color: 'var(--up)', fontWeight: 700 }}>{tx.amount >= 0 ? `+${fmtFull(tx.amount)}` : '—'}</td>
-                              <td style={{ padding: '5px 8px', textAlign: 'right', color: 'var(--down)', fontWeight: 700 }}>{tx.amount < 0 ? `−${fmtFull(Math.abs(tx.amount))}` : '—'}</td>
-                            </tr>
-                          ))}
+                          {dayRows.map(([day, a]: any) => {
+                            const net = a.in - a.out;
+                            return (
+                              <tr key={day} style={{ borderBottom: '1px solid var(--line)' }}>
+                                <td style={{ padding: '5px 8px', whiteSpace: 'nowrap', opacity: .8 }}>{day < 0 ? '—' : new Date(Date.UTC(s.byear + 18, 8, 1) + Math.floor(day) * 864e5).toLocaleDateString('en-US', { timeZone: 'UTC', day: '2-digit', month: '2-digit', year: 'numeric' })}</td>
+                                <td style={{ padding: '5px 8px', textAlign: 'right', opacity: .6 }}>{a.n}</td>
+                                <td style={{ padding: '5px 8px', textAlign: 'right', color: 'var(--up)', fontWeight: 700 }}>{a.in > 0 ? `+${fmtFull(a.in)}` : '—'}</td>
+                                <td style={{ padding: '5px 8px', textAlign: 'right', color: 'var(--down)', fontWeight: 700 }}>{a.out > 0 ? `−${fmtFull(a.out)}` : '—'}</td>
+                                <td style={{ padding: '5px 8px', textAlign: 'right', fontWeight: 700, color: net >= 0 ? 'var(--up)' : 'var(--down)' }}>{`${net >= 0 ? '+' : '−'}${fmtFull(Math.abs(net))}`}</td>
+                              </tr>
+                            );
+                          })}
                         </tbody>
+                        <tfoot><tr style={{ borderTop: '2px solid var(--line)', fontWeight: 800 }}>
+                          <td style={{ padding: '5px 8px' }}>{t('fin.total')}</td>
+                          <td style={{ padding: '5px 8px', textAlign: 'right', opacity: .6 }}>{last30.length}</td>
+                          <td style={{ padding: '5px 8px', textAlign: 'right', color: 'var(--up)' }}>+{fmtFull(totIn)}</td>
+                          <td style={{ padding: '5px 8px', textAlign: 'right', color: 'var(--down)' }}>−{fmtFull(totOut)}</td>
+                          <td style={{ padding: '5px 8px', textAlign: 'right', color: totNet >= 0 ? 'var(--up)' : 'var(--down)' }}>{totNet >= 0 ? '+' : '−'}{fmtFull(Math.abs(totNet))}</td>
+                        </tr></tfoot>
                       </table>
                     </div>
                   )}
