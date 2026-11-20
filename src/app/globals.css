@@ -1638,3 +1638,19 @@ body:has(.tgame .modal-overlay){overflow:hidden}
   .tgame .tnav.asec button .asec-l{display:none !important}
   .tgame .tnav.asec button .asec-n{position:absolute !important;top:-4px !important;right:-2px !important;margin:0 !important;min-width:16px !important;height:16px !important;padding:0 4px !important;font-size:.62rem !important}
 }
+
+/* ===== v13.80 - GUARD CHONG TRAN NGANG TOAN CUC =====
+   Save that has LLM-generated items (name/brand = 1 long token without
+   spaces) lam chip inline-block + tu dai tran qua the .row/.tile card,
+   keo ca page tran ngang (user report mobile 87 items). 3 lop:
+   (1) html overflow-x:clip → page khong the tran ngang (clip khong
+       pha sticky nhu hidden).
+   (2) Moi text cho phep break tu dai; chip gioi han be rong + ellipsis.
+   (3) Flex item duoc phep co (min-width:0). */
+html{overflow-x:hidden}
+@supports (overflow-x:clip){html{overflow-x:clip}}
+.tgame .bchip,.tgame .rarity-chip,.tgame .serial-chip,.tgame .cond-pill{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tgame .row b,.tgame .tile b,.tgame .row .sub,.tgame .tile .sub,.tgame .mini,.tgame p,.tgame h2,.tgame h3,.tgame td,.tgame th{overflow-wrap:anywhere}
+.tgame .row,.tgame .tile,.tgame .grid{min-width:0;max-width:100%}
+.tgame .row>*,.tgame .tile>*{min-width:0}
+.tgame img,.tgame svg{max-width:100%}

@@ -324,6 +324,16 @@ export const CHANGELOG: Record<string, ChangelogEntry> = {
       'Lookup: default prompt sent to API in English',
     ],
   },
+  'v13.80': {
+    headline: 'HuyenBao v13.80 - Global anti-overflow guard (long item names can no longer break the layout)',
+    summary: 'Saves with many LLM-generated items (long unbreakable names/brands) could push rows wider than the screen and overflow the whole page sideways. Three layers now prevent any horizontal overflow: page clip, word/chip wrapping with ellipsis, and shrinkable flex items. Plus an opt-in ?dbgov=1 diagnostic that reports any remaining overflowing element.',
+    features: [
+      'Guard: page can never scroll horizontally anymore (html overflow-x clip)',
+      'Guard: long item names/brands/chips wrap or ellipsis instead of spilling out of cards',
+      'Guard: chips (brand / rarity / serial / condition) are capped to the row width',
+      'Diagnostic: open with ?dbgov=1 to dump overflowing elements to console + localStorage',
+    ],
+  },
   'v13.79': {
     headline: 'HuyenBao v13.79 - Mobile asset tabs icon-only + per-day finance stats',
     summary: 'Version up bundling v13.78k/l/m: the 7 asset section tabs collapse to icon tiles on phones, the finance Details table shows daily totals (one row per game-day) and the cumulative chart is per-day too.',
