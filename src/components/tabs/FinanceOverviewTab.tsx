@@ -1,11 +1,11 @@
 'use client';
 
 import {
-  assetBreakdown, bizCosts, bizMultiplier, bizNet, bizRndMult, bizRevenue, branchCount, clubMult,
+  assetBreakdown, bizCosts, bizMultiplier, bizNet, bizRndMult, bizRevenue, branchCount, clubMult, constitutionById,
   effEraBiz, effLoanRate, type ExpenseItem, expenseBreakdown, fameBonus, type FinanceAction,
   financeActions, fmt, fmtFull, type GameState, healthMult, incomeBreakdown, type IncomeSource,
   jobIncome, jobsOf, levelMult, lotValue, assetDepreciationYr, netWorth, spiritBizMult, stockVal, studyTuition,
-  studyWorkMult, upkeep, useT, yearExpenses, yearIncome,
+  studyWorkMult, upkeep, useT, yearExpenses, yearIncome, zodiacAffinityMult,
   payBill, billTotalDue, type Bill,
     ASSISTANT_DEFS, assistantSalaryTotal, hireAssistant, fireAssistant, toggleAssistant, type AssistantKind,
 } from '@/components/gameDeps';
@@ -207,6 +207,11 @@ export function FinanceOverviewTab({ s, act, onNav }: { s: GameState; act: Act; 
     { label: `Level bonus (Lv ${s.level})`, value: '×' + levelMult(s).toFixed(2), raw: levelMult(s) },
     { label: 'Spirit bonus (≥70)', value: '×' + spiritBizMult(s).toFixed(2), raw: spiritBizMult(s) },
     { label: 'R&D boost', value: '×' + bizRndMult(s).toFixed(2), raw: bizRndMult(s) },
+    // v13.13 — FINANCE AUDIT FIX: these 3 real factors were missing, so the
+    // displayed product did not match the actual bizMultiplier().
+    { label: 'Board nominee (+10%)', value: '×' + (s.power?.boardNomineeBiz || 1).toFixed(2), raw: s.power?.boardNomineeBiz || 1 },
+    { label: 'Constitution', value: '×' + constitutionById(s.entity?.constitution || 'democratic').bizMult.toFixed(2), raw: constitutionById(s.entity?.constitution || 'democratic').bizMult },
+    { label: 'Zodiac affinity (business)', value: '×' + zodiacAffinityMult(s, 'business').toFixed(2), raw: zodiacAffinityMult(s, 'business') },
   ];
   const bmProduct = bmFactors.reduce((a, f) => a * f.raw, 1);  // pre-cap product
   const bmCapped = Math.min(BIZ_MULTIPLIER_CAP, bmProduct);
@@ -374,7 +379,18 @@ export function FinanceOverviewTab({ s, act, onNav }: { s: GameState; act: Act; 
               const X = (i: number) => pts.length <= 1 ? W / 2 : PAD + (i / (pts.length - 1)) * (W - PAD * 2);
               const Y = (v: number) => PAD + (1 - (v - mn) / span) * (H - PAD * 2);
               const d = pts.map((v, i) => `${i === 0 ? 'M' : 'L'}${X(i).toFixed(1)},${Y(v).toFixed(1)}`).join(' ');
-              const last30 = [...(s.transactions || [])].filter((tx: any) => tx.kind !== 'transfer' && tx.kind !== 'buy' && tx.kind !== 'sell').slice(0, 30);
+              // v13.78j — FINANCE AUDIT FIX: the label says "last 30 ngày", so
+              // actually filter by DAY RANGE now. Old code slice(0, 30) took
+              // the OLDEST 30 of the 200-tx window (recordTx push() keeps the
+              // newest at the end) — the exact opposite of the label — and it
+              // did not filter by time at all. Operating transactions
+              // (exclude transfer/buy/sell) whose game-day falls in the last
+              // 30 days, newest first.
+              const fromDay = s.lastDay - 30;
+              const last30 = [...(s.transactions || [])]
+                .filter((tx: any) => tx.kind !== 'transfer' && tx.kind !== 'buy' && tx.kind !== 'sell')
+                .filter((tx: any) => typeof tx.day === 'number' ? tx.day >= fromDay : true)
+                .reverse();
               return (
                 <>
                   <div style={{ marginTop: 10, marginBottom: 6, fontSize: '.82rem', fontWeight: 800 }}>{t('fin.chartTitle')}</div>

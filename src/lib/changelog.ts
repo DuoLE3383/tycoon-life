@@ -324,6 +324,17 @@ export const CHANGELOG: Record<string, ChangelogEntry> = {
       'Lookup: default prompt sent to API in English',
     ],
   },
+  'v13.78j': {
+    headline: 'HuyenBao v13.78j - Finance audit fixes ported to main + last-30-days ledger',
+    summary: 'Ports the remaining v13.13 audit fixes to main (raise actually applied, diet x365, biz multiplier display complete, bank effective rate) and the Details ledger now really covers the last 30 days.',
+    features: [
+      'Career: negotiated raises now actually increase job income (salaryBonus, backfilled for old saves)',
+      'Finance: diet expense shown at real annual cost (charged daily in-game, was x12 display)',
+      'Finance: biz multiplier breakdown now includes board nominee, constitution and zodiac factors',
+      'Bank: header + repay preview show the effective loan rate during crisis (was flat 6%)',
+      'Finance: Details table filters operating transactions to the last 30 game-days, newest first (was oldest 30 of the 200-tx window)',
+    ],
+  },
   'v13.78i': {
     headline: 'HuyenBao v13.78i - Auto-save: auto ID on start, always save session to DB',
     summary: 'Starting a game with blank ID now auto-generates a valid UID, persist() always POSTs to /api/social/save, so every new session is saved to SQLite.',

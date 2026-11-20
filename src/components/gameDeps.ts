@@ -99,7 +99,7 @@ export const asset = (p: string) => {
 // v11.8 — the bundled version. The /version.json file in /public is polled
 // every 5 minutes; if its version is newer than this, a "reload to update"
 // banner appears even in a running session (no F5 needed).
-export const BUNDLED_VERSION = 'v13.78i';
+export const BUNDLED_VERSION = 'v13.78j';
 
 export const VERSION_POLL_MS = 5 * 60 * 1000;
 

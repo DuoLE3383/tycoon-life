@@ -1,6 +1,6 @@
 'use client';
 
-import { bankOp, donate, fameBonus, fmtFull, type GameState, Ic, LOAN_RATE, maxLoanOf, SAVE_RATE, TAX_BRACKETS, TAX_FREE, useState, useT } from '@/components/gameDeps';
+import { bankOp, donate, effLoanRate, fameBonus, fmtFull, type GameState, Ic, LOAN_RATE, maxLoanOf, SAVE_RATE, TAX_BRACKETS, TAX_FREE, useState, useT } from '@/components/gameDeps';
 import { type Act, Btn, Row, useEscapeKey, useReqLabel } from '@/components/shared';
 
 
@@ -65,7 +65,10 @@ export function BankTab({ s, act }: { s: GameState; act: Act }) {
     <>
       <div className="card" style={{ marginBottom: 10 }}>
         <div className="lb"><span>{t('savings')} ({(SAVE_RATE * 100).toFixed(0)}%{t('perYear')})</span><b className="num-full">{fmtFull(s.bank.dep)}</b></div>
-        <div className="lb"><span>{t('loan')} ({(LOAN_RATE * 100).toFixed(0)}%{t('perYear')})</span><b className="num-full" style={{ color: s.bank.loan > 0 ? 'var(--brick)' : undefined }}>{fmtFull(s.bank.loan)}</b></div>
+        {/* v13.13 — FINANCE AUDIT FIX: show the EFFECTIVE loan rate while a
+            loan is outstanding. Crisis periods bill up to LOAN_RATE × rates
+            (e.g. 9.6%) but this header used to always show the flat 6%. */}
+        <div className="lb"><span>{t('loan')} ({((s.bank.loan > 0 ? effLoanRate(s) : LOAN_RATE) * 100).toFixed(0)}%{t('perYear')})</span><b className="num-full" style={{ color: s.bank.loan > 0 ? 'var(--brick)' : undefined }}>{fmtFull(s.bank.loan)}</b></div>
         <div className="lb"><span>{t('incomeYear')}</span><b className="num-full">{fmtFull(s.yIncome)}</b></div>
         <div className="lb"><span>{t('bracket', '', { x: '$' + TAX_FREE.toLocaleString('en-US') })}</span><b>{(marginal * 100).toFixed(0)}{t('marginal')}</b></div>
         <div className="lb"><span>{t('lastTax')}</span><b className="num-full">{fmtFull(s.yTax)}</b></div>
@@ -87,7 +90,7 @@ export function BankTab({ s, act }: { s: GameState; act: Act }) {
       <AmountRow label={t('withdraw')} sub={t('moveCash')} icon="ic-down" danger max={Math.floor(s.bank.dep)} allLabel={t('allOut')} allAction={() => act(st => bankOp(st, 'wd', 'all'))} onSubmit={amt => act(st => bankOp(st, 'wd', amt))} />
       <h3>{t('loan')}</h3>
       <AmountRow label={t('borrow')} sub={t('upTo', '', { x: fmtFull(maxLoan) })} icon="ic-up" max={maxLoan} allLabel={t('borrowMax')} allAction={() => act(st => bankOp(st, 'loan', 'all'))} onSubmit={amt => act(st => bankOp(st, 'loan', amt))} />
-      <AmountRow label={t('repay')} sub={t('owe', '', { x: fmtFull(s.bank.loan), i: fmtFull(s.bank.loan * LOAN_RATE) })} icon="ic-check" danger max={Math.min(s.bank.loan, Math.floor(s.money))} allLabel={t('repayAll')} allAction={() => act(st => bankOp(st, 'repay', 'all'))} onSubmit={amt => act(st => bankOp(st, 'repay', amt))} />
+      <AmountRow label={t('repay')} sub={t('owe', '', { x: fmtFull(s.bank.loan), i: fmtFull(s.bank.loan * (s.bank.loan > 0 ? effLoanRate(s) : LOAN_RATE)) })} icon="ic-check" danger max={Math.min(s.bank.loan, Math.floor(s.money))} allLabel={t('repayAll')} allAction={() => act(st => bankOp(st, 'repay', 'all'))} onSubmit={amt => act(st => bankOp(st, 'repay', amt))} />
       <h3>{t('charityFame')}</h3>
       <div className="card" style={{ marginBottom: 8 }}>
         <div className="famewrap"><span className="mini">{t('fame')}</span><div className="famebar"><i style={{ width: Math.min(100, Math.log10(Math.max(1, s.fame + 1)) * 25) + '%' }} /></div><b>{Math.round(s.fame)}</b></div>
