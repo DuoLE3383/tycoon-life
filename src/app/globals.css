@@ -1623,3 +1623,18 @@ body:has(.tgame .modal-overlay){overflow:hidden}
 .tgame .pin-ticker-empty{display:inline-block !important}
 .tgame .pin-ticker:hover .pin-ticker-text{animation-play-state:paused !important} /* hover de dung lai doc */
 @keyframes pinTickerScroll{from{transform:translateX(0)}to{transform:translateX(-100%)}}
+
+/* v13.78k - Tab tai san (tnav asec) icon-only tren mobile
+   Problem: 7 tab van con chu (Real estate / Luxury / Everyday / Auction &
+   Market / Grails / Workshop / My assets) → hang rong ~700px, tran ngang
+   ca man hinh di dong (mobile-subnav da icon het nhung hang duoi chua).
+   Fix: <=700px an chu (.asec-l), nut ve o icon 44px, badge so luong thanh
+   sup goc phai tren; ten tab van doc duoc qua aria-label + title (da them
+   trong AssetsTab.tsx). Desktop >700px giu nguyen hien thi chu. */
+@media (max-width:700px){
+  .tgame .tnav.asec{padding-top:7px !important}
+  .tgame .tnav.asec button{position:relative !important;width:44px !important;min-width:44px !important;padding:0 !important;gap:0 !important}
+  .tgame .tnav.asec button .navsi{width:22px !important;height:22px !important}
+  .tgame .tnav.asec button .asec-l{display:none !important}
+  .tgame .tnav.asec button .asec-n{position:absolute !important;top:-4px !important;right:-2px !important;margin:0 !important;min-width:16px !important;height:16px !important;padding:0 4px !important;font-size:.62rem !important}
+}

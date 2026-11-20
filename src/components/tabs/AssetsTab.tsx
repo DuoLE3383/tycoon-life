@@ -408,8 +408,8 @@ export function AssetsTab({ s, act, curCat, setCurCat }: { s: GameState; act: Ac
       </div>
       <div className="tnav asec" role="tablist" aria-label="Asset sections" style={{ display: 'flex', flexWrap: 'nowrap', overflowX: 'auto', overflowY: 'hidden', gap: 6, paddingBottom: 4, paddingRight: 16, scrollbarWidth: 'none', WebkitOverflowScrolling: 'touch' }}>
         {secs.map(([k, ic, key, n]) => (
-          <button key={k} role="tab" aria-selected={sec === k} onClick={() => setSec(k)}>
-            <Ic id={ic} className="si navsi" />{t(key)}{n > 0 ? <span className="asec-n">{n}</span> : null}
+          <button key={k} role="tab" aria-selected={sec === k} aria-label={t(key)} title={t(key)} onClick={() => setSec(k)}>
+            <Ic id={ic} className="si navsi" /><span className="asec-l">{t(key)}</span>{n > 0 ? <span className="asec-n">{n}</span> : null}
           </button>
         ))}
       </div>
